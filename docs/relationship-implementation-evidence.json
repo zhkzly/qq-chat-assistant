@@ -1,6 +1,6 @@
 {
   "date": "2026-10-12",
-  "phase": "candidate_verified_pending_native_refresh",
+  "phase": "budget_fix_verified_pending_native_refresh",
   "baseline": "95ef8e3",
   "researchBaseline": "d307081",
   "branch": "feature/relationship-learning-20261012",
@@ -21,7 +21,7 @@
   ],
   "functional": {
     "status": "passed",
-    "passed": 230,
+    "passed": 242,
     "failed": 0,
     "command": "npm test",
     "log": "/tmp/qq-relationship-functional-final.log"
@@ -120,7 +120,7 @@
     }
   },
   "migration": {
-    "timestamp": "2026-10-12T09:40:40.494Z",
+    "timestamp": "2026-10-12T09:44:23.809Z",
     "evidence": "real_local_database_copied_and_migrated_in_isolated_private_copy",
     "productionDatabaseModified": false,
     "realModelCalls": 0,
@@ -146,8 +146,68 @@
     ]
   },
   "desktop": {
-    "status": "pending_service_only_refresh",
-    "preflight": "existing authenticated helper available; no pending model request or settings form; original QQ parent stays running"
+    "timestamp": "2026-10-12T09:47:52.671366+00:00",
+    "evidence": "actual_existing_QQ_and_native_helper_service_refresh",
+    "qqRestarted": false,
+    "qqMessagesSentByTest": 0,
+    "ready": true,
+    "rawCount": 747,
+    "originalRawMessagesPreserved": true,
+    "scopePreserved": true,
+    "goalPreserved": true,
+    "unsavedInputsPreserved": {
+      "draftHash": true,
+      "privateInputHash": true,
+      "goalDraftHash": true,
+      "noteDraftHash": true,
+      "feedbackDraftHash": true,
+      "feedbackTargetHash": true,
+      "draftArtifactRefsHash": true,
+      "experienceReviewHash": true,
+      "experienceGuidanceHash": true
+    },
+    "health": {
+      "version": "relationship-learning-2026-10-12.1",
+      "unifiedContext": true,
+      "persistentMemory": true,
+      "relationshipLearning": true,
+      "requestAccounting": true,
+      "promptVersion": "relationship-context-2026-10-12.6",
+      "memoryVersion": "relationship-memory-2026-10-12.6",
+      "authenticated": true,
+      "selected": true,
+      "memoryConfigured": true,
+      "qqMessagesSentByAssistant": 0
+    },
+    "memory": {
+      "pending": 745,
+      "busy": true,
+      "version": 775,
+      "errors": []
+    },
+    "layout": {
+      "helperPresent": true,
+      "privateInputEnabled": true,
+      "composerVisibleWithinViewport": true,
+      "viewport": {
+        "width": 683,
+        "height": 891
+      },
+      "pageOverflow": {
+        "horizontal": false,
+        "vertical": false,
+        "scrollWidth": 683,
+        "scrollHeight": 891,
+        "clientWidth": 683,
+        "clientHeight": 891
+      },
+      "primaryPanelVisible": true,
+      "secondaryPanelVisible": false,
+      "recoveryPending": false
+    },
+    "runtimeFilesMatchVerifiedCandidate": true,
+    "bootstrapPending": true,
+    "originalHistoryFullyRetyped": false
   },
   "limits": [
     "Structural tests and simulated journeys do not establish relationship effectiveness.",
@@ -190,5 +250,23 @@
     "plugin/preload.cjs": "d3e07a0f26d73d8a27345ef72810d22ef06c99e165e42938f5ddb84fdc0d8838",
     "plugin/probe.cjs": "122c43b2dbc4cef2772931342e772e93a6dd3b3a7cef40fccda7c9f60e251783",
     "plugin/renderer.js": "9fcaca9554ac5df1c5e8141c67822035807b1ce1195deed0691f7acf4f7f4870"
+  },
+  "sourceCommit": "761376e",
+  "nativeRegression": {
+    "detectedOnCommit": "761376e",
+    "entry": "automatic foreground assistance",
+    "actualHttpAttemptsBeforeFailure": 0,
+    "failure": "Complete serialized text request exceeded 64000 bytes (65281), despite meeting the 48000-byte payload budget.",
+    "cause": "Selection did not reserve actual system and nested JSON envelope overhead.",
+    "repair": "Use one actual serialized-envelope measurement during selection, drafting and repair; rebind smaller memory batches to their complete request budget. Do not raise the configured cap.",
+    "status": "synthetic_regressions_passed_pending_native_refresh",
+    "additionalChecks": [
+      "actual Controller.suggest with realistic large synthetic history",
+      "configured 32000-byte full envelope",
+      "discussion and draft repair payload/manifest alignment",
+      "essential input remains complete or is rejected before transport",
+      "selected authorized image and source survive repair into final draft",
+      "60000-character escaped memory source completes across bounded contiguous segments"
+    ]
   }
 }

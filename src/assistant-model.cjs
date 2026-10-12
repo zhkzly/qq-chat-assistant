@@ -23,6 +23,16 @@ relationshipContext是有来源的self/contact/dyad理解和事件，原文、�
 普通回复或draftPlan可同时附加relationshipPatch；引用本次sources的准确ID。不要为填字段而制造人物结论；没有新依据可省略。purpose=draft时禁止返回relationshipPatch，成稿输入没有私下理解。
 只有experienceProposalPolicy.enabled=true（程序确认本次是复盘或所选反馈任务）时，才可选返experienceProposals，最多2条，且只有text/applicability/methodId/sourceIds/caseIds字段。text非空最多2000字符，applicability非空最多1000字符，sourceIds为1至64个本次sources ID且至少含一个experienceProposalPolicy.feedbackSourceIds；caseIds为0至8个policy.caseIds；methodId来自本次methodSelection.candidates。建议只描述有范围的帮助适配，始终是未启用候选，不声称已记住长期偏好。例：用户评价某次连续追问像采访，可提出“个人分享已有足够内容时先回应、减少连问”；反例：她回了笑脸，推出“这种话术能提高她喜欢我的概率”。禁止因果保证、成功率或人格推断，没有足够依据就省略；enabled=false时不产生候选，不因需要经验字段多问一个问题。一般反馈仍可立即改善当前帮助，明确长期偏好仍使用actions。purpose=draft禁止experienceProposals。
 ${RELATIONSHIP_PROTOCOL}`;
+function prepareAssistantRequest(settings, payload, images = []) {
+  const text = JSON.stringify(payload);
+  const envelope = content => ({ model: settings.model || '', stream: false, temperature: 0.4, max_tokens: 2200,
+    response_format: { type: 'json_object' }, messages: [{ role: 'system', content: SYSTEM }, { role: 'user', content }] });
+  const textRequest = envelope(text), serializedText = JSON.stringify(textRequest);
+  const request = images.length ? envelope([{ type: 'text', text }, ...images.map(image => ({ type: 'image_url', image_url: { url: image.url, detail: 'low' } }))]) : textRequest;
+  const requestBytes = Buffer.byteLength(serializedText, 'utf8'), envelopeBytes = Buffer.byteLength(JSON.stringify(envelope('')), 'utf8');
+  return { request, serialized: images.length ? JSON.stringify(request) : serializedText, requestBytes, envelopeBytes,
+    payloadWireBytes: requestBytes - envelopeBytes, byteLimit: Math.max(8000, Math.min(256000, Number(settings.assistantRequestBytes) || 64000)) };
+}
 function parseExperienceProposals(value, payload) {
   if (!Array.isArray(value) || value.length > 2) throw new Error('experienceProposals: expected an array of at most 2 candidates');
   if (!value.length) return [];
@@ -128,25 +138,19 @@ async function assistModel(settings, context, signal, fetchImpl = fetch) {
   if (!['http:', 'https:'].includes(url.protocol)) throw new Error('模型地址协议无效');
   const timeout = AbortSignal.timeout(60000);
   const boundedSignal = signal ? AbortSignal.any([signal, timeout]) : timeout;
-  const content = context.images?.length ? [{ type: 'text', text: JSON.stringify(context.payload) },
-    ...context.images.map(image => ({ type: 'image_url', image_url: { url: image.url, detail: 'low' } }))] : JSON.stringify(context.payload);
-  const request = { model: settings.model, stream: false, temperature: 0.4, max_tokens: 2200,
-    response_format: { type: 'json_object' }, messages: [{ role: 'system', content: SYSTEM }, { role: 'user', content }] };
-  const textRequest = { ...request, messages: [{ role: 'system', content: SYSTEM }, { role: 'user', content: JSON.stringify(context.payload) }] };
-  const requestBytes = Buffer.byteLength(JSON.stringify(textRequest),'utf8');
-  const byteLimit = Math.max(8000,Math.min(256000,Number(settings.assistantRequestBytes)||64000));
+  const { serialized, requestBytes, byteLimit } = prepareAssistantRequest(settings, context.payload, context.images);
   if (requestBytes > byteLimit) throw new Error(`完整文字请求超出预算（${requestBytes}/${byteLimit} bytes），请缩小本次范围`);
   if (context.manifest) Object.assign(context.manifest,{serializedTextRequestBytes:requestBytes,requestByteBudget:byteLimit,outputTokenLimit:2200,model:settings.model,method:'complete serialized text request; image bytes separately bounded',imageCount:context.images?.length||0});
   const {response,attempts} = await postModel(url, { method: 'POST', signal: boundedSignal,
     headers: { 'Content-Type': 'application/json', ...(settings.apiKey ? { Authorization: `Bearer ${settings.apiKey}` } : {}) },
-    body: JSON.stringify(request) },fetchImpl,undefined,settings.requestBudget);
+    body: serialized },fetchImpl,undefined,settings.requestBudget);
   if(context.manifest)context.manifest.networkAttempts=attempts;
   if (!response.ok) throw await modelFailure(response,'助手模型请求失败：');
   const json = await response.json(), responseContent = json.choices?.[0]?.message?.content;
   settings.requestBudget?.recordUsage(json.usage);
   if (typeof responseContent !== 'string') throw new Error('助手模型未返回文字');
-  const parsed = (content, trace = context.manifest?.methodTrace) => {
-    const result = parseAssistant(content, context.payload.purpose, context.payload);
+  const parsed = (content, trace = context.manifest?.methodTrace, input = context.payload) => {
+    const result = parseAssistant(content, input.purpose, input);
     if (trace) trace.reported = result.methodIds || null;
     return result;
   };
@@ -157,12 +161,25 @@ async function assistModel(settings, context, signal, fetchImpl = fetch) {
     const repairPayload={purpose:context.payload.purpose,originalInput:context.payload,invalidResponse:responseContent,
       formatError:error instanceof SyntaxError?'响应不是合法 JSON':error.message,
       task:'修复响应格式，保持已有事实与意思，不增加新事实。资料不足或不适合发送时可返回 kind:question/discussion 和非空text，不能为满足格式编造草稿。有草稿则建议非空、不超过三条。'};
-    const repair={...request,messages:[{role:'system',content:SYSTEM},{role:'user',content:JSON.stringify(repairPayload)}]};
-    const repairBody=JSON.stringify(repair);
-    if(Buffer.byteLength(repairBody,'utf8')>byteLimit)throw new Error('模型格式不正确，且修复输入超过预算；输入已保留，可缩小范围后重试');
-    const trace = context.manifest?.methodTrace && { ...structuredClone(context.manifest.methodTrace), purpose: 'format_repair', reported: null };
-    context.extraRequests=[{purpose:'format_repair',payload:repairPayload,inputBytes:Buffer.byteLength(repairBody,'utf8'),manifest:{methodTrace:trace}}];
-    if(context.manifest)context.manifest.formatRepair={attempts:1,reason:repairPayload.formatError,inputBytes:Buffer.byteLength(repairBody,'utf8')};
+    let repairedInput = context, preparedRepair = prepareAssistantRequest(settings, repairPayload);
+    if (preparedRepair.requestBytes > byteLimit && context.rebuildForRequest) {
+      repairedInput = context.rebuildForRequest(payload => prepareAssistantRequest(settings, { ...repairPayload, originalInput: payload }).requestBytes);
+      if(context.images?.length){
+        const sourceIds=new Set(repairedInput.payload.sources.map(source=>source.id));
+        if(context.images.some(image=>!sourceIds.has(`qq:${image.messageId}`)))throw new Error('所选图片的完整来源超过修复上下文预算；输入已保留，内容未被截断');
+        repairedInput.images=structuredClone(context.images);
+        repairedInput.manifest.images=context.images.map(({url,...metadata})=>metadata);
+      }
+      repairPayload.originalInput = repairedInput.payload;
+      preparedRepair = prepareAssistantRequest(settings, repairPayload);
+    }
+    if(preparedRepair.requestBytes>byteLimit)throw new Error('模型格式不正确，且必要修复输入超过预算；输入已保留，内容未被截断');
+    const repairBody=preparedRepair.serialized;
+    const trace = repairedInput.manifest?.methodTrace && { ...structuredClone(repairedInput.manifest.methodTrace), purpose: 'format_repair', reported: null };
+    const repairManifest={...repairedInput.manifest,methodTrace:trace,purpose:'format_repair',serializedTextRequestBytes:preparedRepair.requestBytes,requestByteBudget:byteLimit,imageCount:0};
+    delete repairManifest.images;
+    context.extraRequests=[{purpose:'format_repair',payload:repairPayload,inputBytes:preparedRepair.requestBytes,manifest:repairManifest}];
+    if(context.manifest)context.manifest.formatRepair={attempts:1,reason:repairPayload.formatError,inputBytes:preparedRepair.requestBytes};
     const repairBudget = settings.requestBudget?.forStage('format_repair');
     if (repairBudget?.stageId) context.extraRequests[0].manifest.stageId = repairBudget.stageId;
     const {response:repaired,attempts:repairAttempts}=await postModel(url,{method:'POST',signal:boundedSignal,headers:{'Content-Type':'application/json',...(settings.apiKey?{Authorization:`Bearer ${settings.apiKey}`}:{})},body:repairBody},fetchImpl,undefined,repairBudget);
@@ -171,7 +188,7 @@ async function assistModel(settings, context, signal, fetchImpl = fetch) {
     const repairedJson = await repaired.json(); repairBudget?.recordUsage(repairedJson.usage);
     const content=repairedJson.choices?.[0]?.message?.content;
     if(typeof content!=='string')throw new Error('助手格式修复未返回文字');
-    try{return parsed(content,trace);}catch(error){throw new Error(`模型未能返回可用的结构化结果；${error instanceof SyntaxError ? '响应不是合法 JSON' : error.message}；输入已保留，请重试或更换模型`);}
+    try{const result=parsed(content,trace,repairedInput.payload);if(repairedInput!==context)context.resultContext=repairedInput;return result;}catch(error){throw new Error(`模型未能返回可用的结构化结果；${error instanceof SyntaxError ? '响应不是合法 JSON' : error.message}；输入已保留，请重试或更换模型`);}
   }
 }
-module.exports = { assistModel, parseAssistant, SYSTEM, RELATIONSHIP_PROTOCOL };
+module.exports = { assistModel, prepareAssistantRequest, parseAssistant, SYSTEM, RELATIONSHIP_PROTOCOL };

@@ -65,7 +65,7 @@ function createServer({ controller, token, uiDir, saveSettings, fillDraft, inspe
       }
       if (request.method === 'GET' && url.pathname === '/api/context') return json(response,200,controller.assistantContext());
       if (request.method === 'GET' && url.pathname === '/api/health') return json(response,200,{
-        version:'relationship-learning-2026-10-12.1',unifiedContext:true,persistentMemory:true,relationshipLearning:true,requestAccounting:true,
+        version:'relationship-learning-2026-10-12.2',unifiedContext:true,persistentMemory:true,relationshipLearning:true,requestAccounting:true,
         promptVersion:PROMPT_VERSION,memoryVersion:MEMORY_VERSION,
         authenticated:controller.status.phase==='ready',selected:!!controller.scope,
         memoryConfigured:!!controller.memoryModel,qqMessagesSentByAssistant:0});

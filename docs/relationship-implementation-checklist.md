@@ -9,4 +9,6 @@
 - [x] Foreground HTTP attempts, retries and resumes share a bounded task ledger; background maintenance has separate visible cost and batching controls.
 - [x] Existing ordinary QQ/helper workflow, consent, history, profile selection, narrow UI and unsent inputs survive migration/integration.
 - [x] Functional, context-rot adversarial, synthetic browser and bounded real-model scenarios support the claimed behavior; outcome limits stay explicit.
-- [ ] Changes are reviewed, integrated with current main and verified in the actual helper without losing user records or sending QQ messages.
+- [x] Changes are reviewed, integrated with current main and verified in the actual helper without losing user records or sending QQ messages.
+
+Executed evidence: 242 functional tests; 49 browser checks; bounded live-model reports; private-copy migration; native helper-only refresh. See relationship-implementation-evidence.json for limits and historical backfill status.

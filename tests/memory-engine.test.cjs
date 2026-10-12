@@ -154,3 +154,46 @@ test('background typed aliases reject unseen IDs and cannot promote an inferred 
   }), /epistemicStatus|unknown.*alias|relationshipPatch/);
   assert.equal(s.memoryStatus(scope).processed, 0);
 });
+
+test('maintenance fits the complete serialized memory request and reviews every original segment without gaps', async t => {
+  for (const [name, original] of [['ordinary Chinese', '合成共同活动记录😀。'.repeat(5000)], ['JSON escaping', '"\\\n'.repeat(20000)]]) await t.test(name, async () => {
+    const s = new Store(':memory:');
+    try {
+      const user = s.appendTurn(scope, {role:'user', kind:'discussion', text:original});
+      const sourceBefore = s.memorySources(scope).find(source => source.id === `private:${user.id}`);
+      const segments = [], requests = [];
+      const result = await maintainMemory({store:s, scope, settings:settingsForMemory(), maxBatches:50,
+        model:(settings, batch, signal) => consolidateMemory(settings, batch, signal, async (_, request) => {
+          const bytes = Buffer.byteLength(request.body, 'utf8');assert.ok(bytes <= 48000, `${bytes} exceeds the unchanged complete request limit`);
+          requests.push(bytes);const payload = JSON.parse(JSON.parse(request.body).messages[1].content);
+          for (const source of payload.sources) segments.push({text:source.text, offset:source.segment?.offset || 0, end:source.segment?.end ?? original.length});
+          return {ok:true, json:async()=>({choices:[{message:{content:JSON.stringify(wireNoop(payload))}}]})};
+        })});
+      assert.equal(result.status, 'complete', JSON.stringify(result.errors));assert.equal(result.pending, 0);assert.equal(result.processed, 1);
+      assert.ok(requests.length > 1);assert.equal(segments[0].offset, 0);
+      for (let index=1; index<segments.length; index++) assert.equal(segments[index].offset, segments[index-1].end);
+      assert.equal(segments.at(-1).end, original.length);assert.equal(segments.map(segment=>segment.text).join(''), original);
+      assert.deepEqual(s.memorySources(scope).find(source => source.id === `private:${user.id}`), sourceBefore);
+    } finally {s.close();}
+  });
+});
+
+test('an impossible complete memory request budget makes zero transport calls and preserves the pending cursor', async t => {
+  const s = new Store(':memory:');t.after(()=>s.close());turn(s);let calls=0;
+  const before=s.memoryBatch(scope).events;
+  const result=await maintainMemory({store:s,scope,settings:{...settingsForMemory(),memoryInputBytes:8000},
+    model:(settings,batch,signal)=>consolidateMemory(settings,batch,signal,async()=>{calls++;throw new Error('Transport must not run');})});
+  assert.equal(result.status,'error');assert.equal(calls,0);assert.equal(result.pending,1);assert.equal(result.processed,0);
+  assert.equal(result.errors[0].code,'memory_request_budget_exceeded');assert.match(result.errors[0].message,/complete.*budget|budget.*complete/i);
+  assert.deepEqual(s.memoryBatch(scope).events,before);assert.equal(result.lastReview,null);
+});
+
+test('the minimum raw batch size fails explicitly when its escaped segment still cannot fit the complete budget', async t => {
+  const s=new Store(':memory:');t.after(()=>s.close());s.appendTurn(scope,{role:'user',kind:'discussion',text:'"\\\n'.repeat(20000)});let calls=0;
+  const before=s.memoryBatch(scope).events;
+  const result=await maintainMemory({store:s,scope,settings:{...settingsForMemory(),memoryInputBytes:12000},
+    model:(settings,batch,signal)=>consolidateMemory(settings,batch,signal,async()=>{calls++;throw new Error('Transport must not run');})});
+  assert.equal(result.status,'error');assert.equal(calls,0);assert.equal(result.errors[0].code,'memory_request_budget_exceeded');
+  assert.ok(result.errors[0].requiredBytes>12000);assert.equal(result.pending,1);assert.equal(result.processed,0);
+  assert.deepEqual(s.memoryBatch(scope).events,before);assert.equal(result.lastReview,null);
+});

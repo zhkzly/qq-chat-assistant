@@ -1,6 +1,7 @@
 'use strict';
 const crypto = require('node:crypto');
 const { redact } = require('./model.cjs');
+const { prepareAssistantRequest } = require('./assistant-model.cjs');
 const { selectMethods, runtimeCard } = require('./help-methods.cjs');
 const PROMPT_VERSION = 'relationship-context-2026-10-12.6';
 const METHODS = {
@@ -75,22 +76,32 @@ function sourcesFor(records, companion) {
       type: 'feedback', role: 'user', kind: 'local', text: redact(item.text), targetRef: item.targetRef, at: item.createdAt, revision: digest(item) }))
   ];
 }
-function finish(payload, sources, info, allSources, byteBudget) {
+function contextBudget(settings, byteBudget, requestMeasure) {
+  const base=prepareAssistantRequest(settings,null),measure=requestMeasure||(payload=>prepareAssistantRequest(settings,payload).requestBytes);
+  const envelopeBytes=measure(null)-4;
+  return {measure,requestByteBudget:base.byteLimit,envelopeBytes,payloadWireByteBudget:base.byteLimit-envelopeBytes,model:settings.model||'',
+    fits:payload=>bytes(payload)<=byteBudget&&measure(payload)<=base.byteLimit};
+}
+function finish(payload, sources, info, allSources, byteBudget, budget) {
   const inputBytes = bytes(payload);
-  if (inputBytes > byteBudget) throw new Error('本次必要内容超过上下文预算，请缩小所选内容或分段讨论；内容未被截断');
+  if (!budget.fits(payload)) throw new Error('本次必要内容超过上下文预算，请缩小所选内容或分段讨论；内容未被截断');
   const ids = sources.filter(s => !s.id.startsWith('request:')).map(s => s.id);
   return { payload, manifest: { requestId: info.requestId, scope: info.scope, purpose: payload.purpose,
     promptVersion: PROMPT_VERSION, contextRevision: info.companion.revision, stateVersion: info.companion.state.version,
     sourceIds: ids, sourceRevisions: Object.fromEntries(sources.map(s => [s.id, s.revision])),
     completeReview: allSources.every(s => ids.includes(s.id)), omittedSourceCount: allSources.filter(s => !ids.includes(s.id)).length,
     historyCoverage: info.coverage, inputBytes, byteBudget, tokenizerVerified: false,
-    budgetMethod: 'UTF-8 byte ceiling for serialized input; tokenizer and provider window unverified',
+    serializedTextRequestBytes:budget.measure(payload),requestByteBudget:budget.requestByteBudget,requestEnvelopeBytes:budget.envelopeBytes,
+    payloadWireByteBudget:budget.payloadWireByteBudget,requestModel:budget.model,
+    budgetMethod: 'Complete serialized UTF-8 request envelope plus payload ceiling; tokenizer and provider window unverified',
     methodTrace: methodTrace(payload), createdAt: new Date().toISOString() } };
 }
-function buildContext({ scope, records, companion, turn, purpose = 'discussion', coverage, requestId,
+function buildContext(options) {
+  const { scope, records, companion, turn, purpose = 'discussion', coverage, requestId,
   materialIds = [], byteBudget = 48000, availableSources, memoryResult, memoryIndex = [], retrievedSources = [],
-  sourceTurnIds = [], selectedOption, replyMessageIds = [], actionReceipts = [], lookupHistory = [], reviewRange,
-  relationshipContext = null, experienceContext = null, feedbackTargets = [], allowExperienceProposals = purpose === 'review' }) {
+  sourceTurnIds = [], selectedOption, replyMessageIds = [], imageMessageIds = [], actionReceipts = [], lookupHistory = [], reviewRange,
+  relationshipContext = null, experienceContext = null, feedbackTargets = [], allowExperienceProposals = purpose === 'review', settings = {}, requestMeasure } = options;
+  const budget = contextBudget(settings, byteBudget, requestMeasure), fits = budget.fits;
   if (!METHODS[purpose] || purpose === 'draft') throw new Error('未知的上下文用途');
   if (!Number.isFinite(byteBudget) || byteBudget < 4000 || byteBudget > 192000) throw new Error('上下文预算不合法');
   const actualById = new Map(records.filter(eligibleQQ).map(record => [`qq:${record.messageId}`, record]));
@@ -118,6 +129,7 @@ function buildContext({ scope, records, companion, turn, purpose = 'discussion',
   for (const message of validQQ.slice(start)) selected.set(`qq:${message.messageId}`, byId.get(`qq:${message.messageId}`));
   for (const id of materialIds) selected.set(`note:${id}`, byId.get(`note:${id}`));
   for (const id of replyMessageIds) if (byId.has(`qq:${id}`)) selected.set(`qq:${id}`, byId.get(`qq:${id}`));
+  for (const id of imageMessageIds) if (byId.has(`qq:${id}`)) selected.set(`qq:${id}`, byId.get(`qq:${id}`));
   const selectedProposal = selectedOption && companion.turns.find(t => t.id === selectedOption.turnId && t.role === 'assistant')?.expressionOptions?.[selectedOption.index];
   if (selectedOption && !selectedProposal) throw new Error('选中的表达方向已变化，请重新选择');
   const proposals = companion.turns.filter(t => t.role === 'assistant' && t.expressionOptions?.length).slice(-4)
@@ -155,14 +167,14 @@ function buildContext({ scope, records, companion, turn, purpose = 'discussion',
   // complete low-priority entries, recording the omission, never cutting text.
   for (const key of ['items', 'openThreads', 'unknowns']) {
     state[key] = [...(state[key] || [])];
-    while (bytes(payload) > byteBudget && state[key].length) { state[key].pop(); payload.omittedStateEntries++; }
+    while (!fits(payload) && state[key].length) { state[key].pop(); payload.omittedStateEntries++; }
   }
   // No substring truncation: reject if the request and latest complete exchange do not fit.
-  if (bytes(payload) > byteBudget) throw new Error('当前问题或最新完整来信超过上下文预算，请分段处理；没有静默截断');
+  if (!fits(payload)) throw new Error('当前问题或最新完整来信超过上下文预算，请分段处理；没有静默截断');
   const trySource = source => {
     if (!source || selected.has(source.id)) return;
     selected.set(source.id, source); refresh();
-    if (bytes(payload) > byteBudget) { selected.delete(source.id); refresh(); }
+    if (!fits(payload)) { selected.delete(source.id); refresh(); }
   };
   const includeGrounded = (record, target, fields) => {
     if (!supportedByAvailable(record, byId, scope)) return false;
@@ -171,7 +183,7 @@ function buildContext({ scope, records, companion, turn, purpose = 'discussion',
     const clean = sanitize(pick(record, fields));
     clean.authority ||= record.reviewComplete === false ? 'needs_review' : 'source_backed_summary_not_independent_evidence';
     target.push(clean); refresh();
-    if (bytes(payload) <= byteBudget) return true;
+    if (fits(payload)) return true;
     target.pop(); selected.clear(); for (const [id, source] of before) selected.set(id, source); refresh(); return false;
   };
   if (relationshipContext && sameScopeIfPresent(relationshipContext, scope)) {
@@ -189,7 +201,7 @@ function buildContext({ scope, records, companion, turn, purpose = 'discussion',
       if (!ids.length || ids.some(id => !eventIds.has(id))) continue;
       const compact = sanitize({ ...pick(activity, ['activityKey','status','currentState','latestEventId','occurredAt']), eventIds: ids });
       payload.relationshipContext.activities.push(compact);
-      if (bytes(payload) > byteBudget) payload.relationshipContext.activities.pop();
+      if (!fits(payload)) payload.relationshipContext.activities.pop();
     }
   }
   if (experienceContext && sameScopeIfPresent(experienceContext, scope)) {
@@ -240,16 +252,16 @@ function buildContext({ scope, records, companion, turn, purpose = 'discussion',
   // Missing cards never require asking the user a ritual question.
   for (const method of methodSelection.methods) {
     payload.methodCards.push(runtimeCard(method)); payload.methodSelection.candidates.push(method.id);
-    if (bytes(payload) > byteBudget) { payload.methodCards.pop(); payload.methodSelection.candidates.pop(); }
+    if (!fits(payload)) { payload.methodCards.pop(); payload.methodSelection.candidates.pop(); }
   }
   if(!selectedProposal)for(const option of proposals.reverse()) {
     payload.expressionOptions.unshift(option);
-    if(bytes(payload)>byteBudget){payload.expressionOptions.shift();break;}
+    if(!fits(payload)){payload.expressionOptions.shift();break;}
   }
   for (const source of [...retrievedSources, ...(memoryResult?.sources || [])].sort((a,b)=>Date.parse(b.at||0)-Date.parse(a.at||0))) trySource(byId.get(source.id));
   for (const n of companion.notes.filter(n=>n.kind==='preference'&&n.use!=='disabled').slice(-12)) {
     payload.preferences.push({sourceId:`note:${n.id}`,text:redact(n.text)});
-    if(bytes(payload)>byteBudget){payload.preferences.pop();break;}
+    if(!fits(payload)){payload.preferences.pop();break;}
   }
   for (const id of sourceTurnIds) {
     const t = companion.turns.find(t => t.id === id);
@@ -266,7 +278,7 @@ function buildContext({ scope, records, companion, turn, purpose = 'discussion',
     const verbatim = item.sourceIds.find(id => selected.get(id)?.text === clean.text);
     if (verbatim) { delete clean.text; clean.textFromSource = verbatim; }
     payload.retrievedMemory[kind].push(clean);
-    if (bytes(payload) > byteBudget) { payload.retrievedMemory[kind].pop(); break; }
+    if (!fits(payload)) { payload.retrievedMemory[kind].pop(); break; }
     summarized.add(signature);
   }
   const includedMemories = new Set([...payload.retrievedMemory.items, ...payload.retrievedMemory.episodes].map(item => item.id));
@@ -274,7 +286,7 @@ function buildContext({ scope, records, companion, turn, purpose = 'discussion',
     if (!Array.isArray(item.sourceIds) || !item.sourceIds.length || item.sourceIds.some(id => !byId.has(id))) continue;
     payload.memoryIndex.push({ id: item.id, kind: item.kind, text: redact(item.text), topicKeys: item.topicKeys, status: item.status,
       authority:'navigation_only_needs_source_lookup',reviewComplete:item.reviewComplete,sourceIds:item.sourceIds,lastEvidenceAt:item.lastEvidenceAt });
-    if (bytes(payload) > byteBudget) { payload.memoryIndex.pop(); break; }
+    if (!fits(payload)) { payload.memoryIndex.pop(); break; }
   }
   // Add complete private exchanges rather than orphaning an assistant answer.
   const groups = []; let activeGroup = null;
@@ -295,7 +307,7 @@ function buildContext({ scope, records, companion, turn, purpose = 'discussion',
       const source = byId.get(`private:${t.id}`); if (source) selected.set(source.id, source);
     }
     refresh();
-    if (bytes(payload) > byteBudget) {
+    if (!fits(payload)) {
       selected.clear(); for (const [id, source] of previous) selected.set(id, source);
       payload.privateConversation = previousTurns; refresh(); break;
     }
@@ -311,7 +323,7 @@ function buildContext({ scope, records, companion, turn, purpose = 'discussion',
     if(!selected.has(r.sourceId)&&!r.evidenceSourceIds.some(id=>selected.has(id)))continue;
     const compact={sourceId:r.sourceId,evidenceSourceIds:r.evidenceSourceIds};
     payload.privateRestrictions.push(compact);
-    if(bytes(payload)>byteBudget){payload.privateRestrictions.pop();break;}
+    if(!fits(payload)){payload.privateRestrictions.pop();break;}
   }
   for (const m of validQQ.slice(-60).reverse()) trySource(byId.get(`qq:${m.messageId}`));
   const words = [...new Set(current.text.match(/[\p{L}\p{N}]{2,}/gu) || [])];
@@ -330,7 +342,7 @@ function buildContext({ scope, records, companion, turn, purpose = 'discussion',
     const prior = new Map(selected);
     for (const m of validQQ.slice(earliest)) selected.set(`qq:${m.messageId}`, byId.get(`qq:${m.messageId}`));
     refresh();
-    if (bytes(payload) > byteBudget) { selected.clear(); for (const [id, value] of prior) selected.set(id, value); refresh(); }
+    if (!fits(payload)) { selected.clear(); for (const [id, value] of prior) selected.set(id, value); refresh(); }
   }
   for (;;) {
     let allLaterIncluded = true;
@@ -345,7 +357,7 @@ function buildContext({ scope, records, companion, turn, purpose = 'discussion',
       if(!laterPrivateIncluded)selected.set(source.id,{...selected.get(source.id),historicalOnly:true,continuationCoverage:'later_private_sources_omitted'});
     }
     refresh();
-    if (bytes(payload) <= byteBudget) break;
+    if (fits(payload)) break;
     const removable = [...selected.keys()].find(id => !essentialIds.has(id));
     if (removable) { selected.delete(removable); refresh(); }
     else if (payload.privateConversation.length) {
@@ -385,11 +397,15 @@ function buildContext({ scope, records, companion, turn, purpose = 'discussion',
   // New evidence is serialized chronologically, even when selected by recency/relevance.
   const order = new Map(all.map((s, i) => [s.id, i]));
   payload.sources.sort((a, b) => order.get(a.id) - order.get(b.id));
-  const context=finish(payload, payload.sources, { scope, requestId, companion, coverage }, all, byteBudget);
+  const context=finish(payload, payload.sources, { scope, requestId, companion, coverage }, all, byteBudget, budget);
+  context.essentialSourceIds=[...essentialIds];
+  Object.defineProperty(context,'rebuildForRequest',{value:measure=>buildContext({...options,requestMeasure:measure})});
   context.restrictions=restrictions;
   return context;
 }
 function buildDraftContext(prepared, plan, info) {
+  const settings=info.settings||{model:prepared.manifest.requestModel,assistantRequestBytes:prepared.manifest.requestByteBudget};
+  const budget=contextBudget(settings,prepared.manifest.byteBudget,info.requestMeasure);
   const optionRef = prepared.payload.selectedOption || plan?.option;
   const option = optionRef && prepared.payload.expressionOptions?.find(o => o.turnId === optionRef.turnId && o.index === optionRef.index);
   if (optionRef && !option) throw new Error('先前选择的方向已变化，请重新选择');
@@ -416,13 +432,29 @@ function buildDraftContext(prepared, plan, info) {
   const selection = selectMethods({ purpose: 'draft' });
   const payload = { promptVersion: PROMPT_VERSION, purpose: 'draft', method: METHODS.draft, methodCards: selection.methods.map(runtimeCard),
     methodSelection: { version: selection.version, candidates: ['compose'], maxApplied: 1 }, style, asOf: prepared.payload.asOf,
-    outboundQuotes: quotes, sources: qq, coverage: prepared.payload.coverage,
+    outboundQuotes: quotes, sources: [...qq], coverage: prepared.payload.coverage,
     replyFocus: prepared.payload.replyFocus || [],
     presentation: { language: typeof plan.language==='string'&&/^[a-z]{2,3}(?:-[a-zA-Z0-9]{2,8})*$/.test(plan.language) ? plan.language : 'zh',
       askFollowup: plan.askFollowup===true, useEmoji: plan.useEmoji===true } };
+  const essentialIds=new Set([...(prepared.essentialSourceIds||qq.map(source=>source.id)),...quotes.map(q=>q.sourceId),...payload.replyFocus.map(id=>`qq:${id}`)]);
+  for (;;) {
+    const kept=new Set(payload.sources.map(source=>source.id));let laterComplete=true;
+    for(const source of [...qq].reverse()){
+      if(!kept.has(source.id)){laterComplete=false;continue;}
+      if(!laterComplete)payload.sources=payload.sources.map(item=>item.id===source.id?{...item,historicalOnly:true,continuationCoverage:'later_messages_omitted'}:item);
+    }
+    if(budget.fits(payload))break;
+    const removable=payload.sources.findIndex(source=>!essentialIds.has(source.id));
+    if(removable<0)throw new Error('当前拟表达内容或最新完整来信超过上下文预算，请分段处理；没有静默截断');
+    payload.sources.splice(removable,1);
+  }
   // Do not serialize the private request, goal, assistant summary or excluded-source negatives.
-  const safeSources = [...qq, ...quotes.map(q => ({ id: q.sourceId, revision: byId.get(q.sourceId).revision }))];
-  return finish(payload, safeSources, info, safeSources, prepared.manifest.byteBudget);
+  const quotedSources=quotes.map(q=>({id:q.sourceId,revision:byId.get(q.sourceId).revision}));
+  const safeSources=[...payload.sources,...quotedSources],allSafeSources=[...qq,...quotedSources];
+  const context=finish(payload,safeSources,info,allSafeSources,prepared.manifest.byteBudget,budget);
+  context.essentialSourceIds=[...essentialIds];
+  Object.defineProperty(context,'rebuildForRequest',{value:measure=>buildDraftContext(prepared,plan,{...info,requestMeasure:measure})});
+  return context;
 }
 function expressionOptionsFor(context, options = []) {
   if (!Array.isArray(options) || options.length > 3) throw new Error('表达方向最多三项');

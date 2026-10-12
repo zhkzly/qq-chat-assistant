@@ -100,17 +100,39 @@ function memoryWire(batch) {
   };
   return {payload,decode};
 }
-async function consolidateMemory(settings,batch,signal,fetchImpl=fetch) {
-  if((!settings.apiKey&&!settings.anonymous)||!settings.baseUrl||!settings.model)throw new Error('请先配置模型');
-  const url=new URL(`${settings.baseUrl.replace(/\/$/,'')}/chat/completions`);
-  if(!['http:','https:'].includes(url.protocol))throw new Error('模型地址协议无效');
+function prepareMemoryRequest(settings,batch) {
   const {payload,decode}=memoryWire(batch);
   // Clone the outbound projection. Raw source text and revision hashes remain
   // unchanged in local storage and in the review transaction.
   const outbound=JSON.parse(JSON.stringify(payload,(_key,value)=>typeof value==='string'?redact(value):value));
   const body={model:settings.model,stream:false,temperature:0.1,max_tokens:3600,response_format:{type:'json_object'},messages:[{role:'system',content:MEMORY_SYSTEM},{role:'user',content:JSON.stringify(outbound)}]};
   const serialized=JSON.stringify(body),budget=Math.max(8000,Math.min(240000,Number(settings.memoryInputBytes)||48000));
-  if(Buffer.byteLength(serialized,'utf8')>budget)throw new Error('Memory request exceeds complete serialized input byte budget');
+  return {serialized,bytes:Buffer.byteLength(serialized,'utf8'),budget,decode};
+}
+function requestBudgetError(request) {
+  const error=wireError('memory_request_budget_exceeded',`Memory request cannot fit the complete serialized input byte budget (${request.bytes}/${request.budget} bytes)`);
+  error.requiredBytes=request.bytes;return error;
+}
+function fitMemoryBatch(store,scope,settings,{maxBytes,batchLimit}) {
+  let size=Math.max(4000,Math.min(200000,Number(maxBytes)||24000));
+  for(;;) {
+    const batch=store.memoryBatch(scope,{maxBytes:size,limit:batchLimit});
+    if(!batch)return null;
+    const request=prepareMemoryRequest(settings,batch);
+    if(request.bytes<=request.budget)return batch;
+    if(size===4000)throw requestBudgetError(request);
+    // Rebuild through Store so segment offsets, source aliases and the exact
+    // review fingerprint remain bound to only the evidence that will be sent.
+    // Shrinking the already-bound payload would falsely review omitted text.
+    size=Math.max(4000,Math.min(size-1,Math.floor(size*request.budget/request.bytes*0.95)));
+  }
+}
+async function consolidateMemory(settings,batch,signal,fetchImpl=fetch) {
+  if((!settings.apiKey&&!settings.anonymous)||!settings.baseUrl||!settings.model)throw new Error('请先配置模型');
+  const url=new URL(`${settings.baseUrl.replace(/\/$/,'')}/chat/completions`);
+  if(!['http:','https:'].includes(url.protocol))throw new Error('模型地址协议无效');
+  const request=prepareMemoryRequest(settings,batch),{serialized,decode}=request;
+  if(request.bytes>request.budget)throw requestBudgetError(request);
   const timeout=AbortSignal.timeout(60000),boundedSignal=signal?AbortSignal.any([signal,timeout]):timeout;
   const {response}=await postModel(url,{method:'POST',signal:boundedSignal,headers:{'Content-Type':'application/json',...(settings.apiKey?{Authorization:`Bearer ${settings.apiKey}`}:{})},body:serialized},fetchImpl,undefined,settings.requestBudget);
   if(!response.ok)throw await modelFailure(response,'Memory model');
@@ -128,7 +150,7 @@ async function maintainMemory({store,scope,settings,model=consolidateMemory,sign
   try {
     for(let n=0;n<Math.max(1,Math.min(50,Number(maxBatches)||2));n++) {
       if(signal?.aborted||!await shouldContinue()){reason='stopped';break;}
-      const batch=store.memoryBatch(scope,{maxBytes,limit:batchLimit});
+      const batch=fitMemoryBatch(store,scope,settings,{maxBytes,batchLimit});
       if(!batch){reason=store.memoryStatus(scope).pending?'blocked':'complete';break;}
       const result=await model(settings,batch,signal);
       if(signal?.aborted||!await shouldContinue()){reason='stopped';break;}
@@ -138,9 +160,9 @@ async function maintainMemory({store,scope,settings,model=consolidateMemory,sign
     }
   } catch(error) {
     if(signal?.aborted||error?.name==='AbortError')reason='stopped';
-    else {reason='error';store.recordMemoryError(scope,{code:error.code||'maintenance_error',message:redact(error.message)});await progress();}
+    else {reason='error';store.recordMemoryError(scope,{code:error.code||'maintenance_error',message:redact(error.message),requiredBytes:error.requiredBytes});await progress();}
   } finally {scopes.delete(key);}
   const status=store.memoryStatus(scope);if(!status.pending&&reason==='budget')reason='complete';
   return {status:reason,batches,...status};
 }
-module.exports={consolidateMemory,maintainMemory,parseMemory,MEMORY_SYSTEM,MEMORY_VERSION};
+module.exports={consolidateMemory,maintainMemory,parseMemory,prepareMemoryRequest,MEMORY_SYSTEM,MEMORY_VERSION};

@@ -19,3 +19,6 @@ Acceptance basis: Product95ef8e3, researchd307081 implementation specifications/
 
 - 2026-10-12: Final lifecycle audit distinguishes source correction from forgetting, retains reviewed draft origin lineage, and closes feedback-display / assistant-artifact delete cascades without deleting shared raw messages.
 - 2026-10-12: Retirement retains prior semantic signatures so unchanged-evidence re-extraction cannot recreate the same withdrawn interpretation under a new ID.
+- 2026-10-12: Actual deployed helper rejected an automatic foreground request before HTTP (65281/64000 bytes). Context selection will use the same complete serialized envelope as transport, preserve current input and the latest complete exchange, and evict optional whole entries. Draft and repair use the same measurement; background batches must retain their bound review receipts. No global budget increase or actual-history truncation.
+
+- 2026-10-12: Initial native refresh preserved the original QQ process and all records/inputs. An actual automatic-entry full-envelope overflow was then reproduced with synthetic long history and repaired before final release.

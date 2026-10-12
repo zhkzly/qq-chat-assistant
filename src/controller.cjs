@@ -335,8 +335,8 @@ class Controller extends EventEmitter {
         const experienceContext=this.store.experiences?.context(scope,{query,limit:4});
         if(experienceContext&&explicitFeedbackIds.length){const chosen=explicitFeedbackIds.map(id=>this.store.experiences.hydrateFeedback(scope,id)).filter(Boolean);experienceContext.evaluationTargets=[...new Map([...chosen,...experienceContext.evaluationTargets].map(target=>[target.feedback.id,target])).values()].slice(0,4);}
         const input=buildContext({ scope, records, companion, turn, purpose: purpose === 'draft' ? 'draft_prepare' : purpose,
-          materialIds, coverage, requestId, byteBudget: settings.assistantContextBytes || 48000,availableSources,memoryResult,
-          memoryIndex:[...index.items,...index.episodes],retrievedSources,sourceTurnIds,selectedOption,replyMessageIds:[...this.replyMessageIds],
+          materialIds, coverage, requestId, settings, byteBudget: settings.assistantContextBytes || 48000,availableSources,memoryResult,
+          memoryIndex:[...index.items,...index.episodes],retrievedSources,sourceTurnIds,selectedOption,replyMessageIds:[...this.replyMessageIds],imageMessageIds:images.map(image=>image.messageId),
           actionReceipts:receipts,lookupHistory,reviewRange,
           relationshipContext:this.store.relationshipView?.(scope,{query,limit:16}),
           experienceContext,allowExperienceProposals:purpose==='review'||explicitFeedbackIds.length>0 });
@@ -345,13 +345,15 @@ class Controller extends EventEmitter {
       const invoke=async(input)=>{
         const stage=budget.forStage(input.payload.purpose);settings.requestBudget=stage;input.manifest.stageId=stage.stageId;
         this.store.saveRun(scope,{id:requestId,baseRevision,purpose:input.payload.purpose,status:'pending',payload:input.payload,manifest:input.manifest});
-        const result=parseAssistant(await this.assistantModel(settings,input,abort.signal),input.payload.purpose,input.payload);
+        const output=await this.assistantModel(settings,input,abort.signal),resultInput=input.resultContext||input;
+        const result=parseAssistant(output,resultInput.payload.purpose,resultInput.payload);
         input.manifest.methodTrace ||= {delivered:(input.payload.methodCards||[]).map(method=>({id:method.id,version:method.version})),reported:null};
         if(!input.extraRequests?.length)input.manifest.methodTrace.reported=Object.hasOwn(result,'methodIds')?[...result.methodIds]:null;
-        if(input.payload.purpose!=='draft'&&result.relationshipPatch)relationshipProposals.push({patch:result.relationshipPatch,manifest:input.manifest});
-        for(const proposal of result.experienceProposals||[])experienceProposals.push({proposal,payload:input.payload,manifest:input.manifest});
+        if(resultInput.payload.purpose!=='draft'&&result.relationshipPatch)relationshipProposals.push({patch:result.relationshipPatch,manifest:resultInput.manifest});
+        for(const proposal of result.experienceProposals||[])experienceProposals.push({proposal,payload:resultInput.payload,manifest:resultInput.manifest});
         capturedRequests.push({purpose:input.payload.purpose,manifest:input.manifest,payload:input.payload});
         if(input.extraRequests)capturedRequests.push(...input.extraRequests);
+        if(resultInput!==input)context=resultInput;
         return result;
       };
       let result;
@@ -388,7 +390,7 @@ class Controller extends EventEmitter {
       if(result.draftPlan?.clarification) result={...result,kind:'question',text:result.draftPlan.clarification};
       else if(result.draftPlan){
         const allowedImages=context.images;
-        context=buildDraftContext(context,result.draftPlan,{scope,requestId,companion,coverage});context.images=allowedImages;
+        context=buildDraftContext(context,result.draftPlan,{scope,requestId,companion,coverage,settings});context.images=allowedImages;
         result=await invoke(context);if(!current())return;reviewed=null;
       } else if(purpose==='draft')throw new Error('模型尚未明确拟表达内容，请继续说明或选择一个方向');
       if(!current())return;
