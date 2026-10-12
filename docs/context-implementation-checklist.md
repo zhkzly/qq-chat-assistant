@@ -9,4 +9,6 @@
 - [x] Budget applies to the complete serialized model request; old exchanges compress with recoverable provenance and current uncertainty.
 - [x] Corrections, withdrawal, forgetting and deletion propagate to all derived/indexed/cached content and stale in-flight results; copy is never sent.
 - [x] Source-shaped functional/browser regressions plus independent held-out live-model multi-session scenarios demonstrate the full flow with documented negative results.
-- [ ] Latest main is synchronized; completed changes are integrated without overwriting other work; the running desktop helper uses and exposes the verified version without sending QQ messages.
+- [x] Latest main is synchronized; completed changes are integrated without overwriting other work; the running desktop helper uses and exposes the verified version without sending QQ messages.
+
+Verified release: all implementation items complete, merged to main and loaded in the actual QQ helper. Initial 744-source memory processing completed with zero pending sources. Evidence types and provider recovery limitations are in context-implementation-evidence.json.

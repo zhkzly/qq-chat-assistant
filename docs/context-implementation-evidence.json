@@ -1,11 +1,11 @@
 {
   "date": "2026-10-12",
-  "phase": "verified_candidate_pending_desktop_refresh",
+  "phase": "integrated_and_running",
   "baseline": "d45e629",
   "previousImplementation": "afa6cb6",
   "branch": "feature/relationship-context",
   "functionalTests": {
-    "passed": 143,
+    "passed": 155,
     "failed": 0,
     "command": "npm test"
   },
@@ -84,9 +84,62 @@
     "evidence": "live model, synthetic multi-session sources; targeted reruns retained separately; no relationship-outcome claim"
   },
   "desktop": {
-    "tested": false,
-    "deployed": false,
-    "qqMessagesSent": 0
+    "tested": true,
+    "deployed": true,
+    "sourceCommit": "5b4e46e",
+    "qqRestarted": false,
+    "qqMessagesSent": 0,
+    "originalProcessPreserved": true,
+    "sameAccountContact": true,
+    "originalMessagesPreserved": true,
+    "unsentDraftPreservedByHash": true,
+    "unsavedAssistantInputsPreserved": true,
+    "confirmedGoalLoaded": true,
+    "activeProtocols": {
+      "version": "relationship-context-complete-2026-10-12",
+      "unifiedContext": true,
+      "persistentMemory": true,
+      "promptVersion": "relationship-context-2026-10-12.3",
+      "memoryVersion": "relationship-memory-2026-10-12.3",
+      "authenticated": true,
+      "selected": true,
+      "memoryConfigured": true,
+      "qqMessagesSentByAssistant": 0
+    },
+    "ui": {
+      "helperPresent": true,
+      "privateDiscussion": true,
+      "memorySearch": true,
+      "memoryStatus": true,
+      "goalEditor": true,
+      "pendingActions": true,
+      "contextInspector": true,
+      "privateInputEnabled": true,
+      "actualRows": 100,
+      "qqSendActionExposed": false
+    },
+    "initialMemoryProcessing": {
+      "pending": 0,
+      "processed": 744,
+      "busy": false,
+      "counts": {
+        "sources": 744,
+        "items": 96,
+        "episodes": 29
+      }
+    },
+    "recordedAt": "2026-10-12T06:44:45.760301+00:00",
+    "realAssistanceRoundTrip": {
+      "httpStatus": 200,
+      "assistantErrorPresent": false,
+      "advicePresent": true,
+      "suggestionCount": 0,
+      "totalQQ": 747,
+      "memoryPending": 0,
+      "memoryProcessed": 744,
+      "qqMessagesSent": 0
+    },
+    "privateChatTextIncluded": false
   },
   "mutationChecksRun": false,
   "memoryAndContextCapabilities": [
@@ -112,15 +165,15 @@
     },
     {
       "path": "src/assistant-context.cjs",
-      "sha256": "d578ad0b6d69df58c8909c12327bf97b7f37c7f3b3594e070fdd5aa529280d5b"
+      "sha256": "ee00ae26bde4c35d485ff57130a89394120fdcca16bdfd00f08b33f5c05606c9"
     },
     {
       "path": "src/assistant-model.cjs",
-      "sha256": "ff826376ad4cb96fa7bbd6d2983a1754f94edd65823d0c732c97f6847644792d"
+      "sha256": "3193e88d52b7e6e2b074778131cd2e423adea08204d621b82d294b28dc3aaca1"
     },
     {
       "path": "src/controller.cjs",
-      "sha256": "cf54440d99df5d9e3f6215ec9d86d28f4003775c8fe68221fd529ffbe0633572"
+      "sha256": "5f93a7dc0ca2c3617d68a0d8452bf198257c1e388cbba8ff3dd8f3fbf079cfaf"
     },
     {
       "path": "src/help-methods.cjs",
@@ -132,7 +185,7 @@
     },
     {
       "path": "src/memory-engine.cjs",
-      "sha256": "2a0aadbe583a719229e1d2e7c33b5e2fd781f7567fafdd568a8047192c2de374"
+      "sha256": "292bc4ed2cb2209555691aa8d37803834b7288ac9c85e3f585522ee30d55f55f"
     },
     {
       "path": "src/memory-search.cjs",
@@ -141,6 +194,10 @@
     {
       "path": "src/messages.cjs",
       "sha256": "5a7654207c8d66878a861bdfd37d003d8cdf08d5f4264f7dcbd7bc32742d5cae"
+    },
+    {
+      "path": "src/model-http.cjs",
+      "sha256": "647fe7e8fd292e7c707d670a5f66184e2730d16061ce5b9bf3a333fa74f33657"
     },
     {
       "path": "src/model.cjs",
@@ -152,7 +209,7 @@
     },
     {
       "path": "src/server.cjs",
-      "sha256": "b2763f2e90afe754e3cd953094e9a4db57351e6754073fad841a66e4a4a1568c"
+      "sha256": "af1b2814a4614ca8bfd677ee65d1628305fdcdfe6f898d1b2e3f8589df52ec70"
     },
     {
       "path": "src/store.cjs",
@@ -176,7 +233,7 @@
     },
     {
       "path": "plugin/dev-probe.cjs",
-      "sha256": "1a64369c5737805e3ca5a7e95657b194b1f87ea22c05ed847cff2ba52dbd0d9f"
+      "sha256": "2f8e31899a6ea642983560e0e00e119d1a6764df197c358c0e7f5cc3ff64199c"
     },
     {
       "path": "plugin/draft.cjs",
@@ -220,7 +277,11 @@
     },
     {
       "path": "tests/assistant-controller.test.cjs",
-      "sha256": "97a98d9f5cfcd0ccd63cbe31e3861ce4d97d665d75d7579b772680eb553a845d"
+      "sha256": "d378b87f1657d2c8bd762234eae727bddea1d01fe4637c3d8589d5a575d0b771"
+    },
+    {
+      "path": "tests/assistant-model.test.cjs",
+      "sha256": "fa1f6134f82f376f8c0e340172cf1876b219c41ced247ecca284eaab52feff1f"
     },
     {
       "path": "tests/assistant-server.test.cjs",
@@ -280,7 +341,11 @@
     },
     {
       "path": "tests/memory-engine.test.cjs",
-      "sha256": "fb697ea2535dcd0a58c5de6339b41aa67bf203decb356f1b157ac17582d440df"
+      "sha256": "81e6ede42eb7754b861ee4c180d8da9b0f175c3bda752374747e6d68a4edfef1"
+    },
+    {
+      "path": "tests/model-http.test.cjs",
+      "sha256": "3a81003d44dd0a24ae238477b02e601930f079d71f452e9de833112ca228664f"
     },
     {
       "path": "tests/native.test.cjs",
@@ -310,5 +375,16 @@
       "path": "tests/vision.test.cjs",
       "sha256": "4a3c78e534b9b7361572ec85b79f3d49eb7fd4bc4007ccb6ecf63e618a9def73"
     }
-  ]
+  ],
+  "mainMerged": true,
+  "runtimeSourceCommit": "5b4e46e",
+  "runtimeFindingsAndFixes": [
+    "Opened the existing helper before refreshing its worker; QQ itself was not restarted",
+    "Replaced mechanical full-ID echo with explicit fingerprint-bound review acknowledgment and code-owned alias decoding",
+    "Normalized nonsemantic draft labels and added one bounded format repair",
+    "Added one transport retry plus durable queue backoff for intermittent provider HTTP 500/503",
+    "Reset consecutive failure counts after successful batches so partial progress does not incorrectly pause recovery",
+    "An explicit private request takes precedence over queued automatic suggestions"
+  ],
+  "modelServiceNote": "The configured endpoint showed intermittent HTTP 500/503 during initialization; state and queues were retained. Initial memory processing and an actual assistant round-trip subsequently completed successfully."
 }

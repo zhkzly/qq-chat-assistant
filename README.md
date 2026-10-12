@@ -2,7 +2,7 @@
 
 A local Ubuntu desktop companion for normal QQ conversations. It reads the selected private chat, loads accessible history, and provides a persistent private assistant conversation for thinking through what to do, responding, sharing personal material and reviewing actual interaction. Optional drafts can be copied or filled into an unsent QQ input for the human to review and send.
 
-**Status:** the complete relationship-context pipeline is implemented: all assistance entry points share scoped context, searchable long-term QQ/private history, durable incremental memory, natural-language user actions, source-backed current state, evidence-linked methods and feedback. Release and desktop verification are recorded in [the evidence record](docs/context-implementation-evidence.json).
+**Status:** the complete relationship-context pipeline is merged into main and running in the existing QQ helper: all assistance entry points share scoped context, searchable long-term QQ/private history, durable incremental memory, natural-language user actions, source-backed current state, evidence-linked methods and feedback. Release and desktop verification are recorded in [the evidence record](docs/context-implementation-evidence.json).
 
 Users can discuss goals and recent experiences naturally, continue a previous idea into a draft without copying it again, correct or forget context, and inspect what was used. Explicit user intent controls lasting goals and disclosure; uncertain operations show a concrete proposal. The assistant never sends QQ messages. See [context behavior and limits](docs/context-management_CN.md).
 

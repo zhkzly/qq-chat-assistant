@@ -26,3 +26,9 @@ Gold flows: the user's current conversation and original design scenarios, inclu
 ## Verification
 
 The complete source-shaped suite and both browser flows pass. The live model exercised nine multi-session scenario categories; inaccurate evaluator conditions were corrected and four affected/changed cases were rerun with their original records retained. Independent review checked actual output helpfulness, privacy projections and relevance/cost. Desktop refresh follows this candidate commit.
+
+## Integrated release
+
+Full implementation is merged into main and running in the existing QQ helper. Source commit 5b4e46e is loaded; the original QQ process, selected conversation, all 747 actual messages and unsent draft were preserved. The 744 available nonrecalled sources completed initial memory processing, leaving zero pending sources at verification. The user-confirmed long-term goal was applied only to the unchanged selected conversation when its goal was empty. No QQ messages were sent.
+
+Runtime testing exposed review receipt fragility, draft-format variance and intermittent upstream HTTP 500/503; each software failure path was repaired, regression checked and reloaded. Exact text is not included in runtime reports. The bounded queue/transport recovery remains active for future service failures.
