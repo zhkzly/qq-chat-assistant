@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>QQ 聊天助手</title><link rel="stylesheet" href="/style.css"></head>
+<body><main>
+<header><div><span class="spark">✦</span><h1>聊天助手</h1><span class="tag">由你发送</span></div><button id="settings-button" class="subtle" title="模型设置">⚙ 模型设置</button></header>
+<section class="connection"><span id="connection-dot" class="dot"></span><span id="connection-label">正在连接 QQ…</span></section>
+<section class="model-summary"><div>当前模型：<strong id="current-model"></strong><div id="current-api" class="muted"></div></div><button id="context-button" class="text-button">查看上下文</button></section>
+<section class="model-picker"><label for="quick-profile">API 配置</label><select id="quick-profile" aria-label="切换 API 配置"></select><label for="quick-model">选择模型</label><div class="row"><select id="quick-model" aria-label="切换模型"></select><button id="refresh-models" class="text-button">刷新列表</button></div><p id="model-list-status" class="muted" aria-live="polite"></p></section>
+<form id="contact-form"><label for="qq-number">当前私聊</label><div class="row"><input id="qq-number" inputmode="numeric" placeholder="选择好友 QQ 号" autocomplete="off"><button type="submit">连接会话</button></div></form>
+<section id="session" hidden>
+<div class="session-head"><strong id="contact-title"></strong><span id="history-count" class="muted"></span></div>
+<button id="view-older" class="text-button" hidden>查看更早消息</button><div id="history" class="history"></div>
+<div class="coverage"><span id="coverage-label"></span><button id="retry-history" class="text-button" hidden>重试读取</button><button id="older" class="text-button">继续加载</button></div>
+<div class="exports"><button id="export-json" class="text-button">导出 JSON</button><button id="export-txt" class="text-button">导出文本</button></div>
+<div class="reply-focus"><div class="row"><strong id="focus-summary">默认回应最近消息</strong><button id="clear-focus" class="text-button" hidden>回到最新消息</button></div><p class="muted">连续消息按话题一起回应；也可勾选上方消息，指定本次回复重点（最多 8 条）。</p><div id="focus-preview"></div><p class="muted">这里只指定 AI 关注的内容；需要 QQ 原生引用时，在 QQ 中对原消息选择「回复」。</p></div>
+</section>
+<section id="model-consent" class="consent" hidden><strong>允许 AI 参考当前会话</strong><p id="consent-destination"></p><p class="muted">部分聊天文字会发给配置的模型服务。记录先在本机保存，回复仍由你复制并手动发送。</p><label class="toggle"><input id="allow-images" type="checkbox">同时允许本次选定图片提供给模型</label><button id="allow-model">允许当前会话使用这个模型</button></section>
+<section class="intent"><label for="instruction">你希望怎么回应</label><textarea id="instruction" rows="2" placeholder="例如：先接住她的情绪，语气自然，不急着邀约">自然一点，贴近我的说话方式</textarea><div class="row"><label class="toggle"><input id="auto" type="checkbox" checked> 新消息自动更新建议</label><button id="generate">生成建议 <span>↗</span></button></div></section>
+<p id="error" class="error" hidden></p>
+<section id="advice"><div class="section-label">参考回复 <span id="model-label"></span></div><p id="analysis" class="analysis">连接一个私聊后，助手会结合聊天记录给你三种表达。</p><div id="suggestions"></div></section>
+<section class="draft"><div class="section-label"><label for="draft">我的回复草稿</label><span id="draft-status">可自由修改</span></div><textarea id="draft" rows="4" placeholder="选一条建议，改成自己的话…"></textarea><div class="row"><span class="muted">回填后仍由你发送</span><button id="fill-qq">填入 QQ 输入框</button><button id="copy">复制回复</button></div></section>
+<footer>只读取所选私聊 · 图片本机预览，勾选授权后才给模型 · 本机保存记录</footer>
+</main>
+<dialog id="settings"><form id="settings-form"><h2>模型与 API 配置</h2><label>已保存的配置<select name="profileId" id="settings-profile"></select></label><label>配置名称<input name="name" placeholder="例如：本地代理、DeepSeek、Ollama" maxlength="80" required></label><label>API 地址<input name="baseUrl" value="http://127.0.0.1:8317/v1" placeholder="https://服务地址/v1" required></label><p class="muted">使用 OpenAI 兼容接口；原生 Claude / Gemini 地址需要兼容代理。</p><label>API Key<input name="apiKey" type="password" placeholder="原地址留空保留密钥；新地址需重新填写" autocomplete="new-password"></label><label class="toggle"><input name="anonymous" type="checkbox">无需 API Key（仅用于免密服务）</label><div class="row"><label for="settings-model-list">服务提供的模型</label><button id="settings-refresh-models" type="button" class="text-button">读取模型列表</button></div><select id="settings-model-list" aria-label="服务提供的模型"></select><p id="settings-model-status" class="muted" aria-live="polite"></p><label>模型 ID（也可手动填写）<input name="model" value="gpt-6.1-sol" required></label><label class="toggle"><input name="visionEnabled" type="checkbox">已确认此模型支持图片输入</label><p id="settings-error" class="error" hidden></p><div class="row"><button id="settings-cancel" type="button" class="subtle">取消</button><button type="submit">保存并使用</button></div></form></dialog>
+<dialog id="context-dialog"><h2>本次提供给 AI 的上下文</h2><p id="context-summary"></p><div id="context-records"></div><button id="context-close">关闭</button></dialog><script src="/app.js"></script></body></html>

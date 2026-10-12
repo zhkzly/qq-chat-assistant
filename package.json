@@ -1,0 +1,18 @@
+{
+  "name": "qq-chat-assistant",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Real-time read-only QQ conversation assistance with manual copy/send",
+  "type": "commonjs",
+  "scripts": {
+    "test": "node scripts/test.cjs",
+    "start": "bash scripts/launch.sh",
+    "check": "node scripts/check.cjs",
+    "web": "node src/server.cjs",
+    "diagnose": "node scripts/diagnose.cjs",
+    "test:ui": "node scripts/browser-check.cjs"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=QQ 聊天助手
+Comment=QQ 聊天建议，复制后由你手动发送
+Exec=/home/zhkzly/pycodes/qq-chat-assistant/scripts/launch.sh
+Path=/home/zhkzly/pycodes/qq-chat-assistant
+Icon=qq
+Terminal=false
+Categories=Network;Chat;
+StartupNotify=true

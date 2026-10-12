@@ -1,0 +1,11 @@
+{
+  "manifest_version": 4,
+  "type": "extension",
+  "name": "QQ Chat Assistant",
+  "slug": "qq-chat-assistant",
+  "description": "Read-only local conversation context and manual reply suggestions",
+  "version": "0.1.0",
+  "authors": [{"name": "Local personal project", "link": ""}],
+  "platform": ["linux"],
+  "injects": {"main": "entry.cjs", "preload": "preload.cjs", "renderer": "renderer.js"}
+}
