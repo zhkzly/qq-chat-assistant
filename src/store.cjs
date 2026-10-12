@@ -7,6 +7,7 @@ const { ExperienceStore } = require('./experience-store.cjs');
 const { assertPreferenceAuthority, sourceClosure } = require('./provenance.cjs');
 const { PROCESSOR_VERSION, prepareRelationshipPatch, writeRelationshipRecords, relationshipView } = require('./relationship-store.cjs');
 const { emptyTopics, pruneTopics, topicView, prepareTopicPatch } = require('./topic-store.cjs');
+const { DiscussionCompactionStore, validateDiscussionTurnFingerprints } = require('./discussion-compaction-store.cjs');
 const hash = value => createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const { DatabaseSync } = require('node:sqlite');
 const {publicRecord}=require('./media.cjs');
@@ -73,6 +74,7 @@ class Store {
     if(!this.db.prepare('PRAGMA table_info(memory_journal)').all().some(c=>c.name==='queued_at')){this.db.exec('ALTER TABLE memory_journal ADD COLUMN queued_at TEXT');this.db.prepare('UPDATE memory_journal SET queued_at=? WHERE queued_at IS NULL').run(new Date().toISOString());}
     if(!this.db.prepare('PRAGMA table_info(memory_meta)').all().some(c=>c.name==='processor_version'))this.db.exec('ALTER TABLE memory_meta ADD COLUMN processor_version TEXT');
     this.experiences = new ExperienceStore(this, {scopeKey});
+    this.discussionCompactions = new DiscussionCompactionStore(this);
     this.db.exec('CREATE TABLE IF NOT EXISTS schema_migrations(version INTEGER PRIMARY KEY,applied_at TEXT NOT NULL,description TEXT NOT NULL)');
     this.db.prepare('INSERT OR IGNORE INTO schema_migrations VALUES(?,?,?)').run(1,new Date().toISOString(),'Relationship and experience storage; semantic bootstrap is tracked separately');
     this.db.exec('PRAGMA user_version=1; COMMIT');
@@ -124,6 +126,10 @@ class Store {
       if(this.experiences.materializeLegacyArtifacts(scope,record))this.db.prepare('INSERT INTO companion VALUES(?,?) ON CONFLICT(scope_key) DO UPDATE SET record=excluded.record').run(scopeKey(scope),this._serializeCompanion(record));
       record.feedback=this.experiences.listFeedback(scope);
       for(const turn of record.turns)if(turn.kind==='feedback_ref'&&turn.feedbackId){const f=record.feedback.find(f=>f.id===turn.feedbackId);turn.text=f?`对助手建议的反馈：${f.text}`:'已移除的反馈';}
+      if(this._pruneDiscussionDerived(scope,record)){
+        changedSource(record);this.db.prepare('INSERT INTO companion VALUES(?,?) ON CONFLICT(scope_key) DO UPDATE SET record=excluded.record').run(scopeKey(scope),this._serializeCompanion(record));
+        this._syncMemory(scope,record);record.feedback=this.experiences.listFeedback(scope);
+      }
       if(record.topics.items.length&&pruneTopics(record,this._rawMemorySources(scope,record)))this.db.prepare('INSERT INTO companion VALUES(?,?) ON CONFLICT(scope_key) DO UPDATE SET record=excluded.record').run(scopeKey(scope),this._serializeCompanion(record));
       return record;
     });
@@ -184,11 +190,29 @@ class Store {
   }
   _writeCompanion(scope, record) {
     this._atomic(()=>{
+      this._pruneDiscussionDerived(scope,record);
       this._pruneProvenance(scope,record);
       this.db.prepare('INSERT INTO companion VALUES(?,?) ON CONFLICT(scope_key) DO UPDATE SET record=excluded.record')
         .run(scopeKey(scope), this._serializeCompanion(record));
       this._syncMemory(scope, record);
+      this.discussionCompactions.prune(scope,record);
     });
+  }
+  _pruneDiscussionDerived(scope,record) {
+    const removed=new Set(),bound=record.turns.length+1;
+    for(let pass=0;pass<bound;pass++){
+      const invalid=record.turns.filter(turn=>turn.role==='assistant'&&turn.discussionTurnFingerprints&&(()=>{
+        try{validateDiscussionTurnFingerprints(record,turn.discussionTurnFingerprints,{newTurnId:turn.id});return false;}catch{return true;}
+      })());
+      if(!invalid.length)break;
+      for(const turn of invalid){removed.add(turn.id);this.experiences.invalidateArtifacts(scope,this.experiences.refsForTurn(scope,turn.id),{mode:'forget',knownTurnId:turn.id});}
+      record.turns=record.turns.filter(turn=>!removed.has(turn.id));
+    }
+    if(removed.size){
+      record.state=emptyState(record.state.version+1);
+      record.runs=record.runs.filter(run=>!removed.has(run.replyId));
+    }
+    return removed.size;
   }
   _sourceIds(scope, record = this.getCompanion(scope)) {
     return new Set(this._rawMemorySources(scope,record).map(s=>s.id));
@@ -274,6 +298,10 @@ class Store {
         if(!Array.isArray(turn.methodIds)||turn.methodIds.length>12||turn.methodIds.some(id=>typeof id!=='string'||id.length>100))throw new Error('Invalid method IDs');
         saved.methodIds=[...turn.methodIds];
       }
+      if(turn.role==='assistant'&&turn.artifactMetadata?.discussionTurnFingerprints!==undefined){
+        const references=validateDiscussionTurnFingerprints(record,turn.artifactMetadata.discussionTurnFingerprints,{newTurnId:saved.id});
+        if(Object.keys(references).length)saved.discussionTurnFingerprints=references;
+      }
       if(turn.role==='assistant'){const refs=this.experiences.recordArtifacts(scope,saved,turn.artifactMetadata||{});saved.artifactRef=refs.responseRef;if(saved.suggestions)saved.suggestions=saved.suggestions.map((x,i)=>({...x,artifactRef:refs.suggestionRefs[i]}));if(saved.expressionOptions)saved.expressionOptions=saved.expressionOptions.map((x,i)=>({...x,artifactRef:refs.optionRefs[i]}));}
       record.turns.push(saved);
       if (turn.role === 'user'&&!['feedback','feedback_ref'].includes(saved.kind)) changedSource(record);
@@ -325,6 +353,8 @@ class Store {
   topicView(scope) {
     return this._atomic(()=>topicView(scope,this.getCompanion(scope).topics));
   }
+  getDiscussionCompaction(scope,options={}) { return this.discussionCompactions.get(scope,options); }
+  saveDiscussionCompaction(scope,record,expected={}) { return this.discussionCompactions.save(scope,record,expected); }
   applyTopicPatch(scope,patch,options={}) {
     try{return this._atomic(()=>{
       const record=this.getCompanion(scope),key=scopeKey(scope);

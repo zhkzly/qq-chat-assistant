@@ -1,0 +1,11 @@
+# Discussion compaction acceptance
+- [x] Long private dialogue is compacted automatically before preflight failure, using one bounded pass per source binding; only an applied control may require another pass within the same HTTP cap.
+- [x] Current input, latest user correction, selected/exact candidates and feedback survive compaction; genuine infeasible protected inputs reject explicitly.
+- [x] Compressed old discussion retains role, coverage and source references; it neither becomes a fact nor authorizes sharing.
+- [x] Cache survives restart and is reused without extra compaction calls; scope, goal/topic/source changes and forgetting invalidate it immediately.
+- [x] Old original user/assistant details can be retrieved with stable IDs, exact source revisions and artifact versions; private summary is excluded from final drafting.
+- [x] Current intent changes supersede old summaries and no recursive summary-only drift is introduced.
+- [x] All model attempts including compaction/repair count toward task budget; transport/format failures keep originals and give actionable status.
+- [x] Actual serialized byte budgets and estimation/usage metadata are honest; UI makes compaction/reuse visible without adding a required workflow.
+- [x] Functional 325/0 and browser 40 checks pass; final Astra synthetic multi-turn flow passes. Claude final synthetic flow remains a recorded model/schema limitation, not a pass.
+- [ ] Native update preserves QQ, scope and unsent inputs; integration gate remains pending until the fresh service-only refresh is verified.

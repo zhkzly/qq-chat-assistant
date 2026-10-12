@@ -3,7 +3,9 @@ const crypto = require('node:crypto');
 const { redact } = require('./model.cjs');
 const { prepareAssistantRequest, parseDraftGuidance } = require('./assistant-model.cjs');
 const { selectMethods, runtimeCard } = require('./help-methods.cjs');
-const PROMPT_VERSION = 'relationship-context-2026-10-12.10';
+const { validatedCompaction, candidatesForCompaction } = require('./discussion-compaction.cjs');
+const { eligibleDiscussionTurns } = require('./discussion-compaction-store.cjs');
+const PROMPT_VERSION = 'relationship-context-2026-10-12.18';
 const METHODS = {
   discussion: '围绕用户真正希望的恋爱发展选择当前帮助，可接续、邀请、表达好感或讨论。意思明确就直接帮助，只问会改变建议的必要问题。允许暂缓或不用助手，不强制每次制定目的。',
   review: '按实际覆盖回顾相处、共同经历、用户体验与双方明确的浪漫方向，分别说普通友好、活动意愿和恋爱意图。兼顾反证与未知，不计算好感分，不把回复归因为某条建议。',
@@ -113,6 +115,7 @@ function buildContext(options) {
   sourceTurnIds = [], selectedOption, replyMessageIds = [], imageMessageIds = [], actionReceipts = [], lookupHistory = [], reviewRange,
   relationshipContext = null, experienceContext = null, topicContext = null, intentSourceId = null,
   generationOrigin = 'private_discussion', currentObservationSourceId = null,
+  discussionCompaction = null, sourceLookupIds = [], retrievedDiscussion = [],
   feedbackTargets = [], allowExperienceProposals = purpose === 'review', settings = {}, requestMeasure } = options;
   const budget = contextBudget(settings, byteBudget, requestMeasure), fits = budget.fits;
   if (!METHODS[purpose] || purpose === 'draft') throw new Error('未知的上下文用途');
@@ -128,6 +131,13 @@ function buildContext(options) {
   const currentId = `private:${turn.id}`;
   const current = byId.get(currentId) || (turn.transient || turn.memoryExcluded ? { id: `request:${turn.id}`, type: 'request', text: redact(turn.text), revision: digest(turn), role: 'user' } : null);
   if (!current) throw new Error('当前私下请求不存在');
+  const compacted = validatedCompaction(discussionCompaction, { scope, companion, turn, availableSources: all, settings, promptVersion: PROMPT_VERSION });
+  const coveredTurnIds = new Set(compacted?.sourceTurnIds || []);
+  const protectedPrivateIds = new Set([current.id, intentSourceId, ...sourceLookupIds.map(id => id.startsWith('private:') ? id : `private:${id}`)]);
+  const latestPriorUser = [...eligibleDiscussionTurns(companion)].reverse().find(item => item.role === 'user' && item.id !== turn.id);
+  if (latestPriorUser) protectedPrivateIds.add(`private:${latestPriorUser.id}`);
+  for (const id of sourceTurnIds) if (companion.turns.some(item => item.id === id && item.role === 'user')) protectedPrivateIds.add(`private:${id}`);
+  const foldedPrivateIds = new Set(compacted ? Object.keys(compacted.sourceRevisions).filter(id => byId.get(id)?.type === 'private' && !protectedPrivateIds.has(id)) : []);
   if (!Array.isArray(materialIds) || materialIds.length>12 || materialIds.some(id => typeof id !== 'string' || !companion.notes.some(n => n.id === id && n.use === 'draft')))
     throw new Error('草稿素材必须是当前联系人允许分享的近况');
   const selected = new Map([[current.id, current]]);
@@ -148,7 +158,11 @@ function buildContext(options) {
   const proposals = companion.turns.filter(t => t.role === 'assistant' && t.expressionOptions?.length).slice(-4)
     .flatMap(t => t.expressionOptions.map((o, index) => ({ ...o, turnId: t.id, index })));
   for (const proposal of selectedProposal ? [selectedProposal] : []) for (const q of proposal.quotes || [])
-    if (byId.has(q.sourceId)) selected.set(q.sourceId, byId.get(q.sourceId));
+    if (byId.has(q.sourceId)) { selected.set(q.sourceId, byId.get(q.sourceId)); foldedPrivateIds.delete(q.sourceId); }
+  for (const id of sourceLookupIds) {
+    const sourceId = id.startsWith('private:') ? id : `private:${id}`;
+    if (byId.has(sourceId)) { selected.set(sourceId, byId.get(sourceId)); foldedPrivateIds.delete(sourceId); }
+  }
   const intentSource = intentSourceId ? byId.get(intentSourceId) : current;
   if (!intentSource || !['private','request','feedback'].includes(intentSource.type) || intentSource.role !== 'user')
     throw new Error('当前意图来源已变化，请重新提交');
@@ -156,7 +170,7 @@ function buildContext(options) {
   const topicView = topicContext || companion.topics || { version: 0, activeId: null, items: [] };
   const activeTopic = sameScopeIfPresent(topicView, scope) && (topicView.active || (topicView.items || []).find(item => item.id === topicView.activeId));
   const groundedTopic = activeTopic?.lifecycle === 'active' && supportedByAvailable(activeTopic, byId, scope) ? activeTopic : null;
-  if (groundedTopic) for (const id of groundedTopic.sourceIds) selected.set(id, byId.get(id));
+  if (groundedTopic) for (const id of groundedTopic.sourceIds) if (!foldedPrivateIds.has(id)) selected.set(id, byId.get(id));
   const essentialIds = new Set(selected.keys());
   const privatePriorityIds = new Set();
   const requiredPrivateTurnIds = new Set();
@@ -185,6 +199,16 @@ function buildContext(options) {
     sources: [...selected.values()], privateConversation: [],
     evidenceRule: 'historicalOnly=true 的消息仅为历史提及，后续可能有未读的更改，不可据此断言当前约定有效。possiblyStale 的状态只作需要核查的上次理解，新原话与用户纠正优先。',
     omittedStateEntries: 0 };
+  if (compacted) {
+    payload.discussionCompaction = { id: compacted.id, summary: redact(compacted.summary), sourceTurnIds: [...compacted.sourceTurnIds],
+      lookupTurnIds: [...new Set([...compacted.sourceTurnIds, ...[...foldedPrivateIds].map(id => id.slice(8))])],
+      coverage: compacted.coverage, authority: 'derived_private_discussion_needs_sources' };
+    if (payload.topicContext.active && payload.topicContext.active.sourceIds.some(id => foldedPrivateIds.has(id))) Object.assign(payload.topicContext.active, {
+      authority: 'derived_private_discussion_needs_sources', foldedSourceIds: payload.topicContext.active.sourceIds.filter(id => foldedPrivateIds.has(id)), sourceAvailability: 'folded_originals_require_lookup' });
+  }
+  if (retrievedDiscussion.length) payload.retrievedDiscussion = retrievedDiscussion.map(item => ({ ...sanitize(pick(item, ['id','role','kind','text','suggestions','expressionOptions','artifactRef'])), authority: 'generated_discussion_not_outbound_authorization' }));
+  const candidatePool = candidatesForCompaction(compacted, companion, { sourceTurnIds, selectedOption, sourceLookupIds });
+  const preferredCandidateTurnIds = new Set([...[...eligibleDiscussionTurns(companion)].reverse().filter(item => item.role === 'assistant').slice(0, 1).map(item => item.id), ...sourceTurnIds, selectedOption?.turnId, ...sourceLookupIds].filter(Boolean));
   const refresh = () => {
     payload.sources = [...selected.values()]; payload.allowedMaterialIds=payload.sources.filter(s=>s.type==='note'&&s.use==='draft').map(s=>s.id);
     const feedbackSourceIds = (payload.feedbackTargets || []).filter(item => !item.missing && selected.get(item.feedback.sourceId)?.type === 'feedback').map(item => item.feedback.sourceId);
@@ -203,15 +227,17 @@ function buildContext(options) {
   // No substring truncation: reject if the request and latest complete exchange do not fit.
   if (!fits(payload)) throw new Error('当前问题或最新完整来信超过上下文预算，请分段处理；没有静默截断');
   const trySource = source => {
-    if (!source || selected.has(source.id)) return;
+    if (!source || selected.has(source.id) || foldedPrivateIds.has(source.id)) return;
     selected.set(source.id, source); refresh();
     if (!fits(payload)) { selected.delete(source.id); refresh(); }
   };
-  const includeGrounded = (record, target, fields, priority = false) => {
+  const includeGrounded = (record, target, fields, priority = false, allowFolded = false) => {
     if (!supportedByAvailable(record, byId, scope)) return false;
+    if (!allowFolded && record.sourceIds.some(id => foldedPrivateIds.has(id))) return false;
     const before = new Map(selected);
-    for (const id of record.sourceIds) selected.set(id, byId.get(id));
+    for (const id of record.sourceIds) if (!foldedPrivateIds.has(id)) selected.set(id, byId.get(id));
     const clean = sanitize(pick(record, fields));
+    if (allowFolded && record.sourceIds.some(id => foldedPrivateIds.has(id))) clean.foldedSourceIds = record.sourceIds.filter(id => foldedPrivateIds.has(id));
     clean.authority ||= record.reviewComplete === false ? 'needs_review' : 'source_backed_summary_not_independent_evidence';
     target.push(clean); refresh();
     if (priority) trimStateNavigation();
@@ -245,7 +271,7 @@ function buildContext(options) {
       else target.authority = item.target?.kind === 'actual_message' ? 'actual_qq_evaluation_target' : 'generated_evaluation_target_not_factual_evidence';
       const projected = { ...record, feedback: pick(item.feedback, ['id','sourceId','kind','targetRef']), target,
         correctionContext: (item.correctionContext || []).filter(item => byId.has(item.sourceId)).map(item => ({ sourceId: item.sourceId })) };
-      if (includeGrounded(projected, payload.feedbackTargets, ['feedback','target','missing','sourceIds','correctionContext'], required)) {
+      if (includeGrounded(projected, payload.feedbackTargets, ['feedback','target','missing','sourceIds','correctionContext'], required, true)) {
         seenFeedback.add(id);
         if (required) for (const sourceId of record.sourceIds) essentialIds.add(sourceId);
       } else if (required) throw new Error('所选反馈的完整对象或必要证据超过上下文预算或已经变化；输入已保留，内容未被截断');
@@ -261,7 +287,7 @@ function buildContext(options) {
   for (const t of companion.turns) {
     if (t.role === 'user') {
       activeGroup = null;
-      if (t.id === turn.id || t.memoryExcluded || !byId.has(`private:${t.id}`)) continue;
+      if (t.id === turn.id || t.memoryExcluded || !byId.has(`private:${t.id}`) || foldedPrivateIds.has(`private:${t.id}`)) continue;
       activeGroup = []; groups.push(activeGroup);
     }
     if (activeGroup) activeGroup.push(t);
@@ -271,8 +297,10 @@ function buildContext(options) {
     const previous = new Map(selected), previousTurns = payload.privateConversation;
     payload.privateConversation = group.map(t => t.role === 'user'
       ? { id: t.id, role: t.role, kind: t.kind, sourceId: `private:${t.id}` }
-      : { id: t.id, role: t.role, kind: t.kind, text: redact(t.text), authority: 'assistant_discussion_not_factual_evidence' }).concat(previousTurns);
-    for (const t of group) if (t.role === 'user') selected.set(`private:${t.id}`, byId.get(`private:${t.id}`));
+      : coveredTurnIds.has(t.id) && !sourceTurnIds.includes(t.id) && !sourceLookupIds.includes(t.id)
+        ? { id: t.id, role: t.role, kind: t.kind, compacted: true, authority: 'derived_private_discussion_needs_sources' }
+        : { id: t.id, role: t.role, kind: t.kind, text: redact(t.text), authority: 'assistant_discussion_not_factual_evidence' }).concat(previousTurns);
+    for (const t of group) if (t.role === 'user' && !foldedPrivateIds.has(`private:${t.id}`)) selected.set(`private:${t.id}`, byId.get(`private:${t.id}`));
     refresh();
     trimStateNavigation();
     if (!fits(payload)) {
@@ -284,6 +312,17 @@ function buildContext(options) {
     if (index === 0) for (const t of group) {
       requiredPrivateTurnIds.add(t.id);
       if (t.role === 'user') essentialIds.add(`private:${t.id}`);
+    }
+  }
+  // Candidate originals are available even without compaction. A whole choice
+  // either fits or remains an explicit original-turn lookup reference.
+  if (candidatePool.length) payload.privateCandidates = [];
+  for (const candidate of candidatePool) {
+    payload.privateCandidates.push(candidate); trimStateNavigation();
+    if (!fits(payload)) {
+      const reference = { ...candidate, availability: 'needs_lookup' }; delete reference.text; delete reference.quotes;
+      payload.privateCandidates[payload.privateCandidates.length - 1] = reference;
+      if (!fits(payload)) { payload.privateCandidates.pop(); break; }
     }
   }
   // Incidental evaluations cannot consume the room reserved for the current
@@ -416,6 +455,11 @@ function buildContext(options) {
     }
     refresh();
     if (fits(payload)) break;
+    const optionalCandidate = payload.privateCandidates?.findLastIndex(item => item.availability === 'full' && !preferredCandidateTurnIds.has(item.turnId)) ?? -1;
+    if (optionalCandidate >= 0) {
+      const reference = { ...payload.privateCandidates[optionalCandidate], availability: 'needs_lookup' }; delete reference.text; delete reference.quotes;
+      payload.privateCandidates[optionalCandidate] = reference; continue;
+    }
     const optional = [...selected.keys()].filter(id => !essentialIds.has(id));
     const removable = optional.find(id => !privatePriorityIds.has(id));
     if (removable) { selected.delete(removable); refresh(); }
@@ -445,7 +489,7 @@ function buildContext(options) {
     payload.relationshipContext.activities = payload.relationshipContext.activities.filter(item => item.eventIds.every(id => keptEvents.has(id)));
   }
   for (const key of ['cases', 'adaptations']) if (payload.experienceContext) payload.experienceContext[key] = payload.experienceContext[key].filter(groundFinal);
-  if (payload.feedbackTargets) payload.feedbackTargets = payload.feedbackTargets.filter(groundFinal);
+  if (payload.feedbackTargets) payload.feedbackTargets = payload.feedbackTargets.filter(item => item.sourceIds?.every(id => selected.has(id) || item.foldedSourceIds?.includes(id) && compacted?.sourceRevisions[id] === byId.get(id)?.revision));
   const privateGroups = []; let currentGroup = null;
   for (const entry of payload.privateConversation) {
     if (entry.role === 'user') { currentGroup = selected.has(entry.sourceId) ? [] : null; if (currentGroup) privateGroups.push(currentGroup); }
@@ -461,7 +505,11 @@ function buildContext(options) {
   const order = new Map(all.map((s, i) => [s.id, i]));
   payload.sources.sort((a, b) => order.get(a.id) - order.get(b.id));
   const context=finish(payload, payload.sources, { scope, requestId, companion, coverage }, all, byteBudget, budget);
+  if (compacted) context.manifest.discussionCompaction = { cacheId: compacted.id, identity: compacted.identity, reused: true,
+    coveredTurns: compacted.sourceTurnIds.length, coveredTurnIds: [...compacted.sourceTurnIds], sourceRevisions: { ...compacted.sourceRevisions }, turnFingerprints: { ...compacted.turnFingerprints },
+    foldedSourceIds: [...foldedPrivateIds], authority: 'derived_private_discussion_needs_sources' };
   context.essentialSourceIds=[...essentialIds];
+  Object.defineProperty(context, 'fullAvailableSources', { value: all });
   Object.defineProperty(context,'rebuildForRequest',{value:measure=>buildContext({...options,requestMeasure:measure})});
   context.restrictions=restrictions;
   return context;

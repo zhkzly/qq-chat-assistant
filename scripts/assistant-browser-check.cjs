@@ -94,7 +94,7 @@ async function until(predicate, label) {
     const submit=async(text,button='assistant-send')=>{
       await until(()=>cdp.evaluate("!document.querySelector('#assistant-send').disabled"),'assistant input ready');
       const before=calls.length;
-      await ui.fill('#assistant-input',text);if(button!=='assistant-send')await ui.openDetails('#assistant-tools');await ui.click(`#${button}`);
+      await ui.fill('#assistant-input',text);await ui.openDetails('#assistant-tools');await ui.click(button==='assistant-send'?'#assistant-discussion':`#${button}`);assert.equal(calls.length,before,'mode selection does not submit');await ui.click('#assistant-send');
       await until(()=>calls.length>before&&!controller.assistantBusy,'request processed');
       await until(()=>cdp.evaluate("document.querySelector('#assistant-input').value===''&&!document.querySelector('#assistant-send').disabled"),'request rendered');
       if(await cdp.evaluate("document.querySelector('#assistant-tools').open"))await ui.click('#assistant-tools > summary');
@@ -180,7 +180,7 @@ async function until(predicate, label) {
     assert.equal(JSON.stringify(calls.at(-1).payload).includes(privateFear),false);
     assert.equal(controller.snapshot().total,0);
     checks.push('Selecting a discussed expression direction creates a restricted draft without retyping the old private material');
-    await until(()=>cdp.evaluate("!document.querySelector('#assistant-draft').disabled"),'option draft rendered');
+    await until(()=>cdp.evaluate("!document.querySelector('#assistant-send').disabled"),'option draft rendered');
     await submit(`${privateFear}，但想告诉她实验终于成功了，帮我写一句。`,'assistant-draft');
     await until(() => cdp.evaluate("document.querySelectorAll('#assistant-thread .assistant-suggestion').length===2"), 'one optional draft');
     assert.deepEqual(calls.slice(-2).map(call => call.payload.purpose), ['draft_prepare', 'draft']);

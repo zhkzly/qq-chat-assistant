@@ -8,13 +8,15 @@ const {TaskLedger}=require('./request-budget.cjs');
 const {maintenanceDecision}=require('./memory-scheduler.cjs');
 const fingerprint=value=>createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const { assistModel, parseAssistant } = require('./assistant-model.cjs');
-const { buildContext, buildDraftContext, expressionOptionsFor } = require('./assistant-context.cjs');
+const { buildContext, buildDraftContext, expressionOptionsFor, PROMPT_VERSION } = require('./assistant-context.cjs');
+const { planDiscussionCompaction, assistDiscussionCompaction } = require('./discussion-compaction.cjs');
+const { discussionTopicBinding, discussionModelBinding, DISCUSSION_COMPACTION_VERSION } = require('./discussion-compaction-store.cjs');
 const { maintainMemory: runMemoryMaintenance } = require('./memory-engine.cjs');
 const { applyUserActions, confirmUserAction, undoUserAction } = require('./assistant-actions.cjs');
 const { methodFor } = require('./help-methods.cjs');
 class Controller extends EventEmitter {
-  constructor({ store, read, settings, model = generate, assistantModel = assistModel, memoryModel = null }) {
-    super(); Object.assign(this, { store, read, settings, model, assistantModel, memoryModel });
+  constructor({ store, read, settings, model = generate, assistantModel = assistModel, memoryModel = null, compactionModel = assistDiscussionCompaction }) {
+    super(); Object.assign(this, { store, read, settings, model, assistantModel, memoryModel, compactionModel });
     this.status = { phase: 'waiting_qq', account: null };
     this.selectedImages=[];this.replyMessageIds=[];this.features={qqDraftFill:false};
     this.scope = null; this.epoch = 0; this.revision = 0; this.advice = null;
@@ -25,11 +27,13 @@ class Controller extends EventEmitter {
     this.activeAssist=null;this.pendingAssist=null;this.assistantRetryTimer=null;
     this.usage=new TaskLedger(store);this.memoryLastActivityAt=0;this.memoryDraining=false;this.lastAutomaticFingerprint='';
     this.feedbackContinuations=new Map();
+    this.discussionCompaction=null;
   }
   updateStatus(status) {
     if (status.account?.uid !== this.status.account?.uid || status.phase !== 'ready') {
       this.invalidateAssistant();
       this.epoch++; this.selectedImages=[]; this.replyMessageIds=[]; this.scope = null; this.advice = null; this.busy = false;
+      this.discussionCompaction=null;
       this.abort?.abort(); clearTimeout(this.timer);
     }
     this.status = status; this.changed();
@@ -48,12 +52,14 @@ class Controller extends EventEmitter {
       relationship:this.scope&&this.store.relationshipView?this.store.relationshipView(this.scope,{limit:24}):null,
       experience:this.scope&&this.store.experiences?this.store.experiences.list(this.scope,{limit:8}):null,
       topicContext:this.scope&&this.store.topicView?this.store.topicView(this.scope):null,
+      discussionCompaction:this.scope&&sameScope(this.discussionCompaction?.scope,this.scope)?this.discussionCompaction:null,
       requestUsage:this.scope?this.usage.recent(this.scope,8):[],maintenanceSchedule:this.scope?this.memorySchedule():null,
       activeModelProfileId: this.settings.activeModelProfileId, replyFocus: replyFocusFor(messages, this.replyMessageIds),
       instruction: this.instruction, auto: this.auto, model: this.settings.model, modelReady: this.modelReady, modelConsent:this.hasModelConsent(), modelBaseUrl:this.settings.baseUrl || '',imageSelection:this.selectedImages,modelVisionEnabled:!!this.settings.visionEnabled,imageConsent:!!(this.hasModelConsent()&&this.settings.realChatConsent?.allowImages),qqDraftFillAvailable:!!this.features.qqDraftFill };
   }
   async bind(uin) {
     this.invalidateAssistant();
+    this.discussionCompaction=null;
     this.memoryFailures=0;this.memoryRetryAfter=0;this.memoryDraining=false;this.memoryLastActivityAt=0;
     const epoch = ++this.epoch;
     this.selectedImages=[];this.replyMessageIds=[];this.scope = null; this.advice = null; this.error = ''; this.busy = false;
@@ -188,6 +194,7 @@ class Controller extends EventEmitter {
   }
   requireScope() { if (!this.scope) throw new Error('请先选择一个 QQ 私聊'); return this.scope; }
   invalidateAssistant({preserveTask=false}={}) {
+    this.discussionCompaction=null;
     const old=this.activeAssist||this.pendingAssist;if(!preserveTask&&old?.taskId){try{this.usage.finish(old.scope,old.taskId,'cancelled')}catch{}}
     clearTimeout(this.assistantRetryTimer);this.activeAssist=null;this.pendingAssist=null;
     this.memoryAbort?.abort(); this.memoryAbort = null; this.memoryBusy = false; clearTimeout(this.memoryTimer);
@@ -357,6 +364,7 @@ class Controller extends EventEmitter {
     this.assistantBusy = true; this.assistantError = ''; this.changed();
     let context, receipts=[], actionsHandled=false, lookups=0, lookupHistory=[], retrievedSources=[], query=text, reviewRange;
     const capturedRequests=[],relationshipProposals=[],experienceProposals=[],topicProposals=[];let stagedReview=null;
+    let activeCompaction=null,compactionAttempted=false,sourceLookupIds=[],retrievedDiscussion=[];
     try {
       const records = this.store.messages(scope), coverage = this.store.coverage(scope);
       const images=this.selectedImages.map(item=>{
@@ -364,7 +372,7 @@ class Controller extends EventEmitter {
         const record=records.find(m=>m.messageId===item.messageId);const image=readImage(record,item.index);
         return {url:`data:${image.type};base64,${image.data.toString('base64')}`,messageId:record.messageId,index:item.index,bytes:image.data.length};
       });
-      const assemble=()=>{
+      const assemblyOptions=()=>{
         companion=this.store.getCompanion(scope);
         const availableSources=this.store.memorySources(scope);
         const memoryResult=this.store.searchMemory(scope,query,{limit:16,...reviewRange});
@@ -375,14 +383,59 @@ class Controller extends EventEmitter {
         const topicContext=this.store.topicView?.(scope);
         const intentSourceId=feedbackIntentId?`private:feedback-${feedbackIntentId}`:undefined;
         if(intentSourceId&&!explicitFeedbackIds.includes(feedbackIntentId))throw new Error('本次反馈意图未绑定选中的反馈对象');
-        const input=buildContext({ scope, records, companion, turn, purpose: purpose === 'draft' ? 'draft_prepare' : purpose,
+        return { scope, records, companion, turn, purpose: purpose === 'draft' ? 'draft_prepare' : purpose,
           materialIds, coverage, requestId, settings, byteBudget: settings.assistantContextBytes || 48000,availableSources,memoryResult,
           memoryIndex:[...index.items,...index.episodes],retrievedSources,sourceTurnIds,selectedOption,replyMessageIds:[...this.replyMessageIds],imageMessageIds:images.map(image=>image.messageId),
           actionReceipts:receipts,lookupHistory,reviewRange,
           relationshipContext:this.store.relationshipView?.(scope,{query,limit:16}),
           experienceContext,allowExperienceProposals:purpose==='review'||explicitFeedbackIds.length>0,topicContext,intentSourceId,
-          generationOrigin:feedbackIntentId?'user_feedback':transient?'qq_observation':'private_discussion' });
+          generationOrigin:feedbackIntentId?'user_feedback':transient?'qq_observation':'private_discussion',
+          discussionCompaction:activeCompaction,sourceLookupIds,retrievedDiscussion,store:this.store,promptVersion:PROMPT_VERSION };
+      };
+      const attachImages=input=>{
+        const availableSources=this.store.memorySources(scope);
         input.images=images.filter(image=>availableSources.some(s=>s.id===`qq:${image.messageId}`));input.manifest.images=input.images.map(({url,...metadata})=>metadata);return input;
+      };
+      const assemble=async()=>{
+        let options=assemblyOptions();
+        const identity={goalVersion:companion.goal.version,topicVersion:companion.topics?.version||0,topicBinding:discussionTopicBinding(companion),
+          model:settings.model,modelBinding:discussionModelBinding(settings.baseUrl,settings.model),promptVersion:PROMPT_VERSION,protocolVersion:DISCUSSION_COMPACTION_VERSION,currentTurnId:turn.id};
+        activeCompaction=this.store.getDiscussionCompaction?.(scope,identity)||null;
+        options={...options,discussionCompaction:activeCompaction};
+        let input,capacityError;
+        try{input=buildContext(options);}catch(error){if(!/超过.*预算|超出.*预算/.test(error.message))throw error;capacityError=error;}
+        const plan=!compactionAttempted&&this.compactionModel&&settings.discussionCompactionEnabled!==false
+          ?planDiscussionCompaction({...options,context:input,overflow:!!capacityError}):null;
+        if(!plan){
+          if(capacityError)throw capacityError;
+          if(activeCompaction){this.discussionCompaction={scope,phase:'reused',coveredTurns:activeCompaction.sourceTurnIds.length};this.changed();}
+          return attachImages(input);
+        }
+        // Reserve room for at least one subsequent assistance call and, for
+        // explicit expression/reply, its restricted final drafting call.
+        const needed=purpose==='draft'||purpose==='reply'?3:2;
+        if(budget.snapshot().remaining<needed){const error=new Error('本次剩余调用预算不足以整理历史并完成帮助；原始输入已保留。请重新提交，已有有效整理可以复用。');error.code='compaction_budget_insufficient';throw error;}
+        compactionAttempted=true;
+        this.discussionCompaction={scope,phase:'compacting',coveredTurns:plan.sourceTurnIds.length,bytesBefore:plan.inputBytes};this.changed();
+        const configured={...settings,requestBudget:budget.forStage('discussion_compaction')};
+        let compressed;
+        try{compressed=await this.compactionModel(configured,plan,abort.signal);}catch(error){
+          this.discussionCompaction={scope,phase:'failed',coveredTurns:plan.sourceTurnIds.length};this.changed();throw error;
+        }
+        if(!current())return null;
+        const manifest=compressed.manifest||{purpose:'discussion_compaction',promptVersion:PROMPT_VERSION};
+        capturedRequests.push({purpose:'discussion_compaction',manifest,payload:{coverage:plan.coverage,sourceTurnIds:plan.sourceTurnIds,authority:'derived_private_discussion_needs_sources'}});
+        if(compressed.extraRequests)capturedRequests.push(...compressed.extraRequests);
+        const record={...identity,summary:compressed.summary,quoteRefs:compressed.quoteRefs||[],sourceTurnIds:plan.sourceTurnIds,
+          turnFingerprints:plan.turnFingerprints,sourceRevisions:plan.sourceRevisions,coverage:plan.coverage,requestId};
+        delete record.currentTurnId;
+        const receipt=this.store.saveDiscussionCompaction(scope,record,{...identity,baseRevision,currentTurnId:turn.id,transient:!!turn.transient});
+        if(!receipt.applied){const error=new Error(`讨论整理未采用：${receipt.detail||receipt.reason}；原始输入仍在。`);error.code='discussion_compaction_rejected';throw error;}
+        activeCompaction=receipt.record;
+        this.discussionCompaction={scope,phase:'applied',coveredTurns:activeCompaction.sourceTurnIds.length,bytesBefore:plan.inputBytes,
+          bytesAfter:Buffer.byteLength(JSON.stringify({summary:activeCompaction.summary,quoteRefs:activeCompaction.quoteRefs}),'utf8')};this.changed();
+        input=buildContext({...assemblyOptions(),discussionCompaction:activeCompaction});
+        return attachImages(input);
       };
       const invoke=async(input)=>{
         const stage=budget.forStage(input.payload.purpose);settings.requestBudget=stage;input.manifest.stageId=stage.stageId;
@@ -401,12 +454,19 @@ class Controller extends EventEmitter {
       };
       let result;
       for(let pass=0;pass<5;pass++) {
-        context=assemble();baseGeneration=this.store.contextGeneration?.(scope);result=await invoke(context);if(!current())return;
+        context=await assemble();if(!context||!current())return;baseGeneration=this.store.contextGeneration?.(scope);result=await invoke(context);if(!current())return;
         if(result.lookup){
           if(lookups>=2){result={kind:'question',text:'已经查过相关历史，但仍缺少能确认这件事的依据。你可以指出具体那次交流，或者我们先根据目前确定的信息讨论。'};break;}
-          const found=this.store.searchMemory(scope,result.lookup.query,{limit:24,before:result.lookup.before,after:result.lookup.after,types:result.lookup.types});
+          const requestedTurns=result.lookup.discussionTurnIds||[];
+          if(requestedTurns.length){
+            const ids=new Set(requestedTurns),originals=this.store.getCompanion(scope).turns.filter(item=>ids.has(item.id)&&!item.memoryExcluded);
+            if(originals.length!==ids.size)throw new Error('要取回的原讨论已经变化；输入已保留，请重新核对。');
+            retrievedDiscussion=[...new Map([...retrievedDiscussion,...originals].map(item=>[item.id,item])).values()];
+            sourceLookupIds=[...new Set([...sourceLookupIds,...originals.filter(item=>item.role==='user').map(item=>`private:${item.id}`)])];
+          }
+          const found=result.lookup.query?this.store.searchMemory(scope,result.lookup.query,{limit:24,before:result.lookup.before,after:result.lookup.after,types:result.lookup.types}):{sources:[],coverage:{retrieval:'exact-private-discussion-ids',complete:false}};
           retrievedSources=[...new Map([...retrievedSources,...found.sources].map(source=>[source.id,source])).values()];
-          lookupHistory.push({query:result.lookup.query,found:found.sources.length,coverage:found.coverage});query=result.lookup.query;
+          lookupHistory.push({query:result.lookup.query,found:found.sources.length,discussionTurns:requestedTurns.length,coverage:found.coverage});if(result.lookup.query)query=result.lookup.query;
           reviewRange={before:result.lookup.before,after:result.lookup.after,types:result.lookup.types};lookups++;continue;
         }
         if(result.actions?.length&&!actionsHandled&&!transient){
@@ -414,7 +474,17 @@ class Controller extends EventEmitter {
           receipts=[...applied.receipts,...applied.pendingActions.map(p=>({status:'pending',id:p.id,type:p.action.type,preview:p.preview,reason:p.reason}))];actionsHandled=true;
           // Proposals describe the exact evidence seen before the action. A
           // correction must never upgrade their provenance to its new revision.
-          if(receipts.some(receipt=>receipt.status==='applied')){relationshipProposals.length=0;experienceProposals.length=0;topicProposals.length=0;}
+          if(receipts.some(receipt=>receipt.status==='applied')){
+            relationshipProposals.length=0;experienceProposals.length=0;topicProposals.length=0;
+            // Old private request bodies and compacted-turn fingerprints cannot
+            // become dependencies of a response produced after source mutation.
+            // HTTP accounting remains in the independent task ledger.
+            capturedRequests.length=0;activeCompaction=null;this.discussionCompaction=null;
+            // An applied control creates a different source/goal binding. One
+            // new pass may be needed; actionsHandled and the task's HTTP cap
+            // bound this exception without reusing an obsolete checkpoint.
+            compactionAttempted=false;
+          }
           const forgotten=receipts.filter(r=>r.status==='applied'&&r.type==='forget');
           if(forgotten.length){
             this.store.markTurnControl(scope,turn.id);
@@ -476,7 +546,8 @@ class Controller extends EventEmitter {
         const saved=this.store.appendTurn(scope,{role:'assistant',kind:result.kind,text:result.text,requestId,suggestions:result.suggestions,
           sourceIds:context.manifest.sourceIds,expressionOptions,methodIds,actionReceipts:receipts,generationStages,
           artifactMetadata:{generationStages,goalVersion:companion.goal.version,inputSourceRefs:
-            [...new Map(capturedRequests.flatMap(request=>Object.entries(request.manifest?.sourceRevisions||{}))).entries()].filter(([sourceId])=>/^(qq|private|note):/.test(sourceId)).map(([sourceId,revision])=>({sourceId,revision})),model:settings.model,promptVersion:context.payload.promptVersion}});
+            [...new Map(capturedRequests.flatMap(request=>Object.entries({...request.manifest?.discussionCompaction?.sourceRevisions,...request.manifest?.sourceRevisions}))).entries()].filter(([sourceId])=>/^(qq|private|note):/.test(sourceId)).map(([sourceId,revision])=>({sourceId,revision})),
+            discussionTurnFingerprints:Object.assign({},...capturedRequests.map(request=>request.manifest?.discussionCompaction?.turnFingerprints||{})),model:settings.model,promptVersion:context.payload.promptVersion}});
         this.store.saveRun(scope,{id:requestId,baseRevision,purpose:context.payload.purpose,status:'complete',payload:context.payload,manifest:context.manifest,
           requests:capturedRequests,replyId:saved.id,patchReceipt,relationshipReceipt,topicReceipt,actionReceipts:receipts,
           maintenance:patchReceipt?.applied?(stagedReview?.result.statePatch?'applied':'reviewed_no_change'):patchReceipt?'rejected':'deferred'});

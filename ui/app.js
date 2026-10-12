@@ -5,6 +5,7 @@ if(suppliedToken)sessionStorage.setItem('qq-assistant-token',suppliedToken);
 const token=suppliedToken||sessionStorage.getItem('qq-assistant-token')||'';
 history.replaceState(null,'',location.pathname);
 let state=null,scopeKey='',lastAdvice='',polling=false,historyKey='',historyMessages=[],visibleCount=100,historyVersion='',loadingHistory=false,historyEpoch=0,imageSelection=[],imageBlobs=new Map(),localError='',consentKey='',replySelection=[];
+let nextPurpose='discussion',composerEditVersion=0;
 let assistantPending=false,assistantLocalError='',assistantThreadKey='',assistantNotesKey='',assistantStateKey='',goalVersion='',goalDirty=false,assistantContextVersion=0,draftMaterialIds=new Set(),draftOrigin=null;
 let actionPanelKey='',memorySearchVersion=0,memoryResultsRevision=null,selectedDiscussion=null;
 let memoryRetryPending=false;
@@ -35,7 +36,7 @@ for(const name of workspaceNames){
  };
 }
 function openDraft(){if(!$('draft-dialog').open)$('draft-dialog').showModal();$('draft').focus()}
-function attachDiscussionContext(text){const input=$('assistant-input');input.value=input.value.trim()?`${input.value}\n\n${text}`:text;showWorkspace('discussion',true)}
+function attachDiscussionContext(text){composerEditVersion++;const input=$('assistant-input');input.value=input.value.trim()?`${input.value}\n\n${text}`:text;showWorkspace('discussion',true)}
 function syncDraftIndicator(){$('draft-indicator').hidden=!$('draft').value.trim()}
 $('draft-button').onclick=openDraft;
 $('draft-close').onclick=()=>{checkpointDraft();$('draft-dialog').close();showWorkspace('discussion',true)};
@@ -186,6 +187,7 @@ function render(next) {
 }
 function resetCompanion(){
  feedbackPending=false;feedbackTaskId=null;feedbackRetryReady=false;feedbackSubmittedText=null;feedbackSavedId=null;$('feedback-text').readOnly=false;topicViewKey='';$('topic-direction').hidden=true;$('topic-direction').open=false;feedbackTargetRef=null;feedbackClientId=null;experienceViewKey='';relationshipViewKey='';guidanceEditVersion=null;experienceReviewTarget=null;experienceReviewClientId=null;$('experience-review-form').hidden=true;$('experience-guidance-form').hidden=true;$('relationship-view').replaceChildren();$('experiences-list').replaceChildren();$('experience-guidance').replaceChildren();
+ nextPurpose='discussion';composerEditVersion++;if(scopeKey){const savedPurpose=sessionStorage.getItem(`assistant-purpose:${scopeKey}`);if(['discussion','draft','review'].includes(savedPurpose))nextPurpose=savedPurpose;}syncAssistantPurpose();
  assistantPending=false;assistantLocalError='';assistantThreadKey='';assistantNotesKey='';assistantStateKey='';goalVersion='';goalDirty=false;draftMaterialIds.clear();assistantContextVersion++;
  $('assistant-tools').open=false;$('goal-editor').open=false;$('note-editor').open=false;actionPanelKey='';memorySearchVersion++;memoryResultsRevision=null;selectedDiscussion=null;memoryRetryPending=false;$('memory-retry-panel').hidden=true;$('memory-query').value='';$('memory-results').replaceChildren();$('memory-search-status').textContent='';$('pending-actions').replaceChildren();$('action-receipts').replaceChildren();
  $('assistant-input').value='';$('goal-input').value='';resetNoteForm();$('feedback-form').reset();$('feedback-form').hidden=true;
@@ -226,12 +228,30 @@ function adjustTopic(completed=false){
 }
 $('topic-adjust').onclick=()=>adjustTopic();$('topic-complete').onclick=()=>adjustTopic(true);
 $('topic-direction').ontoggle=()=>{if($('topic-direction').open){$('assistant-tools').open=false;$('draft-material-panel').open=false;}};
+function syncAssistantPurpose(){
+ const modes={discussion:['讨论','聊一聊'],draft:['组织表达','组织表达'],review:['回顾互动','回顾互动']};
+ if(!modes[nextPurpose])nextPurpose='discussion';$('assistant-mode-label').textContent=`帮助方式：${modes[nextPurpose][0]}`;
+ $('assistant-mode-label').title='选择下一次帮助方式；选择不会提交';$('assistant-send').textContent=`${modes[nextPurpose][1]} ↑`;
+ for(const [purpose,id]of Object.entries({discussion:'assistant-discussion',draft:'assistant-draft',review:'assistant-review'}))$(id).setAttribute('aria-checked',String(purpose===nextPurpose));
+}
+function selectNextPurpose(purpose,{focus=true,close=true}={}){
+ if(!['discussion','draft','review'].includes(purpose))return;nextPurpose=purpose;composerEditVersion++;
+ if(scopeKey)sessionStorage.setItem(`assistant-purpose:${scopeKey}`,purpose);
+ if(close)$('assistant-tools').open=false;syncAssistantPurpose();if(state)renderCompanion();if(focus)$('assistant-input').focus();
+}
+function compactionLabel(value){return {compacting:'正在整理较早的讨论…',reused:'已接上整理过的讨论',applied:'较早的讨论已整理',failed:'较早讨论整理未完成，原文仍保留'}[value?.phase]||''}
+function appendCompactionDetails(container,value,label='讨论整理'){
+ if(!value?.phase)return;const details=document.createElement('details');details.className='context-sources';details.dataset.kind='discussion-compaction';const summary=document.createElement('summary');summary.textContent=label;details.append(summary,paragraph(compactionLabel(value)));
+ if(Number.isSafeInteger(value.coveredTurns))details.append(paragraph(`涉及 ${value.coveredTurns} 条较早讨论。`,'muted'));
+ if(Number.isFinite(value.bytesBefore)&&Number.isFinite(value.bytesAfter))details.append(paragraph(`整理前后大小：${value.bytesBefore} → ${value.bytesAfter} 字节；这是字节统计，不是 token 数。`,'muted'));
+ container.append(details);
+}
 function renderCompanion(){
  const companion=state.companion||{},busy=assistantPending||state.assistantBusy,available=!!state.scope&&!!state.modelConsent;
  if(memoryResultsRevision!==null&&memoryResultsRevision!==companion.revision){memorySearchVersion++;memoryResultsRevision=null;$('memory-results').replaceChildren();$('memory-search-status').textContent='背景已有更新，可重新查找当前内容。'}
- for(const id of ['assistant-send','assistant-draft','assistant-review'])$(id).disabled=!available||busy;
+ $('assistant-send').disabled=!available||busy;for(const id of ['assistant-discussion','assistant-draft','assistant-review'])$(id).disabled=!state.scope;syncAssistantPurpose();
  $('assistant-context-button').disabled=!state.scope;$('assistant-input').disabled=!state.scope;
- $('assistant-status').textContent=!state.scope?'先在上方选择讨论对象':busy?'正在结合上下文思考…':!state.modelConsent?'请先允许当前会话使用模型':'私下讨论 · Ctrl + Enter 提交';$('generate').disabled=!available||busy||state.busy;
+ $('assistant-status').textContent=!state.scope?'先在上方选择讨论对象':busy?`${state.discussionCompaction?.phase==='compacting'?compactionLabel(state.discussionCompaction):['reused','applied'].includes(state.discussionCompaction?.phase)?`${compactionLabel(state.discussionCompaction)}，正在思考…`:'正在结合上下文思考…'} 下次：${({discussion:'讨论',draft:'组织表达',review:'回顾互动'})[nextPurpose]}`:!state.modelConsent?'请先允许当前会话使用模型':'私下讨论 · Ctrl + Enter 提交';$('generate').disabled=!available||busy||state.busy;
  companionError(assistantLocalError);
  renderMemoryStatus();renderActionPanels(companion);
  const turns=companion.turns||[],threadKey=JSON.stringify(turns);
@@ -252,7 +272,7 @@ function renderCompanion(){
     const card=document.createElement('div');card.className='expression-option';card.append(paragraph(choice.label||choice.intent||'一个可表达的方向'));
     card.append(button('用这个方向写',()=>{if(expected!==scopeKey||epoch!==historyEpoch)return;submitAssistant('draft',{text:$('assistant-input').value.trim()||'按选中的方向组织表达',selectedOption:{turnId:turn.id,index},sourceTurnIds:[turn.id]})},'secondary'));article.append(card);
    }
-   if(turn.role==='user')article.append(button('继续聊这段',()=>{if(expected!==scopeKey||epoch!==historyEpoch)return;selectedDiscussion=turn.id;$('assistant-input').placeholder='继续说说这段讨论里你想调整或表达的意思…';$('assistant-input').focus();$('assistant-status').textContent='这次会联系所选讨论继续；不会直接把整段私下内容写给她。'}));
+   if(turn.role==='user')article.append(button('继续聊这段',()=>{if(expected!==scopeKey||epoch!==historyEpoch)return;selectedDiscussion=turn.id;composerEditVersion++;$('assistant-input').placeholder='继续说说这段讨论里你想调整或表达的意思…';$('assistant-input').focus();$('assistant-status').textContent='这次会联系所选讨论继续；不会直接把整段私下内容写给她。'}));
    if(turn.method||turn.methodBasis||turn.methodIds?.length||turn.evidence||turn.sourceIds?.length){const details=document.createElement('details');details.className='method-basis';const title=document.createElement('summary');title.textContent='参考依据与帮助思路';details.append(title);
     for(const id of turn.methodIds||[]){const method=helpingMethods.get(id);if(!method)continue;details.append(paragraph(method.name,'state-heading'),paragraph(method.goalContribution));
      for(const evidence of method.evidence||[]){const row=paragraph(evidence.limit||'','muted');if(/^https?:\/\//.test(evidence.source||'')){const link=document.createElement('a');link.href=evidence.source;link.target='_blank';link.rel='noopener noreferrer';link.textContent='研究来源';row.append(document.createTextNode(' '),link)}details.append(row)}
@@ -394,17 +414,17 @@ function renderUsage(){
  if(schedule)fragment.append(paragraph(`后台：${schedule.pending||0} 条待整理${schedule.nextAt?` · 下次检查 ${new Date(schedule.nextAt).toLocaleTimeString('zh-CN')}`:''}`,'muted'));
  for(const task of state.requestUsage||[]){const card=document.createElement('details'),title=document.createElement('summary');title.textContent=`${task.origin==='maintenance'?'后台整理':task.origin==='auto'?'自动参考':'本次求助'} · ${task.attempts}/${task.limit} 次请求`;card.append(title,paragraph(`状态：${({complete:'完成',completed:'完成',failed:'未完成',running:'处理中',pending:'等待中'})[task.status]||task.status}`,'muted'));
   const usage=task.usage||{};card.append(paragraph(usage.totalTokens===null||usage.totalTokens===undefined?'服务未报告完整 token 用量。':`已报告 token：${usage.totalTokens}${usage.unreportedAttempts?'；部分请求用量未知。':''}`,'muted'));
-  for(const request of task.requests||[])card.append(paragraph(`${({discussion:'讨论',reply:'回应 QQ',draft_prepare:'整理拟表达内容',draft:'组织表达',review:'回顾',memory:'记忆整理'})[request.purpose]||request.purpose} · ${request.elapsedMs===null?'未完成':`${request.elapsedMs} 毫秒`}${request.errorCode?` · ${request.errorCode}`:''}`,'muted'));
+  for(const request of task.requests||[])card.append(paragraph(`${({discussion:'讨论',reply:'回应 QQ',draft_prepare:'整理拟表达内容',draft:'组织表达',review:'回顾',memory:'记忆整理',discussion_compaction:'较早讨论整理'})[request.purpose]||request.purpose} · ${request.elapsedMs===null?'未完成':`${request.elapsedMs} 毫秒`}${request.errorCode?` · ${request.errorCode}`:''}`,'muted'));
   fragment.append(card);
  }
  if(!(state.requestUsage||[]).length)fragment.append(paragraph('当前联系人还没有记录到模型请求。','muted'));$('request-usage').replaceChildren(fragment);
 }
 async function submitAssistant(purpose,options={}){
- if(assistantPending||state?.assistantBusy)return;const input=$('assistant-input'),original=input.value,epoch=historyEpoch;
+ if(assistantPending||state?.assistantBusy)return;const input=$('assistant-input'),original=input.value,epoch=historyEpoch,editVersion=composerEditVersion;
  const text=options.text||original.trim()||(purpose==='review'?'帮我回顾最近的互动，哪些有依据，哪些还不清楚？':'');
  if(!text){companionError(purpose==='draft'?'请先写下这次愿意向她表达的内容。':'可以先说一点近况或正在犹豫的事。');input.focus();return}
  $('assistant-tools').open=false;showWorkspace('discussion');assistantPending=true;renderCompanion();const result=await companionAction('/api/assistant',{...options,text,purpose,sourceTurnIds:options.sourceTurnIds||(selectedDiscussion?[selectedDiscussion]:[]),materialIds:purpose==='draft'?[...draftMaterialIds]:[]});
- if(epoch!==historyEpoch)return;assistantPending=false;if(result&&input.value===original){input.value='';selectedDiscussion=null;input.placeholder='直接说近况、想法或正在犹豫的事情…'}renderCompanion();
+ if(epoch!==historyEpoch)return;assistantPending=false;if(result&&input.value===original&&editVersion===composerEditVersion){input.value='';selectedDiscussion=null;input.placeholder='直接说近况、想法或正在犹豫的事情…'}renderCompanion();
 }
 function initializeCompanion(){
  $('draft-recover-legacy').onclick=()=>{if(!legacyDraftCandidate)return;adopt(legacyDraftCandidate);const legacy=`${state.scope.accountUid}/${state.scope.peerUid}`;localStorage.removeItem(`draft:${legacy}`);localStorage.removeItem(`draft-origin:${legacy}`);sessionStorage.removeItem(`draft:${legacy}`);legacyDraftCandidate=null;$('draft-recover-legacy').hidden=true};
@@ -414,8 +434,8 @@ function initializeCompanion(){
  $('experience-guidance-cancel').onclick=()=>{$('experience-guidance-form').hidden=true};
  $('experience-guidance-form').onsubmit=async event=>{event.preventDefault();const id=$('experience-guidance-id').value,text=$('experience-guidance-text').value.trim(),applicability=$('experience-guidance-when').value.trim(),epoch=historyEpoch;if(!text||!applicability)return;const result=await experienceAction('/api/experience-adaptation',{id,text,applicability,operation:'revise',expectedVersion:guidanceEditVersion});if(result&&epoch===historyEpoch)$('experience-guidance-form').hidden=true};
  $('memory-retry').onclick=async()=>{if(memoryRetryPending||!state.scope)return;const epoch=historyEpoch;memoryRetryPending=true;renderMemoryStatus();await companionAction('/api/memory-maintain',{});if(epoch!==historyEpoch)return;memoryRetryPending=false;renderMemoryStatus()};
- $('assistant-form').onsubmit=e=>{e.preventDefault();submitAssistant('discussion')};$('assistant-draft').onclick=()=>submitAssistant('draft');$('assistant-review').onclick=()=>submitAssistant('review');
- $('assistant-input').onkeydown=e=>{if((e.ctrlKey||e.metaKey)&&e.key==='Enter'){e.preventDefault();submitAssistant('discussion')}};
+ $('assistant-form').onsubmit=e=>{e.preventDefault();submitAssistant(nextPurpose)};for(const purpose of ['discussion','draft','review'])$('assistant-'+purpose).onclick=()=>selectNextPurpose(purpose);
+ $('assistant-input').oninput=()=>{composerEditVersion++};$('assistant-input').onkeydown=e=>{if((e.ctrlKey||e.metaKey)&&e.key==='Enter'){e.preventDefault();submitAssistant(nextPurpose)}};
  $('memory-search-form').onsubmit=async e=>{e.preventDefault();const query=$('memory-query').value.trim(),expected=scopeKey,epoch=historyEpoch,version=++memorySearchVersion;if(!query)return;
   $('memory-search-status').textContent='正在查找以前的交流…';
   try{const result=await(await api('/api/memory-search',{query,...scopeArgs()})).json();if(expected!==scopeKey||epoch!==historyEpoch||version!==memorySearchVersion)return;
@@ -457,6 +477,7 @@ function initializeCompanion(){
    $('assistant-context-records').replaceChildren();const run=data.run||data.latestRun||data.manifest&&data||null;
    $('assistant-context-summary').textContent=run?'以下是最近一次助手请求实际使用的参考内容，可核对哪些背景被采用。':'这个好友还没有可查看的助手请求。先开始一次讨论。';
    if(run){const container=$('assistant-context-records'),payload=run.payload||{},sources=payload.sources||[];
+    appendCompactionDetails(container,run.manifest?.discussionCompaction||run.discussionCompaction||state.discussionCompaction,run.manifest?.discussionCompaction||run.discussionCompaction?'本次讨论整理':'当前讨论整理状态');
     if(payload.goal)container.append(paragraph('关系目标','state-heading'),paragraph(payload.goal));
     if(payload.userRequest?.text)container.append(paragraph('这次想商量的事','state-heading'),paragraph(payload.userRequest.text));
     const sourceGroups=[['QQ 交流',sources.filter(source=>source.type==='qq')],['私下讨论与背景',sources.filter(source=>source.type!=='qq')],['这次用于表达的素材',payload.outboundQuotes||[]]];

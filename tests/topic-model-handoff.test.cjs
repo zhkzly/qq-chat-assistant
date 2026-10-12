@@ -160,7 +160,7 @@ test('bounded drafting repair retains guidance provenance and chosen image sourc
   const draft = buildDraftContext(prepared, plan, args);
   const images = [{ messageId: imageId, url: 'data:image/png;base64,iVBORw0KGgo=', bytes: 8, index: 0 }];
   draft.images = images; draft.manifest.images = images.map(({ url, ...metadata }) => metadata);
-  const calls = [], invalid = 'INVALID_' + '原响应需要完整修复。'.repeat(700);
+  const calls = [], invalid = 'INVALID_' + '原响应需要完整修复。'.repeat(1200);
   await assistModel(settings, draft, undefined, async (_, request) => {
     calls.push(request.body);
     return { ok: true, json: async () => ({ choices: [{ message: { content: calls.length === 1 ? invalid : JSON.stringify({ kind: 'draft', text: '参考表达', suggestions: [{ style: '自然', text: '周末有空一起散步吗？' }] }) } }] }) };

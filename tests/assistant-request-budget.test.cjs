@@ -30,7 +30,9 @@ for(const requestLimit of [64000,32000])test(`native-shaped long context fits th
 });
 for(const purpose of ['discussion','draft'])test(`${purpose} repair reselects optional context using its real envelope`,async t=>{
  const {args}=fixture(t),prepared=buildContext(args),context=purpose==='draft'?buildDraftContext(prepared,{quotes:[{sourceId:prepared.payload.userRequest.sourceId,text:args.turn.text}]},args):prepared;
- const invalid='INVALID_RESPONSE_'+('"\\\n原本的输出仍需完整修复。'.repeat(350)),calls=[];
+ // Final drafting now has a smaller phase-specific system prompt; apply enough
+ // malformed output pressure to exercise real reassembly for both phases.
+ const invalid='INVALID_RESPONSE_'+('"\\\n原本的输出仍需完整修复。'.repeat(purpose==='draft'?700:350)),calls=[];
  const answer=purpose==='draft'?{kind:'draft',text:'参考表达',suggestions:[{style:'自然',text:'我想多认识你一点。'}]}:{kind:'discussion',text:'先自然回应她实际提到的安排。'};
  await assistModel(args.settings,context,undefined,async(_,request)=>{calls.push(request.body);return ok(calls.length===1?invalid:JSON.stringify(answer));});
  assert.equal(calls.length,2);for(const body of calls)assert.ok(Buffer.byteLength(body)<=64000);

@@ -19,7 +19,7 @@ function captureHelperReload(resume) {
  const noteId=value('note-id'),note=(current?.companion?.notes||[]).find(n=>n.id===noteId);
  const active=document.activeElement,focus=['assistant-input','draft','goal-input','note-text','feedback-text','memory-query','experience-review-text','experience-guidance-text','experience-guidance-when'].includes(active?.id)?{id:active.id,start:active.selectionStart,end:active.selectionEnd}:null;
  const tab=typeof workspace==='string'&&['discussion','history','background'].includes(workspace)?workspace:'discussion';
- const saved={version:1,scope,instruction:value('instruction'),draft:value('draft'),draftOrigin:typeof draftOrigin==='undefined'?null:draftOrigin,
+ const saved={version:1,scope,nextPurpose:typeof nextPurpose==='undefined'?'discussion':nextPurpose,instruction:value('instruction'),draft:value('draft'),draftOrigin:typeof draftOrigin==='undefined'?null:draftOrigin,
   draftArtifactRefs:typeof draftArtifactRefs==='undefined'?[]:draftArtifactRefs,draftRevision:typeof draftRevision==='undefined'?null:draftRevision,
   draftDirty:typeof draftDirty!=='undefined'&&draftDirty,draftEditPending:typeof draftEditPending!=='undefined'&&draftEditPending,
   draftSyncBlocked:typeof draftSyncBlocked!=='undefined'&&draftSyncBlocked,
@@ -74,6 +74,7 @@ function restoreHelperReload() {
  if(!originValid&&el('draft-status'))el('draft-status').textContent='原参考来源已删除，未恢复关联草稿。';
  if(typeof syncDraftSafety==='function')syncDraftSafety();
  set('assistant-input',saved.privateInput);set('instruction',saved.instruction);
+ if(typeof selectNextPurpose==='function'&&['discussion','draft','review'].includes(saved.nextPurpose))selectNextPurpose(saved.nextPurpose,{focus:false,close:false});
  if(saved.goalDirty){set('goal-input',saved.goalDraft);if(typeof goalDirty!=='undefined')goalDirty=true;}
  const note=notes.find(n=>n.id===saved.noteId),noteCompatible=!saved.noteId||!!note&&note.version===saved.noteVersion;
  set('note-text',saved.noteText);set('note-id',noteCompatible?saved.noteId:'');set('note-use',saved.noteUse);
@@ -146,6 +147,7 @@ async function inspectHelperLayout() {
  const current=typeof state==='undefined'?null:state,tab=typeof workspace==='string'&&['discussion','history','background'].includes(workspace)?workspace:'legacy';
  return {helperPresent:true,privateDiscussion:!!el('assistant-form'),memorySearch:!!el('memory-search-form'),memoryStatus:!!el('memory-status'),goalEditor:!!el('goal-form'),pendingActions:!!el('pending-actions'),contextInspector:!!el('assistant-context-dialog'),
   privateInputEnabled:!!el('assistant-input')&&!el('assistant-input').disabled,actualRows:document.querySelectorAll('.message').length,qqSendActionExposed:false,activeTab:tab,
+  nextPurpose:typeof nextPurpose==='undefined'?null:nextPurpose,modeSelectorsEnabled:['assistant-discussion','assistant-draft','assistant-review'].every(id=>!!el(id)&&!el(id).disabled),
   composerVisibleWithinViewport:!modal&&within(el('assistant-form')),viewport:{width:innerWidth,height:innerHeight},
   pageOverflow:{horizontal:root.scrollWidth>root.clientWidth+1,vertical:root.scrollHeight>root.clientHeight+1,scrollWidth:root.scrollWidth,scrollHeight:root.scrollHeight,clientWidth:root.clientWidth,clientHeight:root.clientHeight},
   primaryPanelVisible:visible(primary),secondaryPanelVisible:visible(history)||visible(background),secondaryPanels:{history:visible(history),background:visible(background)},

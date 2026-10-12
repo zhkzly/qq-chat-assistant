@@ -33,17 +33,19 @@ test('incoming and manually sent events update selected context; unrelated and f
 });
 test('deferred model result from prior contact is discarded after switching', async () => {
   let resolve; const app = setup(() => new Promise(r => { resolve = r; }));
-  await app.controller.bind(scope.peerUin); await tick(); const generating = app.controller.suggest();
+  await app.controller.bind(scope.peerUin); await tick(); const generating = app.controller.suggest(); await tick();
+  assert.equal(typeof resolve, 'function', 'the request must reach the deferred model before switching');
   await app.controller.bind('2222222222'); await tick();
   resolve({ kind: 'discussion', text: 'old' }); await generating;
   assert.equal(app.controller.advice, null); assert.equal(app.controller.scope.peerUin, '2222222222'); app.close();
 });
 test('model results must match latest message revision and current user instruction', async () => {
   let resolve; const app = setup(() => new Promise(r => { resolve = r; }));
-  await app.controller.bind(scope.peerUin); await tick(); const first = app.controller.suggest();
+  await app.controller.bind(scope.peerUin); await tick(); const first = app.controller.suggest(); await tick();
+  assert.equal(typeof resolve, 'function');
   app.controller.live({ scope, messages: [raw('72057594037927940')] });
   resolve({ kind: 'discussion', text: 'stale' }); await first; assert.equal(app.controller.advice, null);
-  const second = app.controller.suggest(); app.controller.configure({ instruction: '更简短' });
+  resolve = undefined; const second = app.controller.suggest(); await tick(); assert.equal(typeof resolve, 'function'); app.controller.configure({ instruction: '更简短' });
   resolve({ kind: 'discussion', text: 'wrong instruction' }); await second; assert.equal(app.controller.advice, null); app.close();
 });
 test('history errors preserve partial records and surface an error, never claim EOF', async () => {

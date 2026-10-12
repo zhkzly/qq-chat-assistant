@@ -24,7 +24,7 @@ test('recent incoming burst is grouped and selected old targets remain in the un
 
 test('changing reply focus discards a pending answer and contact binding clears focus',async t=>{
  let finish;const {controller}=app(t,()=>new Promise(r=>{finish=r;}));
- const pending=controller.suggest();controller.configure({replyMessageIds:[records[0].messageId]});finish({kind:'discussion',text:'stale'});await pending;
+ const pending=controller.suggest();await new Promise(resolve=>setImmediate(resolve));assert.equal(typeof finish,'function');controller.configure({replyMessageIds:[records[0].messageId]});finish({kind:'discussion',text:'stale'});await pending;
  assert.equal(controller.advice,null);assert.deepEqual(controller.snapshot().replyFocus.messageIds,[records[0].messageId]);
  await controller.bind(scope.peerUin);assert.deepEqual(controller.snapshot().replyFocus.messageIds,[]);
 });
@@ -44,7 +44,7 @@ test('both unified model stages preserve exact selected targets as quoted data w
 
 test('changing selected images invalidates a pending unified request even before another request starts',async t=>{
  let finish;const {controller}=app(t,()=>new Promise(r=>{finish=r;}));
- const pending=controller.suggest();controller.configure({images:[{messageId:records[0].messageId,index:0}]});
+ const pending=controller.suggest();await new Promise(resolve=>setImmediate(resolve));assert.equal(typeof finish,'function');controller.configure({images:[{messageId:records[0].messageId,index:0}]});
  finish({kind:'discussion',text:'answer from an obsolete image selection'});await pending;assert.equal(controller.advice,null);
 });
 

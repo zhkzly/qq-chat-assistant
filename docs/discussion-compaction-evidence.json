@@ -1,0 +1,237 @@
+{
+  "date": "2026-10-12",
+  "phase": "candidate_verified_with_explicit_model_limitation",
+  "baseline": "8fa8dca",
+  "branch": "feature/discussion-compaction-20261012",
+  "promptVersion": "relationship-context-2026-10-12.18",
+  "memoryVersion": "relationship-memory-2026-10-12.6",
+  "goal": "Sustain private deliberation, current purpose and original expression references toward a mutually desired romantic relationship; keep the user responsible for actual QQ communication.",
+  "implementation": [
+    "automatic bounded source-grounded old-discussion compaction and persistent validated cache",
+    "exact original candidate continuity and original-turn lookup",
+    "current request, latest user correction and explicit feedback/material priority",
+    "same model/endpoint/consent with shared task HTTP accounting",
+    "busy local next-mode selection without implicit submission or input loss",
+    "typed non-executable Claude result envelopes, framing parser and one alternate-carrier format repair; source/phase validation remains mandatory"
+  ],
+  "functional": {
+    "passed": 325,
+    "failed": 0,
+    "files": 46,
+    "log": {
+      "path": "/tmp/qq-compaction-functional-18.log",
+      "sha256": "896487aab7b8562d251debd4aa657e6135acf9462cea2d625d8f83c567f75152"
+    },
+    "syntax": {
+      "path": "/tmp/qq-compaction-check-18.log",
+      "sha256": "4ae5c78fd2f268d3568be858c46680b9dfa17bbc499010ff4a9917daa226ab63"
+    },
+    "diffCheck": "passed",
+    "mutationCheck": "not required or run"
+  },
+  "browser": {
+    "checks": 40,
+    "realModelCalls": 0,
+    "nativeQQIntegration": false,
+    "reports": [
+      {
+        "path": "/tmp/qq-mode-evidence-KLI2v8/report.json",
+        "sha256": "aeca44c963458fa7cdafab8d1b717b7c2dd856f8af8446355421d9a80df220c0",
+        "checks": 4,
+        "result": "PASS"
+      },
+      {
+        "path": "/tmp/qq-direction-evidence-IY1l3j/report.json",
+        "sha256": "b40882cc65ce9d86e3294d5a79873dd577795a480a117bdaf68ae4ffe94fdce1",
+        "checks": 6,
+        "result": "PASS"
+      },
+      {
+        "path": "/tmp/qq-assistant-context-evidence-RWxTDS/report.json",
+        "sha256": "6d249da63a52d7238e4ed4ca42c066793a64212cec7dc6a68725b226c9c7bb70",
+        "checks": 22,
+        "result": "PASS"
+      },
+      {
+        "path": "/tmp/qq-experience-evidence-WOMC0j/report.json",
+        "sha256": "160577f00c63eeb030336842dca338ee0a32c5cf718babdd634539bb20bcfe16",
+        "checks": 8,
+        "result": "PASS"
+      }
+    ]
+  },
+  "syntheticReplay": {
+    "compaction": {
+      "path": "/tmp/qq-compaction-goal-18-synthetic.json",
+      "sha256": "68cdce5183439ccfd003e58d6a2bd85346c087ba6f49860f67818fb1a60742e4"
+    },
+    "direction": {
+      "path": "/tmp/qq-compaction-direction-release.json",
+      "sha256": "43729386b945a8038566ce46819696c2b14c7a7b469236272c331d85df6dcc81"
+    },
+    "legacy": {
+      "path": "/tmp/qq-compaction-legacy-release.json",
+      "sha256": "2462e926954dfb98551d460c1c9d28a7223a12717279ab4309ecc557b16ffbac"
+    },
+    "directionSteps": 7,
+    "legacyCases": 9,
+    "legacyChecks": 27,
+    "realModelCalls": 0,
+    "sourceBoundary": "compaction report is final source; direction/legacy reports precede prompt-only and Claude-carrier changes, which were covered by the final full functional suite"
+  },
+  "finalRealModelSynthetic": {
+    "actualHttpAttempts": 7,
+    "reports": [
+      {
+        "path": "/tmp/qq-compaction-goal-astra-18.json",
+        "sha256": "1f37fbb6fb938c2f2d670b42de9c7d027f16da0649abbd4f373f4dd4b6597e61",
+        "model": "gpt-6-astra",
+        "evidence": "live_model_synthetic_private_compaction_real_controller",
+        "promptVersion": "relationship-context-2026-10-12.18",
+        "actualHttpAttempts": 4,
+        "allHttp200": true,
+        "sameSourceHashesVerified": true,
+        "steps": [
+          {
+            "id": "compact-and-draft",
+            "status": "structural_checks_passed_semantic_review_required",
+            "httpAttempts": 3
+          },
+          {
+            "id": "reuse",
+            "status": "structural_checks_passed_semantic_review_required",
+            "httpAttempts": 1
+          }
+        ],
+        "privateFragment": {
+          "coveredTurns": 2,
+          "bytesBefore": 15683,
+          "bytesAfter": 1611,
+          "measurement": "selected old private fragment vs summary and literal quotes; not entire request or token ratio"
+        },
+        "taskAccounting": [
+          {
+            "status": "complete",
+            "attempts": 1,
+            "limit": 4
+          },
+          {
+            "status": "complete",
+            "attempts": 3,
+            "limit": 4
+          }
+        ],
+        "semanticReview": "The chosen people-vs-levels contrast remains gentle and complete in this known synthetic case."
+      },
+      {
+        "path": "/tmp/qq-compaction-goal-claude-18.json",
+        "sha256": "bb05205bc43a5aa37d57fff551024e9b871368cc50c2b1243b61a4fdb5ce0d51",
+        "model": "claude-sonnet-4-6",
+        "evidence": "live_model_synthetic_private_compaction_real_controller",
+        "promptVersion": "relationship-context-2026-10-12.18",
+        "actualHttpAttempts": 3,
+        "allHttp200": true,
+        "sameSourceHashesVerified": true,
+        "steps": [
+          {
+            "id": "compact-and-draft",
+            "status": "failed",
+            "httpAttempts": 3,
+            "error": "模型未能返回可用的结构化结果；响应不是合法 JSON；输入已保留，请重试或更换模型"
+          }
+        ],
+        "privateFragment": null,
+        "taskAccounting": [
+          {
+            "status": "failed",
+            "attempts": 3,
+            "limit": 4
+          }
+        ],
+        "semanticReview": "Preparation and the existing format repair failed schema/JSON validation; no draft or semantic pass is claimed."
+      }
+    ],
+    "realChatRead": false,
+    "qqMessagesSent": 0,
+    "romanticOutcomeVerified": false,
+    "scope": "two original synthetic turns with repetitive legal long assistant explanation, natural-language second-candidate reference and private-motive sentinel; not an unseen multi-topic or long-term benchmark"
+  },
+  "retainedNegativeEvidence": {
+    "reports": [
+      {
+        "path": "/tmp/qq-claude-format-live-baseline.json",
+        "sha256": "8960ac51e2f59aa6a54d1e06b365ee67b00236012fe47ea9a7b4dbd1a6d34942"
+      },
+      {
+        "path": "/tmp/qq-claude-format-live-fixed.json",
+        "sha256": "79d76441ee6740f453c91e5c1ffde34254c5bc54dbdacb495cb80cb08dcc9225"
+      },
+      {
+        "path": "/tmp/qq-compaction-goal-claude-release.json",
+        "sha256": "be0029bf472189fc8b012dbb53c29a14aad58e0ad83ef0a46c15c966f9be070e"
+      },
+      {
+        "path": "/tmp/qq-compaction-goal-claude-17.json",
+        "sha256": "579d16f234f785d023803827f1bfa4fa568dca6fdfb3c441abf5f6a2e3393a8d"
+      }
+    ],
+    "notes": [
+      "Earlier Claude JSON/tool and phase failures are retained, not converted into successes.",
+      "Claude .16 completed the engineering flow but changed gentle contrast to heavier personal judgment; naturalness did not pass.",
+      "Claude .17 and .18 preparation failed; no universal Claude compatibility or model ranking claim."
+    ]
+  },
+  "migration": {
+    "timestamp": "2026-10-12T14:01:09.486Z",
+    "evidence": "real_local_database_copied_and_migrated_in_isolated_private_copy",
+    "productionDatabaseModified": false,
+    "realModelCalls": 0,
+    "qqMessagesSent": 0,
+    "rawMessagesBefore": 809,
+    "rawMessagesAfter": 809,
+    "rawMessagesPreserved": true,
+    "integrity": "ok",
+    "schemaVersion": 1,
+    "scopes": [
+      {
+        "goalPreserved": true,
+        "notesPreserved": true,
+        "authoredInputsPreserved": true,
+        "notesBefore": 1,
+        "notesAfter": 1,
+        "privateTurnsBefore": 20,
+        "privateTurnsAfter": 20,
+        "feedbackBefore": 0,
+        "feedbackAfter": 1,
+        "typedPending": 1
+      }
+    ]
+  },
+  "settings": {
+    "changed": false,
+    "payloadByteBudget": 48000,
+    "completeTextRequestByteBudget": 64000,
+    "taskHttpLimit": 4,
+    "assistantOutputTokenLimit": 2200,
+    "verifiedInputTokenizer": false,
+    "modelSwitchAutomatic": false,
+    "newDataDestination": false,
+    "jevCalls": 0,
+    "researchUploaded": false
+  },
+  "independentReview": {
+    "storeController": "read-only review found no known concrete code release blocker; 30 focused checks passed; action barriers, source-binding retry and shared four-HTTP cap verified",
+    "modelCarrier": "read-only review found no release blocker; recommends preserving the explicit Claude limitation, not unproven prompt-surface expansion",
+    "semantic": "Astra retains known gentle contrast; Claude .16 heavier tone and later malformed results are retained as failures"
+  },
+  "boundaries": {
+    "originalsDeletedByCompaction": false,
+    "actualQQMessagesSentByAssistant": 0,
+    "realChatOrCredentialsArchived": false,
+    "semanticSummaryGuaranteedCorrect": false,
+    "arbitrarilyLargeProtectedInputsGuaranteedFit": false,
+    "desktopIntegrationVerified": false,
+    "romanticOutcomeVerified": false
+  },
+  "desktop": null
+}

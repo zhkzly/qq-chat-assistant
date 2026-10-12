@@ -2,6 +2,8 @@
 const { redact } = require('./model.cjs');
 const { createHash } = require('node:crypto');
 const { postModel, modelFailure } = require('./model-http.cjs');
+const { parseModelJson, readModelOutput } = require('./model-json.cjs');
+const { responseEnvelope } = require('./model-response-format.cjs');
 const { normalizeRelationshipPatch } = require('./relationship-schema.cjs');
 const { RELATIONSHIP_PROTOCOL } = require('./assistant-model.cjs');
 const MEMORY_VERSION='relationship-memory-2026-10-12.6';
@@ -17,7 +19,7 @@ ${RELATIONSHIP_PROTOCOL}
 Here sourceIds use only s#/c# aliases, existing ids use only m# aliases from the corresponding priorMemory array. A valid new typed example (only when s1 is an actual incoming message saying this) is {"claims":[{"subject":"contact","aspect":"recent_context","text":"She said she is busy with exams this week","assertionKind":"stated","epistemicStatus":"supported","sourceIds":["s1"]}],"events":[],"retire":[]}. Do not copy this example unless supported by the actual source.`;
 function parseJson(value) {
   if(typeof value==='string') {
-    try{value=JSON.parse(value.trim().replace(/^```(?:json)?\s*/i,'').replace(/\s*```$/,''));}
+    try{value=parseModelJson(value);}
     catch{throw new Error('Memory model returned invalid JSON; raw response was not retained');}
   }
   if(!value||typeof value!=='object'||Array.isArray(value))throw new Error('Memory model result must be an object');
@@ -105,7 +107,7 @@ function prepareMemoryRequest(settings,batch) {
   // Clone the outbound projection. Raw source text and revision hashes remain
   // unchanged in local storage and in the review transaction.
   const outbound=JSON.parse(JSON.stringify(payload,(_key,value)=>typeof value==='string'?redact(value):value));
-  const body={model:settings.model,stream:false,temperature:0.1,max_tokens:3600,response_format:{type:'json_object'},messages:[{role:'system',content:MEMORY_SYSTEM},{role:'user',content:JSON.stringify(outbound)}]};
+  const body={model:settings.model,stream:false,temperature:0.1,max_tokens:3600,...responseEnvelope(settings,'memory'),messages:[{role:'system',content:MEMORY_SYSTEM},{role:'user',content:JSON.stringify(outbound)}]};
   const serialized=JSON.stringify(body),budget=Math.max(8000,Math.min(240000,Number(settings.memoryInputBytes)||48000));
   return {serialized,bytes:Buffer.byteLength(serialized,'utf8'),budget,decode};
 }
@@ -136,10 +138,9 @@ async function consolidateMemory(settings,batch,signal,fetchImpl=fetch) {
   const timeout=AbortSignal.timeout(60000),boundedSignal=signal?AbortSignal.any([signal,timeout]):timeout;
   const {response}=await postModel(url,{method:'POST',signal:boundedSignal,headers:{'Content-Type':'application/json',...(settings.apiKey?{Authorization:`Bearer ${settings.apiKey}`}:{})},body:serialized},fetchImpl,undefined,settings.requestBudget);
   if(!response.ok)throw await modelFailure(response,'Memory model');
-  const json=await response.json(),content=json.choices?.[0]?.message?.content;
+  const json=await response.json();
   settings.requestBudget?.recordUsage(json.usage);
-  if(typeof content!=='string')throw new Error('Memory model returned no text');
-  return decode(content);
+  return decode(readModelOutput(json).text);
 }
 const running=new WeakMap();
 async function maintainMemory({store,scope,settings,model=consolidateMemory,signal,maxBatches=2,onProgress=()=>{},shouldContinue=()=>true,maxBytes=24000,batchLimit=32}) {
