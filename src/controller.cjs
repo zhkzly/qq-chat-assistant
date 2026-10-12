@@ -24,6 +24,7 @@ class Controller extends EventEmitter {
     this.memoryAbort = null; this.memoryTimer = null; this.memoryBusy = false; this.memoryRetryAfter = 0; this.memoryFailures=0;
     this.activeAssist=null;this.pendingAssist=null;this.assistantRetryTimer=null;
     this.usage=new TaskLedger(store);this.memoryLastActivityAt=0;this.memoryDraining=false;this.lastAutomaticFingerprint='';
+    this.feedbackContinuations=new Map();
   }
   updateStatus(status) {
     if (status.account?.uid !== this.status.account?.uid || status.phase !== 'ready') {
@@ -46,6 +47,7 @@ class Controller extends EventEmitter {
       memoryStatus: this.scope && this.store.memoryStatus ? { ...this.store.memoryStatus(this.scope), busy: this.memoryBusy } : null,
       relationship:this.scope&&this.store.relationshipView?this.store.relationshipView(this.scope,{limit:24}):null,
       experience:this.scope&&this.store.experiences?this.store.experiences.list(this.scope,{limit:8}):null,
+      topicContext:this.scope&&this.store.topicView?this.store.topicView(this.scope):null,
       requestUsage:this.scope?this.usage.recent(this.scope,8):[],maintenanceSchedule:this.scope?this.memorySchedule():null,
       activeModelProfileId: this.settings.activeModelProfileId, replyFocus: replyFocusFor(messages, this.replyMessageIds),
       instruction: this.instruction, auto: this.auto, model: this.settings.model, modelReady: this.modelReady, modelConsent:this.hasModelConsent(), modelBaseUrl:this.settings.baseUrl || '',imageSelection:this.selectedImages,modelVisionEnabled:!!this.settings.visionEnabled,imageConsent:!!(this.hasModelConsent()&&this.settings.realChatConsent?.allowImages),qqDraftFillAvailable:!!this.features.qqDraftFill };
@@ -204,6 +206,42 @@ class Controller extends EventEmitter {
     const feedback = this.store.addFeedback(scope, args);
     this.changedContext(); return feedback;
   }
+  async continueFeedback(args) {
+    const scope={...this.requireScope()};
+    if(typeof args.taskId!=='string'||!/^[A-Za-z0-9_-]{1,128}$/.test(args.taskId)||typeof args.clientEventId!=='string'||!args.clientEventId)
+      throw new Error('请使用当前反馈的请求标识继续商量');
+    const key=`${this.store.scopeKey(scope)}:${args.taskId}`;
+    const signature=fingerprint({scope,text:args.text,requestId:args.requestId,targetRef:args.targetRef,clientEventId:args.clientEventId});
+    const inFlight=this.feedbackContinuations.get(key);
+    if(inFlight){if(inFlight.signature!==signature)throw new Error('同一继续请求包含不同反馈内容');return inFlight.promise;}
+    const run=async()=>{
+      const oldTask=this.usage.db.prepare('SELECT scope_key FROM assistant_tasks WHERE id=?').get(args.taskId);
+      if(oldTask&&oldTask.scope_key!==this.store.scopeKey(scope))throw new Error('继续请求不属于当前会话');
+      const feedback=this.store.addFeedback(scope,args);
+      if(!this.store.memorySources(scope).some(source=>source.id===feedback.sourceId))throw new Error('这条反馈的来源已删除，请基于当前内容重新反馈');
+      const reference=this.store.getCompanion(scope).turns.find(turn=>turn.kind==='feedback_ref'&&turn.feedbackId===feedback.id);
+      if(!reference)throw new Error('反馈已保存，但缺少可继续参考的对象');
+      // An HTTP retry must not cancel the original request or turn the same
+      // local feedback into another independent factual source.
+      let existing=null;try{existing=this.usage.get(scope,args.taskId)}catch(error){if(error.code!=='task_scope_mismatch')throw error;}
+      if(!existing)this.changedContext();
+      const continuation={scope,feedbackId:feedback.id,turnId:reference.id,taskId:args.taskId,status:'in_progress'};
+      try {
+        const result=await this.assist({text:'结合我选中的这条反馈，继续商量并给出相应帮助。',purpose:'discussion',
+          sourceTurnIds:[reference.id],taskId:args.taskId,origin:'feedback',feedbackIntentId:feedback.id,privateKind:'feedback_continue'});
+        const task=this.usage.get(scope,args.taskId);
+        continuation.status=task.status==='complete'?'complete':task.status==='running'?'in_progress':'failed';
+        if(continuation.status==='failed')continuation.error=this.assistantError||'本次结果已失效，反馈仍保存在当前会话。';
+      }catch(error){
+        continuation.status=error.code==='task_already_exists'&&this.usage.get(scope,args.taskId).status==='running'?'in_progress':'failed';
+        continuation.error=error.message;
+      }
+      return {...this.snapshot(),feedbackContinuation:continuation};
+    };
+    const entry={signature,promise:null};this.feedbackContinuations.set(key,entry);
+    entry.promise=run().finally(()=>{if(this.feedbackContinuations.get(key)===entry)this.feedbackContinuations.delete(key)});
+    return entry.promise;
+  }
   experienceAction(operation,args) {
     const scope=this.requireScope(),engine=this.store.experiences;
     if(!engine)throw new Error('经验记录尚未就绪');
@@ -286,7 +324,7 @@ class Controller extends EventEmitter {
       if(this.memoryAbort===abort){this.memoryBusy=false;this.memoryAbort=null;this.changed();if(this.store.memoryStatus(scope).pending)this.scheduleMemory(2500);}
     }
   }
-  async assist({ text, purpose = 'discussion', materialIds = [], sourceTurnIds = [], selectedOption, transient = false, resumeTurnId, resumes=0, taskId, origin='user' } = {}) {
+  async assist({ text, purpose = 'discussion', materialIds = [], sourceTurnIds = [], selectedOption, transient = false, resumeTurnId, resumes=0, taskId, origin='user',feedbackIntentId,privateKind } = {}) {
     const scope = this.requireScope();
     if (!this.hasModelConsent()) throw new Error('请先允许当前会话使用配置的模型；私下资料与聊天记录目前仅在本机');
     if (typeof text !== 'string' || !text.trim() || text.length > 16000) throw new Error('请输入这次想商量或表达的内容（最多 16000 字）');
@@ -295,7 +333,7 @@ class Controller extends EventEmitter {
     if(selectedOption&&(!Number.isInteger(selectedOption.index)||typeof selectedOption.turnId!=='string'))throw new Error('表达方向不合法');
     if(this.selectedImages.length&&(!this.settings.visionEnabled||!this.settings.realChatConsent?.allowImages))throw new Error('所选图片需要启用视觉模型并明确允许图片发送');
     const budget=resumes>0&&taskId?this.usage.resume(scope,taskId):this.usage.create(scope,{id:taskId,
-      inputDigest:fingerprint({text,purpose,materialIds,sourceTurnIds,selectedOption,scope,model:this.settings.model,baseUrl:this.settings.baseUrl}),origin,limit:Number(this.settings.assistantRequestLimit)||4});
+      inputDigest:fingerprint({text,purpose,materialIds,sourceTurnIds,selectedOption,feedbackIntentId,scope,model:this.settings.model,baseUrl:this.settings.baseUrl}),origin,limit:Number(this.settings.assistantRequestLimit)||4});
     if(budget.reused&&!resumes){
       const previous=this.usage.get(scope,budget.id);
       if(previous.status==='complete')return this.store.getCompanion(scope).turns.find(turn=>turn.role==='assistant'&&turn.requestId===budget.id)||null;
@@ -307,8 +345,8 @@ class Controller extends EventEmitter {
     clearTimeout(this.timer);
     const prior=resumeTurnId&&this.store.getCompanion(scope).turns.find(t=>t.id===resumeTurnId&&t.role==='user'&&t.text===text);
     if(resumeTurnId&&!prior&&!transient)throw new Error('原来的问题已变化，请使用当前问题');
-    let turn = transient ? {id:requestId,role:'user',kind:purpose,text,transient:true} : prior||this.store.appendTurn(scope, { role: 'user', kind: purpose, text, requestId });
-    this.activeAssist={scope,turnId:turn.id,taskId:budget.id,resumes,args:{text,purpose,materialIds,sourceTurnIds,selectedOption,transient,origin}};
+    let turn = transient ? {id:requestId,role:'user',kind:purpose,text,transient:true} : prior||this.store.appendTurn(scope, { role: 'user', kind: privateKind||purpose, text, requestId });
+    this.activeAssist={scope,turnId:turn.id,taskId:budget.id,resumes,args:{text,purpose,materialIds,sourceTurnIds,selectedOption,transient,origin,feedbackIntentId,privateKind}};
     let companion = this.store.getCompanion(scope), baseRevision = companion.revision,baseGeneration=this.store.contextGeneration?.(scope);
     const epoch = this.epoch, revision = this.revision, settings = { ...this.settings };
     const binding = `${settings.baseUrl}\n${settings.model}\n${settings.activeModelProfileId || ''}`;
@@ -318,7 +356,7 @@ class Controller extends EventEmitter {
       this.store.getCompanion(scope).revision === baseRevision && (!this.store.contextGeneration||this.store.contextGeneration(scope)===baseGeneration);
     this.assistantBusy = true; this.assistantError = ''; this.changed();
     let context, receipts=[], actionsHandled=false, lookups=0, lookupHistory=[], retrievedSources=[], query=text, reviewRange;
-    const capturedRequests=[],relationshipProposals=[],experienceProposals=[];let stagedReview=null;
+    const capturedRequests=[],relationshipProposals=[],experienceProposals=[],topicProposals=[];let stagedReview=null;
     try {
       const records = this.store.messages(scope), coverage = this.store.coverage(scope);
       const images=this.selectedImages.map(item=>{
@@ -334,12 +372,16 @@ class Controller extends EventEmitter {
         const explicitFeedbackIds=sourceTurnIds.map(id=>companion.turns.find(t=>t.id===id)?.feedbackId).filter(Boolean);
         const experienceContext=this.store.experiences?.context(scope,{query,limit:4});
         if(experienceContext&&explicitFeedbackIds.length){const chosen=explicitFeedbackIds.map(id=>this.store.experiences.hydrateFeedback(scope,id)).filter(Boolean);experienceContext.evaluationTargets=[...new Map([...chosen,...experienceContext.evaluationTargets].map(target=>[target.feedback.id,target])).values()].slice(0,4);}
+        const topicContext=this.store.topicView?.(scope);
+        const intentSourceId=feedbackIntentId?`private:feedback-${feedbackIntentId}`:undefined;
+        if(intentSourceId&&!explicitFeedbackIds.includes(feedbackIntentId))throw new Error('本次反馈意图未绑定选中的反馈对象');
         const input=buildContext({ scope, records, companion, turn, purpose: purpose === 'draft' ? 'draft_prepare' : purpose,
           materialIds, coverage, requestId, settings, byteBudget: settings.assistantContextBytes || 48000,availableSources,memoryResult,
           memoryIndex:[...index.items,...index.episodes],retrievedSources,sourceTurnIds,selectedOption,replyMessageIds:[...this.replyMessageIds],imageMessageIds:images.map(image=>image.messageId),
           actionReceipts:receipts,lookupHistory,reviewRange,
           relationshipContext:this.store.relationshipView?.(scope,{query,limit:16}),
-          experienceContext,allowExperienceProposals:purpose==='review'||explicitFeedbackIds.length>0 });
+          experienceContext,allowExperienceProposals:purpose==='review'||explicitFeedbackIds.length>0,topicContext,intentSourceId,
+          generationOrigin:feedbackIntentId?'user_feedback':transient?'qq_observation':'private_discussion' });
         input.images=images.filter(image=>availableSources.some(s=>s.id===`qq:${image.messageId}`));input.manifest.images=input.images.map(({url,...metadata})=>metadata);return input;
       };
       const invoke=async(input)=>{
@@ -350,6 +392,7 @@ class Controller extends EventEmitter {
         input.manifest.methodTrace ||= {delivered:(input.payload.methodCards||[]).map(method=>({id:method.id,version:method.version})),reported:null};
         if(!input.extraRequests?.length)input.manifest.methodTrace.reported=Object.hasOwn(result,'methodIds')?[...result.methodIds]:null;
         if(resultInput.payload.purpose!=='draft'&&result.relationshipPatch)relationshipProposals.push({patch:result.relationshipPatch,manifest:resultInput.manifest});
+        if(resultInput.payload.purpose!=='draft'&&result.topicPatch)topicProposals.push({patch:result.topicPatch,context:resultInput});
         for(const proposal of result.experienceProposals||[])experienceProposals.push({proposal,payload:resultInput.payload,manifest:resultInput.manifest});
         capturedRequests.push({purpose:input.payload.purpose,manifest:input.manifest,payload:input.payload});
         if(input.extraRequests)capturedRequests.push(...input.extraRequests);
@@ -371,13 +414,13 @@ class Controller extends EventEmitter {
           receipts=[...applied.receipts,...applied.pendingActions.map(p=>({status:'pending',id:p.id,type:p.action.type,preview:p.preview,reason:p.reason}))];actionsHandled=true;
           // Proposals describe the exact evidence seen before the action. A
           // correction must never upgrade their provenance to its new revision.
-          if(receipts.some(receipt=>receipt.status==='applied')){relationshipProposals.length=0;experienceProposals.length=0;}
+          if(receipts.some(receipt=>receipt.status==='applied')){relationshipProposals.length=0;experienceProposals.length=0;topicProposals.length=0;}
           const forgotten=receipts.filter(r=>r.status==='applied'&&r.type==='forget');
           if(forgotten.length){
             this.store.markTurnControl(scope,turn.id);
             for(const receipt of forgotten)this.store.recordActionReceipt(scope,{...receipt,evidenceQuote:'用户明确要求不再使用此来源'});
             turn={...turn,memoryExcluded:true,text:'所选来源已从助手参考中移除。请简短确认，不复述已移除内容。'};
-            capturedRequests.length=0;relationshipProposals.length=0;experienceProposals.length=0;this.usage.redactInputs(scope);
+            capturedRequests.length=0;relationshipProposals.length=0;experienceProposals.length=0;topicProposals.length=0;this.usage.redactInputs(scope);
             receipts=forgotten.map(({undo,...r})=>({...r,evidenceQuote:'用户明确要求不再使用此来源'}));
           }
           baseRevision=this.store.getCompanion(scope).revision;baseGeneration=this.store.contextGeneration?.(scope);
@@ -399,9 +442,19 @@ class Controller extends EventEmitter {
       const methodIds=(result.methodIds||[]).filter(id=>methodFor(id));
       const generationStages=capturedRequests.filter(request=>request.manifest).map(request=>({stageId:request.manifest.stageId,purpose:request.purpose,
         deliveredMethodRefs:(request.manifest.methodTrace?.delivered||[]).map(method=>({methodId:method.id,version:method.version})),reportedUsedMethodRefs:request.manifest.methodTrace?.reported?.map(id=>({methodId:id,version:methodFor(id)?.version}))??null}));
-      let patchReceipt=null,relationshipReceipt=null;
+      let patchReceipt=null,relationshipReceipt=null,topicReceipt=null;
       const reply=this.store._atomic(()=>{
         if(!current())return null;
+        const topic=topicProposals.at(-1);
+        if(topic&&this.store.applyTopicPatch){
+          const manifest=topic.context.manifest,view=topic.context.payload.topicContext;
+          const actualSource=records.filter(record=>record.kind==='actual'&&!record.recalled&&manifest.sourceIds.includes(`qq:${record.messageId}`)).at(-1);
+          topicReceipt=this.store.applyTopicPatch(scope,topic.patch,{baseRevision,baseTopicVersion:view?.version??0,
+            activeId:view?.activeId??null,sourceIds:manifest.sourceIds,sourceRevisions:manifest.sourceRevisions,
+            currentSourceId:feedbackIntentId?`private:feedback-${feedbackIntentId}`:transient?actualSource&&`qq:${actualSource.messageId}`:`private:${turn.id}`,
+            currentFeedbackId:feedbackIntentId,origin:feedbackIntentId?'user_feedback':transient?'qq_observation':'private_discussion',requestId});
+          if(!topicReceipt.applied){const error=new Error(`这次交流方向未能安全更新：${topicReceipt.detail||topicReceipt.reason}；你的输入已保留。`);error.code='topic_patch_rejected';throw error;}
+        }
         if(relationshipProposals.length&&this.store.applyRelationshipPatch){
           const patch={claims:[],events:[],retire:[]},refs=new Map();
           for(const proposal of relationshipProposals){for(const key of ['claims','events','retire'])patch[key].push(...(proposal.patch[key]||[]));for(const [id,version]of Object.entries(proposal.manifest.sourceRevisions||{}))if(/^(qq|private|note):/.test(id))refs.set(id,version);}
@@ -425,7 +478,7 @@ class Controller extends EventEmitter {
           artifactMetadata:{generationStages,goalVersion:companion.goal.version,inputSourceRefs:
             [...new Map(capturedRequests.flatMap(request=>Object.entries(request.manifest?.sourceRevisions||{}))).entries()].filter(([sourceId])=>/^(qq|private|note):/.test(sourceId)).map(([sourceId,revision])=>({sourceId,revision})),model:settings.model,promptVersion:context.payload.promptVersion}});
         this.store.saveRun(scope,{id:requestId,baseRevision,purpose:context.payload.purpose,status:'complete',payload:context.payload,manifest:context.manifest,
-          requests:capturedRequests,replyId:saved.id,patchReceipt,relationshipReceipt,actionReceipts:receipts,
+          requests:capturedRequests,replyId:saved.id,patchReceipt,relationshipReceipt,topicReceipt,actionReceipts:receipts,
           maintenance:patchReceipt?.applied?(stagedReview?.result.statePatch?'applied':'reviewed_no_change'):patchReceipt?'rejected':'deferred'});
         this.usage.finish(scope,budget.id,'complete');return saved;
       });

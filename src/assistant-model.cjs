@@ -2,6 +2,8 @@
 const { methodFor } = require('./help-methods.cjs');
 const { postModel, modelFailure } = require('./model-http.cjs');
 const { normalizeRelationshipPatch, SUBJECTS, ASSERTIONS, EPISTEMIC, LIFECYCLES, EVENT_KINDS, ASPECTS } = require('./relationship-schema.cjs');
+const { normalizeTopicPatch, TOPIC_PROTOCOL } = require('./topic-schema.cjs');
+const { sourceClosure, isLocalFeedback } = require('./provenance.cjs');
 const RELATIONSHIP_PROTOCOL = `relationshipPatch is optional and contains only claims (at most 24), events (at most 12), and retire (at most 24), each an array. An empty patch is {"claims":[],"events":[],"retire":[]}.
 claims: {id?,expectedVersion?,subject,aspect,text,assertionKind,epistemicStatus,lifecycle?,validFrom?,validUntil?,context?,sourceIds,topicKeys?}. subject=${SUBJECTS.join('|')}; aspect=${ASPECTS.join('|')}; assertionKind=${ASSERTIONS.join('|')}; epistemicStatus=${EPISTEMIC.join('|')}; lifecycle=${LIFECYCLES.join('|')} (default active). Inferred claims must remain tentative, contested, or undetermined, never supported. observed requires actual QQ evidence; a private report of an event uses reported. stated means someone said it, not independent proof; contact+stated requires an actual incoming QQ source and only that contact evidence determines its date, not a user's later question. A user's interpretation or retelling of her words must be reported/inferred, never her stated feeling. Unknowns are not personality traits. stated_preference does not authorize changing user preferences.
 events: {id?,expectedVersion?,activityKey,eventKind,actor,text,occurredAt?,sourceIds,topicKeys?}. eventKind=${EVENT_KINDS.join('|')}; actor=self|contact|both|unknown. activityKey is a short, stable label for the same activity (up to 120 characters), not a relationship stage; use a new label for a genuinely new activity. Distinguish invitation, acceptance, reschedule, cancellation and occurred. A copied draft is none of these actual actions. User-reported activities stay reported; do not invent actual QQ messages.
@@ -11,8 +13,12 @@ const SYSTEM = `你是用户私下商量真实恋爱关系发展的助手。只�
 返回 JSON。普通输出格式：{"kind":"discussion","text":"给用户的简洁帮助","statePatch":{"focus":"当前卡点","items":[{"text":"有依据的必要背景","sourceIds":["qq:某个实际ID"]}],"openThreads":[],"unknowns":[]}}。
 kind 可以是 discussion/question/options/review。text 必须非空且不超过6000字符。statePatch 可省略；只保存有用的少量来源陈述，不能改 goal、权限、实际发送。items/openThreads 各最多16项，每项必须有实际来源 ID；助手输出不能作外部事实来源。openThreads 可有 status（open/resolved/cancelled）；unknowns 最多12项字符串。focus及每项文字最多1000字符。不要把心理推测存成事实。输出 patch 若存在，是当前少量相关条目的完整替换，不是无限追加。
 用户明确要给对方写话（或 purpose=draft_prepare/reply）时，先返回 {"draftPlan":{"quotes":[{"sourceId":"原始来源ID","text":"此次愿意表达的连续原文片段"}],"authorizationQuote":"当前用户授权使用旧背景的原话","style":"natural"}}。style 可 natural/short/casual；根据用户明确长期表达偏好选择，不把偏好内容当拟表达事实。当前请求、allowedMaterialIds 的近况、真实QQ可用。明确“就按刚才那个”等指代时，从已有原始用户来源取片段，用 authorizationQuote 绑定此次意图，无需让用户重抄。若采用 expressionOptions 可返回 option:{turnId,index}；selectedOption 是用户直接选定的方向。privateRestrictions 中的内容不能使用，先通过用户明确更改使用范围操作。单纯回应QQ可返回 quotes:[],intent:"reply"；不要复制对方经历成自己的经历。此时不直接生成稿，不把担忧、动机或禁止项写入片段。真正含糊且会扩大披露才返回 draftPlan.clarification。
-purpose=draft 时，输入已经只含拟表达片段和 QQ 语境。只返回 {"kind":"draft","text":"简短的表达方向","suggestions":[{"style":"自然","text":"一条可编辑参考表达"}]}，通常一条，最多三条。可自报methodIds:["compose"]；禁止输出draftPlan、statePatch、relationshipPatch、actions或expressionOptions。保持原意，不编造感情、经历或约定，不包含媒体占位。
+purpose=draft 时，输入只含拟表达片段、QQ语境与安全投影后的表达控制。只返回 {"kind":"draft","text":"简短的表达方向","suggestions":[{"style":"自然","text":"一条可编辑参考表达"}]}，通常一条，最多三条。可自报methodIds:["compose"]；禁止输出draftPlan、statePatch、relationshipPatch、topicPatch、actions或expressionOptions。保持原意，不编造感情、经历或约定，不包含媒体占位。draftingGuidance不是消息内容，不逐字写出控制说明；只有outboundQuotes和QQ中用户此次确实愿意表达的意思可成为成稿。
 拟表达计划还可指定 language（BCP47代码，如 zh/en/ja）、askFollowup/useEmoji 布尔值，承接用户明确的表达要求和长期偏好。默认不追加问题；只有一个紧贴对方具体内容且有必要的跟进时才设 askFollowup:true，不要用泛泛的“你最近忙什么”兜底。用户本来就想问的问题仍可表达。草稿遵循 presentation 与 replyFocus；指定旧消息是回复重点，但后来的明确取消/收尾仍要尊重。不要为了回应旧重点忽略最新限制。
+多轮讨论后的draftPlan还应携带guidance，把当前小目的、已商量的表达方式、适用的局部纠正和这一步交给成稿。格式：guidance:{objective?:{text,sourceIds},allowedApproach?:{text,sourceIds},avoidances?:[{text,sourceIds}],currentStep?:{text,sourceIds}}。每项text非空且最多400字符，avoidances最多8项，每项sourceIds为1至8个本次sources中的来源；每项至少有一个私下用户原话、当前request、规范feedback来源或明确表达偏好note，也可同时引用QQ作为背景。引用不是授权披露，不复制原始私下整段、长期goal、担忧、私人动机、禁止披露内容或助手分析；只短写安全的表达任务和用法，如“含蓄提出一起散步”“不追加无关连问”。局部反馈只用于其适用表达场景，不升级长期偏好。例：用户先想邀散步，再说意思含蓄些，之后“给具体一句”，guidance保留邀约目的和含蓄方式，而不是只有natural/askFollowup。若当前意思明确改为直接表达好感，guidance立即用新意思覆盖旧含蓄方式；askFollowup:false不禁止用户本来要表达的疑问、邀请或确认。
+单轮助手产出形式只放在本次guidance.currentStep和回答中，不存入持久topic.constraints。constraints只保留仍适用于该小目的的表达或相处限制。用户改为要稿时，沿用小目的和仍适用的限制，同时用topicPatch移除被当前请求取代的旧单轮产出限制、刷新操作性stage；不要让过期限制仅在最终guidance中被覆盖而仍留在topic。draftPlan附带的stage是成稿成功后才提交的拟状态，应描述参考表达待用户审核/选择，不宣称已在QQ发送、已邀请或对方已接受。草稿失败时程序不会提交这一状态。stage/unknowns可由本次已绑定intentQuote的私下任务来源支持，并以private_task_state标记；nonempty progress是外部进展，必须有明确observationSourceIds，不能由局部反馈、助手草稿或复制行为制造。空字段清理也须绑定当前用户或明确当前QQ观测，不能据此恢复关闭话题。
+本次topicPatch生效后仍有当前topic时，draftPlan.guidance不能省略必要交接：topic有objective则guidance.objective必需，有direction则allowedApproach必需，有仍适用的constraints则avoidances至少一项；各项仍须短写安全表达控制并绑定有效来源，不能盲复制私下topic或私人理由。当前patch明确清空的direction/constraints不要求对应控制；新create/resume按新有效topic判断，pause/complete/cancel后不强行承接已关闭方向。没有当前topic的直接引用成稿可沿用原格式。
+topicContext.active保存当前仍在讨论的小目的、方向、局部限制与进展，是私下控制，不是拟表达素材、她的意愿或固定关系阶段。最新明确用户意图优先于旧topicContext、focus和方法顺序。模糊“那给一句”承接尚有效的方向和纠正，不把模糊请求当新目的；明确转话题、改方向、暂缓或完成可用topicPatch更新，暂停/完成/取消的旧方向不能自动恢复。QQ可改变进展、可行性和未知，但不能替用户定义目的；助手的认同也不能把tentative理解变成user_stated。没有新意图或进展就省略topicPatch，不为填字段逼用户回答目的问卷。intentAuthority.sourceId是本次用户意图来源，反馈继续任务应引用该规范反馈原话而非程序生成的请求。topicPatch可和普通帮助或draftPlan一起返回，purpose=draft禁止更新。
 “我想分享做饭的事”不能代替具体发生过的事情。若缺少所分享经历的内容，只问会改变帮助的必要问题。用户明确说“我对她有好感，想多认识她，帮我说出来”已经给出了真实意图，可据此组织表达，不必编造欣赏细节或先填写资料；未来邀请也不要求过去已发生。不会因不同轮次反馈忘掉尚未解决的信息缺口。
 用户明确要求保存目标、近况、长期表达偏好、更正或忘记时，可以返回 actions 数组（最多8项），每项仅用 type/evidenceQuote/text/noteId/sourceId/targetQuote/use 字段。type 可 set_goal/save_note/update_note/set_preference/correct_source/forget。evidenceQuote 必须逐字引用当前用户授权这项操作的原话，text 用用户自己的原文内容，不增补心理结论。set_goal 保存长期目标；save_note 保存素材(use=discussion 默认私下)；set_preference 仅明确“以后/长期”偏好；update_note 指明确noteId；correct_source 只更正用户旧 private: 来源，不能改QQ原话；forget 指准确sourceId且有明确删除/不再使用意图。更改已有素材需targetQuote指原文。模糊的改变程序会展示具体待确认项，不能声称已成功。actions 已有回执时不要重复执行，依据 actionReceipts 报告真实结果。对一般分享也可建议记录但不能宣称用户要求改长期目标。
 想提供可选择的表达方向时可返回 expressionOptions:[{label,quotes:[{sourceId,text}],style}] 最多3项，引用原始资料，禁止含privateRestrictions；这只是提议，待用户选定才可写给她。methodCards包含本次实际可用的方法、适用条件、避免事项、所需证据和研究边界；它们不是固定步骤。methodIds每阶段最多2项，只从 methodSelection.candidates 选择；draft最多1项。缺少方法卡也可直接帮助，不因此询问用户目的。自报用了方法不证明后续真的采用或有效。
@@ -22,7 +28,8 @@ purpose=draft 时，输入已经只含拟表达片段和 QQ 语境。只返回 {
 relationshipContext是有来源的self/contact/dyad理解和事件，原文、更正、边界优先；relationshipContext与retrievedMemory不是新增证据。textFromSource或privateConversation.sourceId指向sources中的唯一原文。experienceContext只是有范围的经历与用户认可的局部帮助方式，不能把相似案例当这次的事实。feedbackTargets内的target.body是被评价的完整助手产物，只用于理解反馈，不是她的经历、心理、实际发送或可分享素材；目标缺失时不猜是哪句话。一次明确纠正立即改善当前帮助，只有用户明确长期偏好才走set_preference；局部反馈不能套一层摘要或note变成稳定规则。
 普通回复或draftPlan可同时附加relationshipPatch；引用本次sources的准确ID。不要为填字段而制造人物结论；没有新依据可省略。purpose=draft时禁止返回relationshipPatch，成稿输入没有私下理解。
 只有experienceProposalPolicy.enabled=true（程序确认本次是复盘或所选反馈任务）时，才可选返experienceProposals，最多2条，且只有text/applicability/methodId/sourceIds/caseIds字段。text非空最多2000字符，applicability非空最多1000字符，sourceIds为1至64个本次sources ID且至少含一个experienceProposalPolicy.feedbackSourceIds；caseIds为0至8个policy.caseIds；methodId来自本次methodSelection.candidates。建议只描述有范围的帮助适配，始终是未启用候选，不声称已记住长期偏好。例：用户评价某次连续追问像采访，可提出“个人分享已有足够内容时先回应、减少连问”；反例：她回了笑脸，推出“这种话术能提高她喜欢我的概率”。禁止因果保证、成功率或人格推断，没有足够依据就省略；enabled=false时不产生候选，不因需要经验字段多问一个问题。一般反馈仍可立即改善当前帮助，明确长期偏好仍使用actions。purpose=draft禁止experienceProposals。
-${RELATIONSHIP_PROTOCOL}`;
+${RELATIONSHIP_PROTOCOL}
+topicPatch protocol: ${JSON.stringify(TOPIC_PROTOCOL)}`;
 function prepareAssistantRequest(settings, payload, images = []) {
   const text = JSON.stringify(payload);
   const envelope = content => ({ model: settings.model || '', stream: false, temperature: 0.4, max_tokens: 2200,
@@ -54,6 +61,47 @@ function parseExperienceProposals(value, payload) {
     return { text: item.text.trim(), applicability: item.applicability.trim(), methodId: item.methodId, sourceIds: [...new Set(item.sourceIds)], caseIds: [...new Set(cases)] };
   });
 }
+function parseDraftGuidance(value, payload) {
+  if (value === undefined) return undefined;
+  if (!value || typeof value !== 'object' || Array.isArray(value) || Object.keys(value).some(key => !['objective','allowedApproach','avoidances','currentStep'].includes(key)))
+    throw new Error('draftPlan.guidance: only objective/allowedApproach/avoidances/currentStep are allowed');
+  const available = new Map((payload?.sources || []).map(source => [source.id, source]));
+  const parseItem = (item, path) => {
+    if (!item || typeof item !== 'object' || Array.isArray(item) || Object.keys(item).some(key => !['text','sourceIds'].includes(key)) ||
+      typeof item.text !== 'string' || !item.text.trim() || item.text.length > 400)
+      throw new Error(`${path}.text: use a short expression control of at most 400 characters, not private rationale or outbound material`);
+    if (!Array.isArray(item.sourceIds) || !item.sourceIds.length || item.sourceIds.length > 8 || item.sourceIds.some(id => typeof id !== 'string' || !available.has(id)) ||
+      !item.sourceIds.some(id => {
+        const source = available.get(id);
+        return ['private','request','feedback'].includes(source.type) && source.role === 'user' || source.type === 'note' && source.kind === 'preference';
+      })) throw new Error(`${path}.sourceIds: cite delivered private user/request/feedback or explicit preference sources; QQ alone and generated artifacts cannot establish user controls`);
+    return { text: item.text.trim(), sourceIds: [...new Set(item.sourceIds)] };
+  };
+  const result = {};
+  for (const key of ['objective','allowedApproach','currentStep']) if (value[key] !== undefined) result[key] = parseItem(value[key], `draftPlan.guidance.${key}`);
+  if (value.avoidances !== undefined) {
+    if (!Array.isArray(value.avoidances) || value.avoidances.length > 8) throw new Error('draftPlan.guidance.avoidances: use at most 8 local controls');
+    result.avoidances = value.avoidances.map((item, index) => parseItem(item, `draftPlan.guidance.avoidances[${index}]`));
+  }
+  return result;
+}
+function requireTopicGuidance(guidance, payload, patch) {
+  let effective = payload?.topicContext?.active || null;
+  if (patch?.operation === 'create') effective = { lifecycle: 'active', ...patch };
+  else if (patch && ['pause','complete','cancel'].includes(patch.operation)) effective = null;
+  else if (patch?.operation === 'resume') {
+    const prior = [payload?.topicContext?.active, ...(payload?.topicContext?.retained || [])].find(topic => topic?.id === patch.topicId);
+    effective = prior ? { ...prior, ...patch, lifecycle: 'active' } : null;
+  } else if (patch?.operation === 'update' && effective?.id === patch.topicId) effective = { ...effective, ...patch };
+  if (effective?.lifecycle !== 'active') return;
+  const required = [
+    [typeof effective.objective === 'string' && effective.objective.trim(), 'objective', !!guidance?.objective],
+    [typeof effective.direction === 'string' && effective.direction.trim(), 'allowedApproach', !!guidance?.allowedApproach],
+    [effective.constraints?.some(text => typeof text === 'string' && text.trim()), 'avoidances', !!guidance?.avoidances?.length]
+  ];
+  const missing = required.filter(([needed, _field, present]) => needed && !present).map(([_needed, field]) => `draftPlan.guidance.${field}`);
+  if (missing.length) throw new Error(`${missing.join(', ')}: the current effective topic requires these short source-bound expression controls; do not copy private topic text or rationale. Explicitly cleared fields and closed topics are not required.`);
+}
 function parseAssistant(value, purpose, input) {
   if (typeof value === 'string') value = JSON.parse(value.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, ''));
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('助手返回格式不正确');
@@ -81,13 +129,67 @@ function parseAssistant(value, purpose, input) {
     return { lookup: { query: q.query, before: q.before, after: q.after, types: q.types }, ...(reportedMethods ? { methodIds: reportedMethods } : {}) };
   }
   const extras = reportedMethods ? { methodIds: reportedMethods } : {};
-  if (purpose === 'draft') for (const field of ['relationshipPatch','statePatch','actions','draftPlan','expressionOptions','experienceProposals'])
+  if (purpose === 'draft') for (const field of ['relationshipPatch','topicPatch','statePatch','actions','draftPlan','expressionOptions','experienceProposals'])
     if (value[field] !== undefined) throw new Error(`${field}: 受限草稿阶段只返回表达，不更新私下状态或权限`);
   if (purpose !== 'draft') {
     if (value.actions !== undefined) { if (!Array.isArray(value.actions) || value.actions.length > 8) throw new Error('助手操作列表格式不正确'); extras.actions = value.actions; }
     if (value.expressionOptions !== undefined) extras.expressionOptions = value.expressionOptions;
     if (value.statePatch !== undefined) extras.statePatch = value.statePatch;
     if (value.experienceProposals !== undefined) extras.experienceProposals = parseExperienceProposals(value.experienceProposals, payload);
+    if (value.topicPatch !== undefined) {
+      extras.topicPatch = normalizeTopicPatch(value.topicPatch);
+      if (payload) {
+        const available = new Map((payload.sources || []).map(source => [source.id, source]));
+        for (const field of ['purposeSourceIds','observationSourceIds']) if ((extras.topicPatch[field] || []).some(id => !available.has(id)))
+          throw new Error(`topicPatch.${field}: cite only delivered source IDs`);
+        const intentId = payload.intentAuthority?.sourceId || payload.userRequest?.sourceId;
+        if (extras.topicPatch.intentQuote !== undefined && !available.get(intentId)?.text?.includes(extras.topicPatch.intentQuote))
+          throw new Error('topicPatch.intentQuote: quote the exact current intentAuthority source, not an assistant acknowledgment');
+        const topics = [payload.topicContext?.active, ...(payload.topicContext?.retained || [])].filter(Boolean);
+        if (extras.topicPatch.topicId && !topics.some(topic => topic.id === extras.topicPatch.topicId))
+          throw new Error('topicPatch.topicId: use an ID delivered in topicContext; create a new topic without an ID');
+        const patch = extras.topicPatch, prior = topics.find(topic => topic.id === patch.topicId);
+        if (prior && (patch.operation === 'update' && prior.lifecycle !== 'active' ||
+          patch.operation === 'resume' && prior.lifecycle === 'active' || ['pause','complete','cancel'].includes(patch.operation) && prior.lifecycle !== 'active'))
+          throw new Error('topicPatch.lifecycle: update/pause/complete/cancel require an active topic; a closed topic needs explicit resume, and an active topic cannot resume');
+        const changedPurpose = patch.operation === 'create' || ['objective','direction','constraints','interpretationStatus'].some(field =>
+          patch[field] !== undefined && JSON.stringify(patch[field]) !== JSON.stringify(prior?.[field]));
+        const privateTaskChange = ['stage','progress','unknowns'].some(field => patch[field] !== undefined) &&
+          (patch.purposeSourceIds?.length || patch.intentQuote !== undefined);
+        const qqCompletion = patch.operation === 'complete' && payload.generationOrigin === 'qq_observation' && available.get(intentId)?.type === 'request' &&
+          patch.observationSourceIds?.includes(payload.currentObservationSourceId) && !patch.purposeSourceIds?.length && patch.observationSourceIds?.length &&
+          patch.observationSourceIds.every(id => available.get(id)?.type === 'qq');
+        const privateChange = changedPurpose || patch.operation !== 'update' && !qqCompletion || privateTaskChange;
+        const directUser = source => source?.type === 'private' && source.role === 'user' ||
+          source?.type === 'feedback' && source.role === 'user' && source.kind === 'local' && !!source.canonicalFeedbackId;
+        if (privateChange && (!directUser(available.get(intentId)) || !patch.purposeSourceIds?.includes(intentId) ||
+          patch.purposeSourceIds.some(id => !directUser(available.get(id))) || !patch.intentQuote?.trim()))
+          throw new Error('topicPatch.purposeSourceIds/intentQuote: intent or lifecycle changes require the current direct private user authority and its exact quote; vague continuation needs no patch');
+        const observationsChanged = ['stage','progress','unknowns'].some(field => patch[field] !== undefined);
+        const nonemptyObservations = ['stage','progress','unknowns'].some(field => patch[field] !== undefined &&
+          (typeof patch[field] === 'string' ? !!patch[field].trim() : patch[field].length > 0));
+        const observationIds = patch.observationSourceIds || [];
+        if (observationsChanged || qqCompletion) {
+          if (payload.generationOrigin === 'qq_observation' && (!observationIds.includes(payload.currentObservationSourceId) ||
+            observationIds.some(id => available.get(id)?.type !== 'qq')))
+            throw new Error('topicPatch.observationSourceIds: QQ updates and clears require delivered current actual QQ evidence');
+          if (!observationIds.length && nonemptyObservations && (!privateChange || patch.progress?.length))
+            throw new Error('topicPatch.observationSourceIds: nonempty progress requires explicit evidence; stage/unknowns require current private purposeSourceIds and intentQuote');
+          if (!observationIds.length && !nonemptyObservations && !directUser(available.get(intentId)))
+            throw new Error('topicPatch.observationSourceIds: empty clears require current private user authority or explicit current QQ evidence');
+          if ((patch.stage?.trim() || patch.unknowns?.length) && observationIds.length && observationIds.every(id => directUser(available.get(id))) &&
+            (!directUser(available.get(intentId)) || !observationIds.includes(intentId)))
+            throw new Error('topicPatch.observationSourceIds: private stage/unknowns controls must include the current direct private intent source');
+          if (patch.progress?.length) {
+            let roots;
+            try { roots = sourceClosure(available, observationIds); }
+            catch (error) { throw new Error(`topicPatch.observationSourceIds: ${error.message}`); }
+            if (roots.some(source => isLocalFeedback(source) || source.kind === 'feedback_continue'))
+              throw new Error('topicPatch.observationSourceIds: nonempty external progress cannot use local feedback, its copies, or a generated continuation request as factual evidence');
+          }
+        } else if (observationIds.length) throw new Error('topicPatch.observationSourceIds: omit observation evidence when no stage/progress/unknowns is changed');
+      }
+    }
     if (value.relationshipPatch !== undefined) {
       extras.relationshipPatch = normalizeRelationshipPatch(value.relationshipPatch);
       if (payload) {
@@ -113,11 +215,13 @@ function parseAssistant(value, purpose, input) {
     const plan = value.draftPlan;
     if (typeof plan.clarification === 'string' && plan.clarification.trim() && plan.clarification.length <= 1000)
       return { ...extras, draftPlan: { clarification: plan.clarification } };
+    const guidance = parseDraftGuidance(plan.guidance, payload);
+    requireTopicGuidance(guidance, payload, extras.topicPatch);
     if (plan.option && typeof plan.option.turnId === 'string' && Number.isInteger(plan.option.index))
-      return { ...extras, draftPlan: { option: plan.option, authorizationQuote: plan.authorizationQuote, quotes: [], style: plan.style, language:plan.language,askFollowup:plan.askFollowup,useEmoji:plan.useEmoji } };
+      return { ...extras, draftPlan: { option: plan.option, authorizationQuote: plan.authorizationQuote, quotes: [], style: plan.style, language:plan.language,askFollowup:plan.askFollowup,useEmoji:plan.useEmoji, ...(guidance ? { guidance } : {}) } };
     if (!Array.isArray(plan.quotes) || (!plan.quotes.length && plan.intent !== 'reply') || plan.quotes.length > 8 ||
         plan.quotes.some(q => !q || typeof q.sourceId !== 'string' || typeof q.text !== 'string')) throw new Error('拟表达内容格式不正确');
-    return { ...extras, draftPlan: { quotes: plan.quotes, style: plan.style, intent: plan.intent, authorizationQuote: plan.authorizationQuote,language:plan.language,askFollowup:plan.askFollowup,useEmoji:plan.useEmoji } };
+    return { ...extras, draftPlan: { quotes: plan.quotes, style: plan.style, intent: plan.intent, authorizationQuote: plan.authorizationQuote,language:plan.language,askFollowup:plan.askFollowup,useEmoji:plan.useEmoji, ...(guidance ? { guidance } : {}) } };
   }
   const kinds = purpose === 'draft' ? ['draft','discussion','question'] : ['discussion', 'question', 'options', 'review', 'acknowledgment'];
   if (!kinds.includes(value.kind) || typeof value.text !== 'string' || !value.text.trim() || value.text.length > 6000)
@@ -191,4 +295,4 @@ async function assistModel(settings, context, signal, fetchImpl = fetch) {
     try{const result=parsed(content,trace,repairedInput.payload);if(repairedInput!==context)context.resultContext=repairedInput;return result;}catch(error){throw new Error(`模型未能返回可用的结构化结果；${error instanceof SyntaxError ? '响应不是合法 JSON' : error.message}；输入已保留，请重试或更换模型`);}
   }
 }
-module.exports = { assistModel, prepareAssistantRequest, parseAssistant, SYSTEM, RELATIONSHIP_PROTOCOL };
+module.exports = { assistModel, prepareAssistantRequest, parseAssistant, parseDraftGuidance, SYSTEM, RELATIONSHIP_PROTOCOL };

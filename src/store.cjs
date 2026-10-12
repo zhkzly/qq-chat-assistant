@@ -6,6 +6,7 @@ const { rank } = require('./memory-search.cjs');
 const { ExperienceStore } = require('./experience-store.cjs');
 const { assertPreferenceAuthority, sourceClosure } = require('./provenance.cjs');
 const { PROCESSOR_VERSION, prepareRelationshipPatch, writeRelationshipRecords, relationshipView } = require('./relationship-store.cjs');
+const { emptyTopics, pruneTopics, topicView, prepareTopicPatch } = require('./topic-store.cjs');
 const hash = value => createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const { DatabaseSync } = require('node:sqlite');
 const {publicRecord}=require('./media.cjs');
@@ -28,7 +29,7 @@ function sourceList(value, name = 'sourceIds') {
 function emptyState(version = 0) {
   return { version, focus: '', items: [], openThreads: [], unknowns: [], possiblyStale: true, coverage: { complete: false, sourceIds: [] } };
 }
-function emptyCompanion() { return { revision: 0, goal: { text: '', version: 0 }, notes: [], turns: [], state: emptyState(), runs: [], feedback: [], pendingActions: [], actionReceipts: [] }; }
+function emptyCompanion() { return { revision: 0, goal: { text: '', version: 0 }, notes: [], turns: [], state: emptyState(), topics: emptyTopics(), runs: [], feedback: [], pendingActions: [], actionReceipts: [] }; }
 function changedSource(record, invalidate = false) {
   record.revision++;
   if (invalidate) {
@@ -123,6 +124,7 @@ class Store {
       if(this.experiences.materializeLegacyArtifacts(scope,record))this.db.prepare('INSERT INTO companion VALUES(?,?) ON CONFLICT(scope_key) DO UPDATE SET record=excluded.record').run(scopeKey(scope),this._serializeCompanion(record));
       record.feedback=this.experiences.listFeedback(scope);
       for(const turn of record.turns)if(turn.kind==='feedback_ref'&&turn.feedbackId){const f=record.feedback.find(f=>f.id===turn.feedbackId);turn.text=f?`对助手建议的反馈：${f.text}`:'已移除的反馈';}
+      if(record.topics.items.length&&pruneTopics(record,this._rawMemorySources(scope,record)))this.db.prepare('INSERT INTO companion VALUES(?,?) ON CONFLICT(scope_key) DO UPDATE SET record=excluded.record').run(scopeKey(scope),this._serializeCompanion(record));
       return record;
     });
   }
@@ -167,7 +169,7 @@ class Store {
     const row=this.db.prepare('SELECT record FROM companion WHERE scope_key=?').get(scopeKey(scope));
     const record=row?JSON.parse(row.record):emptyCompanion();
     const memory=this.db.prepare('SELECT version FROM memory_meta WHERE scope_key=?').get(scopeKey(scope));
-    return `${record.revision||0}:${record.state?.version||0}:${memory?.version||0}`;
+    return `${record.revision||0}:${record.state?.version||0}:${memory?.version||0}:${record.topics?.version||0}`;
   }
   _atomic(fn) {
     const owns=!this.db.isTransaction;
@@ -200,6 +202,8 @@ class Store {
         if(metadata.evidenceSourceIds) { record.goal.evidenceSourceIds=sourceList(metadata.evidenceSourceIds);if(record.goal.evidenceSourceIds.some(id=>!this._sourceIds(scope,record).has(id)))throw new Error('Invalid goal source');record.goal.evidenceRevisions=Object.fromEntries(this._rawMemorySources(scope,record).filter(s=>record.goal.evidenceSourceIds.includes(s.id)).map(s=>[s.id,s.revision])); }
         // A changed aim invalidates the plan, not the user's conversation history.
         changedSource(record);record.state=emptyState(record.state.version+1);record.runs=[];
+        const active=record.topics.items.find(topic=>topic.id===record.topics.activeId&&topic.lifecycle==='active');
+        if(active){active.lifecycle='paused';active.version++;active.updatedAt=new Date().toISOString();active.lifecycleEvidenceStatus='goal_changed_needs_review';active.lifecycleSourceIds=[];active.lifecycleSourceRevisions={};record.topics.activeId=null;record.topics.version++;}
         record.pendingActions=record.pendingActions.filter(action=>action.action?.type!=='set_goal');
         this._writeCompanion(scope, record);
       }
@@ -318,6 +322,22 @@ class Store {
     return this._atomic(()=>{const record=this.getCompanion(scope);changedSource(record);this._writeCompanion(scope,record);return record.revision;});
   }
   relationshipView(scope, options={}) { return relationshipView(this,scope,options); }
+  topicView(scope) {
+    return this._atomic(()=>topicView(scope,this.getCompanion(scope).topics));
+  }
+  applyTopicPatch(scope,patch,options={}) {
+    try{return this._atomic(()=>{
+      const record=this.getCompanion(scope),key=scopeKey(scope);
+      const reject=reason=>({applied:false,reason,revision:record.revision,topicVersion:record.topics.version,version:record.topics.version,activeId:record.topics.activeId});
+      if(options.scopeKey!==undefined&&options.scopeKey!==key)return reject('wrong_scope');
+      if(!Number.isSafeInteger(options.baseRevision)||options.baseRevision!==record.revision)return reject('stale_revision');
+      if(!Number.isSafeInteger(options.baseTopicVersion)||options.baseTopicVersion!==record.topics.version)return reject('stale_topic_version');
+      if(Object.hasOwn(options,'activeId')&&options.activeId!==record.topics.activeId)return reject('stale_active_topic');
+      const checked=prepareTopicPatch(record,this._rawMemorySources(scope,record),patch,options);
+      if(checked.changes){record.topics=checked.topics;this._writeCompanion(scope,record);}
+      return {applied:true,changes:checked.changes,topicId:checked.topicId,revision:record.revision,topicVersion:record.topics.version,version:record.topics.version,activeId:record.topics.activeId};
+    });}catch(error){return {applied:false,reason:'invalid_topic_patch',detail:error.message};}
+  }
   correctRelationshipClaim(scope, {id,expectedVersion,text,operation}={}) {
     try{return this._atomic(()=>{
       identifier(id,'claim id');if(!['correct','withdraw'].includes(operation))throw new Error('Unknown claim correction operation');
@@ -438,6 +458,7 @@ class Store {
       const count=record.notes.length;record.notes=record.notes.filter(valid);removed=count!==record.notes.length;
       if(!valid(record.goal))record.goal={text:'',version:record.goal.version+1};
     }
+    if(record.topics.items.length)pruneTopics(record,this._rawMemorySources(scope,record));
   }
   _rawMemorySources(scope, record=this.getCompanion(scope)) {
     record={...emptyCompanion(),...record};
@@ -455,13 +476,13 @@ class Store {
     // can itself support a note. Resolve this finite dependency chain in the same
     // transaction before any caller can observe or index a surviving copy.
     const bound=record.notes.length+this.experiences.listFeedback(scope).length+4;
-    const notesBefore=JSON.stringify(record.notes),goalBefore=JSON.stringify(record.goal),turnsBefore=JSON.stringify(record.turns);
+    const notesBefore=JSON.stringify(record.notes),goalBefore=JSON.stringify(record.goal),turnsBefore=JSON.stringify(record.turns),topicsBefore=JSON.stringify(record.topics);
     let live=[];
     for(let pass=0;pass<bound;pass++){
       this._pruneProvenance(scope,record);
       const result=this._syncMemoryPass(scope,record);live=result.live;
       if(!result.changed){
-        if(notesBefore!==JSON.stringify(record.notes)||goalBefore!==JSON.stringify(record.goal)||turnsBefore!==JSON.stringify(record.turns))this.db.prepare('INSERT INTO companion VALUES(?,?) ON CONFLICT(scope_key) DO UPDATE SET record=excluded.record').run(scopeKey(scope),this._serializeCompanion(record));
+        if(notesBefore!==JSON.stringify(record.notes)||goalBefore!==JSON.stringify(record.goal)||turnsBefore!==JSON.stringify(record.turns)||topicsBefore!==JSON.stringify(record.topics))this.db.prepare('INSERT INTO companion VALUES(?,?) ON CONFLICT(scope_key) DO UPDATE SET record=excluded.record').run(scopeKey(scope),this._serializeCompanion(record));
         return live;
       }
     }

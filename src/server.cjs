@@ -65,7 +65,7 @@ function createServer({ controller, token, uiDir, saveSettings, fillDraft, inspe
       }
       if (request.method === 'GET' && url.pathname === '/api/context') return json(response,200,controller.assistantContext());
       if (request.method === 'GET' && url.pathname === '/api/health') return json(response,200,{
-        version:'relationship-learning-2026-10-12.2',unifiedContext:true,persistentMemory:true,relationshipLearning:true,requestAccounting:true,
+        version:'conversation-direction-2026-10-12.1',unifiedContext:true,persistentMemory:true,relationshipLearning:true,requestAccounting:true,topicContinuity:true,
         promptVersion:PROMPT_VERSION,memoryVersion:MEMORY_VERSION,
         authenticated:controller.status.phase==='ready',selected:!!controller.scope,
         memoryConfigured:!!controller.memoryModel,qqMessagesSentByAssistant:0});
@@ -77,7 +77,7 @@ function createServer({ controller, token, uiDir, saveSettings, fillDraft, inspe
       }
       if (request.method !== 'POST') return json(response, 404, { error: 'Unknown read-only assistant route' });
       const args = await body(request);
-      const relationshipRoutes=['/api/interaction-events','/api/experience-link','/api/experience-review','/api/experience-adaptation','/api/feedback-context','/api/claim-action'];
+      const relationshipRoutes=['/api/interaction-events','/api/experience-link','/api/experience-review','/api/experience-adaptation','/api/feedback-context','/api/claim-action','/api/feedback-continue'];
       if (['/api/assistant', '/api/goal', '/api/note', '/api/note-delete', '/api/turn-delete', '/api/feedback','/api/confirm-action','/api/undo-action','/api/memory-search','/api/memory-maintain',...relationshipRoutes].includes(url.pathname) &&
           (!controller.scope || args.accountUid !== controller.scope.accountUid || args.peerUid !== controller.scope.peerUid ||
            ['accountUin','peerUin'].some(field=>(relationshipRoutes.includes(url.pathname)||Object.hasOwn(args,field))&&args[field]!==controller.scope[field])))
@@ -91,6 +91,7 @@ function createServer({ controller, token, uiDir, saveSettings, fillDraft, inspe
         case '/api/note-delete': controller.deleteNote(args.id); break;
         case '/api/turn-delete': controller.deleteTurn(args.id); break;
         case '/api/feedback': controller.addFeedback({ requestId: args.requestId, text: args.text, targetRef:args.targetRef,clientEventId:args.clientEventId }); break;
+        case '/api/feedback-continue': return json(response,200,await controller.continueFeedback({requestId:args.requestId,text:args.text,targetRef:args.targetRef,clientEventId:args.clientEventId,taskId:args.taskId}));
         case '/api/confirm-action': controller.confirmAction(args.id,args.decision); break;
         case '/api/undo-action': controller.undoAction(args.id); break;
         case '/api/memory-search': return json(response,200,{scope:controller.scope,...controller.searchMemory(args.query||'',{limit:24,before:args.before,after:args.after,types:args.types})});

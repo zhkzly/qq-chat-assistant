@@ -8,7 +8,7 @@ function captureHelperReload(resume) {
  if(el('settings')?.open)return {blocked:true,reason:'settings_open',message:'请先保存或取消并关闭模型设置，再刷新助手；未读取或丢弃 API 表单。'};
  const peer=current?.scope?.peerUin||'',contact=el('qq-number')?.value?.trim()||'';
  if(contact!==peer)return {blocked:true,reason:'pending_contact_input',message:'好友输入框有尚未确认的更改，请先连接该好友或恢复当前号码，再刷新助手。'};
- if(current?.busy||current?.assistantBusy||typeof assistantPending!=='undefined'&&assistantPending)
+ if(current?.busy||current?.assistantBusy||typeof assistantPending!=='undefined'&&assistantPending||typeof feedbackPending!=='undefined'&&feedbackPending)
   return {blocked:true,reason:'assistant_request_pending',message:'助手请求仍在进行，请等待结束后刷新，避免丢失尚未完成的输入状态。'};
  const prior=sessionStorage.getItem(key);
  if(resume)return prior?{captured:true,resume:true}:{blocked:true,reason:'no_pending_recovery',message:'没有待恢复的助手输入。'};
@@ -28,13 +28,14 @@ function captureHelperReload(resume) {
   feedbackText:value('feedback-text'),feedbackRequestId:value('feedback-request-id'),feedbackOpen:!!el('feedback-form')&&!el('feedback-form').hidden,
   feedbackTargetRef:typeof feedbackTargetRef==='undefined'?null:feedbackTargetRef,feedbackClientId:typeof feedbackClientId==='undefined'?null:feedbackClientId,
   feedbackTargetPreview:el('feedback-target-preview')?.textContent||'',
+  feedbackSavedId:typeof feedbackSavedId==='undefined'?null:feedbackSavedId,feedbackTaskId:typeof feedbackTaskId==='undefined'?null:feedbackTaskId,feedbackRetryReady:typeof feedbackRetryReady!=='undefined'&&feedbackRetryReady,feedbackSubmittedText:typeof feedbackSubmittedText==='undefined'?null:feedbackSubmittedText,
   experienceReview:{caseId:value('experience-review-id'),text:value('experience-review-text'),open:!!el('experience-review-form')&&!el('experience-review-form').hidden,target:typeof experienceReviewTarget==='undefined'?null:experienceReviewTarget,clientEventId:typeof experienceReviewClientId==='undefined'?null:experienceReviewClientId},
   experienceGuidance:{id:value('experience-guidance-id'),text:value('experience-guidance-text'),applicability:value('experience-guidance-when'),open:!!el('experience-guidance-form')&&!el('experience-guidance-form').hidden,expectedVersion:typeof guidanceEditVersion==='undefined'?null:guidanceEditVersion},
   memoryQuery:value('memory-query'),selectedDiscussion:typeof selectedDiscussion==='undefined'?null:selectedDiscussion,
   draftMaterialIds:typeof draftMaterialIds==='undefined'?[]:[...draftMaterialIds],activeTab:tab,
   draftDialogOpen:!!el('draft-dialog')?.open,contactDialogOpen:!!el('contact-dialog')?.open,
   closedReadOnlyInspector:!!(el('context-dialog')?.open||el('assistant-context-dialog')?.open),
-  details:Object.fromEntries(['assistant-tools','goal-editor','note-editor','draft-material-panel','experiences-panel','experience-guidance-panel'].map(id=>[id,!!el(id)?.open])),
+  details:Object.fromEntries(['topic-direction','assistant-tools','goal-editor','note-editor','draft-material-panel','experiences-panel','experience-guidance-panel'].map(id=>[id,!!el(id)?.open])),
   visibleCount:typeof visibleCount==='undefined'?100:visibleCount,
   scroll:{window:{x:scrollX,y:scrollY},discussion:position('conversation-scroll')||position('assistant-thread'),history:position('history'),background:position('panel-background'),draft:position('draft'),
    discussionSaved:typeof discussionScroll==='undefined'?null:discussionScroll,historySaved:typeof qqScroll==='undefined'?null:qqScroll},focus};
@@ -79,17 +80,24 @@ function restoreHelperReload() {
  if(el('note-cancel'))el('note-cancel').hidden=!noteCompatible||!saved.noteId;
  if(el('note-save'))el('note-save').textContent=noteCompatible&&saved.noteId?'保存修改':'保存近况';
  const feedbackArtifact=saved.feedbackTargetRef?.kind==='artifact'?(state.experience?.artifactStates||[]).find(item=>item.ref.artifactId===saved.feedbackTargetRef.artifactRef?.artifactId&&item.ref.version===saved.feedbackTargetRef.artifactRef?.version):null;
- const feedbackCompatible=feedbackArtifact?feedbackArtifact.availability!=='redacted':!saved.feedbackRequestId||turns.some(turn=>turn.requestId===saved.feedbackRequestId);
+ const feedbackSourceGone=!!saved.feedbackSavedId&&!(state.companion?.feedback||[]).some(item=>item.id===saved.feedbackSavedId);
+ const feedbackForgotten=feedbackSourceGone||feedbackArtifact?.availability==='redacted';
+ const feedbackCompatible=!feedbackForgotten&&(feedbackArtifact?feedbackArtifact.availability!=='redacted':!saved.feedbackRequestId||turns.some(turn=>turn.requestId===saved.feedbackRequestId));
  if(typeof feedbackTargetRef!=='undefined')feedbackTargetRef=feedbackCompatible?saved.feedbackTargetRef||null:null;
  if(typeof feedbackClientId!=='undefined')feedbackClientId=feedbackCompatible?saved.feedbackClientId||null:null;
+ if(typeof feedbackSavedId!=='undefined')feedbackSavedId=feedbackCompatible?saved.feedbackSavedId||null:null;
+ if(typeof feedbackTaskId!=='undefined')feedbackTaskId=feedbackCompatible?saved.feedbackTaskId||null:null;
+ if(typeof feedbackRetryReady!=='undefined')feedbackRetryReady=feedbackCompatible&&!!saved.feedbackRetryReady;
+ if(typeof feedbackSubmittedText!=='undefined')feedbackSubmittedText=feedbackCompatible?saved.feedbackSubmittedText??null:null;
  if(el('feedback-target-preview'))el('feedback-target-preview').textContent=feedbackCompatible?saved.feedbackTargetPreview||'':'';
- if(current&&saved.feedbackTargetRef&&feedbackCompatible){const scoped=JSON.stringify(fields.map(k=>current[k]));sessionStorage.setItem(`feedback-target:${scoped}`,JSON.stringify({targetRef:saved.feedbackTargetRef,requestId:saved.feedbackRequestId,clientEventId:saved.feedbackClientId}));}
- const recoveredFeedbackText=feedbackArtifact?.availability==='redacted'?'':saved.feedbackText;
+ if(current&&saved.feedbackTargetRef&&feedbackCompatible){const scoped=JSON.stringify(fields.map(k=>current[k]));sessionStorage.setItem(`feedback-target:${scoped}`,JSON.stringify({targetRef:saved.feedbackTargetRef,requestId:saved.feedbackRequestId,clientEventId:saved.feedbackClientId,taskId:saved.feedbackTaskId,submittedText:saved.feedbackSubmittedText}));}
+ const recoveredFeedbackText=feedbackForgotten?'':saved.feedbackText;
+ if(feedbackForgotten&&current)sessionStorage.removeItem(`feedback-target:${JSON.stringify(fields.map(k=>current[k]))}`);
  set('feedback-text',recoveredFeedbackText);set('feedback-request-id',feedbackCompatible?saved.feedbackRequestId:'');
  if(el('feedback-form')){
-  el('feedback-form').hidden=!saved.feedbackOpen;const submit=el('feedback-form').querySelector('[type=submit]');if(submit)submit.disabled=!feedbackCompatible;
+  el('feedback-form').hidden=!saved.feedbackOpen;for(const submit of el('feedback-form').querySelectorAll('[type=submit]'))submit.disabled=!feedbackCompatible;
   el('feedback-reload-notice')?.remove();
-  if(!feedbackCompatible){const notice=document.createElement('p');notice.id='feedback-reload-notice';notice.className='muted';notice.textContent=feedbackArtifact?.availability==='redacted'?'原反馈对象已删除，相关反馈草稿已清除。':'暂时无法核实原反馈对象。文字已保留，请先核对要反馈的助手内容。';el('feedback-form').prepend(notice);}
+  if(!feedbackCompatible){const notice=document.createElement('p');notice.id='feedback-reload-notice';notice.className='muted';notice.textContent=feedbackForgotten?'原反馈对象已删除，相关反馈草稿已清除。':'暂时无法核实原反馈对象。文字已保留，请先核对要反馈的助手内容。';el('feedback-form').prepend(notice);}
  }
  set('memory-query',saved.memoryQuery);
  const experienceReview=saved.experienceReview||{};set('experience-review-id',experienceReview.caseId||'');set('experience-review-text',experienceReview.text||'');if(el('experience-review-form'))el('experience-review-form').hidden=!experienceReview.open;
@@ -126,7 +134,7 @@ function restoreHelperReload() {
  // not leave a second copy that a later source-forget cannot invalidate.
  if(current){const legacy=`${current.accountUid}/${current.peerUid}`;localStorage.removeItem(`draft:${legacy}`);localStorage.removeItem(`draft-origin:${legacy}`);sessionStorage.removeItem(`draft:${legacy}`);if(typeof legacyDraftCandidate!=='undefined')legacyDraftCandidate=null;if(el('draft-recover-legacy'))el('draft-recover-legacy').hidden=true;}
  sessionStorage.removeItem(key);
- return {ready:true,scopePreserved:true,unsavedAssistantInputsPreserved:true,draftsPreserved:originValid,draftOriginPreserved:originValid,draftNeedsReview:originState==='stale',artifactOriginsPreserved:artifactOriginsValid,feedbackTargetPreserved:feedbackCompatible,noteEditDetached:!noteCompatible,feedbackTargetDetached:!feedbackCompatible,forgottenFeedbackCleared:feedbackArtifact?.availability==='redacted',closedReadOnlyInspector:saved.closedReadOnlyInspector,
+ return {ready:true,scopePreserved:true,unsavedAssistantInputsPreserved:true,draftsPreserved:originValid,draftOriginPreserved:originValid,draftNeedsReview:originState==='stale',artifactOriginsPreserved:artifactOriginsValid,feedbackTargetPreserved:feedbackCompatible,noteEditDetached:!noteCompatible,feedbackTargetDetached:!feedbackCompatible,forgottenFeedbackCleared:feedbackForgotten,closedReadOnlyInspector:saved.closedReadOnlyInspector,
   activeTab:typeof workspace==='string'&&['discussion','history','background'].includes(workspace)?workspace:'legacy'};
 }
 async function inspectHelperLayout() {

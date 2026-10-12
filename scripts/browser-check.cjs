@@ -186,7 +186,7 @@ async function until(test, label) { for (let i = 0; i < 80; i++) { if (await tes
       timestamp: new Date().toISOString(), checks, nativeQQIntegration: false, result: 'PASS' }, null, 2));
     console.log(JSON.stringify({ result: 'PASS', checks: checks.length, nativeQQIntegration: false, evidenceDir }));
   } finally {
-    cdp?.close(); chrome.kill('SIGTERM'); controller.close(); await new Promise(r => server.close(r)); store.close();
-    fs.rmSync(profile, { recursive: true, force: true });
+    cdp?.close(); chrome.kill('SIGTERM'); if(chrome.exitCode===null&&chrome.signalCode===null)await new Promise(resolve=>{const timer=setTimeout(resolve,2000);chrome.once('close',()=>{clearTimeout(timer);resolve()})}); controller.close(); await new Promise(r => server.close(r)); store.close();
+    fs.rmSync(profile, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   }
 })().catch(error => { console.error(error.stack); process.exitCode = 1; });

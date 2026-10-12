@@ -2,7 +2,7 @@
 
 A local Ubuntu desktop companion for normal QQ conversations. It reads the selected private chat, loads accessible history, and provides a persistent private assistant conversation for thinking through what to do, responding, sharing personal material and reviewing actual interaction. Optional drafts can be copied or filled into an unsent QQ input for the human to review and send.
 
-**Status:** merged into `main` and running in the existing native helper. The companion supports maintained self/contact/dyad understanding, time-ordered activity history, eight executable assistance methods including expressing romantic interest, exact feedback targets, user-approved personal guidance, bounded context and per-task HTTP accounting. See [the complete goal-led flow](docs/relationship-learning_CN.md) and [release evidence](docs/relationship-implementation-evidence.json) for integration status and verification limits.
+**Status:** merged into `main` and running in the existing native helper. The companion supports bounded current-topic direction across private discussion, local correction and final expression, plus maintained self/contact/dyad understanding, time-ordered activity history, eight executable assistance methods including expressing romantic interest, exact feedback targets, user-approved personal guidance, bounded context and per-task HTTP accounting. See [the conversation-direction flow](docs/conversation-direction_CN.md), [the complete goal-led flow](docs/relationship-learning_CN.md) and [direction release evidence](docs/conversation-direction-evidence.json) and [prior release evidence](docs/relationship-implementation-evidence.json) for integration status and verification limits.
 
 Users can discuss goals and recent experiences naturally, continue a previous idea into a draft without copying it again, correct or forget context, and inspect what was used. Explicit user intent controls lasting goals and disclosure; uncertain operations show a concrete proposal. The assistant never sends QQ messages. See [context behavior and limits](docs/context-management_CN.md).
 
@@ -23,6 +23,8 @@ npm run test:assistant-ui
 npm run test:goal-replay
 npm run test:relationship-goal
 npm run test:experience-browser
+npm run test:direction-ui
+npm run test:direction-goal
 npm run check
 npm run diagnose
 ```

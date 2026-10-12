@@ -14,7 +14,9 @@
     "test:assistant-ui": "node scripts/assistant-browser-check.cjs",
     "test:goal-replay": "node scripts/context-goal-replay.cjs",
     "test:relationship-goal": "node scripts/relationship-goal-check.cjs",
-    "test:experience-browser": "node scripts/experience-browser-check.cjs"
+    "test:experience-browser": "node scripts/experience-browser-check.cjs",
+    "test:direction-ui": "node scripts/direction-browser-check.cjs",
+    "test:direction-goal": "node scripts/direction-goal-check.cjs"
   },
   "engines": {
     "node": ">=22"

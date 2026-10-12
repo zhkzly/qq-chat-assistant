@@ -2,7 +2,7 @@
 
 // These are fallible assistance methods, not inferred facts or relationship stages.
 // Research references were checked in the local context-memory research package.
-const METHOD_VERSION = 'relationship-methods-2026-10-12.2';
+const METHOD_VERSION = 'relationship-methods-2026-10-12.3';
 const sources = {
   listening: { kind: 'human-study', source: 'https://doi.org/10.1177/0146167217747874',
     limit: '倾听与态度清晰度的实验，未检验 AI 恋爱咨询；清楚不等于正确。' },
@@ -47,8 +47,8 @@ const definitions = [
   { id: 'compose', name: '组织参考表达', goalContribution: '帮助把用户愿意表达的真实意思写成自己的话。',
     applicability: '用户明确要草稿、改写，或采用已讨论且明确可分享的内容。',
     avoid: '把私人动机写给她、编造经历/感情/约定、强制给三条稿、将复制当发送。',
-    requiredContext: ['authorizedOutboundMaterial', 'actualQQContext', 'applicableExpressionPreferences'],
-    instruction: '先解析此次拟表达内容与分享许可，再在受限的草稿上下文中组织通常一条、最多三条可编辑表达。沿用明确授权的旧内容无需重抄；含糊会扩大披露时才询问。不要补造情绪、经历或约定。',
+    requiredContext: ['authorizedOutboundMaterial', 'actualQQContext', 'applicableExpressionPreferences', 'currentTopicAndLocalCorrection'],
+    instruction: '先解析此次拟表达内容与分享许可，将当前小目的、商量后的方式与适用局部纠正短写为来源绑定的guidance，再在受限上下文组织通常一条、最多三条表达。guidance是控制，不是可发送原文，不能带私下理由。明确授权的旧内容无需重抄；新明确意图覆盖旧方式，含糊会扩大披露时才询问。不要补造情绪、经历或约定。',
     evidence: [sources.userGoal, sources.ambiguity], output: { kinds: ['draft'], maxItems: 3 } },
   { id: 'review', name: '找回与回顾', goalContribution: '判断实际相处及浪漫方向的变化，帮助选择继续、表意、修复或收束。',
     applicability: '问以前说过什么、约定进展，或希望回顾一段时间的互动。',
@@ -103,7 +103,7 @@ function selectMethods({ purpose = 'discussion', text = '', focus = '', hasReply
   return { version: METHOD_VERSION, selection: explicit ? 'explicit' : 'candidates',
     methods, maxApplied: purpose === 'draft' ? 1 : 2,
     instruction: methods.map(method => `${method.id}: ${method.instruction}`).join('\n'),
-    selectionRule: '用户此次明确意图优先于旧 focus、purpose和候选顺序；候选不是必走步骤，可选择零至两个已载入方法或直接回答，不必先提问。缺方法卡不等于缺用户信息，不要求用户选择方法或固定关系阶段。',
+    selectionRule: '用户此次明确意图优先于旧 topic、focus、purpose和候选顺序；模糊续问承接仍有效的商量方向与局部纠正，明确改方向立即替换。候选不是必走步骤，可选择零至两个已载入方法或直接回答，不必先提问。缺方法卡不等于缺用户信息，不要求用户选择方法或固定关系阶段。',
     feedbackRule: '只使用来源有效且适用于当前场景的反馈；单次纠正不自动升级为长期偏好，不自动演化方法。论文提供有限机制参考，不能保证这段关系的结果。' };
 }
 

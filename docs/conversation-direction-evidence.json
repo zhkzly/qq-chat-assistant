@@ -1,0 +1,193 @@
+{
+  "date": "2026-10-12",
+  "phase": "candidate_verified_desktop_integration_pending",
+  "baseline": "0d2423c",
+  "branch": "feature/conversation-direction-20261012",
+  "goal": "Help the user develop a mutually desired romantic relationship with the selected online acquaintance; preserve and revise local conversation purpose rather than enforce a fixed path.",
+  "boundaries": {
+    "actualRomanticOutcomeVerified": false,
+    "qqMessagesSentByVerification": 0,
+    "realChatArchived": false,
+    "credentialsArchived": false,
+    "externalResearchUploaded": false,
+    "modelChanged": false,
+    "sqlSchemaVersionChanged": false
+  },
+  "versions": {
+    "prompt": "relationship-context-2026-10-12.9",
+    "memory": "relationship-memory-2026-10-12.6",
+    "health": "conversation-direction-2026-10-12.1"
+  },
+  "implementation": [
+    "bounded source-grounded current-topic lifecycle and field evidence",
+    "required short expression controls through preparation, repair and drafting",
+    "recent private discussion priority under exact full-request budgets",
+    "explicit exact-target idempotent feedback continuation",
+    "compact optional topic UI and native input recovery"
+  ],
+  "functional": {
+    "passed": 284,
+    "failed": 0,
+    "command": "npm test",
+    "log": "/tmp/qq-direction-final-tests.log",
+    "syntax": "npm run check passed",
+    "diff": "git diff --check passed"
+  },
+  "browser": {
+    "status": "passed",
+    "directionChecks": 6,
+    "assistantChecks": 22,
+    "historyAndSettingsChecks": 19,
+    "total": 47,
+    "realModelCalls": 0,
+    "nativeQQIntegration": false,
+    "reports": {
+      "direction": {
+        "path": "/tmp/qq-direction-evidence-ZCmAGz/report.json",
+        "sha256": "d19f6ed6afa347334d932ed4f187ee62d571aa341ef0f40e028b521ed7005566"
+      },
+      "assistant": {
+        "path": "/tmp/qq-assistant-context-evidence-m9y4r3/report.json",
+        "sha256": "c4c7acfb15177f017d267f2c33557fa52c570f5e745b0f7cbddf6964edc468a7"
+      },
+      "history": {
+        "path": "/tmp/qq-assistant-legacy-evidence-PNrrdp/browser-evidence.json",
+        "sha256": "e5c91491f11d2a3f22e6de407e17640459f5fb5032e53dea4ddeae0ca4ffea1c"
+      }
+    },
+    "latestChangeBoundary": "The last .9 change is a model parser guard. Full functional and synthetic direction replay follow it; browser suites precede it and no UI changed afterward."
+  },
+  "goalReplay": {
+    "synthetic": {
+      "report": "/tmp/qq-direction-latest-synthetic.json",
+      "sha256": "2e52a923713d8298c90d13a4a7c077aad731a22ead66173917761582843e7cc9",
+      "steps": 7,
+      "mockHttpAttempts": 10,
+      "realHttpAttempts": 0,
+      "exactCandidateFeedbackTarget": true,
+      "runtimeCodeUnchanged": true
+    },
+    "legacySynthetic": {
+      "report": "/tmp/qq-direction-legacy-replay.json",
+      "cases": 9,
+      "checks": 27,
+      "failed": 0
+    },
+    "live": {
+      "model": "gpt-6.1-sol",
+      "realHttpAttempts": 25,
+      "initial": {
+        "report": "/tmp/qq-direction-live.json",
+        "sha256": "ab1d7fd170de984105351d72e5c38ab798ccb86a62316f9209b12bd493b0716e",
+        "httpAttempts": 12,
+        "failuresRetained": true,
+        "providerTimeout": true,
+        "productFailure": "Private task stage/unknown and feedback clear fields passed parser but failed late source validation; fixed with matching current-user actor/source rules."
+      },
+      "correctedSequence": {
+        "report": "/tmp/qq-direction-live-fixed.json",
+        "sha256": "0f41270c54c2083585235ac7db75913370ba1080306790eb3fe41a03832226b6",
+        "httpAttempts": 11,
+        "steps": 7,
+        "httpStatuses": {
+          "200": 11
+        },
+        "runtimeCodeUnchanged": true,
+        "loadedSourceHashes": {
+          "src/store.cjs": "cdfb9b49fa17f6d0cc8e6d0da2a5fb5d07463df8b2f7c6832d239ecaa1ed3a54",
+          "src/memory-search.cjs": "e38074fc638e44340b51c6cdf0f29c0f38f8277975b7e0d61ff092a060cef121",
+          "src/experience-store.cjs": "64423e0d10af36ff1a19debb3e56c1e4625f7a08746d9e469c76e5f9b2b91a3f",
+          "src/provenance.cjs": "bc52639b9bf117e8c15bec44b64b06eac74868d43b90e437eba595486f8b0c5d",
+          "src/relationship-store.cjs": "a5b82678782d001627850d17216b7d2b6782d55923b589bba45118547eee429c",
+          "src/relationship-schema.cjs": "5ebf2f30fd7f1eeeb15c92761cafa4c8bc4b5705df26312fd24a06c56679c54d",
+          "src/topic-store.cjs": "8102e1613ab55a2e4e378dab80987a551a7f7e4de892bc8cbda71ae69d0e83f9",
+          "src/topic-schema.cjs": "a00fa302004397094bd24f290287310cd99d3f476186bc79a781d980a08c7e63",
+          "src/media.cjs": "ee00a6f7af727634e60cc850a24ce0faab75d4a68f0a037e902e119d20b1178a",
+          "src/messages.cjs": "5a7654207c8d66878a861bdfd37d003d8cdf08d5f4264f7dcbd7bc32742d5cae",
+          "src/controller.cjs": "1da05367182214393f4f46d42150e0ab99de86d53f1ecca74a134b7d33958d58",
+          "src/model.cjs": "9726fdb0469f2cb8a2e29b97bef40bb09f0801932ef61618da59fb94cdbf94ec",
+          "src/request-budget.cjs": "8587c93b915e919906bf67be097471f53b20c0aa69dbca17605f2f27f975a6b7",
+          "src/memory-scheduler.cjs": "d97432625255df2af15fda76cf2756ab7c32654767cd050fccea8338e2b7fe45",
+          "src/assistant-model.cjs": "9e54238b04dcb700e7207663f4e544f4f909a785fb9d7843fdbb6d9431d7f72e",
+          "src/help-methods.cjs": "0dd8586164e46d0216ccd50f8798caf826007cdb43cb1be5c0e3f458669d8ef4",
+          "src/model-http.cjs": "e897f79947f674f5c69998ab7546a305867eb0a2b21ff6625ef694ceeb333f72",
+          "src/assistant-context.cjs": "54484edf8fa8e4debe899ddef995691d0d381d33113bd70b2092e5aced9aa99b",
+          "src/memory-engine.cjs": "3e966bc04f82540f3eda6d09939c7e5dc4e04dcbb62c6fce8449c78b07d68d52",
+          "src/assistant-actions.cjs": "54bd959aadce35e4491e60aad72c072ae9d9abf0eb3a8f6b8193261988aa7e1d"
+        },
+        "feedbackTargetBoundary": "This sequence used response-artifact feedback, followed by a separate exact-candidate verification."
+      },
+      "exactCandidateContinuation": {
+        "report": "/tmp/qq-direction-exact-feedback-live.json",
+        "sha256": "a22f4b80103b779d2c6dd9b46e135e63fe97408daa2cc2218bacba7e27731f3b",
+        "httpAttempts": 2,
+        "httpStatuses": {
+          "200": 2
+        },
+        "runtimeCodeUnchanged": true,
+        "loadedSourceHashes": {
+          "src/store.cjs": "cdfb9b49fa17f6d0cc8e6d0da2a5fb5d07463df8b2f7c6832d239ecaa1ed3a54",
+          "src/memory-search.cjs": "e38074fc638e44340b51c6cdf0f29c0f38f8277975b7e0d61ff092a060cef121",
+          "src/experience-store.cjs": "64423e0d10af36ff1a19debb3e56c1e4625f7a08746d9e469c76e5f9b2b91a3f",
+          "src/provenance.cjs": "bc52639b9bf117e8c15bec44b64b06eac74868d43b90e437eba595486f8b0c5d",
+          "src/relationship-store.cjs": "a5b82678782d001627850d17216b7d2b6782d55923b589bba45118547eee429c",
+          "src/relationship-schema.cjs": "5ebf2f30fd7f1eeeb15c92761cafa4c8bc4b5705df26312fd24a06c56679c54d",
+          "src/topic-store.cjs": "8102e1613ab55a2e4e378dab80987a551a7f7e4de892bc8cbda71ae69d0e83f9",
+          "src/topic-schema.cjs": "a00fa302004397094bd24f290287310cd99d3f476186bc79a781d980a08c7e63",
+          "src/media.cjs": "ee00a6f7af727634e60cc850a24ce0faab75d4a68f0a037e902e119d20b1178a",
+          "src/messages.cjs": "5a7654207c8d66878a861bdfd37d003d8cdf08d5f4264f7dcbd7bc32742d5cae",
+          "src/controller.cjs": "1da05367182214393f4f46d42150e0ab99de86d53f1ecca74a134b7d33958d58",
+          "src/model.cjs": "9726fdb0469f2cb8a2e29b97bef40bb09f0801932ef61618da59fb94cdbf94ec",
+          "src/request-budget.cjs": "8587c93b915e919906bf67be097471f53b20c0aa69dbca17605f2f27f975a6b7",
+          "src/memory-scheduler.cjs": "d97432625255df2af15fda76cf2756ab7c32654767cd050fccea8338e2b7fe45",
+          "src/assistant-model.cjs": "9e54238b04dcb700e7207663f4e544f4f909a785fb9d7843fdbb6d9431d7f72e",
+          "src/help-methods.cjs": "0dd8586164e46d0216ccd50f8798caf826007cdb43cb1be5c0e3f458669d8ef4",
+          "src/model-http.cjs": "e897f79947f674f5c69998ab7546a305867eb0a2b21ff6625ef694ceeb333f72",
+          "src/assistant-context.cjs": "54484edf8fa8e4debe899ddef995691d0d381d33113bd70b2092e5aced9aa99b",
+          "src/memory-engine.cjs": "3e966bc04f82540f3eda6d09939c7e5dc4e04dcbb62c6fce8449c78b07d68d52",
+          "src/assistant-actions.cjs": "54bd959aadce35e4491e60aad72c072ae9d9abf0eb3a8f6b8193261988aa7e1d"
+        },
+        "setup": "Synthetic topic and candidate are seeded, then the continuation uses the exact candidate version."
+      },
+      "semanticReview": {
+        "reviewers": [
+          "root",
+          "independent interaction agent"
+        ],
+        "result": "Replayed outputs preserve no-direct-question/no-invitation corrections, allow later direct invitation, incorporate exact-target feedback, close a local purpose and switch to an unrelated caring topic without treating drafts as actual actions.",
+        "relationshipOutcomeVerified": false,
+        "generality": "Known synthetic cases only; not a romantic-effectiveness or unseen robustness benchmark."
+      },
+      "versionBoundary": "Corrected real calls use .8. The final .9 guard adds required nonempty topic guidance; three recorded live draftPlans were reparsed offline successfully and final functional/synthetic checks cover .9, with no new live calls for the guard."
+    }
+  },
+  "migration": {
+    "timestamp": "2026-10-12T11:40:03.390Z",
+    "evidence": "real_local_database_copied_and_migrated_in_isolated_private_copy",
+    "productionDatabaseModified": false,
+    "realModelCalls": 0,
+    "qqMessagesSent": 0,
+    "rawMessagesBefore": 807,
+    "rawMessagesAfter": 807,
+    "rawMessagesPreserved": true,
+    "integrity": "ok",
+    "schemaVersion": 1,
+    "scopes": [
+      {
+        "goalPreserved": true,
+        "notesPreserved": true,
+        "authoredInputsPreserved": true,
+        "notesBefore": 0,
+        "notesAfter": 0,
+        "privateTurnsBefore": 9,
+        "privateTurnsAfter": 9,
+        "feedbackBefore": 0,
+        "feedbackAfter": 1,
+        "typedPending": 622
+      }
+    ]
+  },
+  "desktop": {
+    "status": "pending"
+  }
+}

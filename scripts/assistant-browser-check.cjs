@@ -305,8 +305,8 @@ async function until(predicate, label) {
     fs.writeFileSync(path.join(artifacts, 'report.json'), JSON.stringify(report, null, 2));
     console.log(JSON.stringify({ result: report.result, checks: checks.length, nativeQQIntegration: false, report: path.join(artifacts, 'report.json') }));
   } finally {
-    cdp?.close(); chrome.kill('SIGTERM'); controller.close();
+    cdp?.close(); chrome.kill('SIGTERM'); if(chrome.exitCode===null&&chrome.signalCode===null)await new Promise(resolve=>{const timer=setTimeout(resolve,2000);chrome.once('close',()=>{clearTimeout(timer);resolve()})}); controller.close();
     await new Promise(resolve => server.close(resolve)); store.close();
-    fs.rmSync(temporary, { recursive: true, force: true });
+    fs.rmSync(temporary, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   }
 })().catch(error => { console.error(error.stack); process.exitCode = 1; });
