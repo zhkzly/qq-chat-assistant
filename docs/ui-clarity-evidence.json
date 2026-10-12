@@ -1,0 +1,41 @@
+{
+  "phase": "verified_candidate",
+  "timestamp": "2026-10-12T07:12:50.870200+00:00",
+  "scope": "conversation-first UI; relationship context pipeline unchanged",
+  "functional": {
+    "tests": 155,
+    "passed": 155,
+    "realModelCalls": 0,
+    "log": "/tmp/qq-ui-clarity-unit.log"
+  },
+  "browser": {
+    "checks": 40,
+    "passed": 40,
+    "realModelCalls": 0,
+    "actualQQIntegration": false,
+    "reports": [
+      "/tmp/qq-assistant-context-evidence-uTYyPK/report.json",
+      "/tmp/qq-assistant-legacy-evidence-wKIw0i/browser-evidence.json"
+    ],
+    "viewportChecks": [
+      "370x560",
+      "370x640",
+      "370x890",
+      "480x900"
+    ],
+    "actions": "CDP pointer input with visibility and hit-testing; visible native selects use change events",
+    "reload": "Actual helper renderer capture/restore functions verified in synthetic authenticated browser"
+  },
+  "sourceHashes": {
+    "ui/index.html": "afb206fe8d9c56749828e7ee1e96e9d300db8545718a9b2ae25bc15a1cb03567",
+    "ui/style.css": "e675b31213d1e96cf1cdb03f43c010c0f7069f9b0dcd075efb6348ab6a307c86",
+    "ui/app.js": "809bd755843a1dee92eea894b93b13adafa730fa729906e1513bf517beee26ad",
+    "plugin/dev-probe.cjs": "7865b8c355760397fcbbd22ea2d574680b64c4afa7b043c4b3f446ed1c2a4910",
+    "scripts/browser-actions.cjs": "b312db66a9ec9a74331858cd7b2e98c9f6c8022bde2b7c119bb87384e03ed7bd",
+    "scripts/browser-check.cjs": "b25db1931a9671e1ade4cf43a4353bfd16f6541523e60a5659ff11a3a791a47f",
+    "scripts/assistant-browser-check.cjs": "b950a6d88ba63d665b07291588ffbb7b7f03d927b68ea2250f052c520988f7f5"
+  },
+  "desktop": {
+    "verified": false
+  }
+}

@@ -5,11 +5,13 @@ const os = require('node:os');
 const path = require('node:path');
 const assert = require('node:assert/strict');
 const { spawn } = require('node:child_process');
+const vm = require('node:vm');
 const { createServer } = require('../src/server.cjs');
 const { Controller } = require('../src/controller.cjs');
 const { Store } = require('../src/store.cjs');
 const { raw, scope } = require('../tests/fixtures/native.cjs');
 const { CDP } = require('./cdp.cjs');
+const { actions } = require('./browser-actions.cjs');
 
 const sleep = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds));
 async function until(predicate, label) {
@@ -76,22 +78,30 @@ async function until(predicate, label) {
     const targets = await (await fetch(`http://127.0.0.1:${port}/json/list`)).json();
     cdp = await CDP.connect(targets.find(target => target.type === 'page').webSocketDebuggerUrl);
     await cdp.call('Runtime.enable');
+    const ui=actions(cdp);
+    await cdp.call('Emulation.setDeviceMetricsOverride',{width:480,height:900,deviceScaleFactor:1,mobile:false});
     await until(() => cdp.evaluate("!!document.querySelector('#assistant-form')"), 'assistant form');
-    await cdp.evaluate(`document.querySelector('#qq-number').value=${JSON.stringify(scope.peerUin)};document.querySelector('#contact-form').requestSubmit()`);
+    await ui.click('#contact-button');await ui.fill('#qq-number',scope.peerUin);await ui.click('#contact-form button[type=submit]');
     await until(() => cdp.evaluate("!document.querySelector('#assistant-send').disabled"), 'private help enabled with no QQ history');
     assert.equal(controller.snapshot().total, 0);
     checks.push('Selected authenticated empty QQ conversation permits private assistance');
+    await until(()=>cdp.evaluate("!document.querySelector('#contact-dialog').open"),'contact selection closes dialog');
+    for(const [width,height] of [[370,560],[370,640],[370,890],[480,900]]){await cdp.call('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false});await ui.composer(`initial ${width}x${height} empty conversation`);const shot=await cdp.call('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});fs.writeFileSync(path.join(artifacts,`initial-${width}x${height}.png`),Buffer.from(shot.data,'base64'));}
+    checks.push('Initial empty conversation keeps the full composer visible at 370x560, 370x640, 370x890 and 480x900');
+    await ui.workspace('discussion');await ui.key('ArrowRight');await ui.assertWorkspace('history');await ui.key('ArrowRight');await ui.assertWorkspace('background');await ui.key('ArrowLeft');await ui.assertWorkspace('history');await ui.key('End');await ui.assertWorkspace('background');await ui.key('Home');await ui.assertWorkspace('discussion');await ui.composer('keyboard return to discussion');
+    checks.push('Arrow keys, Home and End operate accessible tabs and return to the composer');
 
     const submit=async(text,button='assistant-send')=>{
       await until(()=>cdp.evaluate("!document.querySelector('#assistant-send').disabled"),'assistant input ready');
       const before=calls.length;
-      await cdp.evaluate(`document.querySelector('#assistant-input').value=${JSON.stringify(text)};document.querySelector('#${button}').click()`);
+      await ui.fill('#assistant-input',text);if(button!=='assistant-send')await ui.openDetails('#assistant-tools');await ui.click(`#${button}`);
       await until(()=>calls.length>before&&!controller.assistantBusy,'request processed');
       await until(()=>cdp.evaluate("document.querySelector('#assistant-input').value===''&&!document.querySelector('#assistant-send').disabled"),'request rendered');
+      if(await cdp.evaluate("document.querySelector('#assistant-tools').open"))await ui.click('#assistant-tools > summary');
     };
     await submit(`我的长期目标是${syntheticGoal}。`);
     assert.equal(controller.snapshot().companion.goal.text,syntheticGoal);
-    assert.equal(await cdp.evaluate("document.querySelector('#background-panel').open"),false);
+    assert.equal(await cdp.evaluate("document.querySelector('#panel-background').hidden"),true);
     assert.ok(await cdp.evaluate("document.querySelector('#action-receipts').textContent.includes('关系目标')"));
     checks.push('A natural-language goal is persisted with a visible receipt without opening a form');
     await submit(`记住${privateNote}`);
@@ -103,24 +113,44 @@ async function until(predicate, label) {
     await until(()=>cdp.evaluate("document.querySelectorAll('#draft-materials input[type=checkbox]').length===1"),'only explicitly shareable note available');
     assert.equal(await cdp.evaluate("document.querySelector('#draft-material-panel').open"),false);
     checks.push('Natural notes and negative-style durable preferences save with provenance; shareable material does not require repeated checkboxes');
+    store.saveNote(scope,{text:'合成布局素材：这是一条较长的已允许分享的近况，用于检查小窗口里的可选素材列表。'.repeat(12),use:'draft'});controller.changed();
+    await until(()=>cdp.evaluate("document.querySelectorAll('#draft-materials input[type=checkbox]').length===2"),'long synthetic material visible');
+    await cdp.call('Emulation.setDeviceMetricsOverride',{width:370,height:560,deviceScaleFactor:1,mobile:false});
+    await ui.openDetails('#draft-material-panel');await ui.composer('370x560 with expanded materials');await ui.closeDetails('#draft-material-panel');
+    const priorConsent=controller.settings.realChatConsent;
+    controller.settings.realChatConsent=null;controller.error='合成连接提醒，原始输入需要保持可见。'.repeat(20);controller.changed();
+    await until(()=>cdp.evaluate("!document.querySelector('#model-consent').hidden&&!document.querySelector('#error').hidden"),'long consent and error notices');
+    await ui.composer('370x560 with long consent and error notices',{allowDisabled:true});
+    assert.equal(await cdp.evaluate("document.querySelector('#assistant-send').disabled"),true);
+    controller.settings.realChatConsent=priorConsent;controller.error='';controller.changed();
+    await until(()=>cdp.evaluate("!document.querySelector('#assistant-send').disabled"),'consent fixture restored');
+    await cdp.call('Emulation.setDeviceMetricsOverride',{width:480,height:900,deviceScaleFactor:1,mobile:false});
+    checks.push('The 370x560 composer stays in view with expanded long material and with long consent/error notices');
 
     await submit('我们也许可以把目标调整一下。');
     assert.equal(controller.snapshot().companion.goal.text,syntheticGoal);
     await until(()=>cdp.evaluate("document.querySelectorAll('#pending-actions .pending-action').length===1"),'concrete ambiguous action');
-    await cdp.evaluate("document.querySelector('#pending-actions .secondary').click()");
+    await ui.click('#pending-actions .secondary');
     await until(()=>controller.snapshot().companion.goal.text==='先多一些自然的双向交流','specific action confirmation');
     const changedGoalReceipt=controller.snapshot().companion.actionReceipts.filter(r=>r.type==='set_goal'&&r.status==='applied').at(-1);
     const undoSelector=`[data-receipt-id="${changedGoalReceipt.id}"] button`;
     await until(()=>cdp.evaluate(`!!document.querySelector(${JSON.stringify(undoSelector)})`),'specific goal undo receipt rendered');
-    await cdp.evaluate(`document.querySelector(${JSON.stringify(undoSelector)}).click()`);
+    await ui.click(undoSelector);
     await until(()=>controller.snapshot().companion.goal.text===syntheticGoal,'goal undo');
     checks.push('An ambiguous goal change needs confirmation of the concrete text and can be undone');
 
-    await cdp.evaluate("document.querySelector('#background-panel').open=true;document.querySelector('#memory-query').value='爬山';document.querySelector('#memory-search-form').requestSubmit()");
+    const unsentThought='先保留我这个还没想清楚的想法。',beforeHandoffCalls=calls.length;
+    await ui.fill('#assistant-input',unsentThought);await ui.workspace('background');await ui.fill('#memory-query','爬山');await ui.click('#memory-search-form button[type=submit]');
     await until(()=>cdp.evaluate("document.querySelector('#memory-results').textContent.includes('今天去爬山了')"),'source search');
     assert.ok(await cdp.evaluate("document.querySelector('#memory-status').textContent.length>0"));
-    await cdp.evaluate("document.querySelector('#background-panel').open=false");
+    await ui.click('.memory-result .note-actions button');await ui.assertWorkspace('discussion');await ui.composer('continue memory lookup');
+    assert.ok(await cdp.evaluate(`document.querySelector('#assistant-input').value.includes(${JSON.stringify(unsentThought)})`));
+    assert.ok(await cdp.evaluate("document.querySelector('#assistant-input').value.includes('爬山')"));
+    await ui.workspace('background');await ui.click('.memory-result .note-actions button',1);await ui.assertWorkspace('discussion');await ui.composer('correct memory lookup');
+    assert.ok(await cdp.evaluate(`document.querySelector('#assistant-input').value.includes(${JSON.stringify(unsentThought)})`));
+    assert.equal(calls.length,beforeHandoffCalls);
     checks.push('Memory search retrieves prior source text and the UI exposes pending consolidation status');
+    checks.push('Continue and Correct from memory search preserve an unsent private thought and never submit it automatically');
 
     const firstRequest = `${privateFear}，先帮我理清今天要不要分享近况。`;
     const countBefore=controller.snapshot().companion.turns.length,callsBefore=calls.length;
@@ -142,7 +172,7 @@ async function until(predicate, label) {
     await until(()=>cdp.evaluate("document.querySelectorAll('.expression-option').length===1"),'source-backed expression option');
     await until(()=>cdp.evaluate("document.querySelector('.method-basis')?.textContent.includes('研究来源')"),'method basis metadata');
     const optionCalls=calls.length;
-    await cdp.evaluate("document.querySelector('.expression-option button').click()");
+    await ui.click('.expression-option button');
     await until(()=>calls.length===optionCalls+2&&!controller.assistantBusy,'option to fresh draft context');
     assert.equal(calls.at(-2).payload.userRequest.text,'按选中的方向组织表达');
     assert.ok(calls.at(-2).payload.selectedOption);
@@ -159,9 +189,12 @@ async function until(predicate, label) {
       assert.equal(outbound.includes(secret), false, secret);
     }
     assert.match(outbound, /实验终于成功了/);
-    await cdp.evaluate("[...document.querySelectorAll('#assistant-thread .assistant-suggestion button')].at(-1).click();document.querySelector('#draft').value='实验成功啦，今天终于松了口气。';document.querySelector('#draft').dispatchEvent(new Event('input'))");
+    await ui.click('#assistant-thread .assistant-suggestion button',-1);
+    await until(()=>cdp.evaluate("document.querySelector('#draft-dialog').open"),'selected expression opens draft editor');
+    assert.equal(await cdp.evaluate("document.activeElement.id"),'draft');
+    await ui.fill('#draft','实验成功啦，今天终于松了口气。');
     assert.equal(await cdp.evaluate("document.querySelector('#draft').value"), '实验成功啦，今天终于松了口气。');
-    await cdp.evaluate("window.__copied=null;Object.defineProperty(navigator,'clipboard',{value:{writeText:async text=>{window.__copied=text}},configurable:true});document.querySelector('#copy').click()");
+    await cdp.evaluate("window.__copied=null;Object.defineProperty(navigator,'clipboard',{value:{writeText:async text=>{window.__copied=text}},configurable:true});");await ui.click('#copy');
     await until(() => cdp.evaluate("window.__copied==='实验成功啦，今天终于松了口气。'"), 'manual copy');
     assert.equal(controller.snapshot().total, 0);
     checks.push('Draft generation uses restricted context, offers one editable draft, and copying is not an actual send');
@@ -170,20 +203,22 @@ async function until(predicate, label) {
     await until(() => cdp.evaluate("document.querySelectorAll('.message').length===1"), 'synthetic incoming event');
     assert.equal(await cdp.evaluate("document.querySelector('#draft').value"), '实验成功啦，今天终于松了口气。');
     checks.push('New actual incoming evidence preserves the user-edited draft');
+    await ui.click('#draft-close');await ui.composer('return from draft editor');await ui.click('#qq-context-preview');await ui.assertWorkspace('history');assert.equal((await ui.inspect('#history')).ok,true);await ui.workspace('discussion');await ui.composer('return from QQ history');
+    checks.push('Pointer navigation visits QQ history and closes the adopted draft editor back to the visible conversation composer');
 
-    await cdp.evaluate("document.querySelector('#assistant-input').value='模拟网络失败，保留我这句输入。';document.querySelector('#assistant-form').requestSubmit()");
+    await ui.fill('#assistant-input','模拟网络失败，保留我这句输入。');await ui.click('#assistant-send');
     await until(() => cdp.evaluate("document.querySelector('#assistant-error').textContent.includes('synthetic-offline')"), 'model failure surfaced');
     assert.ok(controller.snapshot().companion.turns.some(turn => turn.role === 'user' && turn.text === '模拟网络失败，保留我这句输入。'));
     assert.equal(controller.snapshot().assistantBusy, false);
     checks.push('Failed model request exposes an error and retains the private user input');
 
-    await cdp.evaluate("document.querySelector('#qq-number').value='2222222222';document.querySelector('#contact-form').requestSubmit()");
+    await ui.click('#contact-button');await ui.fill('#qq-number','2222222222');await ui.click('#contact-form button[type=submit]');
     await until(() => controller.scope?.peerUin === '2222222222', 'second contact binding');
     await until(() => cdp.evaluate("document.querySelectorAll('#assistant-thread .assistant-turn').length===0"), 'previous private thread removed from view');
     assert.equal(controller.snapshot().companion.notes.length, 0);
     assert.equal(await cdp.evaluate("document.querySelector('#draft').value"), '');
     assert.equal(await cdp.evaluate("document.querySelector('#assistant-input').value"), '');
-    await cdp.evaluate(`document.querySelector('#qq-number').value=${JSON.stringify(scope.peerUin)};document.querySelector('#contact-form').requestSubmit()`);
+    await ui.click('#contact-button');await ui.fill('#qq-number',scope.peerUin);await ui.click('#contact-form button[type=submit]');
     await until(() => cdp.evaluate("document.querySelector('#assistant-thread').textContent.includes('模拟网络失败')"), 'original scoped thread restored');
     assert.equal(await cdp.evaluate("document.querySelector('#draft').value"), '实验成功啦，今天终于松了口气。');
     assert.equal(controller.snapshot().companion.goal.text, syntheticGoal);
@@ -198,7 +233,7 @@ async function until(predicate, label) {
     fs.writeFileSync(path.join(artifacts, 'assistant-synthetic.png'), Buffer.from(screenshot.data, 'base64'));
     const draftSource = controller.snapshot().companion.turns.find(turn => turn.role === 'user' && turn.text.includes('帮我写一句'));
     assert.ok(draftSource);
-    await cdp.evaluate(`window.confirm=()=>true;document.querySelector('[data-turn-id="${draftSource.id}"] button[aria-label="删除我的讨论"]').click()`);
+    await cdp.evaluate('window.confirm=()=>true');await ui.click(`[data-turn-id="${draftSource.id}"] button[aria-label="删除我的讨论"]`);
     await until(() => cdp.evaluate("document.querySelector('#draft').value===''"), 'draft cleared after source deletion');
     assert.equal(controller.snapshot().total, 1, 'deleting private discussion must not delete actual QQ history');
     await cdp.call('Page.reload');
@@ -209,15 +244,53 @@ async function until(predicate, label) {
     let memoryCalls=0;
     controller.memoryModel=async(_settings,batch)=>{memoryCalls++;return {reviewedSourceIds:batch.reviewedSourceIds,items:[],episodes:[],retire:[]}};
     store.recordMemoryError(scope,{code:'synthetic_transient',message:'synthetic-memory-maintenance-unavailable'});controller.changed();
-    await cdp.evaluate("document.querySelector('#background-panel').open=true");
+    await ui.workspace('background');
     await until(()=>cdp.evaluate("!document.querySelector('#memory-retry-panel').hidden&&!document.querySelector('#memory-retry').disabled"),'memory failure retry available');
-    await cdp.evaluate("document.querySelector('#memory-retry').click()");
+    await ui.click('#memory-retry');
     await until(()=>memoryCalls>0&&store.memoryStatus(scope).pending===0,'explicit memory retry completed');
     await until(()=>cdp.evaluate("document.querySelector('#memory-retry-panel').hidden"),'retry control hidden after successful consolidation');
     assert.equal(store.memoryStatus(scope).errors.length,0);
     checks.push('A failed consolidation exposes a scoped retry only while failed, and a successful source-complete retry clears it');
+    await ui.workspace('discussion');await ui.composer('final conversation');
+    const probeModule={exports:{}};
+    vm.runInNewContext(`${fs.readFileSync(path.join(root,'plugin/dev-probe.cjs'),'utf8')}\nmodule.exports={captureHelperReload,restoreHelperReload,inspectHelperLayout};`,{
+      module:probeModule,require:name=>{assert.ok(['node:fs','node:path'].includes(name),'Reload-helper extraction cannot load Electron or perform native actions');return require(name);}
+    },{filename:'synthetic-reload-helper-extraction.cjs'});
+    const {captureHelperReload,restoreHelperReload,inspectHelperLayout}=probeModule.exports;
+    await ui.click('#settings-button');
+    const refusal=await cdp.evaluate(`(${captureHelperReload.toString()})(false)`);
+    assert.equal(refusal.blocked,true);assert.equal(refusal.reason,'settings_open');
+    assert.equal(await cdp.evaluate("sessionStorage.getItem('qq-assistant-ui-reload-v1')"),null);
+    await ui.click('#settings-close');
+    const feedbackTarget=store.appendTurn(scope,{role:'assistant',kind:'discussion',text:'合成刷新恢复检查的反馈对象。',requestId:'synthetic-reload-feedback'});controller.changed();
+    await until(()=>cdp.evaluate(`!!document.querySelector('[data-turn-id="${feedbackTarget.id}"]')`),'reload feedback source rendered');
+    await ui.fill('#assistant-input','RELOAD_PRIVATE_还没有说完的念头');
+    await ui.click(`[data-turn-id="${feedbackTarget.id}"] > button`);await ui.fill('#feedback-text','RELOAD_FEEDBACK_尚未提交的反馈');
+    await ui.workspace('background');await ui.openDetails('#goal-editor');await ui.fill('#goal-input','RELOAD_GOAL_尚未保存的新目标');
+    await ui.openDetails('#note-editor');await ui.fill('#note-text','RELOAD_NOTE_尚未保存的近况');await ui.select('#note-use','disabled');
+    await ui.fill('#memory-query','RELOAD_QUERY_还没执行的查找');
+    await ui.workspace('discussion');await ui.openDetails('#draft-material-panel');await ui.click('#draft-materials input[type=checkbox]');await ui.closeDetails('#draft-material-panel');
+    const selectedMaterial=await cdp.evaluate("[...document.querySelectorAll('#draft-materials input:checked')].map(el=>el.value)");assert.equal(selectedMaterial.length,1);
+    await ui.click('#draft-button');await ui.fill('#draft','RELOAD_DRAFT_尚未发送的回复草稿');
+    const beforeReload=await cdp.evaluate(`(${inspectHelperLayout.toString()})()`),callsBeforeReload=calls.length,actualBeforeReload=store.messages(scope).length,settingsBeforeReload=JSON.stringify(controller.settings);
+    const captured=await cdp.evaluate(`(${captureHelperReload.toString()})(false)`);assert.equal(captured.captured,true);
+    await cdp.call('Page.reload');
+    await until(()=>cdp.evaluate("typeof state!=='undefined'&&!!state?.scope&&typeof loadingHistory!=='undefined'&&!loadingHistory"),'new helper document and history ready for restoration');
+    let restored;
+    await until(async()=>{restored=await cdp.evaluate(`(${restoreHelperReload.toString()})()`);return restored.ready;},'scoped unsaved-input restoration');
+    assert.equal(restored.scopePreserved,true);assert.equal(restored.unsavedAssistantInputsPreserved,true);assert.equal(restored.draftsPreserved,true);
+    await sleep(1200);
+    const afterReload=await cdp.evaluate(`(${inspectHelperLayout.toString()})()`);
+    for(const key of ['draftHash','privateInputHash','goalDraftHash','noteDraftHash','feedbackDraftHash'])assert.equal(afterReload[key],beforeReload[key],`${key} preserved across actual browser reload and another state poll`);
+    assert.deepEqual(await cdp.evaluate('state.scope'),scope);assert.equal(afterReload.goalDirty,true);assert.equal(afterReload.feedbackOpen,true);assert.equal(afterReload.noteEditorOpen,true);assert.equal(afterReload.draftDialog.open,true);assert.equal(afterReload.recoveryPending,false);
+    assert.equal(await cdp.evaluate("document.querySelector('#note-use').value"),'disabled');
+    assert.deepEqual(await cdp.evaluate("[...document.querySelectorAll('#draft-materials input:checked')].map(el=>el.value)"),selectedMaterial);
+    assert.equal(await cdp.evaluate("document.querySelector('#memory-query').value"),'RELOAD_QUERY_还没执行的查找');
+    assert.equal(controller.snapshot().companion.goal.text,syntheticGoal);assert.equal(calls.length,callsBeforeReload);assert.equal(store.messages(scope).length,actualBeforeReload);assert.equal(JSON.stringify(controller.settings),settingsBeforeReload);
+    await ui.click('#draft-close');await ui.composer('composer after helper reload restoration');
+    checks.push('The actual helper reload functions refuse open settings and preserve scoped unsent inputs, material selection and draft across reload without model calls or sends');
     const report = { evidence: 'synthetic-browser-execution', result: 'PASS', nativeQQIntegration: false,
-      realModelCalls: 0, timestamp: new Date().toISOString(), checks, screenshot: path.join(artifacts, 'assistant-synthetic.png') };
+      realModelCalls: 0, timestamp: new Date().toISOString(), checks, screenshot: path.join(artifacts, 'assistant-synthetic.png'), initialScreenshots:[[370,560],[370,640],[370,890],[480,900]].map(([width,height])=>path.join(artifacts,`initial-${width}x${height}.png`)) };
     fs.writeFileSync(path.join(artifacts, 'report.json'), JSON.stringify(report, null, 2));
     console.log(JSON.stringify({ result: report.result, checks: checks.length, nativeQQIntegration: false, report: path.join(artifacts, 'report.json') }));
   } finally {
