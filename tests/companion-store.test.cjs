@@ -42,7 +42,8 @@ test('private streams persist and are isolated by all four scope fields; exports
   }
   store.close(); store = new Store(file); t.after(() => store.close());
   assert.equal(store.getCompanion(scope).goal.text, 'Develop mutual understanding');
-  assert.equal(store.getCompanion(scope).turns.length, 2);
+  assert.equal(store.getCompanion(scope).turns.filter(t=>t.kind!=='feedback_ref').length, 2);
+  assert.equal(store.getCompanion(scope).turns.filter(t=>t.kind==='feedback_ref').length, 1);
   assert.equal(store.getCompanion(scope).feedback[0].text, 'Too formal');
 });
 

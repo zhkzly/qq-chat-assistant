@@ -102,3 +102,55 @@ test('an explicit bound no-change acknowledgment creates reviewed_no_change and 
     const p=JSON.parse(JSON.parse(request.body).messages[1].content);return {ok:true,json:async()=>({choices:[{message:{content:JSON.stringify(wireNoop(p))}}]})};
   })});assert.equal(result.status,'complete');assert.equal(result.processed,2);assert.equal(result.lastReview.outcome,'reviewed_no_change');assert.equal(result.counts.items,0);
 });
+
+test('typed background extraction preserves legacy memories and aliases existing claims and events through the real Store', async t => {
+  const { normalize } = require('../src/messages.cjs'), { raw } = require('./fixtures/native.cjs');
+  const s = new Store(':memory:'); t.after(() => s.close());
+  const originalId = '7205759403792793700012345678901';
+  s.add(scope, [normalize(raw(originalId, false, { elements: [{ textElement: { content: '这周忙着考试，周六先不约。' } }] }), scope)]);
+  const sourceId = `qq:${originalId}`;
+  let batch = s.memoryBatch(scope);
+  assert.equal(s.applyMemoryBatch(scope, batch, { ...noop(batch), items: [{ kind: 'fact', text: '她这周备考', sourceIds: [sourceId], topicKeys: ['考试'] }] }).applied, true);
+  assert.equal(s.applyRelationshipPatch(scope, { claims: [{ subject: 'contact', aspect: 'recent_context', text: '她说这周忙着考试', assertionKind: 'stated', epistemicStatus: 'supported', sourceIds: [sourceId] }],
+    events: [{ activityKey: 'weekend-game', eventKind: 'decline', actor: 'contact', text: '她说周六先不约', sourceIds: [sourceId] }] },
+  { baseRevision: s.getCompanion(scope).revision, sourceIds: [sourceId] }).applied, true);
+  const later = s.appendTurn(scope, { role: 'user', kind: 'discussion', text: '她之前说这周忙着考试、周六先不约。现在她告诉我考完试了，但我不确定她想不想一起玩。' });
+  batch = s.memoryBatch(scope);
+  assert.ok(batch.priorMemory.claims.length && batch.priorMemory.events.length);
+  const before = JSON.stringify(batch), oldClaim = batch.priorMemory.claims[0], oldEvent = batch.priorMemory.events[0];
+  const decoded = await consolidateMemory({ ...settingsForMemory() }, batch, undefined, async (_, request) => {
+    const body = JSON.parse(request.body), p = JSON.parse(body.messages[1].content);
+    assert.ok(p.priorMemory.claims.length && p.priorMemory.events.length, 'the updater must see previous typed understanding');
+    const claim = p.priorMemory.claims[0], event = p.priorMemory.events[0];
+    assert.match(claim.id, /^m\d+$/); assert.match(event.id, /^m\d+$/);
+    assert.notEqual(claim.id, event.id);
+    for (const original of [originalId, oldClaim.id, oldEvent.id, later.id]) assert.equal(request.body.includes(original), false);
+    assert.match(body.messages[0].content, /relationshipPatch/);
+    return { ok: true, json: async () => ({ choices: [{ message: { content: JSON.stringify({ ...wireNoop(p), relationshipPatch: {
+      claims: [{ id: claim.id, expectedVersion: claim.version, subject: 'contact', aspect: 'recent_context', text: '用户转述她已经考完试', assertionKind: 'reported', epistemicStatus: 'supported', sourceIds: ['s1'] }],
+      events: [], retire: [{ id: event.id, expectedVersion: event.version, sourceIds: ['s1'], lifecycle: 'superseded' }]
+    } }) } }] }) };
+  });
+  assert.equal(JSON.stringify(batch), before);
+  assert.equal(decoded.relationshipPatch.claims[0].id, oldClaim.id);
+  assert.deepEqual(decoded.relationshipPatch.claims[0].sourceIds, [`private:${later.id}`]);
+  assert.equal(decoded.relationshipPatch.retire[0].id, oldEvent.id);
+  const applied = s.applyMemoryBatch(scope, batch, decoded);
+  assert.equal(applied.applied, true, applied.detail);
+  assert.equal(s.searchMemory(scope, '考试').items.length, 1, 'an omitted useful legacy record must not be deleted');
+  assert.equal(s.relationshipView(scope).claims.find(item => item.id === oldClaim.id).assertionKind, 'reported');
+});
+
+function settingsForMemory() { return { baseUrl: 'http://fixture.invalid/v1', model: 'synthetic', anonymous: true }; }
+
+test('background typed aliases reject unseen IDs and cannot promote an inferred mental state to supported', async t => {
+  const s = new Store(':memory:'); t.after(() => s.close()); turn(s); const batch = s.memoryBatch(scope);
+  for (const claim of [
+    { subject: 'contact', aspect: 'interaction_hypothesis', text: '猜测她有好感', assertionKind: 'inferred', epistemicStatus: 'supported', sourceIds: ['s1'] },
+    { subject: 'contact', aspect: 'recent_context', text: '未提供的事情', assertionKind: 'reported', epistemicStatus: 'tentative', sourceIds: ['c999'] }
+  ]) await assert.rejects(() => consolidateMemory(settingsForMemory(), batch, undefined, async (_, request) => {
+    const p = JSON.parse(JSON.parse(request.body).messages[1].content);
+    return { ok: true, json: async () => ({ choices: [{ message: { content: JSON.stringify({ ...wireNoop(p), relationshipPatch: { claims: [claim] } }) } }] }) };
+  }), /epistemicStatus|unknown.*alias|relationshipPatch/);
+  assert.equal(s.memoryStatus(scope).processed, 0);
+});

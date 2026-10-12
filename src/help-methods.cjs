@@ -2,7 +2,7 @@
 
 // These are fallible assistance methods, not inferred facts or relationship stages.
 // Research references were checked in the local context-memory research package.
-const METHOD_VERSION = 'relationship-methods-2026-10-12.1';
+const METHOD_VERSION = 'relationship-methods-2026-10-12.2';
 const sources = {
   listening: { kind: 'human-study', source: 'https://doi.org/10.1177/0146167217747874',
     limit: '倾听与态度清晰度的实验，未检验 AI 恋爱咨询；清楚不等于正确。' },
@@ -19,7 +19,11 @@ const sources = {
   memory: { kind: 'engineering-reference', source: 'https://arxiv.org/abs/2410.10813',
     limit: '长期记忆问答评测，支持时间、更新、拒答检查，不是关系效果验证。' },
   userGoal: { kind: 'user-requirement', source: 'docs/context-management_CN.md',
-    limit: '服务用户的相互了解和双向关心目标；具体方法仍需实际体验检验，不能保证她的选择。' }
+    limit: '服务双方愿意发展的恋爱目标；了解、友好回复和活动完成不是恋爱成功，不能保证她的选择。' },
+  interest: { kind: 'human-study', source: 'https://doi.org/10.1016/j.chb.2018.04.023',
+    limit: '脚本在线互动中的兴趣和不确定性实验；性吸引不是长期承诺，不支持忽冷忽热策略。' },
+  development: { kind: 'human-study', source: 'https://doi.org/10.1177/08902070221085877',
+    limit: '早期关系纵向自述；对这个对象的体验有信息，不能从人格匹配或单次回应预测她的恋爱意愿。' }
 };
 const definitions = [
   { id: 'clarify', name: '理清这次想表达什么', goalContribution: '帮助用户辨认真实想法，表达更贴近自己。',
@@ -32,7 +36,7 @@ const definitions = [
     applicability: '想联系但不知道聊什么、何时继续，或有多个可行方向。',
     avoid: '固定关系阶段、每天联系配额、将沉默当作拒绝或好感、强推任何一种行动。',
     requiredContext: ['currentRequest', 'goal', 'currentState', 'recentActualExchange', 'availableMaterial'],
-    instruction: '结合真实近况和对方已表达的内容，给一至三个实质不同的可行选择及各自依据；可包含回应、分享、接续话题、共同活动或暂缓。以用户当下意图选择，不必先提问。',
+    instruction: '结合真实近况和对方已表达的内容，通常给一至三个实质不同的可行选择及依据；可包含分享、邀请、共同活动、表达好感或暂缓。用户想推进恋爱时不能一直只推荐普通闲聊；稀少历史也允许真实而可选择的认识邀请。意图明确就直接帮助，不必先提问。',
     evidence: [sources.userGoal, sources.disclosure, sources.familiarity], output: { kinds: ['discussion', 'options'], maxItems: 3 } },
   { id: 'respond', name: '理解并回应她的话', goalContribution: '让对方所说的事情得到具体回应，并保留交流的自然延续。',
     applicability: '有实际来信，需要理解、回应分享或接续她提出的话题。',
@@ -46,45 +50,61 @@ const definitions = [
     requiredContext: ['authorizedOutboundMaterial', 'actualQQContext', 'applicableExpressionPreferences'],
     instruction: '先解析此次拟表达内容与分享许可，再在受限的草稿上下文中组织通常一条、最多三条可编辑表达。沿用明确授权的旧内容无需重抄；含糊会扩大披露时才询问。不要补造情绪、经历或约定。',
     evidence: [sources.userGoal, sources.ambiguity], output: { kinds: ['draft'], maxItems: 3 } },
-  { id: 'review', name: '找回与回顾', goalContribution: '跨天接续真实经历，并发现彼此了解和双向关心的变化。',
+  { id: 'review', name: '找回与回顾', goalContribution: '判断实际相处及浪漫方向的变化，帮助选择继续、表意、修复或收束。',
     applicability: '问以前说过什么、约定进展，或希望回顾一段时间的互动。',
     avoid: '只找积极证据、关系好感分、把回复率或草稿采纳率当亲近、从空检索断言没发生。',
     requiredContext: ['currentRequest', 'goal', 'timeOrderedEvidence', 'corrections', 'coverage', 'applicableFeedback'],
-    instruction: '按问题和时间找原始证据及后续更正，区分实际发送、她的回复、用户体验和关系观察。指出已知、未知和覆盖缺口；关注了解、接续、共同经历及双向关心，兼顾无变化和不顺利，不能归因某条建议。',
-    evidence: [sources.memory, sources.familiarity, sources.userGoal], output: { kinds: ['discussion', 'review'], maxItems: 3 } },
+    instruction: '按问题和时间找原始证据及后续更正，区分实际发送、她的回复、用户体验和关系观察。普通友好、愿意共同活动、明确恋爱意图分别判断。给继续、表意、修复或收束的根据，兼顾反证和未知；没回复不自动判拒绝，明确朋友边界不自动改用户目标，不归因某条建议。',
+    evidence: [sources.memory, sources.development, sources.userGoal], output: { kinds: ['discussion', 'review'], maxItems: 3 } },
   { id: 'shared_activity', name: '考虑一起做点什么', goalContribution: '在双方有兴趣时创造自然的共同经历与后续话题。',
     applicability: '用户想邀约、讨论共同兴趣或寻找文字聊天之外的共同活动。',
     avoid: '把建议视为已邀请、同意视为已发生、恢复已取消安排、把活动当拉近关系的必经阶段。',
     requiredContext: ['currentRequest', 'sharedInterestsEvidence', 'currentPlans', 'constraints', 'coverage'],
-    instruction: '根据真实共同兴趣、时间和用户意愿，比较轻量可行活动；允许她拒绝、改期或不回应。分别处理提议、实际邀请、回复、安排和实际发生。缺少兴趣或时间证据时保持开放，不编造共同点。',
+    instruction: '根据真实兴趣、时间和用户意愿，给可执行活动和邀请方向；对她的偏好未知时可开放询问，不编造共同点。用户希望带约会含义时保留该意图。允许拒绝、改期或不回应，分别记录提议、实际邀请、回复、安排和实际发生；活动同意不等于恋爱承诺。',
     evidence: [sources.userGoal, sources.familiarity], output: { kinds: ['discussion', 'options'], maxItems: 3 } },
   { id: 'correction', name: '纠正理解与用法', goalContribution: '避免错误记忆和不合适建议持续影响真实交流。',
     applicability: '用户纠正事实、分享范围、目标、建议风格，或要求记住/更改/忘记。',
     avoid: '把一次改稿泛化成长期偏好；没有真正保存却说已记住；将模糊抱怨当稳定规则。',
     requiredContext: ['currentRequest', 'affectedSource', 'applicableFeedback', 'currentPermissions'],
     instruction: '优先处理明确纠正，定位影响的事实、记录或表达。一次反馈只作用于相应场景，明确长期偏好才持久保存。只有程序确认操作成功才说已保存/更改/删除；有歧义只澄清影响范围的部分。',
-    evidence: [sources.memory, sources.userGoal], output: { kinds: ['acknowledgment', 'question', 'discussion'], maxItems: 1 } }
+    evidence: [sources.memory, sources.userGoal], output: { kinds: ['acknowledgment', 'question', 'discussion'], maxItems: 1 } },
+  { id: 'express_interest', name: '表达好感与关系意图', goalContribution: '帮助用户真实表达欣赏、想多认识或约会意图，让双方能选择是否向恋爱发展。',
+    applicability: '用户想表达喜欢、明确邀请含义，或希望讨论怎样从友好交流走向恋爱认识。',
+    avoid: '用历史少阻止真诚表达；固定升温阶段；编造强烈感情；将朋友定位或明确拒绝解释成隐藏喜欢；自动改写用户目标。',
+    requiredContext: ['currentRequest', 'goal', 'actualRelationshipEvidence', 'currentBoundaries', 'authorizedOutboundMaterial'],
+    instruction: '区分具体欣赏、想多认识、带约会意味的邀请与关系讨论，按用户真实意图选择表达强度。历史少也能帮助说出真实好感，不要求先证明她喜欢用户或填关系阶段；准备接受、暂不确定、朋友定位或拒绝后的自然回应。需要成稿时只用授权意思，不把普通友好当双方恋爱意愿。',
+    evidence: [sources.interest, sources.development, sources.userGoal], output: { kinds: ['discussion', 'options', 'draft'], maxItems: 3 } }
 ].map(item => ({ ...item, version: METHOD_VERSION }));
 
 const clone = value => structuredClone(value);
 function methodFor(id) { const found = definitions.find(item => item.id === id); return found ? clone(found) : null; }
 function listMethods() { return clone(definitions); }
+function runtimeCard(method) {
+  const item = typeof method === 'string' ? methodFor(method) : method;
+  if (!item) return null;
+  return { id: item.id, version: item.version, goalContribution: item.goalContribution, applicability: item.applicability,
+    avoid: item.avoid, requiredContext: [...item.requiredContext], instruction: item.instruction,
+    outputKinds: [...item.output.kinds], evidenceLimit: item.evidence.filter(source => source.kind === 'human-study').map(source => source.limit).join(' ') || item.evidence.at(-1).limit };
+}
 
 function selectMethods({ purpose = 'discussion', text = '', focus = '', hasReply = false, memory = null } = {}) {
   // Arbitrary user text stays in the data channel. No keyword detector assigns
   // a psychological state, sharing permission, or durable preference here.
   void text; void focus; void memory;
   const aliases = { draft: 'compose', draft_prepare: 'compose', recall: 'review', respond: 'respond', reply: 'respond', suggest: 'respond',
-    clarify: 'clarify', choose_next_step: 'choose_next_step', shared_activity: 'shared_activity', correction: 'correction', review: 'review', compose: 'compose' };
+    clarify: 'clarify', choose_next_step: 'choose_next_step', shared_activity: 'shared_activity', correction: 'correction', review: 'review', compose: 'compose', express_interest: 'express_interest' };
   const explicit = aliases[purpose];
-  const order = hasReply ? ['respond', 'choose_next_step', 'clarify', 'compose', 'review', 'shared_activity', 'correction']
-    : ['choose_next_step', 'clarify', 'respond', 'compose', 'review', 'shared_activity', 'correction'];
-  const methods = (explicit ? [explicit] : order).map(methodFor);
+  const order = hasReply ? ['respond', 'choose_next_step', 'express_interest', 'shared_activity', 'clarify', 'compose', 'review', 'correction']
+    : ['choose_next_step', 'express_interest', 'shared_activity', 'clarify', 'respond', 'compose', 'review', 'correction'];
+  // Transport purposes prioritize help; only the restricted drafting stage
+  // limits available methods. A reply can still express interest or invite.
+  const ids = purpose === 'draft' ? ['compose'] : explicit ? [explicit, ...order.filter(id => id !== explicit)] : order;
+  const methods = ids.map(methodFor);
   return { version: METHOD_VERSION, selection: explicit ? 'explicit' : 'candidates',
-    methods, maxApplied: explicit ? 1 : 2,
+    methods, maxApplied: purpose === 'draft' ? 1 : 2,
     instruction: methods.map(method => `${method.id}: ${method.instruction}`).join('\n'),
-    selectionRule: '用户此次明确意图优先于旧 focus 和候选顺序；候选不是必走步骤，可选择零至两个方法或直接回答，不必先提问。不要求用户选择方法，不推断固定关系阶段。',
+    selectionRule: '用户此次明确意图优先于旧 focus、purpose和候选顺序；候选不是必走步骤，可选择零至两个已载入方法或直接回答，不必先提问。缺方法卡不等于缺用户信息，不要求用户选择方法或固定关系阶段。',
     feedbackRule: '只使用来源有效且适用于当前场景的反馈；单次纠正不自动升级为长期偏好，不自动演化方法。论文提供有限机制参考，不能保证这段关系的结果。' };
 }
 
-module.exports = { METHOD_VERSION, methodFor, listMethods, selectMethods };
+module.exports = { METHOD_VERSION, methodFor, listMethods, selectMethods, runtimeCard };

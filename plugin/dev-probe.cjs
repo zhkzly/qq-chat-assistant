@@ -17,17 +17,24 @@ function captureHelperReload(resume) {
  if(scope&&Object.values(scope).some(value=>typeof value!=='string'||!value))return {blocked:true,reason:'incomplete_scope',message:'当前会话标识尚未就绪，未刷新助手。'};
  const value=id=>el(id)?.value||'',position=id=>{const node=el(id);return node?{top:node.scrollTop,left:node.scrollLeft,follow:node.scrollHeight-node.scrollTop-node.clientHeight<(id==='history'?40:60)}:null;};
  const noteId=value('note-id'),note=(current?.companion?.notes||[]).find(n=>n.id===noteId);
- const active=document.activeElement,focus=['assistant-input','draft','goal-input','note-text','feedback-text','memory-query'].includes(active?.id)?{id:active.id,start:active.selectionStart,end:active.selectionEnd}:null;
+ const active=document.activeElement,focus=['assistant-input','draft','goal-input','note-text','feedback-text','memory-query','experience-review-text','experience-guidance-text','experience-guidance-when'].includes(active?.id)?{id:active.id,start:active.selectionStart,end:active.selectionEnd}:null;
  const tab=typeof workspace==='string'&&['discussion','history','background'].includes(workspace)?workspace:'discussion';
  const saved={version:1,scope,instruction:value('instruction'),draft:value('draft'),draftOrigin:typeof draftOrigin==='undefined'?null:draftOrigin,
+  draftArtifactRefs:typeof draftArtifactRefs==='undefined'?[]:draftArtifactRefs,draftRevision:typeof draftRevision==='undefined'?null:draftRevision,
+  draftDirty:typeof draftDirty!=='undefined'&&draftDirty,draftEditPending:typeof draftEditPending!=='undefined'&&draftEditPending,
+  draftSyncBlocked:typeof draftSyncBlocked!=='undefined'&&draftSyncBlocked,
   privateInput:value('assistant-input'),goalDraft:value('goal-input'),goalDirty:typeof goalDirty!=='undefined'&&goalDirty,
   noteText:value('note-text'),noteId,noteUse:value('note-use')||'discussion',noteVersion:note?.version??null,
   feedbackText:value('feedback-text'),feedbackRequestId:value('feedback-request-id'),feedbackOpen:!!el('feedback-form')&&!el('feedback-form').hidden,
+  feedbackTargetRef:typeof feedbackTargetRef==='undefined'?null:feedbackTargetRef,feedbackClientId:typeof feedbackClientId==='undefined'?null:feedbackClientId,
+  feedbackTargetPreview:el('feedback-target-preview')?.textContent||'',
+  experienceReview:{caseId:value('experience-review-id'),text:value('experience-review-text'),open:!!el('experience-review-form')&&!el('experience-review-form').hidden,target:typeof experienceReviewTarget==='undefined'?null:experienceReviewTarget,clientEventId:typeof experienceReviewClientId==='undefined'?null:experienceReviewClientId},
+  experienceGuidance:{id:value('experience-guidance-id'),text:value('experience-guidance-text'),applicability:value('experience-guidance-when'),open:!!el('experience-guidance-form')&&!el('experience-guidance-form').hidden,expectedVersion:typeof guidanceEditVersion==='undefined'?null:guidanceEditVersion},
   memoryQuery:value('memory-query'),selectedDiscussion:typeof selectedDiscussion==='undefined'?null:selectedDiscussion,
   draftMaterialIds:typeof draftMaterialIds==='undefined'?[]:[...draftMaterialIds],activeTab:tab,
   draftDialogOpen:!!el('draft-dialog')?.open,contactDialogOpen:!!el('contact-dialog')?.open,
   closedReadOnlyInspector:!!(el('context-dialog')?.open||el('assistant-context-dialog')?.open),
-  details:Object.fromEntries(['assistant-tools','goal-editor','note-editor','draft-material-panel'].map(id=>[id,!!el(id)?.open])),
+  details:Object.fromEntries(['assistant-tools','goal-editor','note-editor','draft-material-panel','experiences-panel','experience-guidance-panel'].map(id=>[id,!!el(id)?.open])),
   visibleCount:typeof visibleCount==='undefined'?100:visibleCount,
   scroll:{window:{x:scrollX,y:scrollY},discussion:position('conversation-scroll')||position('assistant-thread'),history:position('history'),background:position('panel-background'),draft:position('draft'),
    discussionSaved:typeof discussionScroll==='undefined'?null:discussionScroll,historySaved:typeof qqScroll==='undefined'?null:qqScroll},focus};
@@ -50,24 +57,46 @@ function restoreHelperReload() {
  if(typeof loadingHistory!=='undefined'&&loadingHistory)return {ready:false,reason:'loading_history'};
  const set=(id,value)=>{const node=el(id);if(node)node.value=value;};
  const turns=state.companion?.turns||[],notes=state.companion?.notes||[];
- const originValid=!saved.draftOrigin||turns.some(turn=>turn.id===saved.draftOrigin);
+ const savedRefs=saved.draftArtifactRefs||[],resolvedRefs=typeof resolveDraftArtifactRefs==='function'?resolveDraftArtifactRefs(state,saved.draftOrigin,savedRefs):savedRefs;
+ const bridgedLegacyOrigin=!savedRefs.length&&!!saved.draftOrigin&&!!resolvedRefs.length;
+ const originState=typeof draftOriginState==='function'?draftOriginState(state,saved.draftOrigin,resolvedRefs):(!saved.draftOrigin?'active':'unknown');
+ if(originState==='unknown')return {ready:false,blocked:true,reason:'draft_origin_unknown_capsule_quarantined'};
+ const originValid=originState!=='redacted',artifactOriginsValid=originValid;
  if(typeof draftOrigin!=='undefined')draftOrigin=originValid?saved.draftOrigin:null;
+ if(typeof draftArtifactRefs!=='undefined')draftArtifactRefs=originValid?resolvedRefs:[];
+ if(typeof draftRevision!=='undefined'&&Number.isSafeInteger(saved.draftRevision))draftRevision=state.experience?.draft?.revision??saved.draftRevision;
+ if(typeof draftDirty!=='undefined')draftDirty=!!saved.draftDirty;
+ if(typeof draftEditPending!=='undefined')draftEditPending=originValid&&(!!saved.draftEditPending||bridgedLegacyOrigin&&!!saved.draft.trim());
+ if(typeof draftSyncBlocked!=='undefined')draftSyncBlocked=!!saved.draftSyncBlocked;
  set('draft',originValid?saved.draft:'');
- if(!originValid&&el('draft-status'))el('draft-status').textContent='原参考来源已更新或删除，未恢复关联草稿。';
+ if(!originValid&&current)localStorage.removeItem(`draft-events:${JSON.stringify(fields.map(k=>current[k]))}`);
+ if(!originValid&&el('draft-status'))el('draft-status').textContent='原参考来源已删除，未恢复关联草稿。';
+ if(typeof syncDraftSafety==='function')syncDraftSafety();
  set('assistant-input',saved.privateInput);set('instruction',saved.instruction);
  if(saved.goalDirty){set('goal-input',saved.goalDraft);if(typeof goalDirty!=='undefined')goalDirty=true;}
  const note=notes.find(n=>n.id===saved.noteId),noteCompatible=!saved.noteId||!!note&&note.version===saved.noteVersion;
  set('note-text',saved.noteText);set('note-id',noteCompatible?saved.noteId:'');set('note-use',saved.noteUse);
  if(el('note-cancel'))el('note-cancel').hidden=!noteCompatible||!saved.noteId;
  if(el('note-save'))el('note-save').textContent=noteCompatible&&saved.noteId?'保存修改':'保存近况';
- const feedbackCompatible=!saved.feedbackRequestId||turns.some(turn=>turn.requestId===saved.feedbackRequestId);
- set('feedback-text',saved.feedbackText);set('feedback-request-id',feedbackCompatible?saved.feedbackRequestId:'');
+ const feedbackArtifact=saved.feedbackTargetRef?.kind==='artifact'?(state.experience?.artifactStates||[]).find(item=>item.ref.artifactId===saved.feedbackTargetRef.artifactRef?.artifactId&&item.ref.version===saved.feedbackTargetRef.artifactRef?.version):null;
+ const feedbackCompatible=feedbackArtifact?feedbackArtifact.availability!=='redacted':!saved.feedbackRequestId||turns.some(turn=>turn.requestId===saved.feedbackRequestId);
+ if(typeof feedbackTargetRef!=='undefined')feedbackTargetRef=feedbackCompatible?saved.feedbackTargetRef||null:null;
+ if(typeof feedbackClientId!=='undefined')feedbackClientId=feedbackCompatible?saved.feedbackClientId||null:null;
+ if(el('feedback-target-preview'))el('feedback-target-preview').textContent=feedbackCompatible?saved.feedbackTargetPreview||'':'';
+ if(current&&saved.feedbackTargetRef&&feedbackCompatible){const scoped=JSON.stringify(fields.map(k=>current[k]));sessionStorage.setItem(`feedback-target:${scoped}`,JSON.stringify({targetRef:saved.feedbackTargetRef,requestId:saved.feedbackRequestId,clientEventId:saved.feedbackClientId}));}
+ const recoveredFeedbackText=feedbackArtifact?.availability==='redacted'?'':saved.feedbackText;
+ set('feedback-text',recoveredFeedbackText);set('feedback-request-id',feedbackCompatible?saved.feedbackRequestId:'');
  if(el('feedback-form')){
   el('feedback-form').hidden=!saved.feedbackOpen;const submit=el('feedback-form').querySelector('[type=submit]');if(submit)submit.disabled=!feedbackCompatible;
   el('feedback-reload-notice')?.remove();
-  if(!feedbackCompatible){const notice=document.createElement('p');notice.id='feedback-reload-notice';notice.className='muted';notice.textContent='原反馈对象已更新或删除。文字已保留，请先复制需要保留的内容，再选择一条助手回复继续反馈。';el('feedback-form').prepend(notice);}
+  if(!feedbackCompatible){const notice=document.createElement('p');notice.id='feedback-reload-notice';notice.className='muted';notice.textContent=feedbackArtifact?.availability==='redacted'?'原反馈对象已删除，相关反馈草稿已清除。':'暂时无法核实原反馈对象。文字已保留，请先核对要反馈的助手内容。';el('feedback-form').prepend(notice);}
  }
  set('memory-query',saved.memoryQuery);
+ const experienceReview=saved.experienceReview||{};set('experience-review-id',experienceReview.caseId||'');set('experience-review-text',experienceReview.text||'');if(el('experience-review-form'))el('experience-review-form').hidden=!experienceReview.open;
+ if(typeof experienceReviewTarget!=='undefined')experienceReviewTarget=experienceReview.target||null;
+ if(typeof experienceReviewClientId!=='undefined')experienceReviewClientId=experienceReview.clientEventId||null;
+ const experienceGuidance=saved.experienceGuidance||{};set('experience-guidance-id',experienceGuidance.id||'');set('experience-guidance-text',experienceGuidance.text||'');set('experience-guidance-when',experienceGuidance.applicability||'');if(el('experience-guidance-form'))el('experience-guidance-form').hidden=!experienceGuidance.open;
+ if(typeof guidanceEditVersion!=='undefined')guidanceEditVersion=experienceGuidance.expectedVersion??null;
  if(typeof selectedDiscussion!=='undefined')selectedDiscussion=turns.some(turn=>turn.id===saved.selectedDiscussion)?saved.selectedDiscussion:null;
  if(typeof draftMaterialIds!=='undefined'){
   draftMaterialIds.clear();for(const id of saved.draftMaterialIds)if(notes.some(note=>note.id===id&&note.use==='draft'))draftMaterialIds.add(id);
@@ -89,10 +118,15 @@ function restoreHelperReload() {
  window.scrollTo(saved.scroll.window.x,saved.scroll.window.y);
  if(typeof saveDraft==='function')saveDraft();
  if(typeof syncDraftIndicator==='function')syncDraftIndicator();
- const preserved=el('assistant-input').value===saved.privateInput&&(!saved.goalDirty||el('goal-input')?.value===saved.goalDraft)&&el('note-text')?.value===saved.noteText&&el('feedback-text')?.value===saved.feedbackText&&el('draft').value===(originValid?saved.draft:'');
+ const preserved=el('assistant-input').value===saved.privateInput&&(!saved.goalDirty||el('goal-input')?.value===saved.goalDraft)&&el('note-text')?.value===saved.noteText&&el('feedback-text')?.value===recoveredFeedbackText&&el('draft').value===(originValid?saved.draft:'')&&(!el('experience-review-text')||el('experience-review-text').value===(experienceReview.text||''))&&(!el('experience-guidance-text')||el('experience-guidance-text').value===(experienceGuidance.text||''));
  if(!preserved)return {ready:false,blocked:true,reason:'input_verification_failed'};
+ // Bind a legacy edited body to its response family without claiming adoption.
+ if(originValid&&bridgedLegacyOrigin&&typeof checkpointDraft==='function')checkpointDraft();
+ // Successful same-scope recovery migrates the old two-ID browser cache. Do
+ // not leave a second copy that a later source-forget cannot invalidate.
+ if(current){const legacy=`${current.accountUid}/${current.peerUid}`;localStorage.removeItem(`draft:${legacy}`);localStorage.removeItem(`draft-origin:${legacy}`);sessionStorage.removeItem(`draft:${legacy}`);if(typeof legacyDraftCandidate!=='undefined')legacyDraftCandidate=null;if(el('draft-recover-legacy'))el('draft-recover-legacy').hidden=true;}
  sessionStorage.removeItem(key);
- return {ready:true,scopePreserved:true,unsavedAssistantInputsPreserved:true,draftsPreserved:originValid,draftOriginPreserved:originValid,noteEditDetached:!noteCompatible,feedbackTargetDetached:!feedbackCompatible,closedReadOnlyInspector:saved.closedReadOnlyInspector,
+ return {ready:true,scopePreserved:true,unsavedAssistantInputsPreserved:true,draftsPreserved:originValid,draftOriginPreserved:originValid,draftNeedsReview:originState==='stale',artifactOriginsPreserved:artifactOriginsValid,feedbackTargetPreserved:feedbackCompatible,noteEditDetached:!noteCompatible,feedbackTargetDetached:!feedbackCompatible,forgottenFeedbackCleared:feedbackArtifact?.availability==='redacted',closedReadOnlyInspector:saved.closedReadOnlyInspector,
   activeTab:typeof workspace==='string'&&['discussion','history','background'].includes(workspace)?workspace:'legacy'};
 }
 async function inspectHelperLayout() {
@@ -110,7 +144,9 @@ async function inspectHelperLayout() {
   draftDialog:{present:!!el('draft-dialog'),open:!!el('draft-dialog')?.open,visible:visible(el('draft-dialog'))},settingsDialogOpen:!!el('settings')?.open,
   pendingContactInput:(el('qq-number')?.value?.trim()||'')!==(current?.scope?.peerUin||''),goalDirty:typeof goalDirty!=='undefined'&&goalDirty,noteEditorOpen:!!el('note-editor')?.open,feedbackOpen:!!el('feedback-form')&&!el('feedback-form').hidden,
   draftOriginPresent:typeof draftOrigin!=='undefined'&&!!draftOrigin,recoveryPending:!!sessionStorage.getItem('qq-assistant-ui-reload-v1'),
-  draftHash:await hash(el('draft')?.value||''),privateInputHash:await hash(el('assistant-input')?.value||''),goalDraftHash:await hash(el('goal-input')?.value||''),noteDraftHash:await hash(el('note-text')?.value||''),feedbackDraftHash:await hash(el('feedback-text')?.value||'')};
+  draftHash:await hash(el('draft')?.value||''),privateInputHash:await hash(el('assistant-input')?.value||''),goalDraftHash:await hash(el('goal-input')?.value||''),noteDraftHash:await hash(el('note-text')?.value||''),feedbackDraftHash:await hash(el('feedback-text')?.value||''),
+  feedbackTargetHash:await hash(JSON.stringify(typeof feedbackTargetRef==='undefined'?null:feedbackTargetRef)),draftArtifactRefsHash:await hash(JSON.stringify(typeof draftArtifactRefs==='undefined'?[]:draftArtifactRefs)),
+  experienceReviewHash:await hash(el('experience-review-text')?.value||''),experienceGuidanceHash:await hash((el('experience-guidance-text')?.value||'')+'\n'+(el('experience-guidance-when')?.value||''))};
 }
 async function runProbe(states){
  if(process.env.CHAT_ASSISTANT_PROBE!=='1')return null;
@@ -126,29 +162,33 @@ async function runProbe(states){
    try{return fs.readFileSync(`/proc/${id}/cmdline`,'utf8').split('\0')[1]===entry && Number(fs.readFileSync(`/proc/${id}/status`,'utf8').match(/^PPid:\s+(\d+)$/m)?.[1])===process.pid;}catch{return false;}
   });
   if(children.length!==1)throw new Error('Cannot identify exactly one owned assistant worker');
-  const saved=await contents.executeJavaScript(`(()=>{document.querySelector('#draft')?.dispatchEvent(new Event('input'));const bound=typeof state!=='undefined'?state?.scope:null;return {instruction:document.querySelector('#instruction')?.value||'',peer:bound?.peerUin||document.querySelector('#qq-number')?.value||'',accountUid:bound?.accountUid||'',draft:document.querySelector('#draft')?.value||'',privateInput:document.querySelector('#assistant-input')?.value||'',goalDraft:document.querySelector('#goal-input')?.value||'',goalDirty:typeof goalDirty!=='undefined'&&goalDirty,noteText:document.querySelector('#note-text')?.value||'',noteId:document.querySelector('#note-id')?.value||'',noteUse:document.querySelector('#note-use')?.value||'discussion'}})()`);
-  if(!/^\d{5,12}$/.test(saved.peer))throw new Error('Cannot preserve helper conversation');
-  const settingsPath=path.join(root,'data/settings.json'),settings=JSON.parse(fs.readFileSync(settingsPath,'utf8'));
-  settings.instruction=saved.instruction;fs.writeFileSync(settingsPath,JSON.stringify(settings,null,2),{mode:0o600});
+  const capture=await contents.executeJavaScript(`(${captureHelperReload.toString()})(false)`);
+  if(capture.blocked)return {scheduled:false,qqRestarted:false,serviceRestarted:false,...capture};
+  const peer=await contents.executeJavaScript("typeof state==='undefined'?'':state?.scope?.peerUin||''");
+  if(!/^\d{5,12}$/.test(peer))throw new Error('Cannot preserve helper conversation; inputs remain in the local recovery capsule');
   const output=path.join(root,'data/service-refresh-result.json');
   const oldURL=fs.readFileSync(path.join(root,'data/assistant-url.txt'),'utf8').trim();
   setTimeout(async()=>{try{
    process.kill(Number(children[0]),'SIGTERM');
    for(let n=0;n<100 && fs.existsSync(`/proc/${children[0]}`);n++)await new Promise(r=>setTimeout(r,100));
    if(fs.existsSync(`/proc/${children[0]}`))throw new Error('Owned assistant worker did not stop');
-   await openHelper({sender:contents},saved.peer);
+   await openHelper({sender:contents},peer);
    const url=fs.readFileSync(path.join(root,'data/assistant-url.txt'),'utf8').trim();
    if(!/^http:\/\/127\.0\.0\.1:17860\/#\w+$/.test(url)||url===oldURL)throw new Error('New helper URL is not ready');
    await contents.loadURL(url.replace('/#',`/?refresh=${Date.now()}#`));
-   let restored=false;
-   for(let n=0;n<100&&!restored;n++){
-    restored=await contents.executeJavaScript(`(()=>{const bound=typeof state!=='undefined'?state?.scope:null;if(!bound||bound.peerUin!==${JSON.stringify(saved.peer)}||${JSON.stringify(saved.accountUid)}&&bound.accountUid!==${JSON.stringify(saved.accountUid)})return false;const input=document.querySelector('#assistant-input');if(input)input.value=${JSON.stringify(saved.privateInput)};if(${JSON.stringify(saved.goalDirty)}){const goal=document.querySelector('#goal-input');if(goal){goal.value=${JSON.stringify(saved.goalDraft)};goal.dispatchEvent(new Event('input'))}}if(${JSON.stringify(!!saved.noteText)}){for(const [id,value]of [['note-text',${JSON.stringify(saved.noteText)}],['note-id',${JSON.stringify(saved.noteId)}],['note-use',${JSON.stringify(saved.noteUse)}]]){const el=document.getElementById(id);if(el)el.value=value}const cancel=document.getElementById('note-cancel');if(cancel)cancel.hidden=!${JSON.stringify(!!saved.noteId)}}return true})()`);
-    if(!restored)await new Promise(r=>setTimeout(r,100));
+   let restored;
+   for(let n=0;n<150;n++){
+    try{restored=await contents.executeJavaScript(`(${restoreHelperReload.toString()})()`);}
+    catch{restored={ready:false,reason:'renderer_not_ready'};}
+    if(restored.ready)break;
+    // Automatic account/contact rebinding can be slower than renderer load.
+    if(restored.blocked&&restored.reason!=='scope_changed_input_not_restored')break;
+    await new Promise(r=>setTimeout(r,100));
    }
-   if(!restored)throw new Error('Helper restarted but scoped unsaved input restoration needs attention');
-   const hash=require('node:crypto').createHash('sha256').update(saved.draft).digest('hex');
-   fs.writeFileSync(output,JSON.stringify({ok:true,qqRestarted:false,draftHash:hash,peer:saved.peer,unsavedAssistantInputsPreserved:restored}),{mode:0o600});
-  }catch(e){fs.writeFileSync(output,JSON.stringify({ok:false,error:e.message}),{mode:0o600});}},250);
+   if(!restored?.ready)throw new Error(`Helper restarted; scoped inputs remain in the recovery capsule (${restored?.reason||'timeout'})`);
+   const layout=await contents.executeJavaScript(`(${inspectHelperLayout.toString()})()`);
+   fs.writeFileSync(output,JSON.stringify({ok:true,qqRestarted:false,serviceRestarted:true,...restored,layout}),{mode:0o600});
+  }catch(e){fs.writeFileSync(output,JSON.stringify({ok:false,qqRestarted:false,recoveryPending:true,error:e.message}),{mode:0o600});}},250);
   return {scheduled:true,qqRestarted:false};
  }
  if(action.action==='search-contact') {

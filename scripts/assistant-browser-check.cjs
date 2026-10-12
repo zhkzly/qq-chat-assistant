@@ -189,7 +189,7 @@ async function until(predicate, label) {
       assert.equal(outbound.includes(secret), false, secret);
     }
     assert.match(outbound, /实验终于成功了/);
-    await ui.click('#assistant-thread .assistant-suggestion button',-1);
+    await ui.click('#assistant-thread .assistant-suggestion button[data-action=adopt]',-1);
     await until(()=>cdp.evaluate("document.querySelector('#draft-dialog').open"),'selected expression opens draft editor');
     assert.equal(await cdp.evaluate("document.activeElement.id"),'draft');
     await ui.fill('#draft','实验成功啦，今天终于松了口气。');
@@ -272,8 +272,16 @@ async function until(predicate, label) {
     await ui.workspace('discussion');await ui.openDetails('#draft-material-panel');await ui.click('#draft-materials input[type=checkbox]');await ui.closeDetails('#draft-material-panel');
     const selectedMaterial=await cdp.evaluate("[...document.querySelectorAll('#draft-materials input:checked')].map(el=>el.value)");assert.equal(selectedMaterial.length,1);
     await ui.click('#draft-button');await ui.fill('#draft','RELOAD_DRAFT_尚未发送的回复草稿');
+    const legacyCurrent=`${scope.accountUid}/${scope.peerUid}`,legacyOther=`${scope.accountUid}/synthetic-other-contact`;
+    await cdp.evaluate(`for(const storage of [localStorage,sessionStorage]){storage.setItem(${JSON.stringify(`draft:${legacyCurrent}`)},'RELOAD_DRAFT_尚未发送的回复草稿');storage.setItem(${JSON.stringify(`draft:${legacyOther}`)},'OTHER_SCOPE_UNSENT_KEEP')}localStorage.setItem(${JSON.stringify(`draft-origin:${legacyCurrent}`)},'legacy-current-origin');localStorage.setItem(${JSON.stringify(`draft-origin:${legacyOther}`)},'OTHER_SCOPE_ORIGIN_KEEP')`);
     const beforeReload=await cdp.evaluate(`(${inspectHelperLayout.toString()})()`),callsBeforeReload=calls.length,actualBeforeReload=store.messages(scope).length,settingsBeforeReload=JSON.stringify(controller.settings);
     const captured=await cdp.evaluate(`(${captureHelperReload.toString()})(false)`);assert.equal(captured.captured,true);
+    const capsule=await cdp.evaluate("sessionStorage.getItem('qq-assistant-ui-reload-v1')");
+    await cdp.evaluate(`(()=>{const saved=JSON.parse(${JSON.stringify(capsule)});saved.scope.peerUid='synthetic-other-contact';sessionStorage.setItem('qq-assistant-ui-reload-v1',JSON.stringify(saved))})()`);
+    const rejectedRestore=await cdp.evaluate(`(${restoreHelperReload.toString()})()`);assert.equal(rejectedRestore.blocked,true);assert.equal(rejectedRestore.reason,'scope_changed_input_not_restored');
+    assert.equal(await cdp.evaluate(`localStorage.getItem(${JSON.stringify(`draft:${legacyCurrent}`)})`),'RELOAD_DRAFT_尚未发送的回复草稿');
+    assert.equal(await cdp.evaluate(`localStorage.getItem(${JSON.stringify(`draft:${legacyOther}`)})`),'OTHER_SCOPE_UNSENT_KEEP');
+    await cdp.evaluate(`sessionStorage.setItem('qq-assistant-ui-reload-v1',${JSON.stringify(capsule)})`);
     await cdp.call('Page.reload');
     await until(()=>cdp.evaluate("typeof state!=='undefined'&&!!state?.scope&&typeof loadingHistory!=='undefined'&&!loadingHistory"),'new helper document and history ready for restoration');
     let restored;
@@ -286,9 +294,12 @@ async function until(predicate, label) {
     assert.equal(await cdp.evaluate("document.querySelector('#note-use').value"),'disabled');
     assert.deepEqual(await cdp.evaluate("[...document.querySelectorAll('#draft-materials input:checked')].map(el=>el.value)"),selectedMaterial);
     assert.equal(await cdp.evaluate("document.querySelector('#memory-query').value"),'RELOAD_QUERY_还没执行的查找');
+    for(const storage of ['localStorage','sessionStorage']){assert.equal(await cdp.evaluate(`${storage}.getItem(${JSON.stringify(`draft:${legacyCurrent}`)})`),null);assert.equal(await cdp.evaluate(`${storage}.getItem(${JSON.stringify(`draft:${legacyOther}`)})`),'OTHER_SCOPE_UNSENT_KEEP');}
+    assert.equal(await cdp.evaluate(`localStorage.getItem(${JSON.stringify(`draft-origin:${legacyCurrent}`)})`),null);assert.equal(await cdp.evaluate(`localStorage.getItem(${JSON.stringify(`draft-origin:${legacyOther}`)})`),'OTHER_SCOPE_ORIGIN_KEEP');
     assert.equal(controller.snapshot().companion.goal.text,syntheticGoal);assert.equal(calls.length,callsBeforeReload);assert.equal(store.messages(scope).length,actualBeforeReload);assert.equal(JSON.stringify(controller.settings),settingsBeforeReload);
     await ui.click('#draft-close');await ui.composer('composer after helper reload restoration');
     checks.push('The actual helper reload functions refuse open settings and preserve scoped unsent inputs, material selection and draft across reload without model calls or sends');
+    checks.push('A mismatched-scope recovery deletes no legacy cache; successful recovery clears only its own obsolete two-ID draft aliases');
     const report = { evidence: 'synthetic-browser-execution', result: 'PASS', nativeQQIntegration: false,
       realModelCalls: 0, timestamp: new Date().toISOString(), checks, screenshot: path.join(artifacts, 'assistant-synthetic.png'), initialScreenshots:[[370,560],[370,640],[370,890],[480,900]].map(([width,height])=>path.join(artifacts,`initial-${width}x${height}.png`)) };
     fs.writeFileSync(path.join(artifacts, 'report.json'), JSON.stringify(report, null, 2));

@@ -12,7 +12,9 @@
     "diagnose": "node scripts/diagnose.cjs",
     "test:ui": "node scripts/browser-check.cjs",
     "test:assistant-ui": "node scripts/assistant-browser-check.cjs",
-    "test:goal-replay": "node scripts/context-goal-replay.cjs"
+    "test:goal-replay": "node scripts/context-goal-replay.cjs",
+    "test:relationship-goal": "node scripts/relationship-goal-check.cjs",
+    "test:experience-browser": "node scripts/experience-browser-check.cjs"
   },
   "engines": {
     "node": ">=22"

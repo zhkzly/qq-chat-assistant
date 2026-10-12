@@ -20,3 +20,8 @@ test('bad input, long retry-after and cancellation never cause automatic replay'
   const abort=new AbortController();abort.abort();let calls=0;
   await assert.rejects(postModel('http://fixture.invalid',{signal:abort.signal},async()=>{calls++;return {ok:true}},async()=>{}));assert.equal(calls,0);
 });
+test('transport never sends when the shared task has no remaining request budget',async()=>{
+  let sent=0;const budget={reserveAttempt(){const e=new Error('budget exhausted');e.code='request_budget_exhausted';throw e;}};
+  await assert.rejects(postModel('http://fixture.invalid',{},async()=>{sent++;return {ok:true,status:200}},async()=>{},budget),{code:'request_budget_exhausted'});
+  assert.equal(sent,0);
+});

@@ -1,26 +1,78 @@
 'use strict';
 const crypto = require('node:crypto');
 const { redact } = require('./model.cjs');
-const { selectMethods } = require('./help-methods.cjs');
-const PROMPT_VERSION = 'relationship-context-2026-10-12.3';
+const { selectMethods, runtimeCard } = require('./help-methods.cjs');
+const PROMPT_VERSION = 'relationship-context-2026-10-12.6';
 const METHODS = {
-  discussion: '按当前困难选择理清想法、比较下一步或回应分享。意思明确就直接帮助，只问会改变建议的必要问题。允许暂缓或不用助手，不强制每次制定目的。',
-  review: '按实际覆盖回顾彼此了解、接续话题、共同经历、双方关心与用户体验。兼顾顺利、不顺利与未知，不计算好感分，不把回复归因为某条建议。',
+  discussion: '围绕用户真正希望的恋爱发展选择当前帮助，可接续、邀请、表达好感或讨论。意思明确就直接帮助，只问会改变建议的必要问题。允许暂缓或不用助手，不强制每次制定目的。',
+  review: '按实际覆盖回顾相处、共同经历、用户体验与双方明确的浪漫方向，分别说普通友好、活动意愿和恋爱意图。兼顾反证与未知，不计算好感分，不把回复归因为某条建议。',
   reply: '结合当前关系背景与回复重点，回应真实 QQ 来信；可以给参考表达，也可以先处理关键歧义。不重复已经发出的内容。',
   draft_prepare: '只提取用户此次明确想对她表达的原文片段，或用户选中的可分享素材。担忧、私人动机、禁止披露内容不选。含糊且影响分享范围则提一个具体问题。',
   draft: '根据提供的拟表达片段和真实 QQ 语境组织一条自然、可修改的表达。不补造经历、心理或共同约定；不要求延长聊天。'
 };
 const digest = value => crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const bytes = value => Buffer.byteLength(JSON.stringify(value), 'utf8');
+const sanitize = value => JSON.parse(JSON.stringify(value, (_key, item) => typeof item === 'string' ? redact(item) : item));
+const pick = (value, fields) => Object.fromEntries(fields.filter(key => value?.[key] !== undefined).map(key => [key, value[key]]));
+function relevantTo(text, item) {
+  const ignored = new Set(['今天','最近','什么','怎么','这个','那个','我们','你们','她的','我的','帮我','一下','觉得','想要','可以','现在','已经']);
+  const terms = [...new Set([...(String(text).toLowerCase().match(/[a-z0-9_]{3,}/g) || []),
+    ...(String(text).match(/[\p{Script=Han}]{2}/gu) || []).filter(term => !ignored.has(term))])];
+  const haystack = `${item.text || ''} ${(item.topicKeys || []).join(' ')}`.toLowerCase();
+  return terms.some(term => haystack.includes(term));
+}
+function sameScopeIfPresent(value, scope) {
+  if (!value?.scope) return true;
+  if (typeof value.scope !== 'object') return value.scope === 'this_relationship';
+  return ['accountUid', 'accountUin', 'peerUid', 'peerUin'].every(key => value.scope[key] === scope[key]);
+}
+function supportedByAvailable(record, byId, scope) {
+  return sameScopeIfPresent(record, scope) && record.evidenceValidity !== 'invalid' && record.evidenceValidity !== 'unavailable' &&
+    Object.entries(record.sourceRevisions || {}).every(([id, revision]) => byId.get(id)?.revision === revision) &&
+    (record.sourceRefs || []).every(ref => byId.get(ref.sourceId)?.revision === ref.revision) &&
+    Array.isArray(record.sourceIds) && record.sourceIds.length > 0 && record.sourceIds.every(id => {
+      const source = byId.get(id);
+      return source && !source.deleted && !source.excluded && (!record.sourceRevisions?.[id] || record.sourceRevisions[id] === source.revision);
+    });
+}
+function methodTrace(payload) {
+  return { purpose: payload.purpose, delivered: (payload.methodCards || []).map(({ id, version }) => ({ id, version })), reported: null };
+}
+function projectActualActions(actions, byId, scope) {
+  return (actions || []).flatMap(action => {
+    if (action.kind === 'user_reported_activity') {
+      if (!action.sourceRevisions || !action.sourceIds?.every(id => action.sourceRevisions[id]) || !supportedByAvailable(action, byId, scope)) return [];
+      return [{ ...pick(action, ['kind','activityId','eventAt','sourceIds','sourceRevisions']), authority: 'reported_not_directly_observed' }];
+    }
+    const id = `qq:${action.messageId}`;
+    if (byId.get(id)?.type !== 'qq') return [];
+    return [{ ...pick(action, ['kind','messageId','eventAt','availability']), sourceId: id }];
+  });
+}
+function projectObservations(observations, byId, scope) {
+  return (observations || []).flatMap(observation => {
+    if (observation.kind === 'activity_event') {
+      if (!observation.sourceRevisions || !observation.sourceIds?.every(id => observation.sourceRevisions[id]) || !supportedByAvailable(observation, byId, scope)) return [];
+      return [{ ...pick(observation, ['kind','relationshipEventId','eventKind','text','sourceIds','sourceRevisions','eventAt','lifecycle']),
+        authority: observation.sourceIds.every(id => byId.get(id)?.type === 'qq') ? 'derived_from_qq_statements' : 'derived_from_user_report' }];
+    }
+    const id = observation.sourceId || `qq:${observation.messageId}`;
+    if (byId.get(id)?.type !== 'qq') return [];
+    return [{ ...pick(observation, ['kind','messageId','eventAt','relevance','authority']), sourceId: id }];
+  });
+}
+const actionSources = items => items.flatMap(item => item.sourceIds || [item.sourceId]).filter(Boolean);
 function eligibleQQ(message) { return message.kind === 'actual' && !message.recalled && message.text !== '[已撤回]'; }
 function sourcesFor(records, companion) {
   return [
     ...records.filter(eligibleQQ).map(m => ({ id: `qq:${m.messageId}`, type: 'qq', text: redact(m.text),
-      at: new Date(m.timestamp).toISOString(), speaker: m.direction === 'outgoing' ? '我' : '对方', revision: digest(m) })),
-    ...companion.turns.filter(t => t.role === 'user').map(t => ({ id: `private:${t.id}`, type: 'private', role: 'user',
+      at: new Date(m.timestamp).toISOString(), direction: m.direction, speaker: m.direction === 'outgoing' ? '我' : '对方', revision: digest(m) })),
+    ...companion.turns.filter(t => t.role === 'user' && !t.memoryExcluded && !['feedback','feedback_ref'].includes(t.kind)).map(t => ({ id: `private:${t.id}`, type: 'private', role: 'user',
       text: redact(t.text), at: t.createdAt, revision: digest(t) })),
     ...companion.notes.filter(n => n.use !== 'disabled').map(n => ({ id: `note:${n.id}`, type: 'note',
-      text: redact(n.text), use: n.use, at: n.updatedAt || n.createdAt, revision: digest(n) }))
+      text: redact(n.text), use: n.use, kind: n.kind, at: n.updatedAt || n.createdAt, revision: digest(n) })),
+    ...(companion.feedback || []).filter(item => !item.redacted).map(item => ({ id: item.sourceId || `private:feedback-${item.id}`,
+      type: 'feedback', role: 'user', kind: 'local', text: redact(item.text), targetRef: item.targetRef, at: item.createdAt, revision: digest(item) }))
   ];
 }
 function finish(payload, sources, info, allSources, byteBudget) {
@@ -33,15 +85,20 @@ function finish(payload, sources, info, allSources, byteBudget) {
     completeReview: allSources.every(s => ids.includes(s.id)), omittedSourceCount: allSources.filter(s => !ids.includes(s.id)).length,
     historyCoverage: info.coverage, inputBytes, byteBudget, tokenizerVerified: false,
     budgetMethod: 'UTF-8 byte ceiling for serialized input; tokenizer and provider window unverified',
-    createdAt: new Date().toISOString() } };
+    methodTrace: methodTrace(payload), createdAt: new Date().toISOString() } };
 }
 function buildContext({ scope, records, companion, turn, purpose = 'discussion', coverage, requestId,
   materialIds = [], byteBudget = 48000, availableSources, memoryResult, memoryIndex = [], retrievedSources = [],
-  sourceTurnIds = [], selectedOption, replyMessageIds = [], actionReceipts = [], lookupHistory = [], reviewRange }) {
+  sourceTurnIds = [], selectedOption, replyMessageIds = [], actionReceipts = [], lookupHistory = [], reviewRange,
+  relationshipContext = null, experienceContext = null, feedbackTargets = [], allowExperienceProposals = purpose === 'review' }) {
   if (!METHODS[purpose] || purpose === 'draft') throw new Error('未知的上下文用途');
   if (!Number.isFinite(byteBudget) || byteBudget < 4000 || byteBudget > 192000) throw new Error('上下文预算不合法');
-  const all = (availableSources || sourcesFor(records, companion)).map(s => ({ ...s, text: redact(s.text),
-    ...(s.type === 'qq' ? { speaker: s.direction === 'outgoing' || s.role === 'user' ? '我' : '对方' } : {}) }));
+  const actualById = new Map(records.filter(eligibleQQ).map(record => [`qq:${record.messageId}`, record]));
+  const all = (availableSources || sourcesFor(records, companion)).filter(source => !source.deleted && !source.excluded && source.use !== 'disabled' && sameScopeIfPresent(source, scope))
+    .filter(source => source.type !== 'qq' || actualById.has(source.id)).map(source => {
+      const actual = source.type === 'qq' && actualById.get(source.id);
+      return { ...source, text: redact(source.text), ...(actual ? { direction: actual.direction, speaker: actual.direction === 'outgoing' ? '我' : '对方' } : {}) };
+    });
   all.sort((a,b)=>Date.parse(a.at||0)-Date.parse(b.at||0)||a.id.localeCompare(b.id));
   const byId = new Map(all.map(s => [s.id, s]));
   const currentId = `private:${turn.id}`;
@@ -73,21 +130,26 @@ function buildContext({ scope, records, companion, turn, purpose = 'discussion',
     previousStatus: item.status || 'open', status: 'needs_review' }));
   const methodSelection = selectMethods({ purpose, text: current.text, focus: state.focus, hasReply: validQQ.at(-1)?.direction === 'incoming' });
   const restrictions = companion.notes.filter(n => n.use === 'discussion' && n.kind !== 'preference').map(n => ({ sourceId: `note:${n.id}`, text: redact(n.text), evidenceSourceIds: n.evidenceSourceIds || [] }));
-  const payload = { promptVersion: PROMPT_VERSION, purpose, method: methodSelection.instruction, methodSelection: {
-    version: methodSelection.version, selection: methodSelection.selection, candidates: methodSelection.methods.map(m => m.id),
+  const payload = { promptVersion: PROMPT_VERSION, purpose, method: METHODS[purpose], methodCards: [], methodSelection: {
+    version: methodSelection.version, selection: methodSelection.selection, candidates: [],
     maxApplied: methodSelection.maxApplied, selectionRule: methodSelection.selectionRule, feedbackRule: methodSelection.feedbackRule }, asOf: new Date().toISOString(),
     userRequest: { sourceId: current.id, text: current.text }, goal: redact(companion.goal.text || ''),
     workingState: state, coverage, selectedMaterialIds: materialIds.map(id => `note:${id}`),
     allowedMaterialIds: [],
     expressionOptions: selectedProposal ? proposals.filter(o=>o.turnId===selectedOption.turnId&&o.index===selectedOption.index) : [], selectedOption: selectedOption || null,
     actionReceipts: actionReceipts.map(r=>({id:r.id,type:r.type,status:r.status,label:r.label,text:r.text||r.preview,reason:r.reason})),
-    privateRestrictions: [], preferences: [],
+    privateRestrictions: [], preferences: [], experienceProposalPolicy: { enabled: false, maxItems: 2, feedbackSourceIds: [], caseIds: [] },
     replyFocus: replyMessageIds, lookupHistory, reviewRange: reviewRange || null,
     retrievedMemory: { items: [], episodes: [], coverage: memoryResult?.coverage || null }, memoryIndex: [],
     sources: [...selected.values()], privateConversation: [],
     evidenceRule: 'historicalOnly=true 的消息仅为历史提及，后续可能有未读的更改，不可据此断言当前约定有效。possiblyStale 的状态只作需要核查的上次理解，新原话与用户纠正优先。',
     omittedStateEntries: 0 };
-  const refresh = () => { payload.sources = [...selected.values()]; payload.allowedMaterialIds=payload.sources.filter(s=>s.type==='note'&&s.use==='draft').map(s=>s.id); };
+  const refresh = () => {
+    payload.sources = [...selected.values()]; payload.allowedMaterialIds=payload.sources.filter(s=>s.type==='note'&&s.use==='draft').map(s=>s.id);
+    const feedbackSourceIds = (payload.feedbackTargets || []).filter(item => !item.missing && selected.get(item.feedback.sourceId)?.type === 'feedback').map(item => item.feedback.sourceId);
+    payload.experienceProposalPolicy = { enabled: allowExperienceProposals === true && feedbackSourceIds.length > 0, maxItems: 2,
+      feedbackSourceIds: allowExperienceProposals ? feedbackSourceIds : [], caseIds: allowExperienceProposals ? (payload.experienceContext?.cases || []).map(item => item.id) : [] };
+  };
   refresh();
   // A large derived state cannot make a small explicit request unusable. Drop
   // complete low-priority entries, recording the omission, never cutting text.
@@ -102,6 +164,84 @@ function buildContext({ scope, records, companion, turn, purpose = 'discussion',
     selected.set(source.id, source); refresh();
     if (bytes(payload) > byteBudget) { selected.delete(source.id); refresh(); }
   };
+  const includeGrounded = (record, target, fields) => {
+    if (!supportedByAvailable(record, byId, scope)) return false;
+    const before = new Map(selected);
+    for (const id of record.sourceIds) selected.set(id, byId.get(id));
+    const clean = sanitize(pick(record, fields));
+    clean.authority ||= record.reviewComplete === false ? 'needs_review' : 'source_backed_summary_not_independent_evidence';
+    target.push(clean); refresh();
+    if (bytes(payload) <= byteBudget) return true;
+    target.pop(); selected.clear(); for (const [id, source] of before) selected.set(id, source); refresh(); return false;
+  };
+  if (relationshipContext && sameScopeIfPresent(relationshipContext, scope)) {
+    payload.relationshipContext = { version: relationshipContext.version, asOf: relationshipContext.asOf,
+      claims: [], events: [], activities: [], coverage: sanitize(relationshipContext.coverage || {}) };
+    const common = ['id','version','text','sourceIds','sourceRevisions','evidenceValidity','applicability','currentApplicability','reviewComplete','topicKeys','firstEvidenceAt','lastEvidenceAt'];
+    for (const claim of (relationshipContext.claims || []).slice(0, 24))
+      includeGrounded(claim, payload.relationshipContext.claims, [...common,'subject','aspect','assertionKind','epistemicStatus','lifecycle','validFrom','validUntil','context']);
+    for (const event of (relationshipContext.events || []).slice(-24).reverse())
+      includeGrounded(event, payload.relationshipContext.events, [...common,'activityKey','eventKind','actor','occurredAt','lifecycle','assertionKind','epistemicStatus','origin']);
+    payload.relationshipContext.events.sort((a,b)=>String(a.occurredAt||a.lastEvidenceAt||'').localeCompare(String(b.occurredAt||b.lastEvidenceAt||'')));
+    const eventIds = new Set(payload.relationshipContext.events.map(event => event.id));
+    for (const activity of (relationshipContext.activities || []).slice(0, 8)) {
+      const ids = activity.eventIds || activity.events?.map(event => typeof event === 'string' ? event : event.id) || [];
+      if (!ids.length || ids.some(id => !eventIds.has(id))) continue;
+      const compact = sanitize({ ...pick(activity, ['activityKey','status','currentState','latestEventId','occurredAt']), eventIds: ids });
+      payload.relationshipContext.activities.push(compact);
+      if (bytes(payload) > byteBudget) payload.relationshipContext.activities.pop();
+    }
+  }
+  if (experienceContext && sameScopeIfPresent(experienceContext, scope)) {
+    payload.experienceContext = { cases: [], adaptations: [], constraints: ['仅为局部经验；不是她的心理或方法因果效果证据。'] };
+    for (const item of (experienceContext.cases || []).slice(0, 4)) {
+      const actualActions = projectActualActions(item.actualActions, byId, scope);
+      const observations = projectObservations(item.observations, byId, scope);
+      const reviewSourceIds = (item.reviews || []).map(review => review.sourceId).filter(id => byId.has(id));
+      const sourceIds = [...new Set([...(item.sourceIds || []), ...actionSources(actualActions), ...actionSources(observations), ...reviewSourceIds])];
+      const links = (item.links || []).slice(0, 8).map(link => ({ ...pick(link, ['id','status','reason','artifactRefs','actualMessageIds','confirmation']),
+        artifacts: (link.artifacts || []).map(artifact => ({ ...pick(artifact, ['ref','availability']),
+          ...(artifact.availability === 'redacted' ? {} : { text: artifact.text }), authority: 'generated_proposal_not_actual_communication' })) }));
+      includeGrounded({ ...item, actualActions, observations, links, sourceIds, reviewSourceIds }, payload.experienceContext.cases,
+        ['id','status','goalVersion','actualActions','observations','linkStatus','attribution','links','reviewSourceIds','sourceIds']);
+    }
+    for (const item of (experienceContext.adaptations || []).slice(0, 4)) {
+      if (item.status !== 'active' || item.authority !== 'user_approved_assistance_guidance') continue;
+      includeGrounded(item, payload.experienceContext.adaptations, ['id','version','text','applicability','methodRef','status','scope','authority','sourceIds']);
+    }
+  }
+  const evaluationTargets = [...feedbackTargets, ...(experienceContext?.evaluationTargets || [])];
+  if (evaluationTargets.length) {
+    payload.feedbackTargets = [];
+    const seen = new Set();
+    for (const item of evaluationTargets.slice(0, 8)) {
+      const id = item.feedback?.sourceId;
+      if (!id || seen.has(id) || !byId.has(id)) continue;
+      const record = { ...item, sourceIds: [...new Set([id, ...(item.sourceIds || [])])] };
+      const target = pick(item.target, ['artifactRef','body','kind','messageId','availability','authority','deliveredMethodRefs','reportedUsedMethodRefs','generationStages']);
+      if (item.missing || ['purged','deleted','redacted','unavailable'].includes(target.availability)) delete target.body;
+      if (item.feedback.targetRef?.kind === 'experience' && item.target) {
+        const actualActions = projectActualActions(item.target.actualActions, byId, scope);
+        const observations = projectObservations(item.target.observations, byId, scope);
+        const reviews = (item.target.reviews || []).filter(review => byId.has(review.sourceId)).map(review => pick(review, ['id','sourceId','targetRef']));
+        Object.assign(target, pick(item.target, ['id','status','attribution']), { actualActions, observations, reviews, authority: 'experience_evaluation_target_not_independent_evidence' });
+        record.sourceIds = [...new Set([...record.sourceIds, ...actionSources(actualActions), ...actionSources(observations), ...reviews.map(review=>review.sourceId)])];
+      }
+      else target.authority = item.target?.kind === 'actual_message' ? 'actual_qq_evaluation_target' : 'generated_evaluation_target_not_factual_evidence';
+      const projected = { ...record, feedback: pick(item.feedback, ['id','sourceId','kind','targetRef']), target,
+        correctionContext: (item.correctionContext || []).filter(item => byId.has(item.sourceId)).map(item => ({ sourceId: item.sourceId })) };
+      if (includeGrounded(projected, payload.feedbackTargets, ['feedback','target','missing','sourceIds','correctionContext'])) seen.add(id);
+      else includeGrounded({ feedback: projected.feedback, target: pick(target, ['artifactRef','kind','authority']), missing: true,
+        reason: '完整评价对象或其必要证据未能放入本次上下文，不能推断反馈针对哪句话。', sourceIds: [id] }, payload.feedbackTargets,
+        ['feedback','target','missing','reason','sourceIds']);
+    }
+  }
+  // Complete evidence and evaluated artifacts precede optional method cards.
+  // Missing cards never require asking the user a ritual question.
+  for (const method of methodSelection.methods) {
+    payload.methodCards.push(runtimeCard(method)); payload.methodSelection.candidates.push(method.id);
+    if (bytes(payload) > byteBudget) { payload.methodCards.pop(); payload.methodSelection.candidates.pop(); }
+  }
   if(!selectedProposal)for(const option of proposals.reverse()) {
     payload.expressionOptions.unshift(option);
     if(bytes(payload)>byteBudget){payload.expressionOptions.shift();break;}
@@ -117,26 +257,40 @@ function buildContext({ scope, records, companion, turn, purpose = 'discussion',
     if (t.role === 'user') trySource(byId.get(`private:${id}`));
     else for (const sid of t.sourceIds || []) trySource(byId.get(sid));
   }
+  const summarized = new Set();
   for (const kind of ['items', 'episodes']) for (const item of memoryResult?.[kind] || []) {
+    if (!Array.isArray(item.sourceIds) || item.sourceIds.some(id => !byId.has(id))) continue;
+    const signature = digest([item.text, [...item.sourceIds].sort()]);
+    if (summarized.has(signature)) continue;
     const clean = { ...item, text: redact(item.text), authority: item.reviewComplete===false || item.sourceIds.some(id=>!selected.has(id)) ? 'needs_review' : 'source_backed_summary' };
+    const verbatim = item.sourceIds.find(id => selected.get(id)?.text === clean.text);
+    if (verbatim) { delete clean.text; clean.textFromSource = verbatim; }
     payload.retrievedMemory[kind].push(clean);
     if (bytes(payload) > byteBudget) { payload.retrievedMemory[kind].pop(); break; }
+    summarized.add(signature);
   }
-  for (const item of memoryIndex.slice(0, 30)) {
+  const includedMemories = new Set([...payload.retrievedMemory.items, ...payload.retrievedMemory.episodes].map(item => item.id));
+  for (const item of memoryIndex.filter(item => !includedMemories.has(item.id) && relevantTo(current.text, item)).slice(0, 8)) {
+    if (!Array.isArray(item.sourceIds) || !item.sourceIds.length || item.sourceIds.some(id => !byId.has(id))) continue;
     payload.memoryIndex.push({ id: item.id, kind: item.kind, text: redact(item.text), topicKeys: item.topicKeys, status: item.status,
       authority:'navigation_only_needs_source_lookup',reviewComplete:item.reviewComplete,sourceIds:item.sourceIds,lastEvidenceAt:item.lastEvidenceAt });
     if (bytes(payload) > byteBudget) { payload.memoryIndex.pop(); break; }
   }
   // Add complete private exchanges rather than orphaning an assistant answer.
-  const groups = [];
+  const groups = []; let activeGroup = null;
   for (const t of companion.turns) {
-    if (t.id === turn.id || t.memoryExcluded || t.role === 'user' && !byId.has(`private:${t.id}`)) continue;
-    if (t.role === 'user' || !groups.length) groups.push([]);
-    groups.at(-1).push(t);
+    if (t.role === 'user') {
+      activeGroup = null;
+      if (t.id === turn.id || t.memoryExcluded || !byId.has(`private:${t.id}`)) continue;
+      activeGroup = []; groups.push(activeGroup);
+    }
+    if (activeGroup) activeGroup.push(t);
   }
   for (const group of groups.slice(-6).reverse()) {
     const previous = new Map(selected), previousTurns = payload.privateConversation;
-    payload.privateConversation = group.map(t => ({ id: t.id, role: t.role, kind: t.kind, text: redact(t.text) })).concat(previousTurns);
+    payload.privateConversation = group.map(t => t.role === 'user'
+      ? { id: t.id, role: t.role, kind: t.kind, sourceId: `private:${t.id}` }
+      : { id: t.id, role: t.role, kind: t.kind, text: redact(t.text), authority: 'assistant_discussion_not_factual_evidence' }).concat(previousTurns);
     for (const t of group) if (t.role === 'user') {
       const source = byId.get(`private:${t.id}`); if (source) selected.set(source.id, source);
     }
@@ -198,8 +352,36 @@ function buildContext({ scope, records, companion, turn, purpose = 'discussion',
       payload.privateConversation.shift();
       while (payload.privateConversation[0]?.role === 'assistant') payload.privateConversation.shift();
     }
+    else if (payload.methodCards.length) {
+      payload.methodCards.pop(); payload.methodSelection.candidates.pop();
+    }
     else break;
   }
+  // Late budget eviction and chronology checks must also change the authority
+  // of every derived view. A source appearing earlier is not proof of current state.
+  const groundFinal = record => record.sourceIds?.every(id => selected.has(id));
+  for (const key of ['claims', 'events']) if (payload.relationshipContext) {
+    payload.relationshipContext[key] = payload.relationshipContext[key].filter(groundFinal).map(item => ({ ...item,
+      authority: item.sourceIds.some(id => selected.get(id).historicalOnly) || item.reviewComplete === false
+        ? 'needs_review' : item.authority }));
+  }
+  if (payload.relationshipContext) {
+    const keptEvents = new Set(payload.relationshipContext.events.map(item => item.id));
+    payload.relationshipContext.activities = payload.relationshipContext.activities.filter(item => item.eventIds.every(id => keptEvents.has(id)));
+  }
+  for (const key of ['cases', 'adaptations']) if (payload.experienceContext) payload.experienceContext[key] = payload.experienceContext[key].filter(groundFinal);
+  if (payload.feedbackTargets) payload.feedbackTargets = payload.feedbackTargets.filter(groundFinal);
+  const privateGroups = []; let currentGroup = null;
+  for (const entry of payload.privateConversation) {
+    if (entry.role === 'user') { currentGroup = selected.has(entry.sourceId) ? [] : null; if (currentGroup) privateGroups.push(currentGroup); }
+    if (currentGroup) currentGroup.push(entry);
+  }
+  payload.privateConversation = privateGroups.flat();
+  for (const kind of ['items', 'episodes']) for (const item of payload.retrievedMemory[kind]) {
+    if (item.sourceIds.some(id => !selected.has(id) || selected.get(id).historicalOnly)) item.authority = 'needs_review';
+    if (item.textFromSource && !selected.has(item.textFromSource)) { item.text = redact(memoryResult[kind].find(original => original.id === item.id)?.text || ''); delete item.textFromSource; }
+  }
+  refresh();
   // New evidence is serialized chronologically, even when selected by recency/relevance.
   const order = new Map(all.map((s, i) => [s.id, i]));
   payload.sources.sort((a, b) => order.get(a.id) - order.get(b.id));
@@ -231,7 +413,9 @@ function buildDraftContext(prepared, plan, info) {
   });
   const style = ['natural', 'short', 'casual'].includes(plan.style) ? plan.style : 'natural';
   const qq = prepared.payload.sources.filter(s => s.type === 'qq');
-  const payload = { promptVersion: PROMPT_VERSION, purpose: 'draft', method: METHODS.draft, style, asOf: prepared.payload.asOf,
+  const selection = selectMethods({ purpose: 'draft' });
+  const payload = { promptVersion: PROMPT_VERSION, purpose: 'draft', method: METHODS.draft, methodCards: selection.methods.map(runtimeCard),
+    methodSelection: { version: selection.version, candidates: ['compose'], maxApplied: 1 }, style, asOf: prepared.payload.asOf,
     outboundQuotes: quotes, sources: qq, coverage: prepared.payload.coverage,
     replyFocus: prepared.payload.replyFocus || [],
     presentation: { language: typeof plan.language==='string'&&/^[a-z]{2,3}(?:-[a-zA-Z0-9]{2,8})*$/.test(plan.language) ? plan.language : 'zh',

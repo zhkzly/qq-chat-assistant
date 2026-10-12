@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const { methodFor, listMethods, selectMethods, METHOD_VERSION } = require('../src/help-methods.cjs');
 
 test('methods expose applicability and evidence limits without claiming relationship effects', () => {
-  assert.equal(listMethods().length, 7);
+  assert.equal(listMethods().length, 8);
   for (const descriptor of listMethods()) {
     assert.ok(descriptor.id && descriptor.version && descriptor.goalContribution);
     assert.ok(descriptor.applicability && descriptor.avoid && descriptor.requiredContext.length);
@@ -20,17 +20,19 @@ test('methods expose applicability and evidence limits without claiming relation
 test('explicit current request outranks earlier focus or incoming reply', () => {
   const result = selectMethods({ purpose: 'review', text: '回顾一下', focus: '想写开场', hasReply: true });
   assert.equal(result.selection, 'explicit');
-  assert.deepEqual(result.methods.map(item => item.id), ['review']);
-  assert.deepEqual(selectMethods({ purpose: 'draft_prepare' }).methods.map(item => item.id), ['compose']);
-  assert.deepEqual(selectMethods({ purpose: 'correction' }).methods.map(item => item.id), ['correction']);
-  assert.deepEqual(selectMethods({ purpose: 'reply' }).methods.map(item => item.id), ['respond']);
+  assert.equal(result.methods[0].id, 'review');
+  assert.equal(selectMethods({ purpose: 'draft_prepare' }).methods[0].id, 'compose');
+  assert.equal(selectMethods({ purpose: 'correction' }).methods[0].id, 'correction');
+  const reply = selectMethods({ purpose: 'reply' });
+  assert.equal(reply.methods[0].id, 'respond');
+  assert.ok(reply.methods.some(method => method.id === 'express_interest'), 'a reply transport purpose must not exclude the user\'s romantic intent');
 });
 
 test('ambiguous discussion leaves alternative methods available and does not infer a relationship stage', () => {
   for (const text of ['今天要不要找她？', '她说最近很累，我也不知道怎么想', '就按刚才那个', '不要问我问题，直接帮我看看']) {
     const result = selectMethods({ purpose: 'discussion', text, hasReply: false });
     assert.equal(result.selection, 'candidates');
-    assert.equal(result.methods.length, 7);
+    assert.equal(result.methods.length, 8);
     assert.equal(result.maxApplied, 2);
     assert.match(result.selectionRule, /不必先提问/);
     assert.equal(result.relationshipStage, undefined);
@@ -54,5 +56,14 @@ test('caller mutations cannot change shared method definitions', () => {
   assert.notEqual(second.instruction, 'unsafe replacement');
   assert.ok(second.evidence[0].limit);
   listMethods().pop();
-  assert.equal(listMethods().length, 7);
+  assert.equal(listMethods().length, 8);
+});
+
+test('interest expression is actionable with sparse history and never treats a friend boundary as concealed attraction', () => {
+  const method = methodFor('express_interest');
+  assert.ok(method, 'a relationship goal needs an executable expression method');
+  assert.match(method.instruction, /表达|邀请/);
+  assert.match(method.instruction, /历史少|稀少/);
+  assert.match(method.avoid, /朋友|拒绝/);
+  assert.equal(method.requiredContext.some(item => /personality|stage|score/i.test(item)), false);
 });

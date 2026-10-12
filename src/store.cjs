@@ -3,6 +3,9 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { randomUUID, createHash } = require('node:crypto');
 const { rank } = require('./memory-search.cjs');
+const { ExperienceStore } = require('./experience-store.cjs');
+const { assertPreferenceAuthority, sourceClosure } = require('./provenance.cjs');
+const { PROCESSOR_VERSION, prepareRelationshipPatch, writeRelationshipRecords, relationshipView } = require('./relationship-store.cjs');
 const hash = value => createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const { DatabaseSync } = require('node:sqlite');
 const {publicRecord}=require('./media.cjs');
@@ -46,8 +49,11 @@ class Store {
     if (filename !== ':memory:') fs.mkdirSync(path.dirname(filename), { recursive: true, mode: 0o700 });
     this.db = new DatabaseSync(filename);
     if (filename !== ':memory:') fs.chmodSync(filename, 0o600);
-    this.db.exec(`PRAGMA secure_delete=ON;
-      CREATE TABLE IF NOT EXISTS messages(
+    try {
+      this.db.exec('PRAGMA foreign_keys=ON; PRAGMA secure_delete=ON; BEGIN IMMEDIATE');
+      const schemaVersion=this.db.prepare('PRAGMA user_version').get().user_version;
+      if(schemaVersion>1)throw new Error(`Unsupported newer store schema version: ${schemaVersion}`);
+      this.db.exec(`CREATE TABLE IF NOT EXISTS messages(
       account_uid TEXT NOT NULL, peer_uid TEXT NOT NULL, message_id TEXT NOT NULL, record TEXT NOT NULL,
       PRIMARY KEY(account_uid,peer_uid,message_id));
       CREATE TABLE IF NOT EXISTS coverage(account_uid TEXT NOT NULL,peer_uid TEXT NOT NULL,record TEXT NOT NULL,
@@ -63,6 +69,13 @@ class Store {
       CREATE TABLE IF NOT EXISTS memory_receipts(scope_key TEXT NOT NULL,batch_id TEXT NOT NULL,record TEXT NOT NULL,PRIMARY KEY(scope_key,batch_id));
       CREATE TABLE IF NOT EXISTS memory_meta(scope_key TEXT PRIMARY KEY,version INTEGER NOT NULL DEFAULT 0,error TEXT);`);
     if(!this.db.prepare('PRAGMA table_info(memory_journal)').all().some(c=>c.name==='cursor'))this.db.exec('ALTER TABLE memory_journal ADD COLUMN cursor INTEGER NOT NULL DEFAULT 0');
+    if(!this.db.prepare('PRAGMA table_info(memory_journal)').all().some(c=>c.name==='queued_at')){this.db.exec('ALTER TABLE memory_journal ADD COLUMN queued_at TEXT');this.db.prepare('UPDATE memory_journal SET queued_at=? WHERE queued_at IS NULL').run(new Date().toISOString());}
+    if(!this.db.prepare('PRAGMA table_info(memory_meta)').all().some(c=>c.name==='processor_version'))this.db.exec('ALTER TABLE memory_meta ADD COLUMN processor_version TEXT');
+    this.experiences = new ExperienceStore(this, {scopeKey});
+    this.db.exec('CREATE TABLE IF NOT EXISTS schema_migrations(version INTEGER PRIMARY KEY,applied_at TEXT NOT NULL,description TEXT NOT NULL)');
+    this.db.prepare('INSERT OR IGNORE INTO schema_migrations VALUES(?,?,?)').run(1,new Date().toISOString(),'Relationship and experience storage; semantic bootstrap is tracked separately');
+    this.db.exec('PRAGMA user_version=1; COMMIT');
+    } catch(error) {if(this.db.isTransaction)this.db.exec('ROLLBACK');this.db.close();throw error;}
     this.insert = this.db.prepare(`INSERT INTO messages VALUES(?,?,?,?)
       ON CONFLICT(account_uid,peer_uid,message_id) DO UPDATE SET record=excluded.record`);
   }
@@ -70,7 +83,8 @@ class Store {
     scopeKey(scope);
     let changes = 0;
     let invalidates = false;
-    this.db.exec('BEGIN');
+    const accepted=[];
+    this.db.exec('BEGIN IMMEDIATE');
     try {
       for (const message of records) {
         if (!sameScope(message, scope) || message.kind !== 'actual') throw new Error('Message scope or provenance rejected');
@@ -87,20 +101,73 @@ class Store {
         }
         if (old) invalidates = true;
         this.insert.run(scope.accountUid, scope.peerUid, message.messageId, data);
-        changes++;
+        changes++;accepted.push(message);
       }
       if (changes) {
         const companion = this.getCompanion(scope);
         changedSource(companion, invalidates);
         this._writeCompanion(scope, companion);
+        this.experiences.observeMessages(scope, accepted);
       }
       this.db.exec('COMMIT');
     } catch (error) { this.db.exec('ROLLBACK'); throw error; }
     return changes;
   }
+  scopeKey(scope) { return scopeKey(scope); }
   getCompanion(scope) {
-    const row = this.db.prepare('SELECT record FROM companion WHERE scope_key=?').get(scopeKey(scope));
-    return row ? { ...emptyCompanion(), ...JSON.parse(row.record) } : emptyCompanion();
+    return this._atomic(()=>{
+      const row = this.db.prepare('SELECT record FROM companion WHERE scope_key=?').get(scopeKey(scope));
+      let record=row ? { ...emptyCompanion(), ...JSON.parse(row.record) } : emptyCompanion();
+      this.experiences.migrateLegacy(scope,record);
+      record=this._normalizeFeedbackReferences(scope,record);
+      if(this.experiences.materializeLegacyArtifacts(scope,record))this.db.prepare('INSERT INTO companion VALUES(?,?) ON CONFLICT(scope_key) DO UPDATE SET record=excluded.record').run(scopeKey(scope),this._serializeCompanion(record));
+      record.feedback=this.experiences.listFeedback(scope);
+      for(const turn of record.turns)if(turn.kind==='feedback_ref'&&turn.feedbackId){const f=record.feedback.find(f=>f.id===turn.feedbackId);turn.text=f?`对助手建议的反馈：${f.text}`:'已移除的反馈';}
+      return record;
+    });
+  }
+  _normalizeFeedbackReferences(scope,record) {
+    const canonical=new Map(this.experiences.sourceRows(scope).map(source=>[source.id,{...source,revision:hash(source)}]));
+    const mappings=[];
+    for(const turn of record.turns.filter(t=>['feedback','feedback_ref'].includes(t.kind))){
+      const from=`private:${turn.id}`,to=this.experiences.canonicalSource(scope,from),source=canonical.get(to);
+      if(from!==to&&source)mappings.push({from,to,revision:source.revision});
+    }
+    for(const row of this.db.prepare('SELECT source_id,record FROM memory_sources WHERE scope_key=? AND deleted=0').all(scopeKey(scope))){
+      const old=JSON.parse(row.record),source=canonical.get(row.source_id);
+      if(old.type==='feedback'&&!old.canonicalFeedbackId&&source&&old.text===source.text)mappings.push({from:row.source_id,to:row.source_id,revision:source.revision});
+    }
+    const map=new Map(mappings.map(m=>[m.from,m])),before=JSON.stringify(record);
+    const walk=value=>{
+      if(Array.isArray(value))return value.map(walk);if(!plain(value))return value;
+      const copy={...value};
+      for(const key of ['sourceIds','evidenceSourceIds'])if(Array.isArray(copy[key]))copy[key]=[...new Set(copy[key].map(id=>map.get(id)?.to||id))];
+      for(const key of ['sourceRevisions','evidenceRevisions'])if(plain(copy[key]))copy[key]=Object.fromEntries(Object.entries(copy[key]).map(([id,rev])=>[map.get(id)?.to||id,map.get(id)?.revision||rev]));
+      if(copy.sourceId&&map.has(copy.sourceId)){const m=map.get(copy.sourceId);copy.sourceId=m.to;if(copy.revision!==undefined)copy.revision=m.revision;}
+      for(const [key,child]of Object.entries(copy))if(!['text','body','sourceIds','evidenceSourceIds','sourceRevisions','evidenceRevisions'].includes(key)&&child&&typeof child==='object')copy[key]=walk(child);
+      return copy;
+    };
+    const updated=walk(record);
+    for(const turn of updated.turns.filter(t=>['feedback','feedback_ref'].includes(t.kind))){const m=map.get(`private:${turn.id}`);if(m){turn.kind='feedback_ref';turn.feedbackId=m.to.slice('private:feedback-'.length);delete turn.text;}}
+    if(mappings.length)this.experiences.remapSources(scope,mappings);
+    // In ambiguous migration cases preserve editable text but withhold uncertain
+    // provenance from model input until the user supplies an independent source.
+    for(const note of updated.notes){
+      const ambiguous=(note.evidenceSourceIds||[]).map(id=>this.experiences._get(scope,'alias',id)).filter(a=>a?.possibleDuplicates?.length);
+      if(ambiguous.length){note.use='disabled';note.needsSourceReview=true;note.possibleEvidenceSourceIds=[...new Set(ambiguous.flatMap(a=>a.possibleDuplicates.map(id=>`private:feedback-${id}`)))];}
+      if(note.kind==='preference'&&note.evidenceSourceIds){try{assertPreferenceAuthority(new Map(this._rawMemorySources(scope,updated).map(s=>[s.id,s])),note.evidenceSourceIds);}catch{note.kind='material';note.needsPreferenceReview=true;}}
+    }
+    updated.feedback=[];
+    if(JSON.stringify(updated)!==before){
+      changedSource(updated);this.db.prepare('INSERT INTO companion VALUES(?,?) ON CONFLICT(scope_key) DO UPDATE SET record=excluded.record').run(scopeKey(scope),this._serializeCompanion(updated));
+    }
+    return updated;
+  }
+  contextGeneration(scope) {
+    const row=this.db.prepare('SELECT record FROM companion WHERE scope_key=?').get(scopeKey(scope));
+    const record=row?JSON.parse(row.record):emptyCompanion();
+    const memory=this.db.prepare('SELECT version FROM memory_meta WHERE scope_key=?').get(scopeKey(scope));
+    return `${record.revision||0}:${record.state?.version||0}:${memory?.version||0}`;
   }
   _atomic(fn) {
     const owns=!this.db.isTransaction;
@@ -108,11 +175,16 @@ class Store {
     try { const result=fn();if(owns)this.db.exec('COMMIT');return result; }
     catch(error){if(owns)this.db.exec('ROLLBACK');throw error;}
   }
+  _serializeCompanion(record) {
+    // Feedback bodies belong to ExperienceStore. Rendered timeline text is a
+    // projection; every persistence path, including state CAS, uses this shape.
+    return JSON.stringify({...record,feedback:[],turns:record.turns.map(turn=>turn.kind==='feedback_ref'?{...turn,text:undefined}:turn)});
+  }
   _writeCompanion(scope, record) {
     this._atomic(()=>{
       this._pruneProvenance(scope,record);
       this.db.prepare('INSERT INTO companion VALUES(?,?) ON CONFLICT(scope_key) DO UPDATE SET record=excluded.record')
-        .run(scopeKey(scope), JSON.stringify(record));
+        .run(scopeKey(scope), this._serializeCompanion(record));
       this._syncMemory(scope, record);
     });
   }
@@ -120,106 +192,185 @@ class Store {
     return new Set(this._rawMemorySources(scope,record).map(s=>s.id));
   }
   setGoal(scope, text, metadata = {}) {
-    textValue(text, 'goal', 10000, true);
-    const record = this.getCompanion(scope);
-    if (record.goal.text !== text) {
-      record.goal = { text, version: record.goal.version + 1 };
-      if(metadata.evidenceSourceIds) { record.goal.evidenceSourceIds=sourceList(metadata.evidenceSourceIds);if(record.goal.evidenceSourceIds.some(id=>!this._sourceIds(scope,record).has(id)))throw new Error('Invalid goal source');record.goal.evidenceRevisions=Object.fromEntries(this._rawMemorySources(scope,record).filter(s=>record.goal.evidenceSourceIds.includes(s.id)).map(s=>[s.id,s.revision])); }
-      // A changed aim invalidates the plan, not the user's conversation history.
-      changedSource(record);record.state=emptyState(record.state.version+1);record.runs=[];
-      record.pendingActions=record.pendingActions.filter(action=>action.action?.type!=='set_goal');
-      this._writeCompanion(scope, record);
-    }
-    return record.goal;
+    return this._atomic(()=>{
+      textValue(text, 'goal', 10000, true);
+      const record = this.getCompanion(scope);
+      if (record.goal.text !== text) {
+        record.goal = { text, version: record.goal.version + 1 };
+        if(metadata.evidenceSourceIds) { record.goal.evidenceSourceIds=sourceList(metadata.evidenceSourceIds);if(record.goal.evidenceSourceIds.some(id=>!this._sourceIds(scope,record).has(id)))throw new Error('Invalid goal source');record.goal.evidenceRevisions=Object.fromEntries(this._rawMemorySources(scope,record).filter(s=>record.goal.evidenceSourceIds.includes(s.id)).map(s=>[s.id,s.revision])); }
+        // A changed aim invalidates the plan, not the user's conversation history.
+        changedSource(record);record.state=emptyState(record.state.version+1);record.runs=[];
+        record.pendingActions=record.pendingActions.filter(action=>action.action?.type!=='set_goal');
+        this._writeCompanion(scope, record);
+      }
+      return record.goal;
+    });
   }
   saveNote(scope, note) {
-    if (!plain(note)) throw new Error('Invalid note');
-    textValue(note.text, 'note text');
-    if (!['discussion', 'draft', 'disabled'].includes(note.use)) throw new Error('Invalid note use');
-    const record = this.getCompanion(scope);
-    const id = note.id === undefined ? randomUUID() : identifier(note.id, 'note id');
-    const index = record.notes.findIndex(item => item.id === id), old = record.notes[index];
-    if (old && old.text === note.text && old.use === note.use && (note.kind===undefined||note.kind===old.kind) && note.evidenceSourceIds===undefined && note.sourceIds===undefined) return old;
-    const now = new Date().toISOString();
-    const saved = { id, text: note.text, use: note.use, version: (old?.version || 0) + 1, createdAt: old?.createdAt || now, updatedAt: now };
-    if(note.kind!==undefined) { if(!['material','preference'].includes(note.kind))throw new Error('Invalid note kind');saved.kind=note.kind; } else if(old?.kind)saved.kind=old.kind;
-    if(note.evidenceSourceIds||note.sourceIds) {
-      saved.evidenceSourceIds=sourceList(note.evidenceSourceIds||note.sourceIds);
-      if(saved.evidenceSourceIds.some(id=>!this._sourceIds(scope,record).has(id)))throw new Error('Invalid note source');
-      saved.evidenceRevisions=Object.fromEntries(this._rawMemorySources(scope,record).filter(s=>saved.evidenceSourceIds.includes(s.id)).map(s=>[s.id,s.revision]));
-    } else if(old?.evidenceSourceIds){saved.evidenceSourceIds=old.evidenceSourceIds;saved.evidenceRevisions=old.evidenceRevisions;}
-    if (index < 0) record.notes.push(saved); else record.notes[index] = saved;
-    changedSource(record, !!old); this._writeCompanion(scope, record);
-    return saved;
+    return this._atomic(()=>{
+      if (!plain(note)) throw new Error('Invalid note');
+      textValue(note.text, 'note text');
+      if (!['discussion', 'draft', 'disabled'].includes(note.use)) throw new Error('Invalid note use');
+      const record = this.getCompanion(scope);
+      const id = note.id === undefined ? randomUUID() : identifier(note.id, 'note id');
+      const index = record.notes.findIndex(item => item.id === id), old = record.notes[index];
+      if (old && old.text === note.text && old.use === note.use && (note.kind===undefined||note.kind===old.kind) && note.evidenceSourceIds===undefined && note.sourceIds===undefined) return old;
+      const now = new Date().toISOString();
+      const saved = { id, text: note.text, use: note.use, version: (old?.version || 0) + 1, createdAt: old?.createdAt || now, updatedAt: now };
+      if(note.kind!==undefined) { if(!['material','preference'].includes(note.kind))throw new Error('Invalid note kind');saved.kind=note.kind; } else if(old?.kind)saved.kind=old.kind;
+      if(note.evidenceSourceIds||note.sourceIds) {
+        saved.evidenceSourceIds=sourceList(note.evidenceSourceIds||note.sourceIds);
+        if(saved.evidenceSourceIds.some(id=>!this._sourceIds(scope,record).has(id)))throw new Error('Invalid note source');
+        saved.evidenceRevisions=Object.fromEntries(this._rawMemorySources(scope,record).filter(s=>saved.evidenceSourceIds.includes(s.id)).map(s=>[s.id,s.revision]));
+      } else if(old?.evidenceSourceIds){saved.evidenceSourceIds=old.evidenceSourceIds;saved.evidenceRevisions=old.evidenceRevisions;}
+      if(saved.kind==='preference'&&saved.evidenceSourceIds)assertPreferenceAuthority(new Map(this._rawMemorySources(scope,record).map(s=>[s.id,s])),saved.evidenceSourceIds);
+      if (index < 0) record.notes.push(saved); else record.notes[index] = saved;
+      changedSource(record, !!old); this._writeCompanion(scope, record);
+      return saved;
+    });
   }
   deleteNote(scope, id) {
-    identifier(id, 'note id'); const record = this.getCompanion(scope);
-    const index = record.notes.findIndex(note => note.id === id);
-    if (index < 0) return false;
-    record.notes.splice(index, 1); changedSource(record, true); this._writeCompanion(scope, record); return true;
+    return this._atomic(()=>{
+      identifier(id, 'note id'); const record = this.getCompanion(scope);
+      const index = record.notes.findIndex(note => note.id === id);
+      if (index < 0) return false;
+      record.notes.splice(index, 1); changedSource(record, true); this._writeCompanion(scope, record); return true;
+    });
   }
   appendTurn(scope, turn) {
-    if (!plain(turn) || !['user', 'assistant'].includes(turn.role)) throw new Error('Invalid private turn role');
-    textValue(turn.text, 'turn text', 100000, turn.role === 'assistant');
-    textValue(turn.kind, 'turn kind', 100);
-    const record = this.getCompanion(scope);
-    const id = turn.id === undefined ? randomUUID() : identifier(turn.id, 'turn id');
-    if (record.turns.some(item => item.id === id)) throw new Error('Private turn id already exists');
-    const saved = { id, role: turn.role, kind: turn.kind, text: turn.text, createdAt: new Date().toISOString() };
-    if (turn.requestId !== undefined) saved.requestId = identifier(turn.requestId, 'request id');
-    if (turn.sourceIds !== undefined) {
-      saved.sourceIds = sourceList(turn.sourceIds);
-      const live = this._sourceIds(scope, record);
-      if (saved.sourceIds.some(source => !live.has(source))) throw new Error('Invalid private turn source');
-    }
-    if (turn.suggestions !== undefined) {
-      if (!Array.isArray(turn.suggestions)) throw new Error('Invalid suggestions');
-      saved.suggestions = JSON.parse(JSON.stringify(turn.suggestions));
-    }
-    if(turn.expressionOptions!==undefined) {
-      if(!Array.isArray(turn.expressionOptions)||turn.expressionOptions.length>8)throw new Error('Invalid expression options');
-      saved.expressionOptions=JSON.parse(JSON.stringify(turn.expressionOptions));
-    }
-    if(turn.actionReceipts!==undefined) {
-      if(!Array.isArray(turn.actionReceipts)||turn.actionReceipts.length>8||turn.actionReceipts.some(r=>!plain(r)))throw new Error('Invalid action receipts');
-      saved.actionReceipts=JSON.parse(JSON.stringify(turn.actionReceipts));
-    }
-    if(turn.methodIds!==undefined) {
-      if(!Array.isArray(turn.methodIds)||turn.methodIds.length>12||turn.methodIds.some(id=>typeof id!=='string'||id.length>100))throw new Error('Invalid method IDs');
-      saved.methodIds=[...turn.methodIds];
-    }
-    record.turns.push(saved);
-    if (turn.role === 'user') changedSource(record);
-    this._writeCompanion(scope, record); return saved;
+    return this._atomic(()=>{
+      if (!plain(turn) || !['user', 'assistant'].includes(turn.role)) throw new Error('Invalid private turn role');
+      if(turn.kind!=='feedback_ref')textValue(turn.text, 'turn text', 100000, turn.role === 'assistant');
+      textValue(turn.kind, 'turn kind', 100);
+      const record = this.getCompanion(scope);
+      const id = turn.id === undefined ? randomUUID() : identifier(turn.id, 'turn id');
+      if (record.turns.some(item => item.id === id)) throw new Error('Private turn id already exists');
+      const saved = { id, role: turn.role, kind: turn.kind, text: turn.text||'', createdAt: new Date().toISOString() };
+      if(turn.kind==='feedback_ref'){saved.feedbackId=identifier(turn.feedbackId,'feedback id');if(!record.feedback.some(f=>f.id===saved.feedbackId))throw new Error('Unknown feedback reference');}
+      if(turn.kind==='feedback'){const canonical=record.feedback.filter(f=>f.requestId===turn.requestId&&turn.text===`对助手建议的反馈：${f.text}`);if(canonical.length===1){saved.kind='feedback_ref';saved.feedbackId=canonical[0].id;}}
+      if (turn.requestId !== undefined) saved.requestId = identifier(turn.requestId, 'request id');
+      if (turn.sourceIds !== undefined) {
+        saved.sourceIds = sourceList(turn.sourceIds);
+        const live = this._sourceIds(scope, record);
+        if (saved.sourceIds.some(source => !live.has(source))) throw new Error('Invalid private turn source');
+      }
+      if (turn.suggestions !== undefined) {
+        if (!Array.isArray(turn.suggestions)) throw new Error('Invalid suggestions');
+        saved.suggestions = JSON.parse(JSON.stringify(turn.suggestions));
+      }
+      if(turn.expressionOptions!==undefined) {
+        if(!Array.isArray(turn.expressionOptions)||turn.expressionOptions.length>8)throw new Error('Invalid expression options');
+        saved.expressionOptions=JSON.parse(JSON.stringify(turn.expressionOptions));
+      }
+      if(turn.actionReceipts!==undefined) {
+        if(!Array.isArray(turn.actionReceipts)||turn.actionReceipts.length>8||turn.actionReceipts.some(r=>!plain(r)))throw new Error('Invalid action receipts');
+        saved.actionReceipts=JSON.parse(JSON.stringify(turn.actionReceipts));
+      }
+      if(turn.methodIds!==undefined) {
+        if(!Array.isArray(turn.methodIds)||turn.methodIds.length>12||turn.methodIds.some(id=>typeof id!=='string'||id.length>100))throw new Error('Invalid method IDs');
+        saved.methodIds=[...turn.methodIds];
+      }
+      if(turn.role==='assistant'){const refs=this.experiences.recordArtifacts(scope,saved,turn.artifactMetadata||{});saved.artifactRef=refs.responseRef;if(saved.suggestions)saved.suggestions=saved.suggestions.map((x,i)=>({...x,artifactRef:refs.suggestionRefs[i]}));if(saved.expressionOptions)saved.expressionOptions=saved.expressionOptions.map((x,i)=>({...x,artifactRef:refs.optionRefs[i]}));}
+      record.turns.push(saved);
+      if (turn.role === 'user'&&!['feedback','feedback_ref'].includes(saved.kind)) changedSource(record);
+      this._writeCompanion(scope, record); return saved;
+    });
   }
   deleteTurn(scope, id) {
-    identifier(id, 'turn id'); const record = this.getCompanion(scope);
-    const index = record.turns.findIndex(turn => turn.id === id);
-    if (index < 0) return false;
-    const [turn] = record.turns.splice(index, 1);
-    // Even an assistant turn can have been copied into a subsequent generated run.
-    if (turn.role === 'user') changedSource(record, true);
-    else { record.runs = []; record.feedback = []; }
-    this._writeCompanion(scope, record); return true;
+    return this._atomic(()=>{
+      identifier(id, 'turn id'); const record = this.getCompanion(scope);
+      const index = record.turns.findIndex(turn => turn.id === id);
+      if (index < 0) return false;
+      const turn=record.turns[index];
+      if(turn.kind==='feedback_ref'&&turn.feedbackId&&record.feedback.some(f=>f.id===turn.feedbackId))return this.forgetSource(scope,`private:feedback-${turn.feedbackId}`);
+      if(turn.role==='assistant')this.experiences.invalidateArtifacts(scope,this.experiences.refsForTurn(scope,turn.id),{mode:'forget',knownTurnId:turn.id});
+      else if(turn.kind==='feedback')this.experiences.invalidateSources(scope,[`private:${turn.id}`],{mode:'forget'});
+      record.turns.splice(index,1);
+      // Deleting an output removes that artifact family, not its still-valid raw
+      // sources or unrelated answers grounded in those same sources.
+      if(turn.role==='user')changedSource(record,true);
+      else {changedSource(record);record.runs=[];}
+      this._writeCompanion(scope, record); return true;
+    });
   }
   saveRun(scope, run) {
-    if (!plain(run)) throw new Error('Invalid run');
-    const record = this.getCompanion(scope), saved = JSON.parse(JSON.stringify(run));
-    saved.id = saved.id === undefined ? randomUUID() : identifier(saved.id, 'run id');
-    if (saved.requestId !== undefined) identifier(saved.requestId, 'request id');
-    if (saved.baseRevision !== undefined && saved.baseRevision !== record.revision) throw new Error('Stale run revision');
-    const previous = record.runs.find(item => item.id === saved.id), now = new Date().toISOString();
-    saved.createdAt = previous?.createdAt || now; saved.updatedAt = now;
-    record.runs = [...record.runs.filter(item => item.id !== saved.id), saved].slice(-12);
-    this._writeCompanion(scope, record); return saved;
+    return this._atomic(()=>{
+      if (!plain(run)) throw new Error('Invalid run');
+      const record = this.getCompanion(scope), saved = JSON.parse(JSON.stringify(run));
+      saved.id = saved.id === undefined ? randomUUID() : identifier(saved.id, 'run id');
+      if (saved.requestId !== undefined) identifier(saved.requestId, 'request id');
+      if (saved.baseRevision !== undefined && saved.baseRevision !== record.revision) throw new Error('Stale run revision');
+      const previous = record.runs.find(item => item.id === saved.id), now = new Date().toISOString();
+      saved.createdAt = previous?.createdAt || now; saved.updatedAt = now;
+      record.runs = [...record.runs.filter(item => item.id !== saved.id), saved].slice(-12);
+      this._writeCompanion(scope, record); return saved;
+    });
   }
   addFeedback(scope, feedback) {
-    if (!plain(feedback)) throw new Error('Invalid feedback');
-    const saved = { id: randomUUID(), requestId: identifier(feedback.requestId, 'request id'), text: textValue(feedback.text, 'feedback text'), kind: textValue(feedback.kind || 'local', 'feedback kind', 100), createdAt: new Date().toISOString() };
-    const record = this.getCompanion(scope);
-    const bound = record.runs.some(run => run.requestId === saved.requestId || run.id === saved.requestId) || record.turns.some(turn => turn.role === 'assistant' && turn.requestId === saved.requestId);
-    if (!bound) throw new Error('Invalid feedback request: no matching run or assistant response in this conversation');
-    record.feedback.push(saved); changedSource(record); this._writeCompanion(scope, record); return saved;
+    return this._atomic(()=>{
+      const record=this.getCompanion(scope),saved=this.experiences.addFeedback(scope,feedback);
+      if(record.feedback.some(f=>f.id===saved.id)&&record.turns.some(t=>t.feedbackId===saved.id))return saved;
+      if(!record.turns.some(t=>t.feedbackId===saved.id))record.turns.push({id:randomUUID(),role:'user',kind:'feedback_ref',feedbackId:saved.id,requestId:saved.requestId,createdAt:saved.createdAt});
+      changedSource(record);record.feedback=this.experiences.listFeedback(scope);this._writeCompanion(scope,record);return saved;
+    });
+  }
+  touchContext(scope) {
+    return this._atomic(()=>{const record=this.getCompanion(scope);changedSource(record);this._writeCompanion(scope,record);return record.revision;});
+  }
+  relationshipView(scope, options={}) { return relationshipView(this,scope,options); }
+  correctRelationshipClaim(scope, {id,expectedVersion,text,operation}={}) {
+    try{return this._atomic(()=>{
+      identifier(id,'claim id');if(!['correct','withdraw'].includes(operation))throw new Error('Unknown claim correction operation');
+      if(operation==='correct')textValue(text,'claim correction text',1000);
+      const old=this._memoryRecords(scope).find(r=>r.recordType==='claim'&&r.id===id);
+      if(!old)return {applied:false,reason:'claim_unavailable'};
+      if(!Number.isSafeInteger(expectedVersion)||old.version!==expectedVersion)return {applied:false,reason:'stale_claim_version'};
+      const live=new Map(this._rawMemorySources(scope).map(s=>[s.id,s]));
+      if(Object.entries(old.sourceRevisions).some(([sid,rev])=>live.get(sid)?.revision!==rev))return {applied:false,reason:'claim_source_unavailable'};
+      const turn=this.appendTurn(scope,{role:'user',kind:'claim_correction',text:operation==='correct'?text:'用户要求停用一条助手理解。'}),sourceId=`private:${turn.id}`;
+      const patch={retire:[{id,expectedVersion,sourceIds:[sourceId],lifecycle:'withdrawn'}],claims:operation==='correct'?[{subject:old.subject,aspect:old.aspect,text:`用户说明：${text}`,assertionKind:'reported',epistemicStatus:'supported',sourceIds:[sourceId],topicKeys:old.topicKeys||[]}]:[]};
+      const checked=prepareRelationshipPatch(this,scope,patch,{sourceIds:this._rawMemorySources(scope).map(s=>s.id)});
+      writeRelationshipRecords(this,scope,checked);this.db.prepare('UPDATE memory_meta SET version=version+1 WHERE scope_key=?').run(scopeKey(scope));
+      return {applied:true,sourceId,claimId:checked.find(r=>r.id!==id)?.id||null,revision:this.getCompanion(scope).revision};
+    });}catch(error){return {applied:false,reason:'invalid_claim_correction',detail:error.message};}
+  }
+
+  applyRelationshipPatch(scope, patch, options={}) {
+    try{return this._atomic(()=>{
+      const record=this.getCompanion(scope),key=scopeKey(scope);
+      if(!Number.isSafeInteger(options.baseRevision)||options.baseRevision!==record.revision)return {applied:false,reason:'stale_revision'};
+      this._syncMemory(scope,record);
+      const version=this.db.prepare('SELECT version FROM memory_meta WHERE scope_key=?').get(key)?.version||0;
+      if(options.baseMemoryVersion!==undefined&&options.baseMemoryVersion!==version)return {applied:false,reason:'stale_memory_version'};
+      const checked=prepareRelationshipPatch(this,scope,patch,options),changed=writeRelationshipRecords(this,scope,checked);
+      if(changed)this.db.prepare('UPDATE memory_meta SET version=version+1 WHERE scope_key=?').run(key);
+      return {applied:true,changes:changed,version:version+(changed?1:0)};
+    });}catch(error){return {applied:false,reason:'invalid_relationship_patch',detail:error.message};}
+  }
+  maintainLocal(scope) {
+    return this._atomic(()=>{
+      const key=scopeKey(scope);this._syncMemory(scope);
+      const meta=this.db.prepare('SELECT processor_version FROM memory_meta WHERE scope_key=?').get(key);
+      let queued=0;
+      if(meta.processor_version!==PROCESSOR_VERSION){
+        const support=new Set(this.db.prepare('SELECT DISTINCT source_id FROM memory_dependencies WHERE scope_key=?').all(key).map(r=>r.source_id));
+        const live=this.db.prepare('SELECT source_id,revision,record FROM memory_sources WHERE scope_key=? AND deleted=0').all(key).sort((a,b)=>Number(support.has(b.source_id))-Number(support.has(a.source_id))||Date.parse(JSON.parse(b.record).at)-Date.parse(JSON.parse(a.record).at));
+        for(const source of live){
+          if(this.db.prepare("SELECT 1 FROM memory_journal WHERE scope_key=? AND source_id=? AND revision=? AND status='pending'").get(key,source.source_id,source.revision))continue;
+          this.db.prepare("UPDATE memory_journal SET status='superseded' WHERE scope_key=? AND source_id=? AND status='reviewed'").run(key,source.source_id);
+          this.db.prepare("INSERT INTO memory_journal(scope_key,source_id,revision,operation,queued_at) VALUES(?,?,?,'reindex',?)").run(key,source.source_id,source.revision,new Date().toISOString());queued++;
+        }
+        this.db.prepare('UPDATE memory_meta SET processor_version=?,version=version+? WHERE scope_key=?').run(PROCESSOR_VERSION,queued?1:0,key);
+      }
+      return {queued,processorVersion:PROCESSOR_VERSION};
+    });
+  }
+  memorySchedulingStatus(scope) {
+    const key=scopeKey(scope),rows=this.db.prepare("SELECT j.seq,j.queued_at,s.record FROM memory_journal j JOIN memory_sources s ON s.scope_key=j.scope_key AND s.source_id=j.source_id AND s.revision=j.revision WHERE j.scope_key=? AND j.status='pending' ORDER BY j.seq").all(key);
+    const at=rows.map(r=>r.queued_at).filter(Boolean).sort();
+    const latestEvent=this.db.prepare('SELECT max(queued_at) at FROM memory_journal WHERE scope_key=?').get(key)?.at;
+    const receipt=this.db.prepare('SELECT record FROM memory_receipts WHERE scope_key=? ORDER BY rowid DESC LIMIT 1').get(key);
+    return {pending:rows.length,oldestPendingAt:at[0]||null,lastEventAt:latestEvent||null,lastMaintenanceAt:receipt?JSON.parse(receipt.record).reviewedAt:null};
   }
   applyState(scope, patch, options = {}) {
     const record = this.getCompanion(scope);
@@ -261,7 +412,7 @@ class Store {
         ON CONFLICT(scope_key) DO UPDATE SET record=excluded.record
         WHERE json_extract(companion.record,'$.revision')=?
           AND json_extract(companion.record,'$.state.version')=?`)
-        .run(scopeKey(scope), JSON.stringify(record), record.revision, next.version - 1);
+        .run(scopeKey(scope), this._serializeCompanion(record), record.revision, next.version - 1);
       if (!committed.changes) {
         const current = this.getCompanion(scope);
         return { applied: false, reason: current.revision === record.revision ? 'stale_state_version' : 'stale_revision', revision: current.revision, stateVersion: current.state.version };
@@ -270,47 +421,76 @@ class Store {
     } catch (error) { return rejected('invalid_patch', error.message); }
   }
   _pruneProvenance(scope,record) {
+    const feedbackIds=new Set(this.experiences.listFeedback(scope).map(f=>f.id));
+    record.turns=record.turns.filter(turn=>{
+      if(turn.kind!=='feedback')return true;
+      const alias=this.experiences._get(scope,'alias',`private:${turn.id}`);
+      if(alias?.possibleDuplicates?.some(id=>!feedbackIds.has(id)))return false;
+      if(alias?.canonicalId?.startsWith('private:feedback-')&&!feedbackIds.has(alias.canonicalId.slice('private:feedback-'.length)))return false;
+      return true;
+    });
     // Natural-language extracted notes and goals retain revision-bound evidence.
     // Delete/correct a source and copies derived from its old version disappear.
     let removed=true;
     while(removed) {
       const live=new Map(this._rawMemorySources(scope,record).map(s=>[s.id,s.revision]));
-      const valid=value=>!value.evidenceSourceIds||value.evidenceSourceIds.every(id=>live.has(id)&&(!value.evidenceRevisions||value.evidenceRevisions[id]===live.get(id)));
+      const valid=value=>value.needsSourceReview?(value.possibleEvidenceSourceIds||[]).every(id=>live.has(id)):!value.evidenceSourceIds||value.evidenceSourceIds.every(id=>live.has(id)&&(!value.evidenceRevisions||value.evidenceRevisions[id]===live.get(id)));
       const count=record.notes.length;record.notes=record.notes.filter(valid);removed=count!==record.notes.length;
       if(!valid(record.goal))record.goal={text:'',version:record.goal.version+1};
     }
   }
   _rawMemorySources(scope, record=this.getCompanion(scope)) {
+    record={...emptyCompanion(),...record};
     const excluded=new Set(this.db.prepare('SELECT source_id FROM memory_exclusions WHERE scope_key=?').all(scopeKey(scope)).map(r=>r.source_id));
     const sources=[
       ...this.messages(scope).filter(m=>!m.recalled).map(m=>({id:`qq:${m.messageId}`,type:'qq',text:m.text,at:new Date(m.timestamp).toISOString(),role:m.direction==='outgoing'?'user':'contact',direction:m.direction,use:'discussion',messageId:m.messageId})),
-      ...record.turns.filter(t=>t.role==='user'&&!t.memoryExcluded).map(t=>({id:`private:${t.id}`,type:'private',text:t.text,at:t.createdAt,role:'user',use:'discussion',kind:t.kind,version:t.version||1})),
+      ...record.turns.filter(t=>t.role==='user'&&!t.memoryExcluded&&!['feedback','feedback_ref'].includes(t.kind)).map(t=>({id:`private:${t.id}`,type:'private',text:t.text,at:t.createdAt,role:'user',use:'discussion',kind:t.kind,version:t.version||1})),
       ...record.notes.filter(n=>n.use!=='disabled').map(n=>({id:`note:${n.id}`,type:'note',text:n.text,at:n.updatedAt,use:n.use,kind:n.kind||'material',version:n.version,...(n.evidenceSourceIds?{evidenceSourceIds:n.evidenceSourceIds}:{}),...(n.evidenceRevisions?{evidenceRevisions:n.evidenceRevisions}:{})})),
-      ...record.feedback.map(f=>({id:`private:feedback-${f.id}`,type:'feedback',text:f.text,at:f.createdAt,role:'user',kind:f.kind,requestId:f.requestId,use:'discussion'}))
+      ...this.experiences.sourceRows(scope)
     ].filter(s=>!excluded.has(s.id));
     return sources.map(s=>({...s,revision:hash(s)}));
   }
   _syncMemory(scope, record=this.getCompanion(scope)) {
+    // A source invalidation can redact feedback about an affected artifact, which
+    // can itself support a note. Resolve this finite dependency chain in the same
+    // transaction before any caller can observe or index a surviving copy.
+    const bound=record.notes.length+this.experiences.listFeedback(scope).length+4;
+    const notesBefore=JSON.stringify(record.notes),goalBefore=JSON.stringify(record.goal),turnsBefore=JSON.stringify(record.turns);
+    let live=[];
+    for(let pass=0;pass<bound;pass++){
+      this._pruneProvenance(scope,record);
+      const result=this._syncMemoryPass(scope,record);live=result.live;
+      if(!result.changed){
+        if(notesBefore!==JSON.stringify(record.notes)||goalBefore!==JSON.stringify(record.goal)||turnsBefore!==JSON.stringify(record.turns))this.db.prepare('INSERT INTO companion VALUES(?,?) ON CONFLICT(scope_key) DO UPDATE SET record=excluded.record').run(scopeKey(scope),this._serializeCompanion(record));
+        return live;
+      }
+    }
+    throw new Error('Source invalidation did not reach a stable projection');
+  }
+  _syncMemoryPass(scope, record) {
+    let changed=0;
     const key=scopeKey(scope),live=this._rawMemorySources(scope,record),byId=new Map(live.map(s=>[s.id,s]));
     const old=this.db.prepare('SELECT * FROM memory_sources WHERE scope_key=?').all(key),oldIds=new Set(old.map(s=>s.source_id));
     this.db.prepare('INSERT OR IGNORE INTO memory_meta(scope_key) VALUES(?)').run(key);
-    const write=(source,operation)=>{
+    const write=(source,operation,mode=operation==='remove'?'forget':'correct')=>{
+      changed++;
+      if(oldIds.has(source.id))this.experiences.invalidateSources(scope,[source.id],{mode});
       // The journal stores identities only. Removed/revised text cannot survive
       // in old queued events or be restored by a delayed consolidation response.
       this.db.prepare("UPDATE memory_journal SET status='superseded' WHERE scope_key=? AND source_id=? AND status='pending'").run(key,source.id);
       this.db.prepare('INSERT INTO memory_sources VALUES(?,?,?,?,?) ON CONFLICT(scope_key,source_id) DO UPDATE SET revision=excluded.revision,record=excluded.record,deleted=excluded.deleted').run(key,source.id,source.revision,JSON.stringify(source),source.deleted?1:0);
-      this.db.prepare('INSERT INTO memory_journal(scope_key,source_id,revision,operation) VALUES(?,?,?,?)').run(key,source.id,source.revision,operation);
+      this.db.prepare('INSERT INTO memory_journal(scope_key,source_id,revision,operation,queued_at) VALUES(?,?,?,?,?)').run(key,source.id,source.revision,operation,new Date().toISOString());
       const affected=this.db.prepare('SELECT id FROM memory_dependencies WHERE scope_key=? AND source_id=?').all(key,source.id);
       for(const {id} of affected){this.db.prepare('DELETE FROM memory_records WHERE scope_key=? AND id=?').run(key,id);this.db.prepare('DELETE FROM memory_dependencies WHERE scope_key=? AND id=?').run(key,id);}
       this.db.prepare('UPDATE memory_meta SET version=version+1,error=NULL WHERE scope_key=?').run(key);
     };
     for(const previous of old) {
       const source=byId.get(previous.source_id);
-      if(source&&source.revision!==previous.revision)write(source,'upsert');
-      if(!source&&!previous.deleted)write({id:previous.source_id,type:JSON.parse(previous.record).type,deleted:true,text:'',at:new Date().toISOString(),revision:hash({previous:previous.revision,deleted:true})},'remove');
+      if(source&&source.revision!==previous.revision)write(source,'upsert',JSON.parse(previous.record).use==='draft'&&source.use!=='draft'?'forget':'correct');
+      if(!source&&!previous.deleted)write({id:previous.source_id,type:JSON.parse(previous.record).type,deleted:true,text:'',at:new Date().toISOString(),revision:hash({previous:previous.revision,deleted:true})},'remove',JSON.parse(previous.record).kind==='feedback'?'correct':'forget');
     }
     for(const source of live)if(!oldIds.has(source.id))write(source,'upsert');
-    return live;
+    return {live,changed};
   }
   memorySources(scope) {
     return this._atomic(()=>this._syncMemory(scope));
@@ -321,9 +501,9 @@ class Store {
     const counts=Object.fromEntries(journal.map(x=>[x.status,x.n]));
     const records=this.db.prepare('SELECT kind,count(*) AS n FROM memory_records WHERE scope_key=? GROUP BY kind').all(key);
     const sourceCount=this.db.prepare('SELECT count(*) AS n FROM memory_sources WHERE scope_key=? AND deleted=0').get(key).n;
-    const meta=this.db.prepare('SELECT version,error FROM memory_meta WHERE scope_key=?').get(key);
+    const meta=this.db.prepare('SELECT version,error,processor_version FROM memory_meta WHERE scope_key=?').get(key);
     const latest=this.db.prepare('SELECT record FROM memory_receipts WHERE scope_key=? ORDER BY rowid DESC LIMIT 1').get(key);
-    return {pending:counts.pending||0,processed:counts.reviewed||0,superseded:counts.superseded||0,version:meta?.version||0,counts:{sources:sourceCount,items:records.find(x=>x.kind==='item')?.n||0,episodes:records.find(x=>x.kind==='episode')?.n||0},errors:meta?.error?[JSON.parse(meta.error)]:[],lastReview:latest?JSON.parse(latest.record):null};
+    return {pending:counts.pending||0,processed:counts.reviewed||0,superseded:counts.superseded||0,version:meta?.version||0,counts:{sources:sourceCount,items:records.find(x=>x.kind==='item')?.n||0,episodes:records.find(x=>x.kind==='episode')?.n||0,claims:records.find(x=>x.kind==='claim')?.n||0,events:records.find(x=>x.kind==='relationship_event')?.n||0},errors:meta?.error?[JSON.parse(meta.error)]:[],lastReview:latest?JSON.parse(latest.record):null};
   }
   _memoryRecords(scope) {
     return this.db.prepare('SELECT kind,record FROM memory_records WHERE scope_key=?').all(scopeKey(scope)).map(r=>({...JSON.parse(r.record),recordType:r.kind}));
@@ -346,12 +526,12 @@ class Store {
     return {sources,items,episodes,coverage:{complete:status.pending===0,sourceCount:all.length,retrievedCount:sources.length,pending:status.pending,processed:status.processed,history:this.coverage(scope),retrieval:'lexical-han-bigram-bm25',semanticCertainty:false}};
   }
   memoryBatch(scope,{maxBytes=24000,limit=32}={}) {
-    this.memorySources(scope);const key=scopeKey(scope),record=this.getCompanion(scope);
+    this.maintainLocal(scope);const key=scopeKey(scope),record=this.getCompanion(scope);
     const size=Math.max(4000,Math.min(200000,Number(maxBytes)||24000)),count=Math.max(1,Math.min(64,Number(limit)||32));
     const pending=this.db.prepare("SELECT j.*,s.record FROM memory_journal j JOIN memory_sources s ON s.scope_key=j.scope_key AND s.source_id=j.source_id AND s.revision=j.revision WHERE j.scope_key=? AND j.status='pending' ORDER BY j.seq LIMIT ?").all(key,count);
     if(!pending.length)return null;
     const meta=this.db.prepare('SELECT version FROM memory_meta WHERE scope_key=?').get(key);
-    const core={scopeKey:key,baseRevision:record.revision,baseMemoryVersion:meta.version,baseState:{version:record.state.version,focus:record.state.focus.slice(0,500)},sources:[],events:[],priorMemory:{items:[],episodes:[]},contextSources:[],reviewedSourceIds:[]};
+    const core={scopeKey:key,baseRevision:record.revision,baseMemoryVersion:meta.version,baseState:{version:record.state.version,focus:record.state.focus.slice(0,500)},sources:[],events:[],priorMemory:{items:[],episodes:[],claims:[],events:[]},contextSources:[],reviewedSourceIds:[]};
     const bytes=()=>Buffer.byteLength(JSON.stringify(core),'utf8')+150;
     for(const row of pending) {
       const original=JSON.parse(row.record),source={...original},offset=row.cursor||0;
@@ -373,9 +553,9 @@ class Store {
       if(offset)source.segment={offset,end:original.text.length,total:original.text.length};
     }
     const prior=this._memoryRecords(scope),query=core.sources.map(s=>s.text.slice(0,300)).join(' ');
-    const pinned=prior.filter(r=>r.kind==='commitment'||r.recordType==='episode'||r.reviewComplete===false).sort((a,b)=>Date.parse(b.lastEvidenceAt)-Date.parse(a.lastEvidenceAt)).slice(0,6);
+    const pinned=prior.filter(r=>r.kind==='commitment'||r.recordType==='episode'||r.reviewComplete===false||r.recordType==='relationship_event'||r.recordType==='claim'&&r.aspect==='boundary').sort((a,b)=>Date.parse(b.lastEvidenceAt)-Date.parse(a.lastEvidenceAt)).slice(0,8);
     const candidates=[...new Map([...pinned,...rank(prior,query,{limit:12})].map(r=>[r.id,r])).values()];
-    for(const item of candidates) {const target=core.priorMemory[item.recordType==='item'?'items':'episodes'];target.push(item);if(bytes()>size)target.pop();}
+    for(const item of candidates) {const target=core.priorMemory[{item:'items',episode:'episodes',claim:'claims',relationship_event:'events'}[item.recordType]];if(!target)continue;target.push(item);if(bytes()>size)target.pop();}
     // A bare 'cancel it' needs the preceding exchange, not lexical topic overlap.
     // Read a bounded window of already-reviewed sources without moving its cursor.
     const anchor=core.sources.filter(s=>!s.deleted).map(s=>s.at).sort()[0];
@@ -398,14 +578,14 @@ class Store {
       const {id,maxBytes,inputBytes,...core}=batch;if(hash(core)!==id)return reject('changed_batch');
       if(this.db.prepare('SELECT 1 FROM memory_receipts WHERE scope_key=? AND batch_id=?').get(key,id))return reject('already_reviewed');
       if(this.db.prepare('SELECT version FROM memory_meta WHERE scope_key=?').get(key)?.version!==batch.baseMemoryVersion)return reject('stale_memory_version');
-      if(!plain(result)||Object.keys(result).some(k=>!['reviewedSourceIds','items','episodes','retire'].includes(k)))return reject('unauthorized_result_fields');
+      if(!plain(result)||Object.keys(result).some(k=>!['reviewedSourceIds','items','episodes','retire','relationshipPatch'].includes(k)))return reject('unauthorized_result_fields');
       if(!Array.isArray(result.reviewedSourceIds)||new Set(result.reviewedSourceIds).size!==result.reviewedSourceIds.length||result.reviewedSourceIds.length!==batch.reviewedSourceIds.length||result.reviewedSourceIds.some(x=>!batch.reviewedSourceIds.includes(x)))return reject('incomplete_review_receipt');
       const pending=this.db.prepare("SELECT seq,source_id,revision,cursor FROM memory_journal WHERE scope_key=? AND status='pending' ORDER BY seq LIMIT ?").all(key,batch.events.length);
       if(pending.length!==batch.events.length||pending.some((r,i)=>r.seq!==batch.events[i].seq||r.source_id!==batch.events[i].id||r.revision!==batch.events[i].revision||r.cursor!==batch.events[i].offset))return reject('stale_or_noncontiguous_batch');
       const raw=new Map(this._rawMemorySources(scope).map(s=>[s.id,s]));
       const allowed=new Set(batch.sources.filter(s=>!s.deleted).map(s=>s.id));
       for(const source of batch.contextSources||[]) {if(raw.get(source.id)?.revision!==source.revision)return reject('stale_context_source');allowed.add(source.id);}
-      const previous=new Map([...batch.priorMemory.items,...batch.priorMemory.episodes].map(item=>[item.id,item]));
+      const previous=new Map([...batch.priorMemory.items,...batch.priorMemory.episodes,...(batch.priorMemory.claims||[]),...(batch.priorMemory.events||[])].map(item=>[item.id,item]));
       for(const item of previous.values())for(const sid of item.sourceIds){if(raw.get(sid)?.revision!==item.sourceRevisions[sid])throw new Error('Stale prior memory source');allowed.add(sid);}
       for(const source of batch.sources)if(!source.deleted&&raw.get(source.id)?.revision!==source.revision)return reject('stale_source');
       const checked=[];const statuses=['active','resolved','cancelled','superseded'];
@@ -415,10 +595,11 @@ class Store {
         const sourceIds=sourceList(value.sourceIds);
         if(!sourceIds.length||sourceIds.length>64||sourceIds.some(sid=>!allowed.has(sid)||!raw.has(sid)))throw new Error('Unavailable or undelivered memory evidence');
         if(value.id!==undefined&&!previous.has(value.id))throw new Error('Replacement memory was not delivered');
+        if(value.id!==undefined&&previous.get(value.id).recordType!==type)throw new Error('Memory update cannot change record type');
         if(!sourceIds.some(sid=>batch.reviewedSourceIds.includes(sid)))throw new Error('An update needs evidence from this reviewed batch');
         const kind=type==='episode'?'episode':value.kind;
         if(type==='item'&&!['fact','preference','commitment','uncertainty'].includes(kind))throw new Error('Invalid memory kind');
-        if(kind==='preference'&&(value.explicitPreference!==true||sourceIds.some(sid=>raw.get(sid).type==='feedback'&&raw.get(sid).kind!=='recurring')))throw new Error('Stable preferences require explicit recurring intent, not local feedback');
+        if(kind==='preference'){if(value.explicitPreference!==true)throw new Error('Stable preferences require explicit recurring intent, not local feedback');assertPreferenceAuthority(raw,sourceIds);}
         const topicKeys=value.topicKeys||[];
         if(!Array.isArray(topicKeys)||topicKeys.length>8||topicKeys.some(t=>typeof t!=='string'||!t.trim()||t.length>80))throw new Error('Invalid memory topic keys');
         const sourceRevisions=Object.fromEntries(sourceIds.map(sid=>[sid,raw.get(sid).revision]));
@@ -439,59 +620,72 @@ class Store {
       if(result.retire!==undefined&&(!Array.isArray(result.retire)||result.retire.length>24))throw new Error('Invalid retire count');
       for(const retirement of result.retire||[]) {
         if(!plain(retirement)||Object.keys(retirement).some(k=>!['id','sourceIds','status'].includes(k))||!previous.has(retirement.id)||!['resolved','cancelled','superseded'].includes(retirement.status))throw new Error('Invalid retirement');
-        const old=previous.get(retirement.id);checked.push(build({id:old.id,kind:old.kind,text:old.text,sourceIds:[...new Set([...old.sourceIds,...sourceList(retirement.sourceIds)])],topicKeys:old.topicKeys,status:retirement.status,certainty:old.certainty,...(old.kind==='preference'?{explicitPreference:true}:{})},old.recordType));
+        const old=previous.get(retirement.id);if(!['item','episode'].includes(old.recordType))throw new Error('Typed records require relationshipPatch retirement');checked.push(build({id:old.id,kind:old.kind,text:old.text,sourceIds:[...new Set([...old.sourceIds,...sourceList(retirement.sourceIds)])],topicKeys:old.topicKeys,status:retirement.status,certainty:old.certainty,...(old.kind==='preference'?{explicitPreference:true}:{})},old.recordType));
       }
       if(new Set(checked.map(c=>c.id)).size!==checked.length)throw new Error('Duplicate memory update');
+      const relationships=result.relationshipPatch?prepareRelationshipPatch(this,scope,result.relationshipPatch,{sourceIds:[...allowed],sourceRevisions:Object.fromEntries([...raw].map(([id,s])=>[id,s.revision])),previousIds:new Set(previous.keys()),reviewedSourceIds:batch.reviewedSourceIds,batchSources:batch.sources}):[];
       for(const item of checked) {
         this.db.prepare('INSERT INTO memory_records VALUES(?,?,?,?) ON CONFLICT(scope_key,id) DO UPDATE SET kind=excluded.kind,record=excluded.record').run(key,item.id,item.recordType,JSON.stringify(item));
         this.db.prepare('DELETE FROM memory_dependencies WHERE scope_key=? AND id=?').run(key,item.id);
         for(const sid of item.sourceIds)this.db.prepare('INSERT INTO memory_dependencies VALUES(?,?,?,?)').run(key,item.id,sid,item.sourceRevisions[sid]);
       }
+      const relationshipChanges=writeRelationshipRecords(this,scope,relationships);
       for(const event of batch.events) {
         const length=raw.get(event.id)?.text.length||0;
         this.db.prepare("UPDATE memory_journal SET status=?,cursor=? WHERE seq=? AND scope_key=? AND status='pending'").run(event.end>=length?'reviewed':'pending',event.end,event.seq,key);
       }
-      const receipt={batchId:id,reviewedSourceIds:batch.reviewedSourceIds,sourceRevisions:Object.fromEntries(batch.events.map(e=>[e.id,e.revision])),seqFrom:batch.events[0].seq,seqTo:batch.events.at(-1).seq,segments:batch.events.map(e=>({sourceId:e.id,offset:e.offset,end:e.end})),reviewedAt:new Date().toISOString(),outcome:checked.length?'updated':'reviewed_no_change',updates:checked.length};
+      const receipt={batchId:id,reviewedSourceIds:batch.reviewedSourceIds,sourceRevisions:Object.fromEntries(batch.events.map(e=>[e.id,e.revision])),seqFrom:batch.events[0].seq,seqTo:batch.events.at(-1).seq,segments:batch.events.map(e=>({sourceId:e.id,offset:e.offset,end:e.end})),reviewedAt:new Date().toISOString(),outcome:checked.length||relationshipChanges?'updated':'reviewed_no_change',updates:checked.length+relationshipChanges};
       this.db.prepare('INSERT INTO memory_receipts VALUES(?,?,?)').run(key,id,JSON.stringify(receipt));
       this.db.prepare('UPDATE memory_meta SET version=version+1,error=NULL WHERE scope_key=?').run(key);
       return {applied:true,receipt};
     });}catch(error){return reject('invalid_memory_result',error.message);}
   }
   updateTurn(scope,id,text) {
-    identifier(id,'turn id');textValue(text,'turn text');const record=this.getCompanion(scope),turn=record.turns.find(t=>t.id===id&&t.role==='user');
-    if(!turn)return false;if(turn.text===text)return turn;
-    turn.text=text;turn.version=(turn.version||1)+1;turn.updatedAt=new Date().toISOString();changedSource(record,true);this._writeCompanion(scope,record);return turn;
+    return this._atomic(()=>{
+      identifier(id,'turn id');textValue(text,'turn text');const record=this.getCompanion(scope),turn=record.turns.find(t=>t.id===id&&t.role==='user');
+      if(!turn)return false;if(turn.text===text)return turn;
+      turn.text=text;turn.version=(turn.version||1)+1;turn.updatedAt=new Date().toISOString();changedSource(record,true);this._writeCompanion(scope,record);return turn;
+    });
   }
   ignoredSources(scope) {return this.db.prepare('SELECT source_id FROM memory_exclusions WHERE scope_key=?').all(scopeKey(scope)).map(r=>r.source_id);}
   forgetSource(scope,id) {
     sourceList([id]);
     if(id.startsWith('note:'))return this.deleteNote(scope,id.slice(5));
     if(id.startsWith('private:feedback-')) {
-      const record=this.getCompanion(scope),length=record.feedback.length;record.feedback=record.feedback.filter(f=>`private:feedback-${f.id}`!==id);
-      if(length===record.feedback.length)return false;changedSource(record,true);this._writeCompanion(scope,record);return true;
+      return this._atomic(()=>{const record=this.getCompanion(scope);if(!record.feedback.some(f=>`private:feedback-${f.id}`===id))return false;this.experiences.invalidateSources(scope,[id],{mode:'forget'});record.turns=record.turns.filter(t=>!(t.feedbackId&&`private:feedback-${t.feedbackId}`===id)&&this.experiences.canonicalSource(scope,`private:${t.id}`)!==id);changedSource(record,true);this._writeCompanion(scope,record);return true;});
     }
     if(id.startsWith('private:'))return this.deleteTurn(scope,id.slice(8));
     if(!this._rawMemorySources(scope).some(s=>s.id===id))return false;
     return this._atomic(()=>{this.db.prepare('INSERT OR IGNORE INTO memory_exclusions VALUES(?,?)').run(scopeKey(scope),id);const record=this.getCompanion(scope);changedSource(record,true);this._writeCompanion(scope,record);return true;});
   }
   markTurnControl(scope,id) {
-    const record=this.getCompanion(scope),turn=record.turns.find(t=>t.id===id&&t.role==='user');if(!turn)return false;
-    turn.memoryExcluded=true;changedSource(record,true);this._writeCompanion(scope,record);return true;
+    return this._atomic(()=>{
+      const record=this.getCompanion(scope),turn=record.turns.find(t=>t.id===id&&t.role==='user');if(!turn)return false;
+      turn.memoryExcluded=true;changedSource(record,true);this._writeCompanion(scope,record);return true;
+    });
   }
   setPendingActions(scope,items) {
-    if(!Array.isArray(items)||items.length>20||items.some(x=>!plain(x)))throw new Error('Invalid pending actions');
-    const record=this.getCompanion(scope);record.pendingActions=JSON.parse(JSON.stringify(items));this._writeCompanion(scope,record);return record.pendingActions;
+    return this._atomic(()=>{
+      if(!Array.isArray(items)||items.length>20||items.some(x=>!plain(x)))throw new Error('Invalid pending actions');
+      const record=this.getCompanion(scope);record.pendingActions=JSON.parse(JSON.stringify(items));this._writeCompanion(scope,record);return record.pendingActions;
+    });
   }
   savePendingAction(scope,action) {
-    if(!plain(action))throw new Error('Invalid pending action');const record=this.getCompanion(scope),saved={...JSON.parse(JSON.stringify(action)),id:action.id||randomUUID()};identifier(saved.id);
-    record.pendingActions=[...record.pendingActions.filter(a=>a.id!==saved.id),saved].slice(-20);this._writeCompanion(scope,record);return saved;
+    return this._atomic(()=>{
+      if(!plain(action))throw new Error('Invalid pending action');const record=this.getCompanion(scope),saved={...JSON.parse(JSON.stringify(action)),id:action.id||randomUUID()};identifier(saved.id);
+      record.pendingActions=[...record.pendingActions.filter(a=>a.id!==saved.id),saved].slice(-20);this._writeCompanion(scope,record);return saved;
+    });
   }
   resolvePendingAction(scope,id) {
-    const record=this.getCompanion(scope),before=record.pendingActions.length;record.pendingActions=record.pendingActions.filter(a=>a.id!==id);this._writeCompanion(scope,record);return before!==record.pendingActions.length;
+    return this._atomic(()=>{
+      const record=this.getCompanion(scope),before=record.pendingActions.length;record.pendingActions=record.pendingActions.filter(a=>a.id!==id);this._writeCompanion(scope,record);return before!==record.pendingActions.length;
+    });
   }
   recordActionReceipt(scope,receipt) {
-    if(!plain(receipt))throw new Error('Invalid action receipt');const record=this.getCompanion(scope),saved={...JSON.parse(JSON.stringify(receipt)),id:receipt.id||randomUUID(),at:new Date().toISOString()};
-    record.actionReceipts=[...record.actionReceipts.filter(r=>r.id!==saved.id),saved].slice(-100);this._writeCompanion(scope,record);return saved;
+    return this._atomic(()=>{
+      if(!plain(receipt))throw new Error('Invalid action receipt');const record=this.getCompanion(scope),saved={...JSON.parse(JSON.stringify(receipt)),id:receipt.id||randomUUID(),at:new Date().toISOString()};
+      record.actionReceipts=[...record.actionReceipts.filter(r=>r.id!==saved.id),saved].slice(-100);this._writeCompanion(scope,record);return saved;
+    });
   }
   messages(scope) {
     if (!scope) return [];

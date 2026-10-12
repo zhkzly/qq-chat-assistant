@@ -59,7 +59,7 @@ async function until(test, label) { for (let i = 0; i < 80; i++) { if (await tes
     checks.push('initial 370px and 480px conversation shows the entire composer without scrolling; secondary forms stay hidden');
     await ui.click('#generate');
     await until(() => cdp.evaluate("document.querySelectorAll('#assistant-thread .assistant-suggestion').length===3"), 'fixture alternatives through the unified assistant');
-    await ui.click('#assistant-thread .assistant-suggestion button');
+    await ui.click('#assistant-thread .assistant-suggestion button[data-action=adopt]');
     await until(()=>cdp.evaluate("document.querySelector('#draft-dialog').open"),'adoption opens draft editor');
     assert.equal(await cdp.evaluate("document.activeElement.id"),'draft');
     await ui.fill('#draft','我自己的改写');

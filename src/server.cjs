@@ -47,6 +47,10 @@ function createServer({ controller, token, uiDir, saveSettings, fillDraft, inspe
       if (request.method === 'GET' && url.pathname === '/api/state') return json(response, 200, controller.snapshot());
       if (request.method === 'GET' && url.pathname === '/api/assistant-context') return json(response, 200, controller.assistantContext());
       if (request.method === 'GET' && url.pathname === '/api/methods') return json(response, 200, {methods:listMethods()});
+      if(request.method==='GET'&&url.pathname==='/api/relationship-view'){const scope=controller.requireScope();return json(response,200,{scope,...controller.store.relationshipView(scope,{limit:24})});}
+      if(request.method==='GET'&&url.pathname==='/api/experiences'){const scope=controller.requireScope();return json(response,200,{scope,...controller.store.experiences.list(scope,{limit:20})});}
+      if(request.method==='GET'&&url.pathname.startsWith('/api/task/')){const scope=controller.requireScope();return json(response,200,{scope,...controller.usage.get(scope,url.pathname.slice('/api/task/'.length))});}
+
       if (request.method === 'GET' && url.pathname === '/api/model-profiles') return json(response, 200, publicProfiles(controller.settings));
       if(request.method==='GET' && url.pathname==='/api/media') {
         if(!controller.scope || url.searchParams.get('accountUid')!==controller.scope.accountUid || url.searchParams.get('peerUid')!==controller.scope.peerUid)throw new Error('会话已改变，请重新查看图片');
@@ -61,7 +65,7 @@ function createServer({ controller, token, uiDir, saveSettings, fillDraft, inspe
       }
       if (request.method === 'GET' && url.pathname === '/api/context') return json(response,200,controller.assistantContext());
       if (request.method === 'GET' && url.pathname === '/api/health') return json(response,200,{
-        version:'relationship-context-complete-2026-10-12',unifiedContext:true,persistentMemory:true,
+        version:'relationship-learning-2026-10-12.1',unifiedContext:true,persistentMemory:true,relationshipLearning:true,requestAccounting:true,
         promptVersion:PROMPT_VERSION,memoryVersion:MEMORY_VERSION,
         authenticated:controller.status.phase==='ready',selected:!!controller.scope,
         memoryConfigured:!!controller.memoryModel,qqMessagesSentByAssistant:0});
@@ -73,20 +77,30 @@ function createServer({ controller, token, uiDir, saveSettings, fillDraft, inspe
       }
       if (request.method !== 'POST') return json(response, 404, { error: 'Unknown read-only assistant route' });
       const args = await body(request);
-      if (['/api/assistant', '/api/goal', '/api/note', '/api/note-delete', '/api/turn-delete', '/api/feedback','/api/confirm-action','/api/undo-action','/api/memory-search','/api/memory-maintain'].includes(url.pathname) &&
-          (!controller.scope || args.accountUid !== controller.scope.accountUid || args.peerUid !== controller.scope.peerUid))
+      const relationshipRoutes=['/api/interaction-events','/api/experience-link','/api/experience-review','/api/experience-adaptation','/api/feedback-context','/api/claim-action'];
+      if (['/api/assistant', '/api/goal', '/api/note', '/api/note-delete', '/api/turn-delete', '/api/feedback','/api/confirm-action','/api/undo-action','/api/memory-search','/api/memory-maintain',...relationshipRoutes].includes(url.pathname) &&
+          (!controller.scope || args.accountUid !== controller.scope.accountUid || args.peerUid !== controller.scope.peerUid ||
+           ['accountUin','peerUin'].some(field=>(relationshipRoutes.includes(url.pathname)||Object.hasOwn(args,field))&&args[field]!==controller.scope[field])))
         throw new Error('会话已改变，请回到当前联系人后重试');
+      if((url.pathname==='/api/experience-link'||url.pathname==='/api/experience-adaptation'&&args.operation!=='propose')&&!Number.isSafeInteger(args.expectedVersion))
+        throw new Error('请刷新并核对当前记录的版本后重试');
       switch (url.pathname) {
-        case '/api/assistant': await controller.assist({text:args.text,purpose:args.purpose,materialIds:args.materialIds,sourceTurnIds:args.sourceTurnIds,selectedOption:args.selectedOption}); break;
+        case '/api/assistant': await controller.assist({text:args.text,purpose:args.purpose,materialIds:args.materialIds,sourceTurnIds:args.sourceTurnIds,selectedOption:args.selectedOption,taskId:args.taskId}); break;
         case '/api/goal': controller.setGoal(args.text); break;
         case '/api/note': controller.saveNote({ id: args.id, text: args.text, use: args.use }); break;
         case '/api/note-delete': controller.deleteNote(args.id); break;
         case '/api/turn-delete': controller.deleteTurn(args.id); break;
-        case '/api/feedback': controller.addFeedback({ requestId: args.requestId, text: args.text, kind: args.kind }); break;
+        case '/api/feedback': controller.addFeedback({ requestId: args.requestId, text: args.text, targetRef:args.targetRef,clientEventId:args.clientEventId }); break;
         case '/api/confirm-action': controller.confirmAction(args.id,args.decision); break;
         case '/api/undo-action': controller.undoAction(args.id); break;
         case '/api/memory-search': return json(response,200,{scope:controller.scope,...controller.searchMemory(args.query||'',{limit:24,before:args.before,after:args.after,types:args.types})});
-        case '/api/memory-maintain': await controller.maintainMemory({maxBatches:2,force:true}); break;
+        case '/api/memory-maintain': await controller.maintainMemory({maxBatches:1,force:true}); break;
+        case '/api/interaction-events': return json(response,200,controller.experienceAction('interaction',args));
+        case '/api/experience-link': controller.experienceAction('link',args);break;
+        case '/api/experience-review': controller.experienceAction('review',args);break;
+        case '/api/experience-adaptation': controller.experienceAction('adaptation',args);break;
+        case '/api/feedback-context': return json(response,200,{scope:controller.scope,target:controller.store.experiences.hydrateFeedback(controller.scope,args.feedbackId)});
+        case '/api/claim-action':controller.claimAction({id:args.id,expectedVersion:args.expectedVersion,operation:args.operation,text:args.text});break;
         case '/api/models': return json(response, 200, await discoverModels(controller.settings, args, modelFetch));
         case '/api/model-selection': {
           if (!saveSettings) throw new Error('Settings unavailable');
@@ -143,6 +157,7 @@ function run() {
   }
   const store = new Store(path.join(data, 'messages.sqlite'));
   const controller = new Controller({ store, read, settings, memoryModel: consolidateMemory });
+  controller.usage.recoverInterrupted();
   if(process.send)controller.setVisible(false);
   process.on('message', message => {
     if (message.type === 'reply') { const task = pending.get(message.id); if (!task) return;

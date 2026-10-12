@@ -1,0 +1,194 @@
+{
+  "date": "2026-10-12",
+  "phase": "candidate_verified_pending_native_refresh",
+  "baseline": "95ef8e3",
+  "researchBaseline": "d307081",
+  "branch": "feature/relationship-learning-20261012",
+  "goal": "Help the user develop a mutually desired romantic relationship with the selected online acquaintance; initiation, continuation, shared activities, expressing interest and review remain flexible paths.",
+  "boundaries": {
+    "qqMessagesSentByVerification": 0,
+    "actualRomanticOutcomeVerified": false,
+    "realChatArchived": false,
+    "researchUploaded": false,
+    "requiredEmbeddingsOrExternalMemoryService": false
+  },
+  "implementation": [
+    "source-grounded self/contact/dyad claims and time-ordered activities",
+    "revision-aware incremental maintenance and immediate local invalidation",
+    "compact executable method contracts and restricted drafting context",
+    "exact artifact feedback, actual-action experience and user-approved scoped guidance",
+    "full four-identity scope, bounded task HTTP accounting and maintenance scheduling"
+  ],
+  "functional": {
+    "status": "passed",
+    "passed": 230,
+    "failed": 0,
+    "command": "npm test",
+    "log": "/tmp/qq-relationship-functional-final.log"
+  },
+  "browser": {
+    "status": "passed",
+    "assistantChecks": 22,
+    "historyAndSettingsChecks": 19,
+    "experienceChecks": 8,
+    "total": 49,
+    "evidence": "actual isolated Chromium execution with synthetic records and injected models; not native QQ",
+    "reports": {
+      "assistant": "/tmp/qq-assistant-context-evidence-hdDGnn/report.json",
+      "history": "/tmp/qq-assistant-legacy-evidence-hcvOZ0/browser-evidence.json",
+      "experience": "/tmp/qq-experience-evidence-JU9Qud/report.json"
+    },
+    "latestChangeBoundary": "The final experience suite verifies the legacy UI/helper branch; assistant and history suites precede that bounded compatibility edit."
+  },
+  "goalReplay": {
+    "syntheticLegacy": {
+      "cases": 9,
+      "checks": 27,
+      "failed": 0,
+      "report": "/tmp/qq-context-goal-replay-synthetic.json"
+    },
+    "syntheticRelationship": {
+      "cases": 9,
+      "failed": 0,
+      "httpAttemptsMocked": 14,
+      "realHttpCalls": 0,
+      "report": "/tmp/qq-relationship-goal-check-final-synthetic.json"
+    },
+    "live": {
+      "status": "bounded_runs_completed_with_explicit_partial_case",
+      "originalFailuresRetained": true,
+      "initialReport": "/tmp/relationship-goal-check-live-initial.json",
+      "initialRuntimeBoundary": "Initial report hashes covered owned runtime files; later reports record all loaded runtime files. Do not attribute later fixes to earlier runs.",
+      "providerFailureReports": [
+        "/tmp/relationship-goal-check-live-initial.json",
+        "/tmp/relationship-goal-check-live-targeted.json"
+      ],
+      "productFailure": {
+        "report": "/tmp/relationship-goal-check-live-feedback.json",
+        "failure": "Stale run revision after a valid feedback review with stateReview=no_change",
+        "cause": "Direct state CAS serialized hydrated display-only feedback; subsequent normalization changed the companion revision.",
+        "fix": "Canonical companion serialization shared by every persistent write",
+        "recordedResponseReplay": "tests/fixtures/live-feedback-response.json; offline real Controller/Store regression",
+        "fixedLiveReport": "/tmp/relationship-goal-check-live-feedback-fixed.json"
+      },
+      "actualHttpAttempts": 27,
+      "latestReports": [
+        "/tmp/relationship-goal-check-live-feedback-fixed.json",
+        "/tmp/relationship-goal-check-live-final.json"
+      ],
+      "fullyCompletedCases": [
+        "sparse-interest",
+        "role-roommate",
+        "typed-understanding",
+        "old-feedback",
+        "activated-guidance",
+        "independent-action",
+        "friend-boundary",
+        "context-rot"
+      ],
+      "partialCases": [
+        {
+          "id": "cancellation-backfill",
+          "verified": "Two successful live memory passes preserve cancellation after older invitation and acceptance arrive",
+          "notVerified": "Foreground review failed because the upstream provider was unavailable"
+        }
+      ],
+      "semanticReview": {
+        "reviewers": [
+          "root",
+          "independent agents"
+        ],
+        "result": "Eight completed scenarios were semantically acceptable for the specific synthetic inputs; no relationship-effectiveness inference.",
+        "relativeDateFix": "The unchanged cross-week fixture initially produced an ambiguous upcoming-Friday suggestion. Protocol .6 retest explicitly preserves the old date and asks to confirm current timing.",
+        "contextRotPair": {
+          "irrelevantNotes": 60,
+          "includedNoiseSources": 3,
+          "controlInputBytes": 12116,
+          "noiseInputBytes": 13403,
+          "observed": "Both responses use the stated cooperative-game preference, condition the invitation on availability, and separate activity willingness from romantic intent.",
+          "scope": "One controlled pair, not a context-rot robustness benchmark."
+        },
+        "remainingUsability": "Some review outputs are verbose and contain process caveats."
+      },
+      "versionBoundary": "Runs use their recorded load-time hashes. Prompt/memory .6 includes later date and user-reported activity fixes. Source files changed between/during some runs; final structural/UI/native checks are separate from these live semantic results.",
+      "summaryReport": "/tmp/relationship-goal-verification-summary.json",
+      "httpStatuses": {
+        "200": 16,
+        "502": 2,
+        "503": 9
+      }
+    }
+  },
+  "migration": {
+    "timestamp": "2026-10-12T09:40:40.494Z",
+    "evidence": "real_local_database_copied_and_migrated_in_isolated_private_copy",
+    "productionDatabaseModified": false,
+    "realModelCalls": 0,
+    "qqMessagesSent": 0,
+    "rawMessagesBefore": 805,
+    "rawMessagesAfter": 805,
+    "rawMessagesPreserved": true,
+    "integrity": "ok",
+    "schemaVersion": 1,
+    "scopes": [
+      {
+        "goalPreserved": true,
+        "notesPreserved": true,
+        "authoredInputsPreserved": true,
+        "notesBefore": 0,
+        "notesAfter": 0,
+        "privateTurnsBefore": 1,
+        "privateTurnsAfter": 1,
+        "feedbackBefore": 0,
+        "feedbackAfter": 0,
+        "typedPending": 745
+      }
+    ]
+  },
+  "desktop": {
+    "status": "pending_service_only_refresh",
+    "preflight": "existing authenticated helper available; no pending model request or settings form; original QQ parent stays running"
+  },
+  "limits": [
+    "Structural tests and simulated journeys do not establish relationship effectiveness.",
+    "Live conversations are synthetic; output verbosity remains a usability observation, not a success score.",
+    "Missing end times remain unspecified; relative-date interpretation still depends on model judgment.",
+    "Old historical sources rebuild incrementally while raw source retrieval remains usable.",
+    "Historical binaries cannot safely write the new database; service refresh stops the old writer and downgrade requires a private pre-upgrade backup."
+  ],
+  "syntaxAndDiff": true,
+  "runtimeFiles": {
+    "src/assistant-actions.cjs": "54bd959aadce35e4491e60aad72c072ae9d9abf0eb3a8f6b8193261988aa7e1d",
+    "src/assistant-context.cjs": "87a0f04e7ca7a906b0585c6530882a07c73b57ba2f329f462d1208c06b9d3a30",
+    "src/assistant-model.cjs": "c970ba98db4ef98ecc6df655bbf7571a2f0b40b91334b752b3b4721ccada5b01",
+    "src/controller.cjs": "a8188953b6398f77e6ed72e1b4f7ba3722ae22aa3a06fe07f7c90490f53d5234",
+    "src/experience-store.cjs": "64423e0d10af36ff1a19debb3e56c1e4625f7a08746d9e469c76e5f9b2b91a3f",
+    "src/help-methods.cjs": "aaa637e815c113b197f290a3eb091770b772c894c95e47b4e5b3c50ed3362362",
+    "src/media.cjs": "ee00a6f7af727634e60cc850a24ce0faab75d4a68f0a037e902e119d20b1178a",
+    "src/memory-engine.cjs": "19cd3f206851377d92f787f13daf25d5be462e984fb2a48badb2adfc1fd5c6df",
+    "src/memory-scheduler.cjs": "d97432625255df2af15fda76cf2756ab7c32654767cd050fccea8338e2b7fe45",
+    "src/memory-search.cjs": "e38074fc638e44340b51c6cdf0f29c0f38f8277975b7e0d61ff092a060cef121",
+    "src/messages.cjs": "5a7654207c8d66878a861bdfd37d003d8cdf08d5f4264f7dcbd7bc32742d5cae",
+    "src/model-http.cjs": "e897f79947f674f5c69998ab7546a305867eb0a2b21ff6625ef694ceeb333f72",
+    "src/model.cjs": "9726fdb0469f2cb8a2e29b97bef40bb09f0801932ef61618da59fb94cdbf94ec",
+    "src/provenance.cjs": "bc52639b9bf117e8c15bec44b64b06eac74868d43b90e437eba595486f8b0c5d",
+    "src/providers.cjs": "01e8ed4f90d6889bf3cf5e25ed9f74c8cd4120e631e6640ec435f43fbf9eaea8",
+    "src/relationship-schema.cjs": "5ebf2f30fd7f1eeeb15c92761cafa4c8bc4b5705df26312fd24a06c56679c54d",
+    "src/relationship-store.cjs": "a5b82678782d001627850d17216b7d2b6782d55923b589bba45118547eee429c",
+    "src/request-budget.cjs": "8587c93b915e919906bf67be097471f53b20c0aa69dbca17605f2f27f975a6b7",
+    "src/server.cjs": "b709b2202a3068d4a807e40f16318c621e6c8c2ce621a0aa7c85b6b81796a85b",
+    "src/store.cjs": "3287633166d3c0917f85a04e384eb5f395e584b87388723e128df98a6bf1d48e",
+    "ui/app.js": "eb9ad188695ae8b1a137c8360e1288c755b85a4cb6f52f6b5df8bfb6b0a3d3ea",
+    "ui/index.html": "3f5d8daa104bec6ab5ff593a1c64a8a889ea5d6533dc06655e95efa45db07e25",
+    "ui/style.css": "a99d66d176eb6f1c7faf550a6377ce7dc24e3d87fd6b1c93d3d6c25232b4f6da",
+    "plugin/contact.cjs": "bd78d6689595ad0c151a6b2fe71d0e0b3911d2d15c3f90c4606ba9876462afcb",
+    "plugin/dev-probe.cjs": "c1dffa6dcbd1d35498a0c6d0b435a7ad599738ecbf9708cf529294eafbffd4d9",
+    "plugin/draft.cjs": "9a884d7ee624aa9e1316cfc2d83a1b0e7c697d438d461df85dcfacd988697658",
+    "plugin/ipc-transport.cjs": "9d9511933cec59aae0de618d1a9714e26849e21dfa99718fb046ea10845db07d",
+    "plugin/main.cjs": "21f96e6a8c94d9cfaeff1d6ec0c9e41062ec1f8e3c44a208f943df23af3532dd",
+    "plugin/native-driver.cjs": "dac445d581ad640d689f375bab2135c04cb288b51b98457c6fa335881ee38e2a",
+    "plugin/preload.cjs": "d3e07a0f26d73d8a27345ef72810d22ef06c99e165e42938f5ddb84fdc0d8838",
+    "plugin/probe.cjs": "122c43b2dbc4cef2772931342e772e93a6dd3b3a7cef40fccda7c9f60e251783",
+    "plugin/renderer.js": "9fcaca9554ac5df1c5e8141c67822035807b1ce1195deed0691f7acf4f7f4870"
+  }
+}

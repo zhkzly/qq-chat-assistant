@@ -9,6 +9,8 @@ let assistantPending=false,assistantLocalError='',assistantThreadKey='',assistan
 let actionPanelKey='',memorySearchVersion=0,memoryResultsRevision=null,selectedDiscussion=null;
 let memoryRetryPending=false;
 let helpingMethods=new Map();
+let draftArtifactRefs=[],draftRevision=0,draftDirty=false,draftSyncBusy=false,draftSyncBlocked=false,draftRetryAt=0,draftEditTimer=null,draftEditPending=false,legacyDraftCandidate=null;
+let feedbackTargetRef=null,feedbackClientId=null,experienceViewKey='',relationshipViewKey='',guidanceEditVersion=null,experienceReviewTarget=null,experienceReviewClientId=null;
 let workspace='discussion';
 let discussionScroll={top:0,follow:true},qqScroll={top:0,follow:true};
 const workspaceNames=['discussion','history','background'];
@@ -36,7 +38,7 @@ function openDraft(){if(!$('draft-dialog').open)$('draft-dialog').showModal();$(
 function attachDiscussionContext(text){const input=$('assistant-input');input.value=input.value.trim()?`${input.value}\n\n${text}`:text;showWorkspace('discussion',true)}
 function syncDraftIndicator(){$('draft-indicator').hidden=!$('draft').value.trim()}
 $('draft-button').onclick=openDraft;
-$('draft-close').onclick=()=>{$('draft-dialog').close();showWorkspace('discussion',true)};
+$('draft-close').onclick=()=>{checkpointDraft();$('draft-dialog').close();showWorkspace('discussion',true)};
 $('contact-button').onclick=()=>{$('contact-dialog').showModal();$('qq-number').focus()};
 $('contact-close').onclick=()=>$('contact-dialog').close();
 $('history-discuss').onclick=()=>showWorkspace('discussion',true);
@@ -46,10 +48,62 @@ async function api(path,args) {
  if(!response.ok){const p=await response.json();throw new Error(p.error||`HTTP ${response.status}`)}return response;
 }
 function error(message){if(message)localError=message;const shown=state?.error||localError;$('error').textContent=shown;$('error').hidden=!shown;for(const id of ['draft-error','contact-error','settings-notice']){$(id).textContent=shown;$(id).hidden=!shown}}
-function keyOf(scope){return scope?`${scope.accountUid}/${scope.peerUid}`:''}
-function saveDraft(){syncDraftIndicator();if(scopeKey){localStorage.setItem(`draft:${scopeKey}`,$('draft').value);if(draftOrigin)localStorage.setItem(`draft-origin:${scopeKey}`,draftOrigin);else localStorage.removeItem(`draft-origin:${scopeKey}`)}}
-function adopt(text,origin=null){$('draft').value=text;draftOrigin=origin;saveDraft();$('draft-status').textContent='已放入草稿，可修改';openDraft()}
-async function copyText(text){if(!text?.trim())return;try{await navigator.clipboard.writeText(text);$('draft-status').textContent='已复制，回 QQ 按 Ctrl+V 粘贴';}catch{adopt(text,text===$('draft').value?draftOrigin:null);$('draft').select();$('draft-status').textContent='请按 Ctrl+C 复制'}}
+function keyOf(scope){return scope?JSON.stringify(['accountUid','accountUin','peerUid','peerUin'].map(key=>scope[key])):''}
+function localJSON(key,fallback){try{return JSON.parse(localStorage.getItem(key))??fallback}catch{return fallback}}
+function sameArtifactRef(a,b){return a?.artifactId===b?.artifactId&&a?.version===b?.version}
+function resolveDraftArtifactRefs(snapshot,origin,refs=[]){
+ if(refs.length||!origin)return refs;
+ // Old edited drafts retained only their parent turn, not a particular candidate.
+ // A predictable legacy reference is a lookup key, never evidence of availability.
+ const turn=(snapshot?.companion?.turns||[]).find(item=>item.id===origin&&item.role==='assistant');
+ return [turn?.artifactRef||{artifactId:`turn:${origin}`,version:1}];
+}
+function draftOriginState(snapshot,origin,refs=[]){
+ const saved=snapshot?.experience?.draft,states=snapshot?.experience?.artifactStates||[];
+ refs=resolveDraftArtifactRefs(snapshot,origin,refs);
+ if(!refs.length)return 'active';
+ const statuses=refs.map(ref=>states.find(item=>sameArtifactRef(item.ref,ref))?.availability||(saved?.artifactRefs||[]).some(item=>sameArtifactRef(item,ref))&&saved.availability||'unknown');
+ if(statuses.includes('redacted'))return 'redacted';if(statuses.includes('unknown'))return 'unknown';
+ if(statuses.includes('stale'))return saved?.reviewStatus==='reviewed'&&refs.length===saved.artifactRefs?.length&&refs.every(ref=>saved.artifactRefs.some(item=>sameArtifactRef(item,ref)))?'reviewed':'stale';
+ return 'active';
+}
+function bridgeLegacyDraftOrigin(){
+ if(draftArtifactRefs.length||!draftOrigin)return;
+ const refs=resolveDraftArtifactRefs(state,draftOrigin),status=draftOriginState(state,draftOrigin,refs);
+ if(status==='unknown')return;
+ draftArtifactRefs=refs;saveDraft();
+ if(status!=='redacted'&&$('draft').value.trim()){draftEditPending=true;checkpointDraft()}
+}
+function syncDraftSafety(){
+ const status=draftOriginState(state,draftOrigin,draftArtifactRefs),restricted=['stale','unknown','redacted'].includes(status);
+ $('draft-review').hidden=status!=='stale';$('draft-review').disabled=draftArtifactRefs.some(ref=>!state?.experience?.artifactStates?.find(item=>sameArtifactRef(item.ref,ref))?.witness);$('copy').disabled=restricted;$('fill-qq').disabled=restricted||!state?.qqDraftFillAvailable;
+ if(status==='stale')$('draft-status').textContent='参考资料已更正，你的修改已保留。请核对这份文字后继续使用。';
+ if(status==='reviewed')$('draft-status').textContent='你已核对这份修改，可以继续编辑或使用。';
+ if(status==='unknown')$('draft-status').textContent='暂时无法核实原参考来源。文字已保留，暂不能复制或回填。';
+ return status;
+}
+function saveDraft(){syncDraftIndicator();if(scopeKey){localStorage.setItem(`draft:${scopeKey}`,$('draft').value);localStorage.setItem(`draft-artifacts:${scopeKey}`,JSON.stringify(draftArtifactRefs));if(draftOrigin)localStorage.setItem(`draft-origin:${scopeKey}`,draftOrigin);else localStorage.removeItem(`draft-origin:${scopeKey}`)}}
+function checkpointDraft(){if(!draftEditPending||['unknown','redacted'].includes(draftOriginState(state,draftOrigin,draftArtifactRefs)))return;clearTimeout(draftEditTimer);draftEditPending=false;queueDraftEvent(draftArtifactRefs.length?'draft_edited':'draft_independent')}
+function queueDraftEvent(type,{text=$('draft').value,artifactRefs=draftArtifactRefs,outcome='succeeded',scope=state?.scope}={}){
+ if(!scope)return;if(type==='draft_reviewed'&&artifactRefs.some(ref=>!state?.experience?.artifactStates?.find(item=>sameArtifactRef(item.ref,ref))?.witness)){syncDraftSafety();return;}const key=keyOf(scope),items=localJSON(`draft-events:${key}`,[]),event={clientEventId:crypto.randomUUID(),type,text,artifactRefs:structuredClone(artifactRefs),outcome,eventAt:new Date().toISOString(),draftId:'main',...scope};
+ if(type==='draft_reviewed')event.artifactWitnesses=artifactRefs.map(ref=>({ref,witness:state.experience.artifactStates.find(item=>sameArtifactRef(item.ref,ref)).witness}));
+ if(type==='draft_edited'&&items.at(-1)?.type==='draft_edited'&&items.at(-1).expectedRevision===undefined)items.pop();items.push(event);localStorage.setItem(`draft-events:${key}`,JSON.stringify(items));
+ if(key===scopeKey){draftDirty=true;$('draft-sync-status').textContent='正在保存草稿操作记录…';flushDraftEvents()}
+}
+async function flushDraftEvents(){
+ if(draftSyncBusy||draftSyncBlocked||Date.now()<draftRetryAt||!scopeKey||!state?.scope)return;
+ const key=scopeKey,epoch=historyEpoch,items=localJSON(`draft-events:${key}`,[]);if(!items.length)return;draftSyncBusy=true;
+ const event=items[0];if(event.expectedRevision===undefined){event.expectedRevision=draftRevision;items[0]=event;localStorage.setItem(`draft-events:${key}`,JSON.stringify(items))}
+ try{const response=await(await api('/api/interaction-events',event)).json();if(epoch!==historyEpoch||key!==scopeKey)return;
+  const result=response.result||response,draft=result.draft||result.experience?.draft;
+  if(!draft||!Number.isInteger(draft.revision))throw new Error('草稿记录服务尚未返回确认');
+  draftRevision=draft.revision;if(state.experience)state.experience.draft=draft;syncDraftSafety();const remaining=localJSON(`draft-events:${key}`,[]).filter(item=>item.clientEventId!==event.clientEventId);localStorage.setItem(`draft-events:${key}`,JSON.stringify(remaining));
+  draftDirty=!!remaining.length;draftRetryAt=0;$('draft-sync-status').textContent=remaining.length?'正在保存草稿操作记录…':'草稿已在本机保存；这些操作不代表已经发送。';
+ }catch(err){if(epoch===historyEpoch&&key===scopeKey){draftRetryAt=Date.now()+5000;draftSyncBlocked=/another window|复用|different content/.test(err.message);$('draft-keep-mine').hidden=!draftSyncBlocked;$('draft-sync-status').textContent=`操作记录尚未同步，你的文字仍保留。${err.message}`}}
+ finally{draftSyncBusy=false;if(epoch===historyEpoch&&key===scopeKey&&!draftSyncBlocked&&!draftRetryAt)flushDraftEvents()}
+}
+function adopt(text,origin=null,artifactRefs=[]){artifactRefs=resolveDraftArtifactRefs(state,origin,artifactRefs);if(draftOriginState(state,origin,artifactRefs)!=='active'){error('这条参考的来源已变化，请重新讨论；已有修改可在草稿中核对。');return}$('draft').value=text;draftOrigin=origin;draftArtifactRefs=artifactRefs;draftDirty=true;saveDraft();queueDraftEvent(artifactRefs.length?'draft_adopted':'draft_independent');$('draft-status').textContent='已放入草稿，可修改';openDraft()}
+async function copyText(text,artifactRefs=text===$('draft').value?draftArtifactRefs:[]){if(!text?.trim())return;const originState=draftOriginState(state,text===$('draft').value?draftOrigin:null,artifactRefs);if(!['active','reviewed'].includes(originState)){syncDraftSafety();return;}const scope=state?.scope,refs=structuredClone(artifactRefs);try{await navigator.clipboard.writeText(text);queueDraftEvent('clipboard_write',{text,artifactRefs:refs,scope});$('draft-status').textContent='已复制，回 QQ 按 Ctrl+V 粘贴';}catch{queueDraftEvent('clipboard_write',{text,artifactRefs:refs,scope,outcome:'failed'});if(text===$('draft').value)openDraft();else adopt(text,null,refs);$('draft').select();queueDraftEvent('manual_copy_offered',{text,artifactRefs:refs,scope,outcome:'unknown'});$('draft-status').textContent='请按 Ctrl+C 复制'}}
 function renderHistory(keepAnchor=false) {
  if(!state?.scope)return;
  const current=`${scopeKey}:${historyKey}:${visibleCount}:${state.revision}:${replySelection.join(',')}:${JSON.stringify(imageSelection)}`;
@@ -95,12 +149,16 @@ async function syncHistory() {
 }
 function render(next) {
  const key=keyOf(next.scope);if(!state&&next.instruction)$('instruction').value=next.instruction;
- if(key!==scopeKey){saveDraft();scopeKey=key;if(next.scope)$('qq-number').value=next.scope.peerUin;imageSelection=[];for(const url of imageBlobs.values())URL.revokeObjectURL(url);imageBlobs.clear();historyEpoch++;historyKey='';historyMessages=[];historyVersion='';visibleCount=100;
-  $('draft').value=key?(localStorage.getItem(`draft:${key}`)||sessionStorage.getItem(`draft:${key}`)||''):'';draftOrigin=key?localStorage.getItem(`draft-origin:${key}`):null;if(key)saveDraft();$('draft-status').textContent='可自由修改';lastAdvice=null;resetCompanion();workspace='';discussionScroll={top:0,follow:true};qqScroll={top:0,follow:true};showWorkspace('discussion');for(const id of ['draft-dialog','contact-dialog'])if($(id).open)$(id).close();syncDraftIndicator();}
+ if(key!==scopeKey){checkpointDraft();saveDraft();scopeKey=key;if(next.scope)$('qq-number').value=next.scope.peerUin;imageSelection=[];for(const url of imageBlobs.values())URL.revokeObjectURL(url);imageBlobs.clear();historyEpoch++;historyKey='';historyMessages=[];historyVersion='';visibleCount=100;
+  const legacy=next.scope?`${next.scope.accountUid}/${next.scope.peerUid}`:'',legacyOrigin=localStorage.getItem(`draft-origin:${legacy}`),legacyBody=localStorage.getItem(`draft:${legacy}`),serverDraft=next.experience?.draft;
+  const verifiedLegacy=legacyOrigin&&draftOriginState(next,legacyOrigin)!=='unknown';legacyDraftCandidate=legacyBody&&!verifiedLegacy?legacyBody:null;
+  $('draft').value=key?(localStorage.getItem(`draft:${key}`)??(verifiedLegacy?legacyBody:null)??(['active','stale'].includes(serverDraft?.availability)?serverDraft.text:'')??''):'';draftOrigin=key?(localStorage.getItem(`draft-origin:${key}`)||(verifiedLegacy?legacyOrigin:null)):null;
+  draftArtifactRefs=localJSON(`draft-artifacts:${key}`,draftOrigin?[]:serverDraft?.artifactRefs||[]);draftRevision=serverDraft?.revision||0;draftDirty=false;draftEditPending=false;draftSyncBlocked=false;draftRetryAt=0;clearTimeout(draftEditTimer);
+  if(key)saveDraft();if(verifiedLegacy){localStorage.removeItem(`draft:${legacy}`);localStorage.removeItem(`draft-origin:${legacy}`);sessionStorage.removeItem(`draft:${legacy}`)}$('draft-status').textContent='可自由修改';$('draft-sync-status').textContent='';$('draft-keep-mine').hidden=true;$('draft-recover-legacy').hidden=!legacyDraftCandidate;lastAdvice=null;resetCompanion();workspace='';discussionScroll={top:0,follow:true};qqScroll={top:0,follow:true};showWorkspace('discussion');for(const id of ['draft-dialog','contact-dialog'])if($(id).open)$(id).close();syncDraftIndicator();}
  if(state&&(state.model!==next.model||state.modelBaseUrl!==next.modelBaseUrl||state.activeModelProfileId!==next.activeModelProfileId)){imageSelection=[];historyVersion=''}
  replySelection=next.replyFocus?.mode==='selected'?[...next.replyFocus.messageIds]:[];
  imageSelection=[...(next.imageSelection||[])];
- state=next;syncModelPicker();renderReplyFocus();renderCompanion();if(document.activeElement!==$('auto'))$('auto').checked=next.auto;const ready=next.status.phase==='ready';
+ state=next;bridgeLegacyDraftOrigin();syncModelPicker();renderReplyFocus();renderCompanion();renderRelationship();renderExperiences();renderUsage();flushDraftEvents();if(document.activeElement!==$('auto'))$('auto').checked=next.auto;const ready=next.status.phase==='ready';
  $('connection-dot').classList.toggle('ready',ready);$('workspace-dot').classList.toggle('ready',ready);$('workspace-status').textContent=ready?'QQ 已连接':'QQ 未连接';$('workspace-contact').textContent=next.scope?`好友 ${next.scope.peerUin}`:'选择 QQ 好友';$('draft-recipient').textContent=next.scope?`给好友 ${next.scope.peerUin} · 尚未发送`:'请先选择讨论对象';$('draft-button').disabled=!next.scope;
  $('connection-label').textContent=ready?`已连接 QQ ${next.status.account.uin} · 只读监听`:({waiting_qq:'等待 QQ 客户端启动',waiting_login:'请在 QQ 窗口完成登录',initializing:'正在读取 QQ 账号…',offline:'QQ 已离线，请重新登录',integration_error:'QQ 接入未就绪，请查看诊断'}[next.status.phase]||next.status.phase);
  $('session').hidden=!next.scope;
@@ -108,7 +166,7 @@ function render(next) {
  $('generate').disabled=!next.scope||next.busy||next.assistantBusy||assistantPending||!next.modelConsent;
  $('model-consent').hidden=!next.scope||(!!next.modelConsent&&(!imageSelection.length||next.imageConsent));
  const nextConsentKey=`${scopeKey}:${next.model}:${next.modelBaseUrl}`;if(nextConsentKey!==consentKey){consentKey=nextConsentKey;$('allow-images').checked=!!next.imageConsent;}else if(next.imageConsent)$('allow-images').checked=true;
- $('fill-qq').disabled=!next.qqDraftFillAvailable;
+ syncDraftSafety();
  $('fill-qq').title=next.qqDraftFillAvailable?'只填入，不发送':'需要重启 QQ 加载新版插件；复制按钮可直接使用';$('consent-destination').textContent=`所选好友：${next.scope?.peerUin||''} · 模型：${next.model} · API：${next.modelBaseUrl}`;
  $('generate').textContent=next.busy?'正在想回复…':'接着 QQ 聊';$('older').disabled=next.historyBusy;$('older').textContent=next.historyBusy?'正在读取…':'从 QQ 读取更早记录';
  $('context-button').disabled=!next.scope;
@@ -121,12 +179,13 @@ function render(next) {
  const adviceKey=next.advice?.createdAt||'';
  if(adviceKey!==lastAdvice){lastAdvice=adviceKey;$('suggestions').replaceChildren();$('analysis').textContent=next.advice?.analysis||'连接私聊后，助手结合已发送记录提供参考。';
   for(const item of next.advice?.suggestions||[]){const card=document.createElement('article');card.className='suggestion';const row=document.createElement('div');row.className='row';const style=document.createElement('span');style.textContent=item.style;
-   const actions=document.createElement('div');actions.className='suggestion-actions';const use=document.createElement('button');use.className='text-button';use.textContent='采用到草稿';use.onclick=()=>adopt(item.text);
-   const copy=document.createElement('button');copy.className='text-button';copy.textContent='复制这条';copy.onclick=()=>copyText(item.text);actions.append(use,copy);row.append(style,actions);const text=document.createElement('p');text.textContent=item.text;card.append(row,text);$('suggestions').append(card)}
+   const actions=document.createElement('div');actions.className='suggestion-actions';const use=document.createElement('button');use.className='text-button';use.textContent='采用到草稿';use.onclick=()=>adopt(item.text,null,item.artifactRef?[item.artifactRef]:[]);
+   const copy=document.createElement('button');copy.className='text-button';copy.textContent='复制这条';copy.onclick=()=>copyText(item.text,item.artifactRef?[item.artifactRef]:[]);actions.append(use,copy);row.append(style,actions);const text=document.createElement('p');text.textContent=item.text;card.append(row,text);$('suggestions').append(card)}
  }
  if(next.advice&&next.advice.revision!==next.revision)$('analysis').textContent=next.auto?'有新消息，正在更新建议。你的草稿会保留。':'有新消息，点生成可更新建议。你的草稿会保留。';error(next.error);
 }
 function resetCompanion(){
+ feedbackTargetRef=null;feedbackClientId=null;experienceViewKey='';relationshipViewKey='';guidanceEditVersion=null;experienceReviewTarget=null;experienceReviewClientId=null;$('experience-review-form').hidden=true;$('experience-guidance-form').hidden=true;$('relationship-view').replaceChildren();$('experiences-list').replaceChildren();$('experience-guidance').replaceChildren();
  assistantPending=false;assistantLocalError='';assistantThreadKey='';assistantNotesKey='';assistantStateKey='';goalVersion='';goalDirty=false;draftMaterialIds.clear();assistantContextVersion++;
  $('assistant-tools').open=false;$('goal-editor').open=false;$('note-editor').open=false;actionPanelKey='';memorySearchVersion++;memoryResultsRevision=null;selectedDiscussion=null;memoryRetryPending=false;$('memory-retry-panel').hidden=true;$('memory-query').value='';$('memory-results').replaceChildren();$('memory-search-status').textContent='';$('pending-actions').replaceChildren();$('action-receipts').replaceChildren();
  $('assistant-input').value='';$('goal-input').value='';resetNoteForm();$('feedback-form').reset();$('feedback-form').hidden=true;
@@ -134,7 +193,7 @@ function resetCompanion(){
  $('assistant-error').hidden=true;$('assistant-context-records').replaceChildren();$('assistant-context-summary').textContent='';
  if($('assistant-context-dialog').open)$('assistant-context-dialog').close();
 }
-function scopeArgs(){return {accountUid:state?.scope?.accountUid,peerUid:state?.scope?.peerUid}}
+function scopeArgs(){return {...state?.scope}}
 function companionError(message=''){assistantLocalError=message;const shown=state?.assistantError||assistantLocalError;$('assistant-error').textContent=shown||'';$('assistant-error').hidden=!shown}
 async function companionAction(path,args){
  const scope=scopeArgs(),expected=scopeKey,epoch=historyEpoch;if(!expected){companionError('先选择要讨论的好友。');return null}
@@ -154,13 +213,17 @@ function renderCompanion(){
  companionError(assistantLocalError);
  renderMemoryStatus();renderActionPanels(companion);
  const turns=companion.turns||[],threadKey=JSON.stringify(turns);
- if(state.companion&&draftOrigin&&!turns.some(turn=>turn.id===draftOrigin)){draftOrigin=null;$('draft').value='';saveDraft();$('draft-status').textContent='原来的参考内容已更新或删除，关联草稿已清除';sessionStorage.removeItem(`draft:${scopeKey}`)}
- if($('feedback-request-id').value&&!turns.some(turn=>turn.requestId===$('feedback-request-id').value)){$('feedback-form').reset();$('feedback-form').hidden=true}
+ const draftStatus=draftOriginState(state,draftOrigin,draftArtifactRefs);
+ if(draftStatus==='redacted'){draftOrigin=null;draftArtifactRefs=[];draftDirty=false;draftEditPending=false;clearTimeout(draftEditTimer);$('draft').value='';localStorage.removeItem(`draft-events:${scopeKey}`);saveDraft();$('draft-status').textContent='原参考内容已删除，关联草稿已清除';sessionStorage.removeItem(`draft:${scopeKey}`)}
+ syncDraftSafety();
+ if(!draftDirty&&!draftSyncBusy&&!localJSON(`draft-events:${scopeKey}`,[]).length)draftRevision=state.experience?.draft?.revision||draftRevision;
+ const feedbackArtifact=feedbackTargetRef?.kind==='artifact'?(state.experience?.artifactStates||[]).find(item=>sameArtifactRef(item.ref,feedbackTargetRef.artifactRef)):null;
+ if(feedbackArtifact?.availability==='redacted'||$('feedback-request-id').value&&!feedbackArtifact&&!turns.some(turn=>turn.requestId===$('feedback-request-id').value)){$('feedback-form').reset();$('feedback-form').hidden=true;feedbackTargetRef=null;feedbackClientId=null;sessionStorage.removeItem(`feedback-target:${scopeKey}`)}
  if(threadKey!==assistantThreadKey){assistantThreadKey=threadKey;const pane=$('assistant-thread'),scroller=$('conversation-scroll'),atEnd=scroller.scrollHeight-scroller.scrollTop-scroller.clientHeight<60,oldTop=scroller.scrollTop,fragment=document.createDocumentFragment(),expected=scopeKey,epoch=historyEpoch;
   for(const turn of turns){const article=document.createElement('article');article.className=`assistant-turn ${turn.role==='user'?'user':'assistant'}`;article.dataset.turnId=turn.id;
    const head=document.createElement('div');head.className='turn-heading';const who=document.createElement('strong');who.textContent=turn.role==='user'?'我 · 私下讨论':'助手';
    const remove=button('删除',async()=>{if(expected!==scopeKey||epoch!==historyEpoch)return;if(confirm('删除这条私下讨论及依赖它的助手内容？QQ 消息不会删除。'))await companionAction('/api/turn-delete',{id:turn.id})});remove.setAttribute('aria-label',`删除${turn.role==='user'?'我的讨论':'助手回复'}`);head.append(who,remove);article.append(head,paragraph(turn.text||'','turn-text'));
-   for(const suggestion of turn.suggestions||[]){const card=document.createElement('div');card.className='assistant-suggestion';card.append(paragraph(suggestion.style||'参考表达','muted'),paragraph(suggestion.text||''));card.append(button('采用到草稿',()=>{if(expected===scopeKey&&epoch===historyEpoch)adopt(suggestion.text,turn.id)}));article.append(card)}
+   for(const suggestion of turn.suggestions||[]){const card=document.createElement('div');card.className='assistant-suggestion';card.append(paragraph(suggestion.style||'参考表达','muted'),paragraph(suggestion.text||''));card.append(button('采用到草稿',()=>{if(expected===scopeKey&&epoch===historyEpoch)adopt(suggestion.text,turn.id,suggestion.artifactRef?[suggestion.artifactRef]:[])}));card.append(button('反馈这条表达',()=>{if(expected===scopeKey&&epoch===historyEpoch)openFeedback(turn,suggestion)}));card.querySelector('button').dataset.action='adopt';article.append(card)}
    for(const [index,choice] of (turn.expressionOptions||[]).entries()){
     const card=document.createElement('div');card.className='expression-option';card.append(paragraph(choice.label||choice.intent||'一个可表达的方向'));
     card.append(button('用这个方向写',()=>{if(expected!==scopeKey||epoch!==historyEpoch)return;submitAssistant('draft',{text:$('assistant-input').value.trim()||'按选中的方向组织表达',selectedOption:{turnId:turn.id,index},sourceTurnIds:[turn.id]})},'secondary'));article.append(card);
@@ -175,7 +238,7 @@ function renderCompanion(){
     for(const id of turn.sourceIds||[])details.append(paragraph(sourceDescription(id),'muted'));
     article.append(details);
    }
-   if(turn.role==='assistant'&&turn.requestId){const feedback=button('反馈或调整',()=>{if(expected!==scopeKey||epoch!==historyEpoch)return;$('feedback-request-id').value=turn.requestId;$('feedback-text').value='';$('feedback-form').querySelector('[type=submit]').disabled=false;$('feedback-reload-notice')?.remove();$('feedback-form').hidden=false;$('feedback-text').focus()});article.append(feedback)}
+   if(turn.role==='assistant'&&turn.requestId){const feedback=button('反馈或调整',()=>{if(expected===scopeKey&&epoch===historyEpoch)openFeedback(turn)});article.append(feedback)}
    fragment.append(article);
   }
   if(!turns.length)fragment.append(paragraph(state.scope?'不必先想好目的。可以先说说今天发生了什么，或贴着当前 QQ 对话一起理清。':'选择好友后，从你正在犹豫的那件事开始。','assistant-empty'));
@@ -245,9 +308,71 @@ function renderCurrentState(current){
 function sourceDescription(sourceId){
  const split=sourceId.indexOf(':'),kind=sourceId.slice(0,split),id=sourceId.slice(split+1);let item,label;
  if(kind==='qq'){item=(historyMessages.length?historyMessages:state.messages).find(message=>message.messageId===id);label=item?.direction==='outgoing'?'我在 QQ 说':'对方在 QQ 说'}
- else if(kind==='private'){item=state.companion?.turns.find(turn=>turn.id===id);label='我向助手说明'}
+ else if(kind==='private'){item=id.startsWith('feedback-')?state.companion?.feedback?.find(feedback=>feedback.id===id.slice(9)):state.companion?.turns.find(turn=>turn.id===id);label=id.startsWith('feedback-')?'我对帮助的反馈':'我向助手说明'}
  else if(kind==='note'){item=state.companion?.notes.find(note=>note.id===id);label='我补充的背景'}
  return item?`${label}：${item.text}\n来源：${sourceId}`:`来源 ${sourceId}（当前列表尚未载入原文）`;
+}
+function openFeedback(turn,suggestion=null){
+ const target=suggestion||turn;feedbackTargetRef=target.artifactRef?{kind:'artifact',artifactRef:target.artifactRef}:null;feedbackClientId=crypto.randomUUID();
+ $('feedback-request-id').value=turn.requestId||'';$('feedback-text').value='';$('feedback-target-preview').textContent=`这次评价：${(target.text||target.body||'这次帮助').slice(0,220)}`;
+ sessionStorage.setItem(`feedback-target:${scopeKey}`,JSON.stringify({targetRef:feedbackTargetRef,requestId:turn.requestId||'',clientEventId:feedbackClientId}));
+ $('feedback-form').querySelector('[type=submit]').disabled=false;$('feedback-reload-notice')?.remove();$('feedback-form').hidden=false;showWorkspace('discussion');$('conversation-scroll').scrollTop=$('conversation-scroll').scrollHeight;$('feedback-text').focus();
+}
+async function experienceAction(path,args){
+ const expected=scopeKey,epoch=historyEpoch;try{const data=await(await api(path,{...args,...scopeArgs()})).json();if(expected!==scopeKey||epoch!==historyEpoch)return null;
+  if(data.scope&&keyOf(data.scope)!==expected)return null;
+  if(data.status&&data.companion)render(data);else {const fresh=await(await api('/api/state')).json();if(expected===scopeKey&&epoch===historyEpoch)render(fresh)}return data.result||data;
+ }catch(err){if(expected===scopeKey&&epoch===historyEpoch)companionError(err.message);return null}
+}
+function renderRelationship(){
+ const view=state.relationship||{},key=JSON.stringify([view.claims,view.events,view.activities,view.coverage]);if(key===relationshipViewKey)return;relationshipViewKey=key;const opened=new Set([...$('relationship-view').querySelectorAll('details[data-subject][open]')].map(el=>el.dataset.subject)),fragment=document.createDocumentFragment(),expected=scopeKey,epoch=historyEpoch;
+ const labels={stated:'明确说过',reported:'用户补述',observed:'行为观察',hypothesis:'暂定解释',tentative:'暂定解释',inferred:'暂定解释',expired:'已过期',needs_review:'需要核查',inactive:'已停用'};
+ for(const [subject,title]of [['self','我'],['contact','她'],['dyad','我们']]){const section=document.createElement('details');section.className='relationship-group';section.dataset.subject=subject;section.open=opened.has(subject);const summary=document.createElement('summary'),claims=view[subject]||[];summary.textContent=`${title} · ${claims.length} 项`;section.append(summary);
+  if(!claims.length)section.append(paragraph('暂无可核对的认识。可以直接在对话中补充，不必先填写档案。','muted'));
+  for(const claim of claims){const card=document.createElement('article');card.className='relationship-claim';card.dataset.claimId=claim.id;card.append(paragraph(claim.text||claim.statement||String(claim.value||'')),paragraph([labels[claim.assertionKind]||claim.assertionKind,labels[claim.applicability]||'',({tentative:'仍是暂定理解',contested:'存在不同说法',undetermined:'尚未确定'})[claim.epistemicStatus]||''].filter(Boolean).join(' · '),'muted'));
+   const refs=document.createElement('details'),caption=document.createElement('summary');caption.textContent='查看来源';refs.append(caption,...(claim.sourceIds||[]).map(id=>paragraph(sourceDescription(id),'muted')));card.append(refs);
+   card.append(button('围绕这点继续',()=>{if(expected===scopeKey&&epoch===historyEpoch)attachDiscussionContext(`关于这条认识「${claim.text||claim.statement||''}」，`)}),button('更正这点',()=>{if(expected===scopeKey&&epoch===historyEpoch)attachDiscussionContext(`更正这条认识「${claim.text||claim.statement||''}」：`)}),button('不再采用',()=>{if(expected===scopeKey&&epoch===historyEpoch)experienceAction('/api/claim-action',{id:claim.id,expectedVersion:claim.version,operation:'withdraw'})}));section.append(card);
+  }fragment.append(section);
+ }
+ for(const activity of view.activities||[])fragment.append(paragraph(`共同事项：${(view.events||[]).filter(event=>event.activityKey===activity.activityKey).at(-1)?.text||'已有相关记录'} · ${{invited:'已提出邀请',accepted:'对这次活动表示愿意',declined:'已拒绝',rescheduled:'时间有变更',cancelled:'已取消',occurred:'有发生过的报告',needs_review:'需要核查'}[activity.status]||'有相关记录'}`,'muted'));
+ $('relationship-view').replaceChildren(fragment);
+}
+function openExperienceReview(item=null,review=null){experienceReviewTarget=review?{feedbackId:review.id,expectedVersion:review.version}:null;experienceReviewClientId=crypto.randomUUID();$('experience-review-id').value=item?.id||'';$('experience-review-text').value=review?.text||'';$('experience-review-target').textContent=review?'更正这段回顾；依赖旧内容的认识会重新核查。':item?'记录这次实际交流或活动的感受，不会把回应自动算作方法成功。':'可以记录独立交流、语音、见面或自己的决定。';$('experience-review-form').hidden=false;$('experiences-panel').open=true;showWorkspace('background');$('experience-review-text').focus()}
+function renderExperiences(){
+ const experience=state.experience||{cases:[],adaptations:[]},key=JSON.stringify([experience.cases,experience.adaptations]);if(key===experienceViewKey)return;experienceViewKey=key;
+ const opened=new Set([...$('experiences-list').querySelectorAll('details[data-experience-id][open]')].map(el=>el.dataset.experienceId)),cases=document.createDocumentFragment(),guidance=document.createDocumentFragment(),expected=scopeKey,epoch=historyEpoch;
+ for(const item of experience.cases||[]){const card=document.createElement('details');card.className='experience-card';card.dataset.experienceId=item.id;card.open=opened.has(item.id);const title=document.createElement('summary');title.textContent=item.activityId?`共同事项：${item.observations?.filter(observation=>observation.kind==='activity_event').at(-1)?.text||'有相关经历'}`:item.actualActions?.length?`实际交流 · ${new Date(item.eventAt).toLocaleDateString('zh-CN')}`:'你补充的一次经历';card.append(title);
+  if(item.status==='invalidated')card.append(paragraph('相关来源已有变化，这段经验暂不作为当前依据。','muted'));
+  for(const actual of item.actualActions||[])card.append(paragraph(`${actual.kind==='qq_message'?'实际发出':'用户报告'}：${actual.text||'内容当前不可用'}`));
+  if(!item.links?.length)card.append(paragraph('没有已确认的 AI 建议关联；可以是你独立进行的交流。','muted'));
+  for(const link of item.links||[]){const row=document.createElement('div');row.className='experience-link';row.dataset.linkId=link.id;row.append(paragraph(({candidate:'可能相关的参考表达，尚未确认采用',user_confirmed:'你说明这次参考了该表达',rejected:'你说明并未采用这条',invalidated:'原建议来源已变化，关联不再有效'})[link.status]||'关联不确定','muted'));
+   for(const artifact of link.artifacts||[])row.append(paragraph(artifact.text||'原参考内容已移除'));
+   if(link.status==='candidate'){row.append(button('这次参考了它',()=>{if(expected===scopeKey&&epoch===historyEpoch)experienceAction('/api/experience-link',{caseId:item.id,linkId:link.id,status:'user_confirmed',expectedVersion:link.revision})}),button('我独立写的',()=>{if(expected===scopeKey&&epoch===historyEpoch)experienceAction('/api/experience-link',{caseId:item.id,linkId:link.id,status:'rejected',expectedVersion:link.revision})}));}
+   for(const artifact of link.artifacts||[])if(artifact.availability!=='redacted')row.append(button('反馈这条参考',()=>{if(expected===scopeKey&&epoch===historyEpoch)openFeedback({text:artifact.text,artifactRef:artifact.ref})}));card.append(row);
+  }
+  if(item.observations?.length)card.append(paragraph('后续观察（是否由这条建议引起仍未知）','state-heading'));
+  for(const observation of item.observations||[])card.append(paragraph(observation.text||'内容已不可用'),paragraph(observation.kind==='activity_event'?'这是依据交流整理的活动记录，不是直接观察到活动发生。':'消息关联尚未确认，不代表对方的内心判断。','muted'));
+  for(const review of item.reviews||[])card.append(paragraph(`你的回顾：${review.text}`),button('更正这段回顾',()=>{if(expected===scopeKey&&epoch===historyEpoch)openExperienceReview(item,review)}));
+  card.append(button('补充感受或更正',()=>{if(expected===scopeKey&&epoch===historyEpoch)openExperienceReview(item)}),button('带着这次经历商量',()=>{if(expected===scopeKey&&epoch===historyEpoch)attachDiscussionContext(`我想回顾这次${item.activityId?'共同事项':'交流'}：${(item.actualActions||[]).map(a=>a.text).filter(Boolean).join('；')}`)}));cases.append(card);
+ }
+ if(!(experience.cases||[]).length)cases.append(paragraph('实际发出的 QQ、共同活动和你的回顾会在这里接续。没有使用 AI 草稿也可以记录。','muted'));
+ for(const item of experience.adaptations||[]){const card=document.createElement('article');card.className='guidance-card';card.dataset.adaptationId=item.id;card.append(paragraph(item.text),paragraph(`适用：${item.applicability}`,'muted'),paragraph(({candidate:'待你核对的局部帮助调整',active:'你已同意在类似情境参考',retired:'已停用'})[item.status]||'暂不采用','muted'));
+  card.append(paragraph('这只调整助手怎样帮助你，不代表能提高她的好感。','muted'));
+  if(item.status==='candidate')card.append(button('以后类似情况参考这点',()=>{if(expected===scopeKey&&epoch===historyEpoch)experienceAction('/api/experience-adaptation',{id:item.id,operation:'activate',expectedVersion:item.version})}));
+  if(item.status!=='retired')card.append(button('修改',()=>{if(expected!==scopeKey||epoch!==historyEpoch)return;$('experience-guidance-id').value=item.id;$('experience-guidance-text').value=item.text;$('experience-guidance-when').value=item.applicability;guidanceEditVersion=item.version;$('experience-guidance-form').hidden=false;$('experience-guidance-text').focus()}),button('停用',()=>{if(expected===scopeKey&&epoch===historyEpoch)experienceAction('/api/experience-adaptation',{id:item.id,operation:'retire',expectedVersion:item.version})}));guidance.append(card);
+ }
+ if(!(experience.adaptations||[]).length)guidance.append(paragraph('有具体反馈时才提出调整，不会从她一次回复自动总结话术。','muted'));
+ $('experiences-list').replaceChildren(cases);$('experience-guidance').replaceChildren(guidance);
+}
+function renderUsage(){
+ const fragment=document.createDocumentFragment(),schedule=state.maintenanceSchedule;
+ if(schedule)fragment.append(paragraph(`后台：${schedule.pending||0} 条待整理${schedule.nextAt?` · 下次检查 ${new Date(schedule.nextAt).toLocaleTimeString('zh-CN')}`:''}`,'muted'));
+ for(const task of state.requestUsage||[]){const card=document.createElement('details'),title=document.createElement('summary');title.textContent=`${task.origin==='maintenance'?'后台整理':task.origin==='auto'?'自动参考':'本次求助'} · ${task.attempts}/${task.limit} 次请求`;card.append(title,paragraph(`状态：${({complete:'完成',completed:'完成',failed:'未完成',running:'处理中',pending:'等待中'})[task.status]||task.status}`,'muted'));
+  const usage=task.usage||{};card.append(paragraph(usage.totalTokens===null||usage.totalTokens===undefined?'服务未报告完整 token 用量。':`已报告 token：${usage.totalTokens}${usage.unreportedAttempts?'；部分请求用量未知。':''}`,'muted'));
+  for(const request of task.requests||[])card.append(paragraph(`${({discussion:'讨论',reply:'回应 QQ',draft_prepare:'整理拟表达内容',draft:'组织表达',review:'回顾',memory:'记忆整理'})[request.purpose]||request.purpose} · ${request.elapsedMs===null?'未完成':`${request.elapsedMs} 毫秒`}${request.errorCode?` · ${request.errorCode}`:''}`,'muted'));
+  fragment.append(card);
+ }
+ if(!(state.requestUsage||[]).length)fragment.append(paragraph('当前联系人还没有记录到模型请求。','muted'));$('request-usage').replaceChildren(fragment);
 }
 async function submitAssistant(purpose,options={}){
  if(assistantPending||state?.assistantBusy)return;const input=$('assistant-input'),original=input.value,epoch=historyEpoch;
@@ -257,6 +382,12 @@ async function submitAssistant(purpose,options={}){
  if(epoch!==historyEpoch)return;assistantPending=false;if(result&&input.value===original){input.value='';selectedDiscussion=null;input.placeholder='直接说近况、想法或正在犹豫的事情…'}renderCompanion();
 }
 function initializeCompanion(){
+ $('draft-recover-legacy').onclick=()=>{if(!legacyDraftCandidate)return;adopt(legacyDraftCandidate);const legacy=`${state.scope.accountUid}/${state.scope.peerUid}`;localStorage.removeItem(`draft:${legacy}`);localStorage.removeItem(`draft-origin:${legacy}`);sessionStorage.removeItem(`draft:${legacy}`);legacyDraftCandidate=null;$('draft-recover-legacy').hidden=true};
+ $('draft-keep-mine').onclick=()=>{draftSyncBlocked=false;draftRetryAt=0;draftRevision=state.experience?.draft?.revision||0;const checkpoints=localJSON(`draft-events:${scopeKey}`,[]).filter(e=>!['draft_adopted','draft_edited','draft_independent'].includes(e.type));localStorage.setItem(`draft-events:${scopeKey}`,JSON.stringify(checkpoints));$('draft-keep-mine').hidden=true;queueDraftEvent('draft_edited')};
+ $('experience-add-review').onclick=()=>openExperienceReview();$('experience-review-cancel').onclick=()=>{$('experience-review-form').hidden=true};
+ $('experience-review-form').onsubmit=async event=>{event.preventDefault();const text=$('experience-review-text').value.trim(),caseId=$('experience-review-id').value||undefined,epoch=historyEpoch;if(!text)return;experienceReviewClientId ||= crypto.randomUUID();const result=await experienceAction('/api/experience-review',{caseId,text,...experienceReviewTarget,clientEventId:experienceReviewClientId});if(result&&epoch===historyEpoch){$('experience-review-form').hidden=true;$('experience-review-text').value='';experienceReviewTarget=null;experienceReviewClientId=null}};
+ $('experience-guidance-cancel').onclick=()=>{$('experience-guidance-form').hidden=true};
+ $('experience-guidance-form').onsubmit=async event=>{event.preventDefault();const id=$('experience-guidance-id').value,text=$('experience-guidance-text').value.trim(),applicability=$('experience-guidance-when').value.trim(),epoch=historyEpoch;if(!text||!applicability)return;const result=await experienceAction('/api/experience-adaptation',{id,text,applicability,operation:'revise',expectedVersion:guidanceEditVersion});if(result&&epoch===historyEpoch)$('experience-guidance-form').hidden=true};
  $('memory-retry').onclick=async()=>{if(memoryRetryPending||!state.scope)return;const epoch=historyEpoch;memoryRetryPending=true;renderMemoryStatus();await companionAction('/api/memory-maintain',{});if(epoch!==historyEpoch)return;memoryRetryPending=false;renderMemoryStatus()};
  $('assistant-form').onsubmit=e=>{e.preventDefault();submitAssistant('discussion')};$('assistant-draft').onclick=()=>submitAssistant('draft');$('assistant-review').onclick=()=>submitAssistant('review');
  $('assistant-input').onkeydown=e=>{if((e.ctrlKey||e.metaKey)&&e.key==='Enter'){e.preventDefault();submitAssistant('discussion')}};
@@ -273,7 +404,7 @@ function initializeCompanion(){
  };
  $('goal-input').oninput=()=>{goalDirty=true};$('goal-form').onsubmit=async e=>{e.preventDefault();const text=$('goal-input').value,epoch=historyEpoch;const result=await companionAction('/api/goal',{text});if(result&&epoch===historyEpoch&&$('goal-input').value===text){goalDirty=false;$('goal-input').value=result.companion?.goal?.text||''}};
  $('note-cancel').onclick=resetNoteForm;$('note-form').onsubmit=async e=>{e.preventDefault();const values={id:$('note-id').value||undefined,text:$('note-text').value,use:$('note-use').value},epoch=historyEpoch;if(!values.text.trim()){companionError('先写一点想记住的内容。');return}const result=await companionAction('/api/note',values);if(result&&epoch===historyEpoch&&$('note-id').value===(values.id||'')&&$('note-text').value===values.text&&$('note-use').value===values.use)resetNoteForm()};
- $('feedback-cancel').onclick=()=>{$('feedback-form').hidden=true};$('feedback-form').onsubmit=async e=>{e.preventDefault();const requestId=$('feedback-request-id').value,text=$('feedback-text').value,epoch=historyEpoch;if(!text.trim()){companionError('写一点具体感受，方便下次继续讨论。');return}const result=await companionAction('/api/feedback',{requestId,text});if(result&&epoch===historyEpoch&&$('feedback-request-id').value===requestId&&$('feedback-text').value===text){$('feedback-form').reset();$('feedback-form').hidden=true;$('assistant-status').textContent='反馈已记下。你也可以继续讨论想怎样调整。'}};
+ $('feedback-cancel').onclick=()=>{$('feedback-form').hidden=true;sessionStorage.removeItem(`feedback-target:${scopeKey}`)};$('feedback-form').onsubmit=async e=>{e.preventDefault();const requestId=$('feedback-request-id').value,text=$('feedback-text').value,epoch=historyEpoch;if(!text.trim()){companionError('写一点具体感受，方便下次继续讨论。');return}let cached=null;try{cached=JSON.parse(sessionStorage.getItem(`feedback-target:${scopeKey}`))}catch{}const targetRef=feedbackTargetRef||(cached?.requestId===requestId?cached.targetRef:null),clientEventId=feedbackClientId||cached?.clientEventId||crypto.randomUUID();const result=await companionAction('/api/feedback',{requestId:requestId||undefined,text,targetRef:targetRef||undefined,clientEventId});if(result&&epoch===historyEpoch&&$('feedback-request-id').value===requestId&&$('feedback-text').value===text){$('feedback-form').reset();$('feedback-form').hidden=true;feedbackTargetRef=null;feedbackClientId=null;sessionStorage.removeItem(`feedback-target:${scopeKey}`);$('assistant-status').textContent='反馈已关联到具体对象。你也可以继续讨论想怎样调整。'}};
  $('assistant-context-button').onclick=async()=>{const epoch=historyEpoch,expected=scopeKey,version=++assistantContextVersion;try{const data=await(await api('/api/assistant-context')).json();if(epoch!==historyEpoch||scopeKey!==expected||version!==assistantContextVersion||data.scope&&keyOf(data.scope)!==expected)return;
    $('assistant-context-records').replaceChildren();const run=data.run||data.latestRun||data.manifest&&data||null;
    $('assistant-context-summary').textContent=run?'以下是最近一次助手请求实际使用的参考内容，可核对哪些背景被采用。':'这个好友还没有可查看的助手请求。先开始一次讨论。';
@@ -304,9 +435,9 @@ function renderReplyFocus(){
 $('clear-focus').onclick=()=>{replySelection=[];saveOptions()};
 $('history').onscroll=()=>{if($('history').scrollTop<24)showEarlier()};
 const saveOptions=()=>action('/api/options',{instruction:$('instruction').value,auto:$('auto').checked,images:imageSelection,replyMessageIds:replySelection,accountUid:state?.scope?.accountUid,peerUid:state?.scope?.peerUid});$('instruction').onchange=saveOptions;$('auto').onchange=saveOptions;
-$('draft').oninput=()=>{if(!$('draft').value.trim())draftOrigin=null;saveDraft();$('draft-status').textContent='你的修改会保留'};$('copy').onclick=()=>copyText($('draft').value);
-$('fill-qq').onclick=async()=>{try{
- const requestedScope=scopeKey,args={accountUid:state.scope.accountUid,peerUin:state.scope.peerUin,text:$('draft').value};
+$('draft').oninput=()=>{if(!$('draft').value.trim()){draftOrigin=null;draftArtifactRefs=[]}draftDirty=true;draftEditPending=true;saveDraft();clearTimeout(draftEditTimer);draftEditTimer=setTimeout(checkpointDraft,500);$('draft-status').textContent='你的修改会保留';syncDraftSafety()};$('draft').onblur=checkpointDraft;$('draft-review').onclick=()=>{checkpointDraft();queueDraftEvent('draft_reviewed')};$('copy').onclick=()=>copyText($('draft').value);
+$('fill-qq').onclick=async()=>{try{if(!['active','reviewed'].includes(syncDraftSafety()))return;
+ const requestedScope=scopeKey,recordScope=structuredClone(state.scope),refs=structuredClone(draftArtifactRefs),args={accountUid:state.scope.accountUid,peerUin:state.scope.peerUin,text:$('draft').value};
  const desktop=await(await api('/api/desktop')).json();
  if(requestedScope!==scopeKey)throw new Error('会话已切换，已取消这次回填');
  if(!desktop.matchingWindows)throw new Error('请在对应好友的 QQ 私聊窗口点击「✦ AI 建议」再试；未确认当前输入框');
@@ -315,6 +446,7 @@ $('fill-qq').onclick=async()=>{try{
   if(requestedScope!==scopeKey)throw new Error('会话已切换，已取消这次回填');
   result=await(await api('/api/draft',{...args,replace:true})).json();
  }
+ queueDraftEvent('draft_fill',{scope:recordScope,text:args.text,artifactRefs:refs,outcome:result.inserted?'succeeded':result.requiresReplace?'cancelled':'unknown'});
  if(result.inserted&&requestedScope===scopeKey)$('draft-status').textContent='已填入 QQ，由你检查并发送';
 }catch(e){error(e.message)}};
 async function exportHistory(format){try{const response=await api(`/api/export?format=${format}`),url=URL.createObjectURL(await response.blob());const link=document.createElement('a');link.href=url;link.download=`QQ-${state.scope.peerUin}.${format}`;link.click();setTimeout(()=>URL.revokeObjectURL(url),2000)}catch(e){error(e.message)}}

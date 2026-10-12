@@ -141,6 +141,6 @@ test('changing the user goal resets current plans but preserves private dialogue
   s.addFeedback(scope,{requestId:'request',text:'这次很有帮助'});const record=s.getCompanion(scope);
   s.applyState(scope,{focus:'旧目标下的计划',openThreads:[{text:'待讨论的选择',sourceIds:[`private:${u.id}`]}]},{baseRevision:record.revision,sourceIds:[`private:${u.id}`],coverage:{complete:false,sourceIds:[`private:${u.id}`]}});
   s.setGoal(scope,'希望更自然地相互了解');const after=s.getCompanion(scope);
-  assert.equal(after.turns.length,2);assert.equal(after.feedback.length,1);assert.equal(after.runs.length,0);assert.equal(after.state.focus,'');assert.deepEqual(after.state.openThreads,[]);
+  assert.equal(after.turns.filter(t=>t.kind!=='feedback_ref').length,2);assert.equal(after.turns.filter(t=>t.kind==='feedback_ref').length,1);assert.equal(after.feedback.length,1);assert.equal(after.runs.length,0);assert.equal(after.state.focus,'');assert.deepEqual(after.state.openThreads,[]);
   assert.equal(after.turns[1].actionReceipts[0].id,'r');assert.ok(after.revision>record.revision);
 });
