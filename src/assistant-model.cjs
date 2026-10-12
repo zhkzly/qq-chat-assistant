@@ -16,6 +16,12 @@ purpose=draft 时，输入已经只含拟表达片段和 QQ 语境。只返回 {
 function parseAssistant(value, purpose) {
   if (typeof value === 'string') value = JSON.parse(value.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, ''));
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('助手返回格式不正确');
+  // Formatting labels are not semantic obligations for the model. Normalize
+  // lossless legacy names and absent cosmetic styles only on restricted drafts.
+  if(purpose==='draft'&&Array.isArray(value.suggestions)) {
+    value={...value,kind:value.kind||'draft',text:value.text||value.analysis||'参考表达',suggestions:value.suggestions.map(s=>typeof s==='string'?{style:'自然',text:s}:s&&typeof s==='object'?{...s,style:s.style||'自然'}:s)};
+    if(!value.suggestions.length&&typeof value.text==='string'&&value.text.trim()&&value.text!=='参考表达')value.kind='discussion';
+  }
   if (purpose !== 'draft' && value.lookup) {
     const q = value.lookup;
     if (typeof q.query !== 'string' || !q.query.trim() || q.query.length > 2000) throw new Error('历史检索需有明确查询');
@@ -43,17 +49,17 @@ function parseAssistant(value, purpose) {
         plan.quotes.some(q => !q || typeof q.sourceId !== 'string' || typeof q.text !== 'string')) throw new Error('拟表达内容格式不正确');
     return { ...extras, draftPlan: { quotes: plan.quotes, style: plan.style, intent: plan.intent, authorizationQuote: plan.authorizationQuote,language:plan.language,askFollowup:plan.askFollowup,useEmoji:plan.useEmoji } };
   }
-  const kinds = purpose === 'draft' ? ['draft'] : ['discussion', 'question', 'options', 'review', 'acknowledgment'];
+  const kinds = purpose === 'draft' ? ['draft','discussion','question'] : ['discussion', 'question', 'options', 'review', 'acknowledgment'];
   if (!kinds.includes(value.kind) || typeof value.text !== 'string' || !value.text.trim() || value.text.length > 6000)
     throw new Error('助手应返回当前用途的非空文字');
   const result = { ...extras, kind: value.kind, text: value.text };
-  if (purpose === 'draft') {
+  if (purpose === 'draft' && value.kind==='draft') {
     if (!Array.isArray(value.suggestions) || value.suggestions.length < 1 || value.suggestions.length > 3 ||
         value.suggestions.some(s => !s || typeof s.text !== 'string' || !s.text.trim() || s.text.length > 1200 || typeof s.style !== 'string' || s.style.length > 40))
-      throw new Error('草稿应包含一至三条非空参考表达');
+      throw new Error(`草稿应包含一至三条非空参考表达（收到${Array.isArray(value.suggestions)?value.suggestions.length:'非数组'}项）`);
     result.suggestions = value.suggestions.map(s => ({ style: s.style, text: s.text.replace(/\[(?:表情|图片|语音|视频|文件|非文本消息)\]/g, '').trim() }));
     if (result.suggestions.some(s => !s.text)) throw new Error('草稿不能只有媒体占位');
-  } else if (value.statePatch !== undefined) result.statePatch = value.statePatch;
+  } else if (purpose!=='draft' && value.statePatch !== undefined) result.statePatch = value.statePatch;
   return result;
 }
 async function assistModel(settings, context, signal, fetchImpl = fetch) {
@@ -77,6 +83,23 @@ async function assistModel(settings, context, signal, fetchImpl = fetch) {
   if (!response.ok) { await response.body?.cancel(); throw new Error(`助手模型请求失败：HTTP ${response.status}`); }
   const json = await response.json(), responseContent = json.choices?.[0]?.message?.content;
   if (typeof responseContent !== 'string') throw new Error('助手模型未返回文字');
-  return parseAssistant(responseContent, context.payload.purpose);
+  try { return parseAssistant(responseContent, context.payload.purpose); }
+  catch(error) {
+    // One bounded structural repair; never retry indefinitely or accept an
+    // invalid answer as a completed memory/state review.
+    const repairPayload={purpose:context.payload.purpose,originalInput:context.payload,invalidResponse:responseContent,
+      formatError:error instanceof SyntaxError?'响应不是合法 JSON':error.message,
+      task:'修复响应格式，保持已有事实与意思，不增加新事实。资料不足或不适合发送时可返回 kind:question/discussion 和非空text，不能为满足格式编造草稿。有草稿则建议非空、不超过三条。'};
+    const repair={...request,messages:[{role:'system',content:SYSTEM},{role:'user',content:JSON.stringify(repairPayload)}]};
+    const repairBody=JSON.stringify(repair);
+    if(Buffer.byteLength(repairBody,'utf8')>byteLimit)throw new Error('模型格式不正确，且修复输入超过预算；输入已保留，可缩小范围后重试');
+    context.extraRequests=[{purpose:'format_repair',payload:repairPayload,inputBytes:Buffer.byteLength(repairBody,'utf8')}];
+    if(context.manifest)context.manifest.formatRepair={attempts:1,reason:repairPayload.formatError,inputBytes:Buffer.byteLength(repairBody,'utf8')};
+    const repaired=await fetchImpl(url,{method:'POST',signal:boundedSignal,headers:{'Content-Type':'application/json',...(settings.apiKey?{Authorization:`Bearer ${settings.apiKey}`}:{})},body:repairBody});
+    if(!repaired.ok){await repaired.body?.cancel();throw new Error(`助手格式修复失败：HTTP ${repaired.status}`);}
+    const content=(await repaired.json()).choices?.[0]?.message?.content;
+    if(typeof content!=='string')throw new Error('助手格式修复未返回文字');
+    try{return parseAssistant(content,context.payload.purpose);}catch{throw new Error('模型未能返回可用的结构化结果；输入已保留，请重试或更换模型');}
+  }
 }
 module.exports = { assistModel, parseAssistant, SYSTEM };

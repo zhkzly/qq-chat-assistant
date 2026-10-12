@@ -14,7 +14,7 @@ async function runProbe(states){
    try{return fs.readFileSync(`/proc/${id}/cmdline`,'utf8').split('\0')[1]===entry && Number(fs.readFileSync(`/proc/${id}/status`,'utf8').match(/^PPid:\s+(\d+)$/m)?.[1])===process.pid;}catch{return false;}
   });
   if(children.length!==1)throw new Error('Cannot identify exactly one owned assistant worker');
-  const saved=await contents.executeJavaScript(`(()=>{document.querySelector('#draft')?.dispatchEvent(new Event('input'));return {instruction:document.querySelector('#instruction')?.value||'',peer:document.querySelector('#qq-number')?.value||'',draft:document.querySelector('#draft')?.value||''}})()`);
+  const saved=await contents.executeJavaScript(`(()=>{document.querySelector('#draft')?.dispatchEvent(new Event('input'));const bound=typeof state!=='undefined'?state?.scope:null;return {instruction:document.querySelector('#instruction')?.value||'',peer:bound?.peerUin||document.querySelector('#qq-number')?.value||'',accountUid:bound?.accountUid||'',draft:document.querySelector('#draft')?.value||'',privateInput:document.querySelector('#assistant-input')?.value||'',goalDraft:document.querySelector('#goal-input')?.value||'',goalDirty:typeof goalDirty!=='undefined'&&goalDirty,noteText:document.querySelector('#note-text')?.value||'',noteId:document.querySelector('#note-id')?.value||'',noteUse:document.querySelector('#note-use')?.value||'discussion'}})()`);
   if(!/^\d{5,12}$/.test(saved.peer))throw new Error('Cannot preserve helper conversation');
   const settingsPath=path.join(root,'data/settings.json'),settings=JSON.parse(fs.readFileSync(settingsPath,'utf8'));
   settings.instruction=saved.instruction;fs.writeFileSync(settingsPath,JSON.stringify(settings,null,2),{mode:0o600});
@@ -28,8 +28,14 @@ async function runProbe(states){
    const url=fs.readFileSync(path.join(root,'data/assistant-url.txt'),'utf8').trim();
    if(!/^http:\/\/127\.0\.0\.1:17860\/#\w+$/.test(url)||url===oldURL)throw new Error('New helper URL is not ready');
    await contents.loadURL(url.replace('/#',`/?refresh=${Date.now()}#`));
+   let restored=false;
+   for(let n=0;n<100&&!restored;n++){
+    restored=await contents.executeJavaScript(`(()=>{const bound=typeof state!=='undefined'?state?.scope:null;if(!bound||bound.peerUin!==${JSON.stringify(saved.peer)}||${JSON.stringify(saved.accountUid)}&&bound.accountUid!==${JSON.stringify(saved.accountUid)})return false;const input=document.querySelector('#assistant-input');if(input)input.value=${JSON.stringify(saved.privateInput)};if(${JSON.stringify(saved.goalDirty)}){const goal=document.querySelector('#goal-input');if(goal){goal.value=${JSON.stringify(saved.goalDraft)};goal.dispatchEvent(new Event('input'))}}if(${JSON.stringify(!!saved.noteText)}){for(const [id,value]of [['note-text',${JSON.stringify(saved.noteText)}],['note-id',${JSON.stringify(saved.noteId)}],['note-use',${JSON.stringify(saved.noteUse)}]]){const el=document.getElementById(id);if(el)el.value=value}const cancel=document.getElementById('note-cancel');if(cancel)cancel.hidden=!${JSON.stringify(!!saved.noteId)}}return true})()`);
+    if(!restored)await new Promise(r=>setTimeout(r,100));
+   }
+   if(!restored)throw new Error('Helper restarted but scoped unsaved input restoration needs attention');
    const hash=require('node:crypto').createHash('sha256').update(saved.draft).digest('hex');
-   fs.writeFileSync(output,JSON.stringify({ok:true,qqRestarted:false,draftHash:hash,peer:saved.peer}),{mode:0o600});
+   fs.writeFileSync(output,JSON.stringify({ok:true,qqRestarted:false,draftHash:hash,peer:saved.peer,unsavedAssistantInputsPreserved:restored}),{mode:0o600});
   }catch(e){fs.writeFileSync(output,JSON.stringify({ok:false,error:e.message}),{mode:0o600});}},250);
   return {scheduled:true,qqRestarted:false};
  }
@@ -65,7 +71,8 @@ async function runProbe(states){
  if(action.action==='inspect-context-helper') {
   const contents=require('electron').webContents.getAllWebContents().find(w=>w.getURL().startsWith('http://127.0.0.1:17860/'));
   if(!contents)return {helperPresent:false};
-  return contents.executeJavaScript(`(()=>({helperPresent:true,privateDiscussion:!!document.querySelector('#assistant-form'),memorySearch:!!document.querySelector('#memory-search-form'),memoryStatus:!!document.querySelector('#memory-status'),goalEditor:!!document.querySelector('#goal-form'),pendingActions:!!document.querySelector('#pending-actions'),contextInspector:!!document.querySelector('#assistant-context-dialog'),privateInputEnabled:!document.querySelector('#assistant-input')?.disabled,actualRows:document.querySelectorAll('.message').length,localDraftPreserved:typeof document.querySelector('#draft')?.value==='string',qqSendActionExposed:false}))()`);
+  const state=await contents.executeJavaScript(`(()=>({helperPresent:true,privateDiscussion:!!document.querySelector('#assistant-form'),memorySearch:!!document.querySelector('#memory-search-form'),memoryStatus:!!document.querySelector('#memory-status'),goalEditor:!!document.querySelector('#goal-form'),pendingActions:!!document.querySelector('#pending-actions'),contextInspector:!!document.querySelector('#assistant-context-dialog'),privateInputEnabled:!document.querySelector('#assistant-input')?.disabled,actualRows:document.querySelectorAll('.message').length,draft:document.querySelector('#draft')?.value||'',qqSendActionExposed:false}))()`);
+  state.draftHash=require('node:crypto').createHash('sha256').update(state.draft).digest('hex');delete state.draft;return state;
  }
  if(action.action==='inspect-helper') {
   const contents=require('electron').webContents.getAllWebContents().find(w=>w.getURL().startsWith('http://127.0.0.1:17860/'));

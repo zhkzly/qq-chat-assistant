@@ -281,6 +281,7 @@ class Controller extends EventEmitter {
         this.store.saveRun(scope,{id:requestId,baseRevision,purpose:input.payload.purpose,status:'pending',payload:input.payload,manifest:input.manifest});
         const result=parseAssistant(await this.assistantModel(settings,input,abort.signal),input.payload.purpose);
         capturedRequests.push({purpose:input.payload.purpose,manifest:input.manifest,payload:input.payload});
+        if(input.extraRequests)capturedRequests.push(...input.extraRequests);
         return result;
       };
       let result;
