@@ -2,7 +2,7 @@
 const crypto = require('node:crypto');
 const { redact } = require('./model.cjs');
 const { selectMethods } = require('./help-methods.cjs');
-const PROMPT_VERSION = 'relationship-context-2026-10-12.2';
+const PROMPT_VERSION = 'relationship-context-2026-10-12.3';
 const METHODS = {
   discussion: '按当前困难选择理清想法、比较下一步或回应分享。意思明确就直接帮助，只问会改变建议的必要问题。允许暂缓或不用助手，不强制每次制定目的。',
   review: '按实际覆盖回顾彼此了解、接续话题、共同经历、双方关心与用户体验。兼顾顺利、不顺利与未知，不计算好感分，不把回复归因为某条建议。',

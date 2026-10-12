@@ -5,7 +5,8 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 const { Store } = require('./store.cjs');
 const { Controller } = require('./controller.cjs');
-const { consolidateMemory } = require('./memory-engine.cjs');
+const { consolidateMemory, MEMORY_VERSION } = require('./memory-engine.cjs');
+const { PROMPT_VERSION } = require('./assistant-context.cjs');
 const { listMethods } = require('./help-methods.cjs');
 const {readImage}=require('./media.cjs');
 const { ensureProfiles, publicProfiles, saveProfile, selectModel, discoverModels } = require('./providers.cjs');
@@ -61,6 +62,7 @@ function createServer({ controller, token, uiDir, saveSettings, fillDraft, inspe
       if (request.method === 'GET' && url.pathname === '/api/context') return json(response,200,controller.assistantContext());
       if (request.method === 'GET' && url.pathname === '/api/health') return json(response,200,{
         version:'relationship-context-complete-2026-10-12',unifiedContext:true,persistentMemory:true,
+        promptVersion:PROMPT_VERSION,memoryVersion:MEMORY_VERSION,
         authenticated:controller.status.phase==='ready',selected:!!controller.scope,
         memoryConfigured:!!controller.memoryModel,qqMessagesSentByAssistant:0});
       if (request.method === 'GET' && url.pathname === '/api/export') {
