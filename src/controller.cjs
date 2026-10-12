@@ -159,7 +159,7 @@ class Controller extends EventEmitter {
     this.changed();
   }
   setVisible(visible) { this.visible=visible;if(!visible){this.invalidateAssistant();clearTimeout(this.timer);this.abort?.abort();}else { if(this.auto && this.scope)this.schedule(); this.scheduleMemory(); } }
-  schedule() { if(!this.visible)return;if(!this.hasModelConsent())return; clearTimeout(this.timer); this.timer = setTimeout(() => this.suggest().catch(() => {}), 1800); this.timer.unref?.(); }
+  schedule() { if(!this.visible||this.assistantBusy||this.pendingAssist)return;if(!this.hasModelConsent())return; clearTimeout(this.timer); this.timer = setTimeout(() => this.suggest().catch(() => {}), 1800); this.timer.unref?.(); }
   async suggest() {
     const scope = this.requireScope(), epoch = this.epoch;
     this.busy = true; this.error = ''; this.changed();
@@ -246,6 +246,7 @@ class Controller extends EventEmitter {
     if(this.selectedImages.length&&(!this.settings.visionEnabled||!this.settings.realChatConsent?.allowImages))throw new Error('所选图片需要启用视觉模型并明确允许图片发送');
     this.invalidateAssistant();
     const abort = this.assistantAbort = new AbortController(), requestId = randomUUID();
+    clearTimeout(this.timer);
     const prior=resumeTurnId&&this.store.getCompanion(scope).turns.find(t=>t.id===resumeTurnId&&t.role==='user'&&t.text===text);
     if(resumeTurnId&&!prior&&!transient)throw new Error('原来的问题已变化，请使用当前问题');
     let turn = transient ? {id:requestId,role:'user',kind:purpose,text,transient:true} : prior||this.store.appendTurn(scope, { role: 'user', kind: purpose, text, requestId });

@@ -256,6 +256,16 @@ test('successful memory batches reset consecutive failure count even when the ne
   assert.equal(app.store.memoryStatus(scope).pending,0);
 });
 
+test('a queued automatic suggestion cannot replace the user explicit private request',async t=>{
+  let calls=0,finish;
+  const app=setup(async()=>{calls++;return new Promise(resolve=>{finish=resolve})});t.after(()=>app.close());await app.bind();
+  t.mock.timers.enable({apis:['setTimeout']});app.controller.auto=true;app.controller.schedule();
+  const requested=app.controller.assist({text:'先陪我想清楚，不要替我生成回复。'});await waitFor(()=>!!finish);
+  app.controller.schedule();t.mock.timers.tick(2000);await tick();assert.equal(calls,1);
+  finish({kind:'discussion',text:'我们先理清你想表达的意思。'});await requested;
+  assert.equal(assistantTexts(app).at(-1),'我们先理清你想表达的意思。');t.mock.timers.reset();
+});
+
 test('revoked actual evidence is absent from future private context and invalidates its derived state', async t => {
   const contexts = [];
   const app = setup(async (_, context) => {
