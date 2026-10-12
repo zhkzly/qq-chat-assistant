@@ -5,8 +5,9 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 const { Store } = require('./store.cjs');
 const { Controller } = require('./controller.cjs');
+const { consolidateMemory } = require('./memory-engine.cjs');
+const { listMethods } = require('./help-methods.cjs');
 const {readImage}=require('./media.cjs');
-const { contextFor, redact, PROMPT_VERSION } = require('./model.cjs');
 const { ensureProfiles, publicProfiles, saveProfile, selectModel, discoverModels } = require('./providers.cjs');
 function json(response, status, body) {
   response.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
@@ -44,6 +45,7 @@ function createServer({ controller, token, uiDir, saveSettings, fillDraft, inspe
       }
       if (request.method === 'GET' && url.pathname === '/api/state') return json(response, 200, controller.snapshot());
       if (request.method === 'GET' && url.pathname === '/api/assistant-context') return json(response, 200, controller.assistantContext());
+      if (request.method === 'GET' && url.pathname === '/api/methods') return json(response, 200, {methods:listMethods()});
       if (request.method === 'GET' && url.pathname === '/api/model-profiles') return json(response, 200, publicProfiles(controller.settings));
       if(request.method==='GET' && url.pathname==='/api/media') {
         if(!controller.scope || url.searchParams.get('accountUid')!==controller.scope.accountUid || url.searchParams.get('peerUid')!==controller.scope.peerUid)throw new Error('会话已改变，请重新查看图片');
@@ -56,14 +58,11 @@ function createServer({ controller, token, uiDir, saveSettings, fillDraft, inspe
         if(url.searchParams.get('accountUid')!==controller.scope.accountUid || url.searchParams.get('peerUid')!==controller.scope.peerUid)throw new Error('会话已改变，请重新读取');
         return json(response,200,controller.store.historyPage(controller.scope,{before:url.searchParams.get('before')||undefined,limit:url.searchParams.get('limit')}));
       }
-      if (request.method === 'GET' && url.pathname === '/api/context') {
-        if(!controller.scope)throw new Error('请先选择会话');
-        const records=controller.store.messages(controller.scope),conversation=contextFor(records,controller.instruction,controller.replyMessageIds);
-        return json(response,200,{scope:controller.scope,promptVersion:PROMPT_VERSION,total:records.length,selected:conversation.length,
-          characterBudget:18000,perMessageCharacters:1800,recentLimit:60,relevantOldLimit:12,
-          selectedCharacters:conversation.reduce((n,m)=>n+m.text.length,0),userInstruction:redact(controller.instruction),
-          conversation,replyFocus:controller.snapshot().replyFocus,hasLongTermSummary:false,hasVectorSearch:false,usesImages:controller.selectedImages.length>0,selectedImages:controller.selectedImages,imagesAllowed:!!(controller.hasModelConsent()&&controller.settings.realChatConsent?.allowImages),modelVisionEnabled:!!controller.settings.visionEnabled});
-      }
+      if (request.method === 'GET' && url.pathname === '/api/context') return json(response,200,controller.assistantContext());
+      if (request.method === 'GET' && url.pathname === '/api/health') return json(response,200,{
+        version:'relationship-context-complete-2026-10-12',unifiedContext:true,persistentMemory:true,
+        authenticated:controller.status.phase==='ready',selected:!!controller.scope,
+        memoryConfigured:!!controller.memoryModel,qqMessagesSentByAssistant:0});
       if (request.method === 'GET' && url.pathname === '/api/export') {
         const exported = controller.store.export(controller.scope, url.searchParams.get('format') || 'json');
         response.writeHead(200, { 'Content-Type': exported.mime, 'Cache-Control': 'no-store',
@@ -72,16 +71,20 @@ function createServer({ controller, token, uiDir, saveSettings, fillDraft, inspe
       }
       if (request.method !== 'POST') return json(response, 404, { error: 'Unknown read-only assistant route' });
       const args = await body(request);
-      if (['/api/assistant', '/api/goal', '/api/note', '/api/note-delete', '/api/turn-delete', '/api/feedback'].includes(url.pathname) &&
+      if (['/api/assistant', '/api/goal', '/api/note', '/api/note-delete', '/api/turn-delete', '/api/feedback','/api/confirm-action','/api/undo-action','/api/memory-search','/api/memory-maintain'].includes(url.pathname) &&
           (!controller.scope || args.accountUid !== controller.scope.accountUid || args.peerUid !== controller.scope.peerUid))
         throw new Error('会话已改变，请回到当前联系人后重试');
       switch (url.pathname) {
-        case '/api/assistant': await controller.assist(args); break;
+        case '/api/assistant': await controller.assist({text:args.text,purpose:args.purpose,materialIds:args.materialIds,sourceTurnIds:args.sourceTurnIds,selectedOption:args.selectedOption}); break;
         case '/api/goal': controller.setGoal(args.text); break;
         case '/api/note': controller.saveNote({ id: args.id, text: args.text, use: args.use }); break;
         case '/api/note-delete': controller.deleteNote(args.id); break;
         case '/api/turn-delete': controller.deleteTurn(args.id); break;
         case '/api/feedback': controller.addFeedback({ requestId: args.requestId, text: args.text, kind: args.kind }); break;
+        case '/api/confirm-action': controller.confirmAction(args.id,args.decision); break;
+        case '/api/undo-action': controller.undoAction(args.id); break;
+        case '/api/memory-search': return json(response,200,{scope:controller.scope,...controller.searchMemory(args.query||'',{limit:24,before:args.before,after:args.after,types:args.types})});
+        case '/api/memory-maintain': await controller.maintainMemory({maxBatches:2,force:true}); break;
         case '/api/models': return json(response, 200, await discoverModels(controller.settings, args, modelFetch));
         case '/api/model-selection': {
           if (!saveSettings) throw new Error('Settings unavailable');
@@ -105,7 +108,7 @@ function createServer({ controller, token, uiDir, saveSettings, fillDraft, inspe
           if(args.allow!==true || !controller.scope || !saveSettings)throw new Error('请明确允许当前会话使用当前模型');
           if(args.accountUid!==controller.scope.accountUid || args.peerUin!==controller.scope.peerUin || args.baseUrl!==controller.settings.baseUrl || args.model!==controller.settings.model)throw new Error('会话或模型已改变，请重新确认授权');
           controller.settings.realChatConsent={accountUid:controller.scope.accountUid,peerUin:controller.scope.peerUin,baseUrl:controller.settings.baseUrl,model:controller.settings.model,allowImages:args.allowImages===true,grantedAt:new Date().toISOString()};
-          saveSettings(controller.settings);controller.error='';controller.changed();break;
+          saveSettings(controller.settings);controller.error='';controller.changed();controller.scheduleMemory();break;
         }
         case '/api/settings': {
           if (!saveSettings) throw new Error('Settings unavailable');
@@ -137,7 +140,7 @@ function run() {
     });
   }
   const store = new Store(path.join(data, 'messages.sqlite'));
-  const controller = new Controller({ store, read, settings });
+  const controller = new Controller({ store, read, settings, memoryModel: consolidateMemory });
   if(process.send)controller.setVisible(false);
   process.on('message', message => {
     if (message.type === 'reply') { const task = pending.get(message.id); if (!task) return;

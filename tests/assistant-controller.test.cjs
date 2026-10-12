@@ -220,6 +220,26 @@ test('newer private request wins when model responses arrive out of order', asyn
   assert.equal(companion(app).turns.filter(turn => turn.role === 'user').length, 2);
 });
 
+test('incoming burst resumes the same explicit question with new evidence without duplicating user input', async t => {
+  const calls=[];
+  const app=setup(async(_,context)=>new Promise(resolve=>calls.push({context,resolve})));
+  t.after(()=>app.close());await app.bind();
+  t.mock.timers.enable({apis:['setTimeout']});
+  const pending=app.controller.assist({text:'先帮我理解她这次说的意思。',purpose:'discussion'});
+  await waitFor(()=>calls.length===1);
+  app.controller.live({scope,messages:[raw('72057594037928090',false,{elements:[{textElement:{content:'报告交完了'}}]})]});
+  app.controller.live({scope,messages:[raw('72057594037928091',false,{elements:[{textElement:{content:'今晚很累，先不聊了'}}]})]});
+  calls[0].resolve({kind:'discussion',text:'obsolete'});await pending;
+  t.mock.timers.tick(1801);await waitFor(()=>calls.length===2);
+  assert.equal(calls[1].context.payload.userRequest.text,'先帮我理解她这次说的意思。');
+  assert.ok(calls[1].context.payload.sources.some(s=>s.text==='今晚很累，先不聊了'));
+  calls[1].resolve({kind:'discussion',text:'她明确说今晚先休息，可以自然收尾。'});
+  await waitFor(()=>assistantTexts(app).length===1);
+  assert.equal(companion(app).turns.filter(turn=>turn.role==='user').length,1);
+  assert.equal(assistantTexts(app)[0],'她明确说今晚先休息，可以自然收尾。');
+  t.mock.timers.reset();
+});
+
 test('revoked actual evidence is absent from future private context and invalidates its derived state', async t => {
   const contexts = [];
   const app = setup(async (_, context) => {

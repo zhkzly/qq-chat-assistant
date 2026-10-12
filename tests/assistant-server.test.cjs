@@ -11,7 +11,7 @@ test('private HTTP routes enforce scope and local auth, expose actual request, a
   const settings = { auto: false, apiKey: 'synthetic', model: 'synthetic', baseUrl: 'http://fixture.invalid/v1',
     realChatConsent: { accountUid: scope.accountUid, peerUin: scope.peerUin, model: 'synthetic', baseUrl: 'http://fixture.invalid/v1' } };
   const controller = new Controller({ store, settings, read: async command => command === 'bind' ? scope : { source: 'synthetic', messages: [] },
-    assistantModel: async () => ({ kind: 'discussion', text: '先从自己的真实近况想起。' }) });
+    assistantModel: async () => ({ kind: 'discussion', text: '先从自己的真实近况想起。', stateReview:'no_change' }) });
   controller.updateStatus({ phase: 'ready', account: { uid: scope.accountUid, uin: scope.accountUin } });
   await controller.bind(scope.peerUin);
   const server = createServer({ controller, token: 'synthetic-token', uiDir: path.resolve(__dirname, '../ui') });

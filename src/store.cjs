@@ -1,7 +1,9 @@
 'use strict';
 const fs = require('node:fs');
 const path = require('node:path');
-const { randomUUID } = require('node:crypto');
+const { randomUUID, createHash } = require('node:crypto');
+const { rank } = require('./memory-search.cjs');
+const hash = value => createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const { DatabaseSync } = require('node:sqlite');
 const {publicRecord}=require('./media.cjs');
 const { compare, sameScope } = require('./messages.cjs');
@@ -23,7 +25,7 @@ function sourceList(value, name = 'sourceIds') {
 function emptyState(version = 0) {
   return { version, focus: '', items: [], openThreads: [], unknowns: [], possiblyStale: true, coverage: { complete: false, sourceIds: [] } };
 }
-function emptyCompanion() { return { revision: 0, goal: { text: '', version: 0 }, notes: [], turns: [], state: emptyState(), runs: [], feedback: [] }; }
+function emptyCompanion() { return { revision: 0, goal: { text: '', version: 0 }, notes: [], turns: [], state: emptyState(), runs: [], feedback: [], pendingActions: [], actionReceipts: [] }; }
 function changedSource(record, invalidate = false) {
   record.revision++;
   if (invalidate) {
@@ -32,6 +34,8 @@ function changedSource(record, invalidate = false) {
     record.runs = [];
     record.turns = record.turns.filter(turn => turn.role === 'user');
     record.feedback = [];
+    record.pendingActions = [];
+    record.actionReceipts = [];
   } else {
     record.state.possiblyStale = true;
     record.state.coverage = { ...record.state.coverage, complete: false };
@@ -48,7 +52,17 @@ class Store {
       PRIMARY KEY(account_uid,peer_uid,message_id));
       CREATE TABLE IF NOT EXISTS coverage(account_uid TEXT NOT NULL,peer_uid TEXT NOT NULL,record TEXT NOT NULL,
       PRIMARY KEY(account_uid,peer_uid));
-      CREATE TABLE IF NOT EXISTS companion(scope_key TEXT PRIMARY KEY,record TEXT NOT NULL);`);
+      CREATE TABLE IF NOT EXISTS companion(scope_key TEXT PRIMARY KEY,record TEXT NOT NULL);
+      CREATE TABLE IF NOT EXISTS memory_sources(scope_key TEXT NOT NULL,source_id TEXT NOT NULL,revision TEXT NOT NULL,record TEXT NOT NULL,deleted INTEGER NOT NULL DEFAULT 0,PRIMARY KEY(scope_key,source_id));
+      CREATE TABLE IF NOT EXISTS memory_journal(seq INTEGER PRIMARY KEY AUTOINCREMENT,scope_key TEXT NOT NULL,source_id TEXT NOT NULL,revision TEXT NOT NULL,operation TEXT NOT NULL,status TEXT NOT NULL DEFAULT 'pending',cursor INTEGER NOT NULL DEFAULT 0);
+      CREATE INDEX IF NOT EXISTS memory_pending ON memory_journal(scope_key,status,seq);
+      CREATE TABLE IF NOT EXISTS memory_records(scope_key TEXT NOT NULL,id TEXT NOT NULL,kind TEXT NOT NULL,record TEXT NOT NULL,PRIMARY KEY(scope_key,id));
+      CREATE TABLE IF NOT EXISTS memory_dependencies(scope_key TEXT NOT NULL,id TEXT NOT NULL,source_id TEXT NOT NULL,revision TEXT NOT NULL,PRIMARY KEY(scope_key,id,source_id));
+      CREATE INDEX IF NOT EXISTS memory_source_dependencies ON memory_dependencies(scope_key,source_id);
+      CREATE TABLE IF NOT EXISTS memory_exclusions(scope_key TEXT NOT NULL,source_id TEXT NOT NULL,PRIMARY KEY(scope_key,source_id));
+      CREATE TABLE IF NOT EXISTS memory_receipts(scope_key TEXT NOT NULL,batch_id TEXT NOT NULL,record TEXT NOT NULL,PRIMARY KEY(scope_key,batch_id));
+      CREATE TABLE IF NOT EXISTS memory_meta(scope_key TEXT PRIMARY KEY,version INTEGER NOT NULL DEFAULT 0,error TEXT);`);
+    if(!this.db.prepare('PRAGMA table_info(memory_journal)').all().some(c=>c.name==='cursor'))this.db.exec('ALTER TABLE memory_journal ADD COLUMN cursor INTEGER NOT NULL DEFAULT 0');
     this.insert = this.db.prepare(`INSERT INTO messages VALUES(?,?,?,?)
       ON CONFLICT(account_uid,peer_uid,message_id) DO UPDATE SET record=excluded.record`);
   }
@@ -60,6 +74,7 @@ class Store {
     try {
       for (const message of records) {
         if (!sameScope(message, scope) || message.kind !== 'actual') throw new Error('Message scope or provenance rejected');
+        if(typeof message.messageId!=='string'||!message.messageId||message.messageId.length>256)throw new Error('Original QQ message ID must remain a string');
         const data = JSON.stringify(message);
         const old = this.db.prepare('SELECT record FROM messages WHERE account_uid=? AND peer_uid=? AND message_id=?')
           .get(scope.accountUid, scope.peerUid, message.messageId);
@@ -85,25 +100,35 @@ class Store {
   }
   getCompanion(scope) {
     const row = this.db.prepare('SELECT record FROM companion WHERE scope_key=?').get(scopeKey(scope));
-    return row ? JSON.parse(row.record) : emptyCompanion();
+    return row ? { ...emptyCompanion(), ...JSON.parse(row.record) } : emptyCompanion();
+  }
+  _atomic(fn) {
+    const owns=!this.db.isTransaction;
+    if(owns)this.db.exec('BEGIN IMMEDIATE');
+    try { const result=fn();if(owns)this.db.exec('COMMIT');return result; }
+    catch(error){if(owns)this.db.exec('ROLLBACK');throw error;}
   }
   _writeCompanion(scope, record) {
-    this.db.prepare('INSERT INTO companion VALUES(?,?) ON CONFLICT(scope_key) DO UPDATE SET record=excluded.record')
-      .run(scopeKey(scope), JSON.stringify(record));
+    this._atomic(()=>{
+      this._pruneProvenance(scope,record);
+      this.db.prepare('INSERT INTO companion VALUES(?,?) ON CONFLICT(scope_key) DO UPDATE SET record=excluded.record')
+        .run(scopeKey(scope), JSON.stringify(record));
+      this._syncMemory(scope, record);
+    });
   }
   _sourceIds(scope, record = this.getCompanion(scope)) {
-    return new Set([
-      ...this.messages(scope).filter(message => message.kind === 'actual' && !message.recalled).map(message => `qq:${message.messageId}`),
-      ...record.turns.filter(turn => turn.role === 'user').map(turn => `private:${turn.id}`),
-      ...record.notes.filter(note => note.use !== 'disabled').map(note => `note:${note.id}`)
-    ]);
+    return new Set(this._rawMemorySources(scope,record).map(s=>s.id));
   }
-  setGoal(scope, text) {
+  setGoal(scope, text, metadata = {}) {
     textValue(text, 'goal', 10000, true);
     const record = this.getCompanion(scope);
     if (record.goal.text !== text) {
       record.goal = { text, version: record.goal.version + 1 };
-      changedSource(record, true); this._writeCompanion(scope, record);
+      if(metadata.evidenceSourceIds) { record.goal.evidenceSourceIds=sourceList(metadata.evidenceSourceIds);if(record.goal.evidenceSourceIds.some(id=>!this._sourceIds(scope,record).has(id)))throw new Error('Invalid goal source');record.goal.evidenceRevisions=Object.fromEntries(this._rawMemorySources(scope,record).filter(s=>record.goal.evidenceSourceIds.includes(s.id)).map(s=>[s.id,s.revision])); }
+      // A changed aim invalidates the plan, not the user's conversation history.
+      changedSource(record);record.state=emptyState(record.state.version+1);record.runs=[];
+      record.pendingActions=record.pendingActions.filter(action=>action.action?.type!=='set_goal');
+      this._writeCompanion(scope, record);
     }
     return record.goal;
   }
@@ -114,9 +139,15 @@ class Store {
     const record = this.getCompanion(scope);
     const id = note.id === undefined ? randomUUID() : identifier(note.id, 'note id');
     const index = record.notes.findIndex(item => item.id === id), old = record.notes[index];
-    if (old && old.text === note.text && old.use === note.use) return old;
+    if (old && old.text === note.text && old.use === note.use && (note.kind===undefined||note.kind===old.kind) && note.evidenceSourceIds===undefined && note.sourceIds===undefined) return old;
     const now = new Date().toISOString();
     const saved = { id, text: note.text, use: note.use, version: (old?.version || 0) + 1, createdAt: old?.createdAt || now, updatedAt: now };
+    if(note.kind!==undefined) { if(!['material','preference'].includes(note.kind))throw new Error('Invalid note kind');saved.kind=note.kind; } else if(old?.kind)saved.kind=old.kind;
+    if(note.evidenceSourceIds||note.sourceIds) {
+      saved.evidenceSourceIds=sourceList(note.evidenceSourceIds||note.sourceIds);
+      if(saved.evidenceSourceIds.some(id=>!this._sourceIds(scope,record).has(id)))throw new Error('Invalid note source');
+      saved.evidenceRevisions=Object.fromEntries(this._rawMemorySources(scope,record).filter(s=>saved.evidenceSourceIds.includes(s.id)).map(s=>[s.id,s.revision]));
+    } else if(old?.evidenceSourceIds){saved.evidenceSourceIds=old.evidenceSourceIds;saved.evidenceRevisions=old.evidenceRevisions;}
     if (index < 0) record.notes.push(saved); else record.notes[index] = saved;
     changedSource(record, !!old); this._writeCompanion(scope, record);
     return saved;
@@ -144,6 +175,18 @@ class Store {
     if (turn.suggestions !== undefined) {
       if (!Array.isArray(turn.suggestions)) throw new Error('Invalid suggestions');
       saved.suggestions = JSON.parse(JSON.stringify(turn.suggestions));
+    }
+    if(turn.expressionOptions!==undefined) {
+      if(!Array.isArray(turn.expressionOptions)||turn.expressionOptions.length>8)throw new Error('Invalid expression options');
+      saved.expressionOptions=JSON.parse(JSON.stringify(turn.expressionOptions));
+    }
+    if(turn.actionReceipts!==undefined) {
+      if(!Array.isArray(turn.actionReceipts)||turn.actionReceipts.length>8||turn.actionReceipts.some(r=>!plain(r)))throw new Error('Invalid action receipts');
+      saved.actionReceipts=JSON.parse(JSON.stringify(turn.actionReceipts));
+    }
+    if(turn.methodIds!==undefined) {
+      if(!Array.isArray(turn.methodIds)||turn.methodIds.length>12||turn.methodIds.some(id=>typeof id!=='string'||id.length>100))throw new Error('Invalid method IDs');
+      saved.methodIds=[...turn.methodIds];
     }
     record.turns.push(saved);
     if (turn.role === 'user') changedSource(record);
@@ -225,6 +268,230 @@ class Store {
       }
       return { applied: true, revision: record.revision, stateVersion: next.version };
     } catch (error) { return rejected('invalid_patch', error.message); }
+  }
+  _pruneProvenance(scope,record) {
+    // Natural-language extracted notes and goals retain revision-bound evidence.
+    // Delete/correct a source and copies derived from its old version disappear.
+    let removed=true;
+    while(removed) {
+      const live=new Map(this._rawMemorySources(scope,record).map(s=>[s.id,s.revision]));
+      const valid=value=>!value.evidenceSourceIds||value.evidenceSourceIds.every(id=>live.has(id)&&(!value.evidenceRevisions||value.evidenceRevisions[id]===live.get(id)));
+      const count=record.notes.length;record.notes=record.notes.filter(valid);removed=count!==record.notes.length;
+      if(!valid(record.goal))record.goal={text:'',version:record.goal.version+1};
+    }
+  }
+  _rawMemorySources(scope, record=this.getCompanion(scope)) {
+    const excluded=new Set(this.db.prepare('SELECT source_id FROM memory_exclusions WHERE scope_key=?').all(scopeKey(scope)).map(r=>r.source_id));
+    const sources=[
+      ...this.messages(scope).filter(m=>!m.recalled).map(m=>({id:`qq:${m.messageId}`,type:'qq',text:m.text,at:new Date(m.timestamp).toISOString(),role:m.direction==='outgoing'?'user':'contact',direction:m.direction,use:'discussion',messageId:m.messageId})),
+      ...record.turns.filter(t=>t.role==='user'&&!t.memoryExcluded).map(t=>({id:`private:${t.id}`,type:'private',text:t.text,at:t.createdAt,role:'user',use:'discussion',kind:t.kind,version:t.version||1})),
+      ...record.notes.filter(n=>n.use!=='disabled').map(n=>({id:`note:${n.id}`,type:'note',text:n.text,at:n.updatedAt,use:n.use,kind:n.kind||'material',version:n.version,...(n.evidenceSourceIds?{evidenceSourceIds:n.evidenceSourceIds}:{}),...(n.evidenceRevisions?{evidenceRevisions:n.evidenceRevisions}:{})})),
+      ...record.feedback.map(f=>({id:`private:feedback-${f.id}`,type:'feedback',text:f.text,at:f.createdAt,role:'user',kind:f.kind,requestId:f.requestId,use:'discussion'}))
+    ].filter(s=>!excluded.has(s.id));
+    return sources.map(s=>({...s,revision:hash(s)}));
+  }
+  _syncMemory(scope, record=this.getCompanion(scope)) {
+    const key=scopeKey(scope),live=this._rawMemorySources(scope,record),byId=new Map(live.map(s=>[s.id,s]));
+    const old=this.db.prepare('SELECT * FROM memory_sources WHERE scope_key=?').all(key),oldIds=new Set(old.map(s=>s.source_id));
+    this.db.prepare('INSERT OR IGNORE INTO memory_meta(scope_key) VALUES(?)').run(key);
+    const write=(source,operation)=>{
+      // The journal stores identities only. Removed/revised text cannot survive
+      // in old queued events or be restored by a delayed consolidation response.
+      this.db.prepare("UPDATE memory_journal SET status='superseded' WHERE scope_key=? AND source_id=? AND status='pending'").run(key,source.id);
+      this.db.prepare('INSERT INTO memory_sources VALUES(?,?,?,?,?) ON CONFLICT(scope_key,source_id) DO UPDATE SET revision=excluded.revision,record=excluded.record,deleted=excluded.deleted').run(key,source.id,source.revision,JSON.stringify(source),source.deleted?1:0);
+      this.db.prepare('INSERT INTO memory_journal(scope_key,source_id,revision,operation) VALUES(?,?,?,?)').run(key,source.id,source.revision,operation);
+      const affected=this.db.prepare('SELECT id FROM memory_dependencies WHERE scope_key=? AND source_id=?').all(key,source.id);
+      for(const {id} of affected){this.db.prepare('DELETE FROM memory_records WHERE scope_key=? AND id=?').run(key,id);this.db.prepare('DELETE FROM memory_dependencies WHERE scope_key=? AND id=?').run(key,id);}
+      this.db.prepare('UPDATE memory_meta SET version=version+1,error=NULL WHERE scope_key=?').run(key);
+    };
+    for(const previous of old) {
+      const source=byId.get(previous.source_id);
+      if(source&&source.revision!==previous.revision)write(source,'upsert');
+      if(!source&&!previous.deleted)write({id:previous.source_id,type:JSON.parse(previous.record).type,deleted:true,text:'',at:new Date().toISOString(),revision:hash({previous:previous.revision,deleted:true})},'remove');
+    }
+    for(const source of live)if(!oldIds.has(source.id))write(source,'upsert');
+    return live;
+  }
+  memorySources(scope) {
+    return this._atomic(()=>this._syncMemory(scope));
+  }
+  memoryStatus(scope) {
+    this.memorySources(scope);const key=scopeKey(scope);
+    const journal=this.db.prepare('SELECT status,count(*) AS n FROM memory_journal WHERE scope_key=? GROUP BY status').all(key);
+    const counts=Object.fromEntries(journal.map(x=>[x.status,x.n]));
+    const records=this.db.prepare('SELECT kind,count(*) AS n FROM memory_records WHERE scope_key=? GROUP BY kind').all(key);
+    const sourceCount=this.db.prepare('SELECT count(*) AS n FROM memory_sources WHERE scope_key=? AND deleted=0').get(key).n;
+    const meta=this.db.prepare('SELECT version,error FROM memory_meta WHERE scope_key=?').get(key);
+    const latest=this.db.prepare('SELECT record FROM memory_receipts WHERE scope_key=? ORDER BY rowid DESC LIMIT 1').get(key);
+    return {pending:counts.pending||0,processed:counts.reviewed||0,superseded:counts.superseded||0,version:meta?.version||0,counts:{sources:sourceCount,items:records.find(x=>x.kind==='item')?.n||0,episodes:records.find(x=>x.kind==='episode')?.n||0},errors:meta?.error?[JSON.parse(meta.error)]:[],lastReview:latest?JSON.parse(latest.record):null};
+  }
+  _memoryRecords(scope) {
+    return this.db.prepare('SELECT kind,record FROM memory_records WHERE scope_key=?').all(scopeKey(scope)).map(r=>({...JSON.parse(r.record),recordType:r.kind}));
+  }
+  searchMemory(scope, query='', options={}) {
+    textValue(query,'memory query',100000,true);
+    const all=this.memorySources(scope),derived=this._memoryRecords(scope),limit=Math.max(1,Math.min(200,Number(options.limit)||12));
+    let sources=rank(all,query,{...options,limit});
+    const items=rank(derived.filter(r=>r.recordType==='item'),query,{...options,limit});
+    const episodes=rank(derived.filter(r=>r.recordType==='episode'),query,{...options,limit:Math.min(8,limit)});
+    // Restore provenance and subsequent evidence for retrieved topics. A later
+    // cancellation must accompany an earlier matching invitation when indexed.
+    const ids=new Set(sources.map(s=>s.id));
+    for(const r of [...items,...episodes])for(const id of r.sourceIds)ids.add(id);
+    const topics=[...new Set([...items,...episodes].flatMap(r=>r.topicKeys||[]))];
+    const followups=topics.length?rank(all,topics.join(' '),{limit:Math.min(12,limit)}):[];
+    for(const s of followups)ids.add(s.id);
+    sources=all.filter(s=>ids.has(s.id)).sort((a,b)=>Date.parse(a.at)-Date.parse(b.at));
+    const status=this.memoryStatus(scope);
+    return {sources,items,episodes,coverage:{complete:status.pending===0,sourceCount:all.length,retrievedCount:sources.length,pending:status.pending,processed:status.processed,history:this.coverage(scope),retrieval:'lexical-han-bigram-bm25',semanticCertainty:false}};
+  }
+  memoryBatch(scope,{maxBytes=24000,limit=32}={}) {
+    this.memorySources(scope);const key=scopeKey(scope),record=this.getCompanion(scope);
+    const size=Math.max(4000,Math.min(200000,Number(maxBytes)||24000)),count=Math.max(1,Math.min(64,Number(limit)||32));
+    const pending=this.db.prepare("SELECT j.*,s.record FROM memory_journal j JOIN memory_sources s ON s.scope_key=j.scope_key AND s.source_id=j.source_id AND s.revision=j.revision WHERE j.scope_key=? AND j.status='pending' ORDER BY j.seq LIMIT ?").all(key,count);
+    if(!pending.length)return null;
+    const meta=this.db.prepare('SELECT version FROM memory_meta WHERE scope_key=?').get(key);
+    const core={scopeKey:key,baseRevision:record.revision,baseMemoryVersion:meta.version,baseState:{version:record.state.version,focus:record.state.focus.slice(0,500)},sources:[],events:[],priorMemory:{items:[],episodes:[]},contextSources:[],reviewedSourceIds:[]};
+    const bytes=()=>Buffer.byteLength(JSON.stringify(core),'utf8')+150;
+    for(const row of pending) {
+      const original=JSON.parse(row.record),source={...original},offset=row.cursor||0;
+      const event={seq:row.seq,id:row.source_id,revision:row.revision,operation:row.operation,offset};
+      core.sources.push(source);core.events.push(event);core.reviewedSourceIds.push(source.id);
+      if(offset)source.text=original.text.slice(offset);
+      if(bytes()>size) {
+        if(core.sources.length>1){core.sources.pop();core.events.pop();core.reviewedSourceIds.pop();break;}
+        // The one oversized source is reviewed in durable contiguous text
+        // segments. Only the final segment completes its journal entry.
+        let low=0,high=source.text.length;
+        while(low<high){const mid=Math.ceil((low+high)/2);source.text=original.text.slice(offset,offset+mid);source.segment={offset,end:offset+mid,total:original.text.length};event.end=offset+mid;if(bytes()<=size)low=mid;else high=mid-1;}
+        if(low>0&&/[\uD800-\uDBFF]/.test(original.text[offset+low-1]))low--;
+        source.text=original.text.slice(offset,offset+low);source.segment={offset,end:offset+low,total:original.text.length};event.end=offset+low;
+        if(!low)throw new Error('Memory batch budget cannot fit source metadata');
+        break;
+      }
+      event.end=original.text.length;
+      if(offset)source.segment={offset,end:original.text.length,total:original.text.length};
+    }
+    const prior=this._memoryRecords(scope),query=core.sources.map(s=>s.text.slice(0,300)).join(' ');
+    const pinned=prior.filter(r=>r.kind==='commitment'||r.recordType==='episode'||r.reviewComplete===false).sort((a,b)=>Date.parse(b.lastEvidenceAt)-Date.parse(a.lastEvidenceAt)).slice(0,6);
+    const candidates=[...new Map([...pinned,...rank(prior,query,{limit:12})].map(r=>[r.id,r])).values()];
+    for(const item of candidates) {const target=core.priorMemory[item.recordType==='item'?'items':'episodes'];target.push(item);if(bytes()>size)target.pop();}
+    // A bare 'cancel it' needs the preceding exchange, not lexical topic overlap.
+    // Read a bounded window of already-reviewed sources without moving its cursor.
+    const anchor=core.sources.filter(s=>!s.deleted).map(s=>s.at).sort()[0];
+    if(anchor) {
+      const reviewed=new Set(this.db.prepare("SELECT source_id FROM memory_journal WHERE scope_key=? AND status='reviewed'").all(key).map(r=>r.source_id));
+      const neighbors=this._rawMemorySources(scope).filter(s=>reviewed.has(s.id)&&s.at<=anchor&&!core.reviewedSourceIds.includes(s.id)).sort((a,b)=>b.at.localeCompare(a.at)).slice(0,6);
+      for(const source of neighbors){core.contextSources.push(source);if(bytes()>size)core.contextSources.pop();}
+      core.contextSources.sort((a,b)=>a.at.localeCompare(b.at));
+    }
+    return {id:hash(core),...core,maxBytes:size,inputBytes:bytes()-150};
+  }
+  recordMemoryError(scope,error) {
+    this.db.prepare('INSERT INTO memory_meta(scope_key,error) VALUES(?,?) ON CONFLICT(scope_key) DO UPDATE SET error=excluded.error').run(scopeKey(scope),JSON.stringify({code:String(error.code||'maintenance_error').slice(0,100),message:String(error.message||'Memory maintenance failed').slice(0,1000),at:new Date().toISOString(),...(error.sourceId?{sourceId:error.sourceId}:{}),...(error.requiredBytes?{requiredBytes:error.requiredBytes}:{})}));
+  }
+  applyMemoryBatch(scope,batch,result) {
+    const reject=(reason,detail)=>({applied:false,reason,...(detail?{detail}:{})});
+    try {return this._atomic(()=>{
+      const key=scopeKey(scope);this._syncMemory(scope);
+      if(!plain(batch)||batch.scopeKey!==key)return reject('wrong_scope');
+      const {id,maxBytes,inputBytes,...core}=batch;if(hash(core)!==id)return reject('changed_batch');
+      if(this.db.prepare('SELECT 1 FROM memory_receipts WHERE scope_key=? AND batch_id=?').get(key,id))return reject('already_reviewed');
+      if(this.db.prepare('SELECT version FROM memory_meta WHERE scope_key=?').get(key)?.version!==batch.baseMemoryVersion)return reject('stale_memory_version');
+      if(!plain(result)||Object.keys(result).some(k=>!['reviewedSourceIds','items','episodes','retire'].includes(k)))return reject('unauthorized_result_fields');
+      if(!Array.isArray(result.reviewedSourceIds)||new Set(result.reviewedSourceIds).size!==result.reviewedSourceIds.length||result.reviewedSourceIds.length!==batch.reviewedSourceIds.length||result.reviewedSourceIds.some(x=>!batch.reviewedSourceIds.includes(x)))return reject('incomplete_review_receipt');
+      const pending=this.db.prepare("SELECT seq,source_id,revision,cursor FROM memory_journal WHERE scope_key=? AND status='pending' ORDER BY seq LIMIT ?").all(key,batch.events.length);
+      if(pending.length!==batch.events.length||pending.some((r,i)=>r.seq!==batch.events[i].seq||r.source_id!==batch.events[i].id||r.revision!==batch.events[i].revision||r.cursor!==batch.events[i].offset))return reject('stale_or_noncontiguous_batch');
+      const raw=new Map(this._rawMemorySources(scope).map(s=>[s.id,s]));
+      const allowed=new Set(batch.sources.filter(s=>!s.deleted).map(s=>s.id));
+      for(const source of batch.contextSources||[]) {if(raw.get(source.id)?.revision!==source.revision)return reject('stale_context_source');allowed.add(source.id);}
+      const previous=new Map([...batch.priorMemory.items,...batch.priorMemory.episodes].map(item=>[item.id,item]));
+      for(const item of previous.values())for(const sid of item.sourceIds){if(raw.get(sid)?.revision!==item.sourceRevisions[sid])throw new Error('Stale prior memory source');allowed.add(sid);}
+      for(const source of batch.sources)if(!source.deleted&&raw.get(source.id)?.revision!==source.revision)return reject('stale_source');
+      const checked=[];const statuses=['active','resolved','cancelled','superseded'];
+      const build=(value,type)=>{
+        const keys=['id','kind','text','sourceIds','topicKeys','status','certainty','explicitPreference'];
+        if(!plain(value)||Object.keys(value).some(k=>!keys.includes(k)))throw new Error('Unauthorized memory fields');
+        const sourceIds=sourceList(value.sourceIds);
+        if(!sourceIds.length||sourceIds.length>64||sourceIds.some(sid=>!allowed.has(sid)||!raw.has(sid)))throw new Error('Unavailable or undelivered memory evidence');
+        if(value.id!==undefined&&!previous.has(value.id))throw new Error('Replacement memory was not delivered');
+        if(!sourceIds.some(sid=>batch.reviewedSourceIds.includes(sid)))throw new Error('An update needs evidence from this reviewed batch');
+        const kind=type==='episode'?'episode':value.kind;
+        if(type==='item'&&!['fact','preference','commitment','uncertainty'].includes(kind))throw new Error('Invalid memory kind');
+        if(kind==='preference'&&(value.explicitPreference!==true||sourceIds.some(sid=>raw.get(sid).type==='feedback'&&raw.get(sid).kind!=='recurring')))throw new Error('Stable preferences require explicit recurring intent, not local feedback');
+        const topicKeys=value.topicKeys||[];
+        if(!Array.isArray(topicKeys)||topicKeys.length>8||topicKeys.some(t=>typeof t!=='string'||!t.trim()||t.length>80))throw new Error('Invalid memory topic keys');
+        const sourceRevisions=Object.fromEntries(sourceIds.map(sid=>[sid,raw.get(sid).revision]));
+        const dates=sourceIds.map(sid=>raw.get(sid).at).sort();const status=value.status||'active',certainty=value.certainty||(kind==='uncertainty'?'tentative':'stated');
+        if(!statuses.includes(status)||!['stated','tentative'].includes(certainty))throw new Error('Invalid memory status or certainty');
+        const reviewComplete=sourceIds.every(sid=>{const delivered=batch.sources.find(s=>s.id===sid);return !delivered?.segment||delivered.segment.end===delivered.segment.total;});
+        const older=value.id?previous.get(value.id):null;
+        if(older&&dates.at(-1)<older.lastEvidenceAt)throw new Error('Older backfill cannot replace later evidence');
+        // Equivalent topic/state keys must not revive a resolved commitment just
+        // because its original invitation arrived in a later history page.
+        if(kind==='commitment'&&status==='active')for(const p of this._memoryRecords(scope))if(p.kind==='commitment'&&p.status!=='active'&&(p.topicKeys||[]).some(t=>topicKeys.includes(t))&&p.lastEvidenceAt>dates.at(-1))throw new Error('Older backfill cannot revive a later closed commitment');
+        return {id:value.id||randomUUID(),kind,text:textValue(value.text,'memory text',type==='episode'?2000:1000),sourceIds,sourceRevisions,topicKeys,status,certainty,reviewComplete,firstEvidenceAt:dates[0],lastEvidenceAt:dates.at(-1),at:dates.at(-1),version:(older?.version||0)+1,createdAt:older?.createdAt||new Date().toISOString(),updatedAt:new Date().toISOString(),recordType:type};
+      };
+      for(const [field,type] of [['items','item'],['episodes','episode']]) {
+        if(result[field]!==undefined&&(!Array.isArray(result[field])||result[field].length>(type==='item'?24:6)))throw new Error(`Invalid ${field} count`);
+        for(const item of result[field]||[])checked.push(build(item,type));
+      }
+      if(result.retire!==undefined&&(!Array.isArray(result.retire)||result.retire.length>24))throw new Error('Invalid retire count');
+      for(const retirement of result.retire||[]) {
+        if(!plain(retirement)||Object.keys(retirement).some(k=>!['id','sourceIds','status'].includes(k))||!previous.has(retirement.id)||!['resolved','cancelled','superseded'].includes(retirement.status))throw new Error('Invalid retirement');
+        const old=previous.get(retirement.id);checked.push(build({id:old.id,kind:old.kind,text:old.text,sourceIds:[...new Set([...old.sourceIds,...sourceList(retirement.sourceIds)])],topicKeys:old.topicKeys,status:retirement.status,certainty:old.certainty,...(old.kind==='preference'?{explicitPreference:true}:{})},old.recordType));
+      }
+      if(new Set(checked.map(c=>c.id)).size!==checked.length)throw new Error('Duplicate memory update');
+      for(const item of checked) {
+        this.db.prepare('INSERT INTO memory_records VALUES(?,?,?,?) ON CONFLICT(scope_key,id) DO UPDATE SET kind=excluded.kind,record=excluded.record').run(key,item.id,item.recordType,JSON.stringify(item));
+        this.db.prepare('DELETE FROM memory_dependencies WHERE scope_key=? AND id=?').run(key,item.id);
+        for(const sid of item.sourceIds)this.db.prepare('INSERT INTO memory_dependencies VALUES(?,?,?,?)').run(key,item.id,sid,item.sourceRevisions[sid]);
+      }
+      for(const event of batch.events) {
+        const length=raw.get(event.id)?.text.length||0;
+        this.db.prepare("UPDATE memory_journal SET status=?,cursor=? WHERE seq=? AND scope_key=? AND status='pending'").run(event.end>=length?'reviewed':'pending',event.end,event.seq,key);
+      }
+      const receipt={batchId:id,reviewedSourceIds:batch.reviewedSourceIds,sourceRevisions:Object.fromEntries(batch.events.map(e=>[e.id,e.revision])),seqFrom:batch.events[0].seq,seqTo:batch.events.at(-1).seq,segments:batch.events.map(e=>({sourceId:e.id,offset:e.offset,end:e.end})),reviewedAt:new Date().toISOString(),outcome:checked.length?'updated':'reviewed_no_change',updates:checked.length};
+      this.db.prepare('INSERT INTO memory_receipts VALUES(?,?,?)').run(key,id,JSON.stringify(receipt));
+      this.db.prepare('UPDATE memory_meta SET version=version+1,error=NULL WHERE scope_key=?').run(key);
+      return {applied:true,receipt};
+    });}catch(error){return reject('invalid_memory_result',error.message);}
+  }
+  updateTurn(scope,id,text) {
+    identifier(id,'turn id');textValue(text,'turn text');const record=this.getCompanion(scope),turn=record.turns.find(t=>t.id===id&&t.role==='user');
+    if(!turn)return false;if(turn.text===text)return turn;
+    turn.text=text;turn.version=(turn.version||1)+1;turn.updatedAt=new Date().toISOString();changedSource(record,true);this._writeCompanion(scope,record);return turn;
+  }
+  ignoredSources(scope) {return this.db.prepare('SELECT source_id FROM memory_exclusions WHERE scope_key=?').all(scopeKey(scope)).map(r=>r.source_id);}
+  forgetSource(scope,id) {
+    sourceList([id]);
+    if(id.startsWith('note:'))return this.deleteNote(scope,id.slice(5));
+    if(id.startsWith('private:feedback-')) {
+      const record=this.getCompanion(scope),length=record.feedback.length;record.feedback=record.feedback.filter(f=>`private:feedback-${f.id}`!==id);
+      if(length===record.feedback.length)return false;changedSource(record,true);this._writeCompanion(scope,record);return true;
+    }
+    if(id.startsWith('private:'))return this.deleteTurn(scope,id.slice(8));
+    if(!this._rawMemorySources(scope).some(s=>s.id===id))return false;
+    return this._atomic(()=>{this.db.prepare('INSERT OR IGNORE INTO memory_exclusions VALUES(?,?)').run(scopeKey(scope),id);const record=this.getCompanion(scope);changedSource(record,true);this._writeCompanion(scope,record);return true;});
+  }
+  markTurnControl(scope,id) {
+    const record=this.getCompanion(scope),turn=record.turns.find(t=>t.id===id&&t.role==='user');if(!turn)return false;
+    turn.memoryExcluded=true;changedSource(record,true);this._writeCompanion(scope,record);return true;
+  }
+  setPendingActions(scope,items) {
+    if(!Array.isArray(items)||items.length>20||items.some(x=>!plain(x)))throw new Error('Invalid pending actions');
+    const record=this.getCompanion(scope);record.pendingActions=JSON.parse(JSON.stringify(items));this._writeCompanion(scope,record);return record.pendingActions;
+  }
+  savePendingAction(scope,action) {
+    if(!plain(action))throw new Error('Invalid pending action');const record=this.getCompanion(scope),saved={...JSON.parse(JSON.stringify(action)),id:action.id||randomUUID()};identifier(saved.id);
+    record.pendingActions=[...record.pendingActions.filter(a=>a.id!==saved.id),saved].slice(-20);this._writeCompanion(scope,record);return saved;
+  }
+  resolvePendingAction(scope,id) {
+    const record=this.getCompanion(scope),before=record.pendingActions.length;record.pendingActions=record.pendingActions.filter(a=>a.id!==id);this._writeCompanion(scope,record);return before!==record.pendingActions.length;
+  }
+  recordActionReceipt(scope,receipt) {
+    if(!plain(receipt))throw new Error('Invalid action receipt');const record=this.getCompanion(scope),saved={...JSON.parse(JSON.stringify(receipt)),id:receipt.id||randomUUID(),at:new Date().toISOString()};
+    record.actionReceipts=[...record.actionReceipts.filter(r=>r.id!==saved.id),saved].slice(-100);this._writeCompanion(scope,record);return saved;
   }
   messages(scope) {
     if (!scope) return [];

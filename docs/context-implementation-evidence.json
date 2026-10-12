@@ -1,80 +1,142 @@
 {
   "date": "2026-10-12",
+  "phase": "verified_candidate_pending_desktop_refresh",
   "baseline": "d45e629",
+  "previousImplementation": "afa6cb6",
   "branch": "feature/relationship-context",
   "functionalTests": {
-    "passed": 100,
+    "passed": 143,
     "failed": 0,
-    "command": "npm test",
-    "evidence": "source-shaped synthetic fixtures; no real QQ"
+    "command": "npm test"
   },
-  "syntaxCheck": {
-    "command": "npm run check",
-    "passed": true
+  "syntaxAndDiff": true,
+  "browser": {
+    "legacyChecks": 16,
+    "assistantChecks": 15,
+    "evidence": "actual headless Chromium; synthetic data and injected model",
+    "legacyReport": "/tmp/qq-assistant-legacy-evidence-OKjxX8/browser-evidence.json",
+    "assistantReport": "/tmp/qq-assistant-context-evidence-8xVnAf/report.json"
   },
-  "legacyBrowser": {
-    "passed": 16,
-    "evidence": "synthetic browser; report /tmp/qq-assistant-legacy-evidence-FtMsi3/browser-evidence.json"
-  },
-  "assistantBrowser": {
-    "passed": 10,
-    "evidence": "synthetic browser; /tmp/qq-assistant-context-evidence-qPjo8Y/report.json",
-    "screenshot": "/tmp/qq-assistant-context-evidence-qPjo8Y/assistant-synthetic.png"
-  },
-  "modelCanary": {
+  "modelReplay": {
     "model": "gpt-6.1-sol",
-    "passed": 4,
-    "total": 4,
-    "requests": 6,
+    "uniqueCases": 9,
+    "latestPasses": 9,
+    "initialReport": "/tmp/qq-full-context-live.json",
+    "targetedRerunReport": "/tmp/qq-full-context-live-rerun.json",
+    "independentReview": "/tmp/qq-full-context-live-review.json",
     "cases": [
       {
-        "name": "open_private_discussion",
-        "passed": true
+        "id": "natural-persistence",
+        "latestStatus": "pass",
+        "checks": 5
       },
       {
-        "name": "mixed_fear_and_explicit_share",
-        "passed": true
+        "id": "old-private",
+        "latestStatus": "pass",
+        "checks": 2
       },
       {
-        "name": "quoted_exclusion",
-        "passed": true
+        "id": "changed-plan",
+        "latestStatus": "pass",
+        "checks": 2
       },
       {
-        "name": "cancelled_plan_review",
-        "passed": true
+        "id": "discussion-to-draft",
+        "latestStatus": "pass",
+        "checks": 3
+      },
+      {
+        "id": "scope-and-disclosure",
+        "latestStatus": "pass",
+        "checks": 2
+      },
+      {
+        "id": "feedback",
+        "latestStatus": "pass",
+        "checks": 4
+      },
+      {
+        "id": "unified-entry",
+        "latestStatus": "pass",
+        "checks": 3
+      },
+      {
+        "id": "bounded-history",
+        "latestStatus": "pass",
+        "checks": 3
+      },
+      {
+        "id": "ambiguous-followup",
+        "latestStatus": "pass",
+        "checks": 3
       }
     ],
-    "evidence": "live configured loopback model; synthetic content only; bounded canary before final timestamp and timeout plumbing changes"
+    "evaluationCorrections": [
+      "terminal punctuation was not a material save failure",
+      "raw private feedback belongs in reasoning/preparation, not the restricted draft",
+      "natural follow-up must be executed without requiring optional structured alternatives first"
+    ],
+    "semanticImprovements": [
+      "follow-up uses prior allowed content without copying it again",
+      "insufficient cooking material prompts a useful clarification rather than generic draft",
+      "irrelevant background reduced from 47538 to 12892 bytes in the bounded case"
+    ],
+    "evidence": "live model, synthetic multi-session sources; targeted reruns retained separately; no relationship-outcome claim"
   },
-  "actualQQIntegrationThisChange": false,
-  "deployed": false,
-  "mainMerged": false,
-  "realChatProcessed": false,
+  "desktop": {
+    "tested": false,
+    "deployed": false,
+    "qqMessagesSent": 0
+  },
   "mutationChecksRun": false,
+  "memoryAndContextCapabilities": [
+    "unified all entry points",
+    "all-history QQ/private/material/feedback retrieval",
+    "durable bounded incremental maintenance and resumable segments",
+    "natural user actions with evidence and confirmation when ambiguous",
+    "scoped correction/forget/undo and derived invalidation",
+    "previous discussion to restricted drafts",
+    "method applicability and evidence",
+    "bounded lookup and complete serialized request budgets"
+  ],
   "limitations": [
-    "No demonstrated relationship outcome",
-    "Mixed-request disclosure selection remains model-dependent",
-    "UTF-8 byte budget is not a verified provider tokenizer/window budget",
-    "Conservative source invalidation removes all derived assistant turns for this contact",
-    "Materials require explicit per-request selection for drafting",
-    "Original raw/private histories persist; full archival/retention policy is not implemented"
+    "model interpretation can be wrong; source/permission review and correction remain necessary",
+    "lexical plus model-topic retrieval is not perfect semantic recall",
+    "byte budgets are not a verified tokenizer/window guarantee",
+    "relationship progress requires actual use and another persons independent willingness"
   ],
   "sourceSnapshot": [
     {
+      "path": "src/assistant-actions.cjs",
+      "sha256": "54bd959aadce35e4491e60aad72c072ae9d9abf0eb3a8f6b8193261988aa7e1d"
+    },
+    {
       "path": "src/assistant-context.cjs",
-      "sha256": "e74fb836d0f395b5c3f80ae7b1b787a3d00d80092309c002bf5cc1bfb76902fa"
+      "sha256": "d578ad0b6d69df58c8909c12327bf97b7f37c7f3b3594e070fdd5aa529280d5b"
     },
     {
       "path": "src/assistant-model.cjs",
-      "sha256": "4655e74736c3d814b17da23a68093b65eaf581566f8ab53f4b688552efdefc39"
+      "sha256": "ff826376ad4cb96fa7bbd6d2983a1754f94edd65823d0c732c97f6847644792d"
     },
     {
       "path": "src/controller.cjs",
-      "sha256": "fe6bad175ba8ad04ebcbee0e4841b08d624d0ee1b3965e75f835c1135f2dc602"
+      "sha256": "cf54440d99df5d9e3f6215ec9d86d28f4003775c8fe68221fd529ffbe0633572"
+    },
+    {
+      "path": "src/help-methods.cjs",
+      "sha256": "80d184464995c4cfe86635ab949d46c998b88a502255be87d09a1f1835e05949"
     },
     {
       "path": "src/media.cjs",
       "sha256": "ee00a6f7af727634e60cc850a24ce0faab75d4a68f0a037e902e119d20b1178a"
+    },
+    {
+      "path": "src/memory-engine.cjs",
+      "sha256": "2a0aadbe583a719229e1d2e7c33b5e2fd781f7567fafdd568a8047192c2de374"
+    },
+    {
+      "path": "src/memory-search.cjs",
+      "sha256": "e38074fc638e44340b51c6cdf0f29c0f38f8277975b7e0d61ff092a060cef121"
     },
     {
       "path": "src/messages.cjs",
@@ -90,35 +152,79 @@
     },
     {
       "path": "src/server.cjs",
-      "sha256": "4bd195177f1d46a4d3a3d4cb84192b276e4c1d34d28d3c2f86b256e56350bcd9"
+      "sha256": "b2763f2e90afe754e3cd953094e9a4db57351e6754073fad841a66e4a4a1568c"
     },
     {
       "path": "src/store.cjs",
-      "sha256": "201712ff905a6a2a0eedf8b3713cb6c78e2a850926711c2f508d0299bfe5881f"
+      "sha256": "74f53cfd231d01d9ddde22ef858b3a5813e9af302f69a7adc82a01043146099b"
     },
     {
       "path": "ui/app.js",
-      "sha256": "a9d781151a161dbc38b4ae2d9f0170ef6d4e02214108bb5c02f7c7cc9fd2f210"
+      "sha256": "6199608d4d23ab6b66ad7317d16a82340eba8de1e982bb827f801cfce741dc46"
     },
     {
       "path": "ui/index.html",
-      "sha256": "72a4fd376dce261dd62764747d20d4085d67190eaf6b86ffe93cd15e2493524b"
+      "sha256": "ea1d29b595f7569973c51232daf010790c90e74344e45758ec486960422dee49"
     },
     {
       "path": "ui/style.css",
-      "sha256": "893e893f7ea8d4e6d98161b726cba0523c8f62e67532e8aafa7abdc3d678dd7d"
+      "sha256": "2de6a4c3616a6091c3f118898a1bc394088c793c23aacfa82a525ee048706709"
+    },
+    {
+      "path": "plugin/contact.cjs",
+      "sha256": "bd78d6689595ad0c151a6b2fe71d0e0b3911d2d15c3f90c4606ba9876462afcb"
+    },
+    {
+      "path": "plugin/dev-probe.cjs",
+      "sha256": "1a64369c5737805e3ca5a7e95657b194b1f87ea22c05ed847cff2ba52dbd0d9f"
+    },
+    {
+      "path": "plugin/draft.cjs",
+      "sha256": "9a884d7ee624aa9e1316cfc2d83a1b0e7c697d438d461df85dcfacd988697658"
+    },
+    {
+      "path": "plugin/ipc-transport.cjs",
+      "sha256": "9d9511933cec59aae0de618d1a9714e26849e21dfa99718fb046ea10845db07d"
+    },
+    {
+      "path": "plugin/main.cjs",
+      "sha256": "21f96e6a8c94d9cfaeff1d6ec0c9e41062ec1f8e3c44a208f943df23af3532dd"
+    },
+    {
+      "path": "plugin/manifest.json",
+      "sha256": "c85c908fb08c01cc0b2a0008d20da3a5f8f6bf2b99854d70859579b694e692f4"
+    },
+    {
+      "path": "plugin/native-driver.cjs",
+      "sha256": "dac445d581ad640d689f375bab2135c04cb288b51b98457c6fa335881ee38e2a"
+    },
+    {
+      "path": "plugin/preload.cjs",
+      "sha256": "d3e07a0f26d73d8a27345ef72810d22ef06c99e165e42938f5ddb84fdc0d8838"
+    },
+    {
+      "path": "plugin/probe.cjs",
+      "sha256": "122c43b2dbc4cef2772931342e772e93a6dd3b3a7cef40fccda7c9f60e251783"
+    },
+    {
+      "path": "plugin/renderer.js",
+      "sha256": "9fcaca9554ac5df1c5e8141c67822035807b1ce1195deed0691f7acf4f7f4870"
+    },
+    {
+      "path": "tests/assistant-actions.test.cjs",
+      "sha256": "54fcc942846e1e572836f4792c43c5b3161a28404a379b99fe7315419aa25ac2"
     },
     {
       "path": "tests/assistant-context.test.cjs",
-      "sha256": "f8c9d6038accb913fe4871a7a729df3b43bc3f2cd66fbd459a6c1fac710713ba"
+      "sha256": "aaf70cb2bbb61fbc021427aa0de5e612f33636163bf647a1ddd3003e9569a80b"
     },
     {
       "path": "tests/assistant-controller.test.cjs",
-      "sha256": "c268f34a1ce914ee390ab9ad76ec0384f76538b02ff1cae99c14424fdb1034e6"
+      "sha256": "97a98d9f5cfcd0ccd63cbe31e3861ce4d97d665d75d7579b772680eb553a845d"
     },
     {
       "path": "tests/assistant-server.test.cjs",
-      "sha256": "5d73d2aee438e27da5735e04a3d6a5179ee7abb2a16346b10434d1f54a19bd0d"
+      "sha256": "1f256035e05dee085f5787d9d16df5846d144dabace8b24de6116de8cd44e333"
     },
     {
       "path": "tests/companion-store.test.cjs",
@@ -134,7 +240,7 @@
     },
     {
       "path": "tests/controller.test.cjs",
-      "sha256": "581253093b9f2e87ab56a367493f6a996f71221dad14fc9d05c3c6a3aaf6b71c"
+      "sha256": "ceb260eb8b1056a6a2ec9a2b5805263d3a66b019cbce5ef158ba5002adf4db14"
     },
     {
       "path": "tests/core.test.cjs",
@@ -153,6 +259,10 @@
       "sha256": "08a1a2281e37875ed7cf8e8f3b7f4c06da25cef578c6dfcd58626475ebabb0c5"
     },
     {
+      "path": "tests/help-methods.test.cjs",
+      "sha256": "2cf3a7bec2a5fb9348d514d934b0757329ed742b44d8aa968179ee1cffaa2e9f"
+    },
+    {
       "path": "tests/history-state.test.cjs",
       "sha256": "a45ff4cf6d037f863a648975a16ef75a3b5c075b6ea3cd6f6d5408bde875aed4"
     },
@@ -161,8 +271,16 @@
       "sha256": "1a636c54d514b7c17ed22f5ed15a7c35662ac8c4acae95e1bdc21a2735f2e35e"
     },
     {
+      "path": "tests/long-memory.test.cjs",
+      "sha256": "24e64e9e989be8ec6fff7edd0f9207fd797ec57e40fe2797793f440876622a95"
+    },
+    {
       "path": "tests/media.test.cjs",
       "sha256": "b9effea958c4ef36a9bc5d5abb61f5571551ed5e4e0ad44cffe0bf560037b60a"
+    },
+    {
+      "path": "tests/memory-engine.test.cjs",
+      "sha256": "fb697ea2535dcd0a58c5de6339b41aa67bf203decb356f1b157ac17582d440df"
     },
     {
       "path": "tests/native.test.cjs",
@@ -174,11 +292,11 @@
     },
     {
       "path": "tests/providers.test.cjs",
-      "sha256": "35d7d3a21f2c88f0e2eab9c2b1ee5435168afdd08ae5c811907aa12c4001283f"
+      "sha256": "15b0ccd3357643bac8268db0383abc78963020aba1877edac550cb48e0788b35"
     },
     {
       "path": "tests/reply-focus.test.cjs",
-      "sha256": "e5659355c959e7a3506b199d78ab145ac2c0921e99188779147b231652ef4258"
+      "sha256": "4cf2582b7825b641ea9a1fbda17171635741753d38e9bb2a7bd1eb7e058142ab"
     },
     {
       "path": "tests/server.test.cjs",

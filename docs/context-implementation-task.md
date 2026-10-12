@@ -16,3 +16,13 @@ Acceptance basis: Existing normalized QQ fixtures and controller/server consumer
 - 2026-10-12: Review found and fixed late history resurrecting recalled QQ content, missing the preceding complete message burst, and dropping all prior state on each new request. Historical evidence with uncovered later changes is now explicitly historical-only.
 - 2026-10-12: Functional suite passes 100 checks. Synthetic UI suites cover 16 legacy and 10 assistant checks. Configured gpt-6.1-sol passed 4 bounded synthetic cases in 6 requests. These are not real-chat or relationship-effectiveness evidence.
 - 2026-10-12: Mixed private/public source selection still depends on model semantics; exact substring/source checks do not establish semantic disclosure permission. Keep this explicit in user documentation. Main/runtime integration is a separate handoff after candidate review.
+
+## Scope correction — full goal-driven completion
+
+The user explicitly rejected MVP/staged delivery on 2026-10-12. This supersedes the earlier minimal-scope and handoff-only boundary. Complete the operational relationship-support system: unified entry points; searchable long-term QQ/private/notes history; incremental evidence-backed memory and state maintenance; natural-language user-owned goals/materials/preferences/corrections; sustained discussion-to-expression without recopying context; method applicability/evidence; bounded costs, deletion and uncertainty; end-to-end, live-model and desktop integration evidence. Integrate into formal main after review and validation while preserving user data and other work. Do not add automatic QQ sending or promise the other person's feelings.
+
+Gold flows: the user's current conversation and original design scenarios, including old private context after many later turns, changed/cancelled plans, private versus shareable statements, and old quick-reply bypass. Existing consumer and fixture contracts remain the source-shaped structural baseline; held-out live-model multi-session tasks must cover semantic behavior.
+
+## Verification
+
+The complete source-shaped suite and both browser flows pass. The live model exercised nine multi-session scenario categories; inaccurate evaluator conditions were corrected and four affected/changed cases were rerun with their original records retained. Independent review checked actual output helpfulness, privacy projections and relevance/cost. Desktop refresh follows this candidate commit.

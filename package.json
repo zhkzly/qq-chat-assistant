@@ -11,7 +11,8 @@
     "web": "node src/server.cjs",
     "diagnose": "node scripts/diagnose.cjs",
     "test:ui": "node scripts/browser-check.cjs",
-    "test:assistant-ui": "node scripts/assistant-browser-check.cjs"
+    "test:assistant-ui": "node scripts/assistant-browser-check.cjs",
+    "test:goal-replay": "node scripts/context-goal-replay.cjs"
   },
   "engines": {
     "node": ">=22"

@@ -110,16 +110,19 @@ test('old invitation cannot silently appear current when a later cancellation do
   assert.ok(context.manifest.omittedSourceCount > 0);
 });
 
-test('draft preparation cannot promote old private text, restricted notes or unselected draft notes', t => {
+test('draft preparation rejects unauthorized private sources and respects already granted note permission', t => {
   const fixture = contextFixture(t, { purpose: 'draft_prepare', text: '想告诉她实验终于成功了。',
     notes: [{ text: 'PRIVATE_NOTE_暂时不想分享的烦恼', use: 'discussion' }, { text: 'UNSELECTED_NOTE_周末旅行', use: 'draft' }],
     prior: [{ role: 'user', kind: 'discussion', text: 'OLDER_PRIVATE_我对她有好感' }] });
   const prepared = buildContext(fixture.args);
-  const forbidden = prepared.payload.sources.filter(source => source.id !== prepared.payload.userRequest.sourceId && source.type !== 'qq');
-  assert.equal(forbidden.length, 3, 'the preparation fixture must actually contain each forbidden source');
+  const forbidden = prepared.payload.sources.filter(source => source.id !== prepared.payload.userRequest.sourceId && source.type !== 'qq' && source.use !== 'draft');
+  assert.equal(forbidden.length, 2, 'the preparation fixture must contain the old private turn and the restricted note');
   for (const source of forbidden) assert.throws(() => buildDraftContext(prepared, {
     style: 'natural', quotes: [{ sourceId: source.id, text: source.text }]
   }, fixture.args), /本次明确请求|已选分享素材/);
+  const allowed=prepared.payload.sources.find(source=>source.type==='note'&&source.use==='draft');
+  const withoutRepeatedCheckbox=buildDraftContext(prepared,{style:'natural',quotes:[{sourceId:allowed.id,text:allowed.text}]},fixture.args);
+  assert.equal(withoutRepeatedCheckbox.payload.outboundQuotes[0].text,allowed.text);
   assert.throws(() => buildDraftContext(prepared, { style: 'natural', quotes: [
     { sourceId: prepared.payload.userRequest.sourceId, text: '模型编造了一个新经历' }
   ] }, fixture.args), /本次明确请求|已选分享素材/);

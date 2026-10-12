@@ -2,9 +2,9 @@
 
 A local Ubuntu desktop companion for normal QQ conversations. It reads the selected private chat, loads accessible history, and provides a persistent private assistant conversation for thinking through what to do, responding, sharing personal material and reviewing actual interaction. Optional drafts can be copied or filled into an unsent QQ input for the human to review and send.
 
-**Status:** the relationship-context implementation is verified with source-shaped functional tests and synthetic browser execution. This update has not been deployed into or tested against a live QQ session. Earlier desktop evidence for the existing bridge is recorded in historical verification documents and is not evidence for this new flow. No QQ messages are sent by the assistant.
+**Status:** the complete relationship-context pipeline is implemented: all assistance entry points share scoped context, searchable long-term QQ/private history, durable incremental memory, natural-language user actions, source-backed current state, evidence-linked methods and feedback. Release and desktop verification are recorded in [the evidence record](docs/context-implementation-evidence.json).
 
-The context flow keeps account/contact-scoped private turns, an explicit user goal, editable material permissions, one source-backed working state, actual request manifests and local feedback. Drafting gets a restricted input after selecting the intended expression. Interpreting mixed private/shareable language still depends on the model; review the draft before using it. See [context design and limits](docs/context-management_CN.md).
+Users can discuss goals and recent experiences naturally, continue a previous idea into a draft without copying it again, correct or forget context, and inspect what was used. Explicit user intent controls lasting goals and disclosure; uncertain operations show a concrete proposal. The assistant never sends QQ messages. See [context behavior and limits](docs/context-management_CN.md).
 
 ## Use
 
@@ -18,6 +18,7 @@ The installed QQ binaries were copied into a private reversible runtime; `/opt/Q
 npm test
 npm run test:ui
 npm run test:assistant-ui
+npm run test:goal-replay
 npm run check
 npm run diagnose
 ```

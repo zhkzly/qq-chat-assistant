@@ -20,7 +20,8 @@ async function until(test, label) { for (let i = 0; i < 80; i++) { if (await tes
       if (command === 'latest') return { source: 'synthetic', messages: [{ ...raw(), peerUid: selected.peerUid, peerUin: selected.peerUin,
         senderUid: selected.peerUid, senderUin: selected.peerUin }, { ...raw('72057594037927938', true), peerUid: selected.peerUid, peerUin: selected.peerUin }] };
       return { source: 'synthetic', messages: [] };
-    }, model: async () => ({ analysis: '先接住她的疲惫，留一点轻松的空间。', suggestions: [
+    }, model: async () => { throw new Error('The legacy model path must remain unreachable'); },
+    assistantModel: async (_,context) => context.payload.purpose==='reply' ? {draftPlan:{quotes:[],intent:'reply',style:'natural'}} : ({ kind:'draft', text: '先接住她的疲惫，留一点轻松的空间。', suggestions: [
       { style: '自然', text: '辛苦啦，终于能歇会儿了。今晚想怎么放松？' },
       { style: '轻松', text: '今日电量告急😂 先给自己充个电吧' },
       { style: '温柔', text: '辛苦啦，今晚好好休息，不用急着回我。' }] }) });
@@ -45,7 +46,7 @@ async function until(test, label) { for (let i = 0; i < 80; i++) { if (await tes
     await until(() => cdp.evaluate("document.querySelectorAll('.message').length===2"), 'automatic history');
     checks.push('binding automatically renders both synthetic history directions');
     await cdp.evaluate("document.querySelector('#auto').checked=false;document.querySelector('#generate').click()");
-    await until(() => cdp.evaluate("document.querySelectorAll('.suggestion').length===3"), 'three alternatives');
+    await until(() => cdp.evaluate("document.querySelectorAll('.suggestion').length===3"), 'fixture alternatives through the unified assistant');
     await cdp.evaluate("document.querySelector('.suggestion button').click();document.querySelector('#draft').value='我自己的改写';document.querySelector('#draft').dispatchEvent(new Event('input'))");
     const draft = await cdp.evaluate("document.querySelector('#draft').value"); assert.equal(draft, '我自己的改写');
     checks.push('adoption produces an editable draft');
@@ -104,16 +105,16 @@ async function until(test, label) { for (let i = 0; i < 80; i++) { if (await tes
     await until(()=>controller.replyMessageIds.length===1,'reply selection');
     assert.equal(controller.replyMessageIds[0],(await cdp.evaluate("document.querySelector('.message').dataset.messageId")));
     await cdp.evaluate("document.querySelector('#context-button').click()");
-    await until(()=>cdp.evaluate("document.querySelector('#context-dialog').open"),'focused context preview');
-    assert.equal(await cdp.evaluate("document.querySelector('#context-summary').textContent.includes('优先保留')"),true);
-    await cdp.evaluate("document.querySelector('#context-close').click();document.querySelector('#clear-focus').click()");
+    await until(()=>cdp.evaluate("document.querySelector('#assistant-context-dialog').open"),'actual assistant context');
+    assert.equal(await cdp.evaluate("document.querySelector('#assistant-context-summary').textContent.includes('实际使用')"),true);
+    await cdp.evaluate("document.querySelector('#assistant-context-close').click();document.querySelector('#clear-focus').click()");
     await until(()=>controller.replyMessageIds.length===0,'return to recent burst');
     checks.push('an old message can be selected for AI context and reset to the latest burst');
     await cdp.evaluate("document.querySelector('#context-button').click()");
 
-    await until(()=>cdp.evaluate("document.querySelector('#context-dialog').open"),'context preview');
-    assert.equal(await cdp.evaluate("document.querySelector('#context-summary').textContent.includes('739')"),true);
-    await cdp.evaluate("document.querySelector('#context-close').click()");checks.push('prominent model settings and exact local context preview open');
+    await until(()=>cdp.evaluate("document.querySelector('#assistant-context-dialog').open"),'context preview');
+    assert.equal(await cdp.evaluate("document.querySelector('#assistant-context-records').textContent.includes('requestId')"),true);
+    await cdp.evaluate("document.querySelector('#assistant-context-close').click()");checks.push('prominent model settings and actual unified assistant request evidence open');
     fs.mkdirSync(path.join(root, 'design'), { recursive: true });
     await cdp.call('Emulation.setDeviceMetricsOverride', { width: 480, height: 1320, deviceScaleFactor: 1, mobile: false });
     await cdp.evaluate('window.scrollTo(0,0)');

@@ -6,6 +6,9 @@ const token=suppliedToken||sessionStorage.getItem('qq-assistant-token')||'';
 history.replaceState(null,'',location.pathname);
 let state=null,scopeKey='',lastAdvice='',polling=false,historyKey='',historyMessages=[],visibleCount=100,historyVersion='',loadingHistory=false,historyEpoch=0,imageSelection=[],imageBlobs=new Map(),localError='',consentKey='',replySelection=[];
 let assistantPending=false,assistantLocalError='',assistantThreadKey='',assistantNotesKey='',assistantStateKey='',goalVersion='',goalDirty=false,assistantContextVersion=0,draftMaterialIds=new Set(),draftOrigin=null;
+let actionPanelKey='',memorySearchVersion=0,memoryResultsRevision=null,selectedDiscussion=null;
+let memoryRetryPending=false;
+let helpingMethods=new Map();
 async function api(path,args) {
  const response=await fetch(path,{method:args===undefined?'GET':'POST',headers:{Authorization:`Bearer ${token}`,...(args===undefined?{}:{'Content-Type':'application/json'})},body:args===undefined?undefined:JSON.stringify(args)});
  if(!response.ok){const p=await response.json();throw new Error(p.error||`HTTP ${response.status}`)}return response;
@@ -93,6 +96,7 @@ function render(next) {
 }
 function resetCompanion(){
  assistantPending=false;assistantLocalError='';assistantThreadKey='';assistantNotesKey='';assistantStateKey='';goalVersion='';goalDirty=false;draftMaterialIds.clear();assistantContextVersion++;
+ actionPanelKey='';memorySearchVersion++;memoryResultsRevision=null;selectedDiscussion=null;memoryRetryPending=false;$('memory-retry-panel').hidden=true;$('memory-query').value='';$('memory-results').replaceChildren();$('memory-search-status').textContent='';$('pending-actions').replaceChildren();$('action-receipts').replaceChildren();
  $('assistant-input').value='';$('goal-input').value='';resetNoteForm();$('feedback-form').reset();$('feedback-form').hidden=true;
  $('assistant-thread').replaceChildren();$('notes-list').replaceChildren();$('draft-materials').replaceChildren();$('state-summary').replaceChildren();
  $('assistant-error').hidden=true;$('assistant-context-records').replaceChildren();$('assistant-context-summary').textContent='';
@@ -111,10 +115,12 @@ function button(text,run,className='text-button'){const element=document.createE
 function paragraph(text,className=''){const p=document.createElement('p');p.textContent=text;p.className=className;return p}
 function renderCompanion(){
  const companion=state.companion||{},busy=assistantPending||state.assistantBusy,available=!!state.scope&&!!state.modelConsent;
+ if(memoryResultsRevision!==null&&memoryResultsRevision!==companion.revision){memorySearchVersion++;memoryResultsRevision=null;$('memory-results').replaceChildren();$('memory-search-status').textContent='背景已有更新，可重新查找当前内容。'}
  for(const id of ['assistant-send','assistant-draft','assistant-review'])$(id).disabled=!available||busy;
  $('assistant-context-button').disabled=!state.scope;$('assistant-input').disabled=!state.scope;
  $('assistant-status').textContent=!state.scope?'先连接一个私聊，这里的讨论会跟随当前好友保存。':busy?'正在结合你提供的内容一起想…':!state.modelConsent?'先在上方允许当前会话使用所选模型，之后就可以开始讨论。':'讨论会在本机保留；草稿、复制和填入输入框都不算已经发送。';
  companionError(assistantLocalError);
+ renderMemoryStatus();renderActionPanels(companion);
  const turns=companion.turns||[],threadKey=JSON.stringify(turns);
  if(state.companion&&draftOrigin&&!turns.some(turn=>turn.id===draftOrigin)){draftOrigin=null;$('draft').value='';saveDraft();$('draft-status').textContent='原来的参考内容已更新或删除，关联草稿已清除';sessionStorage.removeItem(`draft:${scopeKey}`)}
  if($('feedback-request-id').value&&!turns.some(turn=>turn.requestId===$('feedback-request-id').value)){$('feedback-form').reset();$('feedback-form').hidden=true}
@@ -123,6 +129,20 @@ function renderCompanion(){
    const head=document.createElement('div');head.className='turn-heading';const who=document.createElement('strong');who.textContent=turn.role==='user'?'我 · 私下讨论':'助手';
    const remove=button('删除',async()=>{if(expected!==scopeKey||epoch!==historyEpoch)return;if(confirm('删除这条私下讨论及依赖它的助手内容？QQ 消息不会删除。'))await companionAction('/api/turn-delete',{id:turn.id})});remove.setAttribute('aria-label',`删除${turn.role==='user'?'我的讨论':'助手回复'}`);head.append(who,remove);article.append(head,paragraph(turn.text||'','turn-text'));
    for(const suggestion of turn.suggestions||[]){const card=document.createElement('div');card.className='assistant-suggestion';card.append(paragraph(suggestion.style||'参考表达','muted'),paragraph(suggestion.text||''));card.append(button('采用到草稿',()=>{if(expected===scopeKey&&epoch===historyEpoch)adopt(suggestion.text,turn.id)}));article.append(card)}
+   for(const [index,choice] of (turn.expressionOptions||[]).entries()){
+    const card=document.createElement('div');card.className='expression-option';card.append(paragraph(choice.label||choice.intent||'一个可表达的方向'));
+    card.append(button('用这个方向写',()=>{if(expected!==scopeKey||epoch!==historyEpoch)return;submitAssistant('draft',{text:$('assistant-input').value.trim()||'按选中的方向组织表达',selectedOption:{turnId:turn.id,index},sourceTurnIds:[turn.id]})},'secondary'));article.append(card);
+   }
+   if(turn.role==='user')article.append(button('继续聊这段',()=>{if(expected!==scopeKey||epoch!==historyEpoch)return;selectedDiscussion=turn.id;$('assistant-input').placeholder='继续说说这段讨论里你想调整或表达的意思…';$('assistant-input').focus();$('assistant-status').textContent='这次会联系所选讨论继续；不会直接把整段私下内容写给她。'}));
+   if(turn.method||turn.methodBasis||turn.methodIds?.length||turn.evidence||turn.sourceIds?.length){const details=document.createElement('details');details.className='method-basis';const title=document.createElement('summary');title.textContent='参考依据与帮助思路';details.append(title);
+    for(const id of turn.methodIds||[]){const method=helpingMethods.get(id);if(!method)continue;details.append(paragraph(method.name,'state-heading'),paragraph(method.goalContribution));
+     for(const evidence of method.evidence||[]){const row=paragraph(evidence.limit||'','muted');if(/^https?:\/\//.test(evidence.source||'')){const link=document.createElement('a');link.href=evidence.source;link.target='_blank';link.rel='noopener noreferrer';link.textContent='研究来源';row.append(document.createTextNode(' '),link)}details.append(row)}
+    }
+    if(turn.methodBasis)details.append(paragraph(typeof turn.methodBasis==='string'?turn.methodBasis:JSON.stringify(turn.methodBasis)));
+    if(turn.method)details.append(paragraph(`这次采用：${typeof turn.method==='string'?turn.method:turn.method.label||turn.method.id||''}`));
+    for(const id of turn.sourceIds||[])details.append(paragraph(sourceDescription(id),'muted'));
+    article.append(details);
+   }
    if(turn.role==='assistant'&&turn.requestId){const feedback=button('告诉助手哪儿有帮助或不合适',()=>{if(expected!==scopeKey||epoch!==historyEpoch)return;$('feedback-request-id').value=turn.requestId;$('feedback-text').value='';$('feedback-form').hidden=false;$('feedback-text').focus()});article.append(feedback)}
    fragment.append(article);
   }
@@ -131,21 +151,54 @@ function renderCompanion(){
  }
  const currentGoalVersion=`${companion.goal?.version||0}:${companion.goal?.text||''}`;
  if(currentGoalVersion!==goalVersion){goalVersion=currentGoalVersion;if(!goalDirty)$('goal-input').value=companion.goal?.text||''}
- for(const formId of ['goal-form','note-form'])for(const element of $(formId).elements)element.disabled=!state.scope;
+ for(const formId of ['goal-form','note-form','memory-search-form'])for(const element of $(formId).elements)element.disabled=!state.scope;
  renderNotes(companion.notes||[]);renderCurrentState(companion.state);
+}
+function renderMemoryStatus(){
+ const status=state.memoryStatus||state.companion?.memoryStatus;
+ const issue=status?.error||status?.errors?.[0]?.message||status?.errors?.[0]?.detail;
+ $('memory-retry-panel').hidden=!issue||!state.scope;
+ $('memory-retry-message').textContent=issue?`记忆整理暂未完成，已保存的原始交流仍可使用。${issue}`:'';
+ $('memory-retry').disabled=memoryRetryPending||!!status?.busy||!!state.assistantBusy||!state.modelConsent;
+ $('memory-retry').textContent=memoryRetryPending||status?.busy?'正在重新整理…':'重试整理记忆';
+ if(!state.scope){$('memory-status').textContent='';return}
+ if(!status){$('memory-status').textContent='背景随当前好友分别保存。';return}
+ const phase=status.phase||status.status,labels={idle:'已保存的背景可用于继续讨论',running:'正在整理新的交流',pending:'有新的交流等待整理',error:'记忆整理暂未完成',ready:'记忆已更新',complete:'记忆已更新'};
+ const pending=status.pendingCount??status.pending,count=Number.isFinite(pending)?` · ${pending} 条待整理`:'';
+ $('memory-status').textContent=`${status.message||labels[phase]||(status.busy?'正在整理新的交流':pending?'新的背景已保存，等待整理':'已保存的背景可用于继续讨论')}${count}${issue?' · 上次整理未完成，可在记忆面板重试':''}`;
+}
+function renderActionPanels(companion){
+ const pending=companion.pendingActions||[],receipts=(companion.actionReceipts||[]).slice(-5),key=JSON.stringify([pending,receipts]);if(key===actionPanelKey)return;actionPanelKey=key;
+ const expected=scopeKey,epoch=historyEpoch,list=document.createDocumentFragment(),done=document.createDocumentFragment(),receiptCards=[];
+ for(const item of pending){const card=document.createElement('article');card.className='pending-action';card.dataset.actionId=item.id;
+  card.append(paragraph(item.label||'确认这次记忆调整','state-heading'),paragraph(item.reason||'请确认具体内容。','muted'),paragraph(item.preview||item.action?.text||''));
+  if(item.action?.use==='draft')card.append(paragraph('确认后，这条内容可按话题用于写给她的参考表达。','muted'));
+  const row=document.createElement('div');row.className='note-actions';for(const [label,decision] of [['确认这一项','confirm'],['不用修改','dismiss']])row.append(button(label,async()=>{if(expected!==scopeKey||epoch!==historyEpoch)return;await companionAction('/api/confirm-action',{id:item.id,decision})},decision==='confirm'?'secondary':'text-button'));
+  card.append(row);list.append(card);
+ }
+ for(const receipt of receipts){const card=document.createElement('div');card.className='action-receipt';card.dataset.receiptId=receipt.id;
+  card.append(paragraph(receipt.status==='undone'?'已撤销这次修改':receipt.status==='rejected'?`未修改：${receipt.reason}`:`已按你的意思${receipt.label||'记下'}`,'muted'));
+  if(receipt.status==='applied'&&receipt.text)card.append(paragraph(receipt.text));
+  if(receipt.evidenceQuote){const details=document.createElement('details'),title=document.createElement('summary');title.textContent='依据你的这句话';details.append(title,paragraph(receipt.evidenceQuote,'muted'));card.append(details)}
+  if(receipt.undo&&receipt.status==='applied')card.append(button('撤销这次修改',async()=>{if(expected!==scopeKey||epoch!==historyEpoch)return;await companionAction('/api/undo-action',{id:receipt.id})}));
+  receiptCards.push(card);
+ }
+ if(receiptCards.length)done.append(receiptCards.at(-1));
+ if(receiptCards.length>1){const earlier=document.createElement('details');earlier.className='earlier-actions';const title=document.createElement('summary');title.textContent=`更早的记录修改（${receiptCards.length-1}）`;earlier.append(title,...receiptCards.slice(0,-1));done.append(earlier)}
+ $('pending-actions').replaceChildren(list);$('action-receipts').replaceChildren(done);
 }
 function resetNoteForm(){$('note-form').reset();$('note-id').value='';$('note-cancel').hidden=true;$('note-save').textContent='保存近况'}
 function renderNotes(notes){
  const available=new Set(notes.filter(note=>note.use==='draft').map(note=>note.id));draftMaterialIds=new Set([...draftMaterialIds].filter(id=>available.has(id)));
  const notesKey=JSON.stringify(notes);if(notesKey===assistantNotesKey)return;assistantNotesKey=notesKey;
  const list=document.createDocumentFragment(),materials=document.createDocumentFragment(),expected=scopeKey,epoch=historyEpoch;
- if(available.size)materials.append(paragraph('这次写给她时，可以使用哪些近况？未勾选的内容只留作背景。','muted'));
+ if(available.size)materials.append(paragraph('已允许分享的内容会按当前话题选取。勾选可指定重点，也可以直接在对话中说明。','muted'));
  for(const note of notes){const card=document.createElement('article');card.className='note-card';card.dataset.noteId=note.id;
-  card.append(paragraph(note.text),paragraph(({discussion:'仅供私下讨论',draft:'允许用于参考表达；每次需勾选',disabled:'本机保留，暂不提供给模型'})[note.use]||'仅供私下讨论','muted'));
+  card.append(paragraph(note.text),paragraph(`${note.kind==='preference'?'表达偏好 · ':''}${({discussion:'仅供私下讨论',draft:'允许按本次话题用于参考表达',disabled:'本机保留，暂不提供给模型'})[note.use]||'仅供私下讨论'}`,'muted'));
   const actions=document.createElement('div');actions.className='note-actions';actions.append(button('编辑',()=>{if(expected!==scopeKey||epoch!==historyEpoch)return;$('note-id').value=note.id;$('note-text').value=note.text;$('note-use').value=note.use;$('note-cancel').hidden=false;$('note-save').textContent='保存修改';$('note-text').focus()}),button('删除',async()=>{if(expected!==scopeKey||epoch!==historyEpoch)return;if(confirm('删除这条近况及依赖它的助手内容？')){const result=await companionAction('/api/note-delete',{id:note.id});if(result&&$('note-id').value===note.id)resetNoteForm()}}));card.append(actions);list.append(card);
   if(note.use==='draft'){const label=document.createElement('label');label.className='toggle material-choice';const check=document.createElement('input');check.type='checkbox';check.value=note.id;check.checked=draftMaterialIds.has(note.id);check.onchange=()=>{if(expected!==scopeKey||epoch!==historyEpoch)return;if(check.checked)draftMaterialIds.add(note.id);else draftMaterialIds.delete(note.id)};label.append(check,document.createTextNode(note.text));materials.append(label)}
  }
- $('notes-list').replaceChildren(list);$('draft-materials').replaceChildren(materials);$('draft-materials').hidden=!available.size;
+ $('notes-list').replaceChildren(list);$('draft-materials').replaceChildren(materials);$('draft-materials').hidden=!available.size;$('draft-material-panel').hidden=!available.size;
 }
 function renderCurrentState(current){
  const key=`${historyKey}:${JSON.stringify(current||null)}`;if(key===assistantStateKey)return;assistantStateKey=key;const fragment=document.createDocumentFragment();
@@ -164,16 +217,28 @@ function sourceDescription(sourceId){
  else if(kind==='note'){item=state.companion?.notes.find(note=>note.id===id);label='我补充的背景'}
  return item?`${label}：${item.text}\n来源：${sourceId}`:`来源 ${sourceId}（当前列表尚未载入原文）`;
 }
-async function submitAssistant(purpose){
+async function submitAssistant(purpose,options={}){
  if(assistantPending||state?.assistantBusy)return;const input=$('assistant-input'),original=input.value,epoch=historyEpoch;
- const text=original.trim()||(purpose==='review'?'帮我回顾最近的互动，哪些有依据，哪些还不清楚？':'');
+ const text=options.text||original.trim()||(purpose==='review'?'帮我回顾最近的互动，哪些有依据，哪些还不清楚？':'');
  if(!text){companionError(purpose==='draft'?'请先写下这次愿意向她表达的内容。':'可以先说一点近况或正在犹豫的事。');input.focus();return}
- assistantPending=true;renderCompanion();const result=await companionAction('/api/assistant',{text,purpose,materialIds:purpose==='draft'?[...draftMaterialIds]:[]});
- if(epoch!==historyEpoch)return;assistantPending=false;if(result&&input.value===original)input.value='';renderCompanion();
+ assistantPending=true;renderCompanion();const result=await companionAction('/api/assistant',{...options,text,purpose,sourceTurnIds:options.sourceTurnIds||(selectedDiscussion?[selectedDiscussion]:[]),materialIds:purpose==='draft'?[...draftMaterialIds]:[]});
+ if(epoch!==historyEpoch)return;assistantPending=false;if(result&&input.value===original){input.value='';selectedDiscussion=null;input.placeholder='直接说近况、想法或正在犹豫的事情…'}renderCompanion();
 }
 function initializeCompanion(){
+ $('memory-retry').onclick=async()=>{if(memoryRetryPending||!state.scope)return;const epoch=historyEpoch;memoryRetryPending=true;renderMemoryStatus();await companionAction('/api/memory-maintain',{});if(epoch!==historyEpoch)return;memoryRetryPending=false;renderMemoryStatus()};
  $('assistant-form').onsubmit=e=>{e.preventDefault();submitAssistant('discussion')};$('assistant-draft').onclick=()=>submitAssistant('draft');$('assistant-review').onclick=()=>submitAssistant('review');
  $('assistant-input').onkeydown=e=>{if((e.ctrlKey||e.metaKey)&&e.key==='Enter'){e.preventDefault();submitAssistant('discussion')}};
+ $('memory-search-form').onsubmit=async e=>{e.preventDefault();const query=$('memory-query').value.trim(),expected=scopeKey,epoch=historyEpoch,version=++memorySearchVersion;if(!query)return;
+  $('memory-search-status').textContent='正在查找以前的交流…';
+  try{const result=await(await api('/api/memory-search',{query,...scopeArgs()})).json();if(expected!==scopeKey||epoch!==historyEpoch||version!==memorySearchVersion)return;
+   const matches=result.results||result.sources||[],fragment=document.createDocumentFragment();
+   for(const item of matches){const record=item.source||item,sourceId=record.sourceId||item.sourceId||record.id,text=record.text||item.text||'';const card=document.createElement('article');card.className='memory-result';card.dataset.sourceId=sourceId||'';
+    const at=record.occurredAt||record.createdAt||record.at;card.append(paragraph(text),paragraph(`${record.kind||record.type||'来源'}${at?` · ${new Date(at).toLocaleString('zh-CN')}`:''}`,'muted'));
+    const actions=document.createElement('div');actions.className='note-actions';actions.append(button('围绕这件事继续',()=>{if(expected!==scopeKey||epoch!==historyEpoch)return;selectedDiscussion=sourceId?.startsWith('private:')?sourceId.slice(8):null;$('assistant-input').value=`结合之前这件事「${text}」，`; $('assistant-input').focus()}),button('更正或忘记',()=>{if(expected!==scopeKey||epoch!==historyEpoch)return;$('assistant-input').value=`关于这条背景「${text}」，`; $('assistant-input').focus();$('assistant-status').textContent='直接补充更正后的内容，或说明不再使用这一条。'}));card.append(actions);fragment.append(card);
+   }
+   $('memory-results').replaceChildren(fragment);memoryResultsRevision=state.companion?.revision;$('memory-search-status').textContent=matches.length?`找到 ${matches.length} 条相关来源；可以直接继续讨论或更正。`:'没有找到相关来源。可以换个描述，或直接告诉助手缺失的背景。';
+  }catch(err){if(expected===scopeKey&&epoch===historyEpoch&&version===memorySearchVersion)$('memory-search-status').textContent=err.message}
+ };
  $('goal-input').oninput=()=>{goalDirty=true};$('goal-form').onsubmit=async e=>{e.preventDefault();const text=$('goal-input').value,epoch=historyEpoch;const result=await companionAction('/api/goal',{text});if(result&&epoch===historyEpoch&&$('goal-input').value===text){goalDirty=false;$('goal-input').value=result.companion?.goal?.text||''}};
  $('note-cancel').onclick=resetNoteForm;$('note-form').onsubmit=async e=>{e.preventDefault();const values={id:$('note-id').value||undefined,text:$('note-text').value,use:$('note-use').value},epoch=historyEpoch;if(!values.text.trim()){companionError('先写一点想记住的内容。');return}const result=await companionAction('/api/note',values);if(result&&epoch===historyEpoch&&$('note-id').value===(values.id||'')&&$('note-text').value===values.text&&$('note-use').value===values.use)resetNoteForm()};
  $('feedback-cancel').onclick=()=>{$('feedback-form').hidden=true};$('feedback-form').onsubmit=async e=>{e.preventDefault();const requestId=$('feedback-request-id').value,text=$('feedback-text').value,epoch=historyEpoch;if(!text.trim()){companionError('写一点具体感受，方便下次继续讨论。');return}const result=await companionAction('/api/feedback',{requestId,text});if(result&&epoch===historyEpoch&&$('feedback-request-id').value===requestId&&$('feedback-text').value===text){$('feedback-form').reset();$('feedback-form').hidden=true;$('assistant-status').textContent='反馈已记下。你也可以继续讨论想怎样调整。'}};
@@ -185,6 +250,7 @@ function initializeCompanion(){
  $('assistant-context-close').onclick=()=>{$('assistant-context-dialog').close();assistantContextVersion++};
 }
 initializeCompanion();
+api('/api/methods').then(response=>response.json()).then(result=>{helpingMethods=new Map((result.methods||[]).map(method=>[method.id,method]));assistantThreadKey='';if(state)renderCompanion()}).catch(()=>{});
 async function action(path,args){localError='';try{render(await(await api(path,args)).json());return true}catch(e){error(e.message);return false}}
 $('contact-form').onsubmit=e=>{e.preventDefault();action('/api/bind',{uin:$('qq-number').value.trim()})};
 $('generate').onclick=async()=>{if(await saveOptions())await action('/api/suggest',{})};
@@ -280,6 +346,5 @@ $('settings-form').onsubmit=async e=>{
   settingsModelVersion++;f.apiKey.value='';$('settings').close();render(result);refreshQuickModels();
  }catch(err){settingsError(err.message)}
 };
-$('context-button').onclick=async()=>{try{await saveOptions();const data=await(await api('/api/context')).json();$('context-summary').textContent=`本机 ${data.total} 条，本次选取 ${data.selected} 条、${data.selectedCharacters} 字符。最近最多 60 条，相关旧记录最多 12 条；手动选中的最多 8 条优先保留，总上限 18000 字符。当前没有长期摘要或向量检索；选中图片 ${data.selectedImages?.length||0} 张，图片授权${data.imagesAllowed?'已允许':'未允许'}。`;
- const list=document.createDocumentFragment();for(const m of data.conversation){const p=document.createElement('p');p.textContent=`${m.speaker} · ${m.at}\n${m.text}`;list.append(p)}$('context-records').replaceChildren(list);$('context-dialog').showModal()}catch(e){error(`上下文预览：${e.message}`)}};$('context-close').onclick=()=>$('context-dialog').close();
+$('context-button').onclick=()=> $('assistant-context-button').click();$('context-close').onclick=()=>$('context-dialog').close();
 async function poll(){if(polling)return;polling=true;try{render(await(await api('/api/state')).json())}catch(e){error(e.message)}finally{polling=false}}poll();setInterval(poll,1000);
