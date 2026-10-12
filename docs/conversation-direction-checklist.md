@@ -7,4 +7,4 @@
 - [x] Feedback continuation uses the exact target and one canonical source, preserves unrelated unsent input, counts real calls and is idempotent.
 - [x] Compact optional topic UI, narrow viewport, polling/contact changes and native reload preserve inputs and manual-send workflow.
 - [x] Existing functional/browser/replay checks and new multi-turn semantic cases support the specific claims; synthetic/live/native/outcome evidence remains separate.
-- [ ] Latest-main integration and actual helper refresh preserve messages/goal/draft, load the new contract and execute a bounded successful assistance path.
+- [x] Latest-main integration and actual helper refresh preserve messages/goal/draft, load the new contract and execute a bounded successful assistance path.

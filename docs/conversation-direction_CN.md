@@ -48,6 +48,6 @@ flowchart TD
 
 ## 本次验收边界
 
-验收包括 Store 的版本/来源/生命周期、真实 Controller 的多轮交接及反馈幂等、实际浏览器的自然操作与窄窗口，以及合成对话上的真实模型回放。具体结果、原始失败和实际桌面升级单独见 conversation-direction-evidence.json；浏览器与合成模型不冒充真实关系效果。
+验收包括 Store 的版本/来源/生命周期、真实 Controller 的多轮交接及反馈幂等、实际浏览器的自然操作与窄窗口，以及合成对话上的真实模型回放。具体结果、原始失败和实际桌面升级单独见 [验收证据](conversation-direction-evidence.json)；浏览器与合成模型不冒充真实关系效果。
 
 经典对话结构研究将话语序列、意图结构与注意焦点分别讨论，本实现借鉴其分工组织当下话题，没有复刻理论算法，也不据此保证恋爱效果：[Attention, Intentions, and the Structure of Discourse](https://dash.harvard.edu/entities/publication/73120378-7f26-6bd4-e053-0100007fdf3b)。

@@ -16,3 +16,5 @@ The reported failure was traced to the first causal handoff: a private correctio
 ## Evidence limits
 
 Ordinary red-to-green functional tests and actual isolated browser execution verify contracts. Real model calls use synthetic material and record loaded source hashes; first failures remain recorded. Independent semantic review supports only those replayed cases. Existing native helper refresh is recorded separately and never implies romantic effectiveness or QQ message sending. Credentials and actual chat records remain outside Git.
+
+Native verification completed from source commit `0b7075d`: original selected-chat records, scope, goal and independent unsaved fields survived service-only refresh and its successful two-request automatic assistance task. QQ was not restarted and no message was sent. Derived historical memory still has an asynchronous backlog; that is not reported as fully consolidated.

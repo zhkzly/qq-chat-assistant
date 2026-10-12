@@ -1,6 +1,6 @@
 {
   "date": "2026-10-12",
-  "phase": "candidate_verified_desktop_integration_pending",
+  "phase": "integrated_and_running",
   "baseline": "0d2423c",
   "branch": "feature/conversation-direction-20261012",
   "goal": "Help the user develop a mutually desired romantic relationship with the selected online acquaintance; preserve and revise local conversation purpose rather than enforce a fixed path.",
@@ -188,6 +188,123 @@
     ]
   },
   "desktop": {
-    "status": "pending"
-  }
+    "timestamp": "2026-10-12T11:43:53.326088+00:00",
+    "evidence": "actual_existing_QQ_and_native_helper_service_refresh",
+    "qqRestarted": false,
+    "qqMessagesSentByTest": 0,
+    "ready": true,
+    "rawCount": 749,
+    "originalRawMessagesPreserved": true,
+    "scopePreserved": true,
+    "goalPreserved": true,
+    "unsavedInputsPreserved": {
+      "draftHash": true,
+      "privateInputHash": true,
+      "goalDraftHash": true,
+      "noteDraftHash": true,
+      "feedbackDraftHash": true,
+      "feedbackTargetHash": true,
+      "draftArtifactRefsHash": true,
+      "experienceReviewHash": true,
+      "experienceGuidanceHash": true
+    },
+    "health": {
+      "version": "conversation-direction-2026-10-12.1",
+      "unifiedContext": true,
+      "persistentMemory": true,
+      "relationshipLearning": true,
+      "requestAccounting": true,
+      "topicContinuity": true,
+      "promptVersion": "relationship-context-2026-10-12.9",
+      "memoryVersion": "relationship-memory-2026-10-12.6",
+      "authenticated": true,
+      "selected": true,
+      "memoryConfigured": true,
+      "qqMessagesSentByAssistant": 0
+    },
+    "layout": {
+      "pageOverflow": {
+        "horizontal": false,
+        "vertical": false,
+        "scrollWidth": 683,
+        "scrollHeight": 772,
+        "clientWidth": 683,
+        "clientHeight": 772
+      },
+      "primaryPanelVisible": true,
+      "secondaryPanelVisible": false,
+      "draftOriginPresent": false,
+      "recoveryPending": false
+    },
+    "realNativeAssistance": {
+      "timestamp": "2026-10-12T11:43:27.841636+00:00",
+      "evidence": "actual_existing_native_QQ_helper_with_selected_conversation_and_existing_model_consent",
+      "sourceCommit": "0b7075d",
+      "helperVersion": {
+        "version": "conversation-direction-2026-10-12.1",
+        "unifiedContext": true,
+        "persistentMemory": true,
+        "relationshipLearning": true,
+        "requestAccounting": true,
+        "topicContinuity": true,
+        "promptVersion": "relationship-context-2026-10-12.9",
+        "memoryVersion": "relationship-memory-2026-10-12.6",
+        "authenticated": true,
+        "selected": true,
+        "memoryConfigured": true,
+        "qqMessagesSentByAssistant": 0
+      },
+      "automaticTask": {
+        "origin": "automatic",
+        "status": "complete",
+        "attempts": 2,
+        "limit": 4,
+        "createdAt": "2026-10-12T11:42:19.868Z",
+        "updatedAt": "2026-10-12T11:42:42.456Z",
+        "requests": [
+          {
+            "purpose": "reply",
+            "inputBytes": 58570,
+            "httpStatus": 200,
+            "errorCode": null,
+            "elapsedMs": 18025
+          },
+          {
+            "purpose": "draft",
+            "inputBytes": 51788,
+            "httpStatus": 200,
+            "errorCode": null,
+            "elapsedMs": 4072
+          }
+        ]
+      },
+      "latestRun": {
+        "purpose": "draft",
+        "status": "complete",
+        "createdAt": "2026-10-12T11:42:20.169Z",
+        "manifestPromptVersion": "relationship-context-2026-10-12.9",
+        "payloadPromptVersion": "relationship-context-2026-10-12.9",
+        "requests": 2,
+        "topicReceiptStatus": null
+      },
+      "suggestionsAvailable": 1,
+      "assistantBusy": false,
+      "assistantErrorPresent": false,
+      "topicActive": false,
+      "memoryPending": 622,
+      "memoryBusy": true,
+      "memoryErrorCodes": [],
+      "qqMessagesSentByVerification": 0,
+      "realChatArchived": false,
+      "romanticOutcomeVerified": false
+    },
+    "memoryMaintenance": {
+      "pending": 590,
+      "busy": true,
+      "errorCodes": [],
+      "boundary": "History is immediately available as original records; derived memory maintenance remains asynchronous and not all historical sources have been consolidated."
+    },
+    "versionBoundary": "Native helper was refreshed from integrated source commit 0b7075d. This follow-up commit changes release documentation only."
+  },
+  "sourceCommit": "0b7075d"
 }
