@@ -45,6 +45,7 @@ class Controller extends EventEmitter {
   }
   async bind(uin) {
     this.invalidateAssistant();
+    this.memoryFailures=0;this.memoryRetryAfter=0;
     const epoch = ++this.epoch;
     this.selectedImages=[];this.replyMessageIds=[];this.scope = null; this.advice = null; this.error = ''; this.busy = false;
     this.abort?.abort(); clearTimeout(this.timer); this.changed();
@@ -228,8 +229,8 @@ class Controller extends EventEmitter {
     try {
       const result=await runMemoryMaintenance({store:this.store,scope,settings,model:this.memoryModel,signal:abort.signal,maxBatches,
         shouldContinue:active,onProgress:()=>{if(active())this.changed();}});
+      if(result.batches){this.memoryFailures=0;this.memoryRetryAfter=0;}
       if(['error','rejected','blocked'].includes(result.status)){this.memoryFailures++;this.memoryRetryAfter=Date.now()+Math.min(300000,60000*this.memoryFailures);}
-      else if(result.batches){this.memoryFailures=0;this.memoryRetryAfter=0;}
       return result;
     } finally {
       if(this.memoryAbort===abort){this.memoryBusy=false;this.memoryAbort=null;this.changed();if(this.store.memoryStatus(scope).pending)this.scheduleMemory(2500);}

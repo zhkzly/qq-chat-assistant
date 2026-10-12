@@ -18,4 +18,23 @@ async function postModel(url,request,fetchImpl=fetch,wait=pause) {
     }
   }
 }
-module.exports={postModel};
+async function modelFailure(response,label='Model') {
+  let data;
+  try {
+    if(response.body?.getReader){
+      const reader=response.body.getReader();let text='',length=0;
+      for(;;){const part=await reader.read();if(part.done)break;length+=part.value.byteLength;if(length>8192){await reader.cancel();break;}text+=new TextDecoder().decode(part.value);}
+      data=JSON.parse(text);
+    } else if(response.json)data=await response.json();
+  }catch{await response.body?.cancel?.().catch(()=>{});}
+  const detail=String(data?.error?.message||data?.message||(typeof data?.error==='string'?data.error:''));
+  const category=/TLS|handshake|EOF|socket|ECONN|connection|network|fetch failed/i.test(detail)?'connection':
+    /quota|rate.?limit|too many|capacity/i.test(detail)?'capacity':
+    /context.{0,40}(?:length|limit)|token.{0,30}limit|too long/i.test(detail)?'context':
+    /unauthorized|authentication|invalid.{0,15}key/i.test(detail)?'authentication':'provider';
+  // Preserve actionable status/category without copying a provider echo of
+  // private prompts, credentials or generated text into logs and diagnostics.
+  const error=new Error(`${label} HTTP ${response.status} (${category})`);
+  error.code=`model_http_${response.status}_${category}`;error.status=response.status;return error;
+}
+module.exports={postModel,modelFailure};

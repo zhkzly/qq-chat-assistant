@@ -1,5 +1,10 @@
 'use strict';
 const test=require('node:test');const assert=require('node:assert/strict');const {postModel}=require('../src/model-http.cjs');
+test('failure diagnostics retain status and reported category without private provider echoes',async()=>{
+  const {modelFailure}=require('../src/model-http.cjs');
+  const error=await modelFailure({status:500,json:async()=>({error:{message:'TLS handshake EOF: PRIVATE_PROMPT_CONTENT'}})});
+  assert.equal(error.code,'model_http_500_connection');assert.equal(error.status,500);assert.equal(error.message.includes('PRIVATE_PROMPT_CONTENT'),false);
+});
 test('transient inference errors retry once with identical scoped payload, then stop',async()=>{
   const calls=[];let released=0;
   const request={method:'POST',body:'synthetic-scoped-context'};

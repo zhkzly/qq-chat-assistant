@@ -240,6 +240,22 @@ test('incoming burst resumes the same explicit question with new evidence withou
   t.mock.timers.reset();
 });
 
+test('successful memory batches reset consecutive failure count even when the next batch fails',async t=>{
+  const app=setup(async()=>({kind:'discussion',text:'ok'}));t.after(()=>app.close());await app.bind();
+  for(let n=0;n<80;n++)app.store.appendTurn(scope,{role:'user',kind:'discussion',text:`合成来源 ${n}`});
+  let calls=0;app.controller.memoryModel=async(_settings,batch)=>{
+    calls++;if(calls%2===0)throw new Error('synthetic-transient-500');
+    return {reviewedSourceIds:batch.reviewedSourceIds,items:[],episodes:[],retire:[]};
+  };
+  const first=await app.controller.maintainMemory({maxBatches:2});
+  assert.equal(first.batches,1);assert.equal(app.controller.memoryFailures,1);
+  const second=await app.controller.maintainMemory({maxBatches:2});
+  assert.equal(second.batches,1);assert.equal(app.controller.memoryFailures,1,'intervening progress breaks a consecutive-failure streak');
+  assert.ok(second.processed>first.processed);
+  await app.controller.maintainMemory({maxBatches:2});assert.equal(app.controller.memoryFailures,0);
+  assert.equal(app.store.memoryStatus(scope).pending,0);
+});
+
 test('revoked actual evidence is absent from future private context and invalidates its derived state', async t => {
   const contexts = [];
   const app = setup(async (_, context) => {
