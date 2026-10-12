@@ -1,6 +1,6 @@
 {
   "date": "2026-10-12",
-  "phase": "candidate_verified_native_pending",
+  "phase": "integrated_and_running",
   "baseline": "9b5641c",
   "branch": "feature/context-overflow-20261012",
   "promptVersion": "relationship-context-2026-10-12.10",
@@ -89,6 +89,97 @@
     "latestTwoQQDirectionGroupsRemainUnboundedByCountOrTime": true
   },
   "desktop": {
-    "status": "pending"
-  }
+    "timestamp": "2026-10-12T12:13:17.016737+00:00",
+    "evidence": "actual_existing_QQ_and_native_helper_service_refresh",
+    "qqRestarted": false,
+    "qqMessagesSentByTest": 0,
+    "ready": true,
+    "rawCount": 749,
+    "originalRawMessagesPreserved": true,
+    "scopePreserved": true,
+    "goalPreserved": true,
+    "health": {
+      "version": "conversation-direction-2026-10-12.1",
+      "unifiedContext": true,
+      "persistentMemory": true,
+      "relationshipLearning": true,
+      "requestAccounting": true,
+      "topicContinuity": true,
+      "promptVersion": "relationship-context-2026-10-12.10",
+      "memoryVersion": "relationship-memory-2026-10-12.6",
+      "authenticated": true,
+      "selected": true,
+      "memoryConfigured": true,
+      "qqMessagesSentByAssistant": 0
+    },
+    "preAndPostInspectionHashEquality": {
+      "draftHash": true,
+      "privateInputHash": false,
+      "goalDraftHash": true,
+      "noteDraftHash": true,
+      "feedbackDraftHash": true,
+      "feedbackTargetHash": true,
+      "draftArtifactRefsHash": true,
+      "experienceReviewHash": true,
+      "experienceGuidanceHash": true
+    },
+    "restorationCapsuleExactInputEquality": true,
+    "draftsPreserved": true,
+    "privateInputMeasurementBoundary": "Private composer hashes differ between the separate before/after observations. The recovery function checked exact equality to its own captured input at restoration and passed. The cause of the interval change was not established; do not claim the composer text was unchanged over the whole observation interval.",
+    "nativeAssistance": {
+      "timestamp": "2026-10-12T12:13:42.875616+00:00",
+      "sourceCommit": "13b01ef",
+      "selectedModel": "gpt-6-astra",
+      "automaticTask": {
+        "status": "complete",
+        "attempts": 2,
+        "limit": 4,
+        "createdAt": "2026-10-12T12:12:46.815Z",
+        "updatedAt": "2026-10-12T12:13:02.897Z",
+        "errorCode": null
+      },
+      "requests": [
+        {
+          "purpose": "reply",
+          "inputBytes": 58538,
+          "httpStatus": 200,
+          "errorCode": null,
+          "elapsedMs": 11396
+        },
+        {
+          "purpose": "draft",
+          "inputBytes": 51913,
+          "httpStatus": 200,
+          "errorCode": null,
+          "elapsedMs": 4332
+        }
+      ],
+      "latestRun": {
+        "status": "complete",
+        "purpose": "draft",
+        "promptVersion": "relationship-context-2026-10-12.10",
+        "inputBytes": 30327,
+        "serializedRequestBytes": 51913
+      },
+      "assistantBusy": false,
+      "assistantErrorPresent": false,
+      "memoryPending": 18,
+      "qqMessagesSentByVerification": 0,
+      "actualRomanticOutcomeVerified": false
+    },
+    "layout": {
+      "pageOverflow": {
+        "horizontal": false,
+        "vertical": false,
+        "scrollWidth": 482,
+        "scrollHeight": 891,
+        "clientWidth": 482,
+        "clientHeight": 891
+      },
+      "primaryPanelVisible": true,
+      "recoveryPending": false
+    },
+    "versionBoundary": "Native service uses source commit 13b01ef; the follow-up commit updates documentation only."
+  },
+  "sourceCommit": "13b01ef"
 }
