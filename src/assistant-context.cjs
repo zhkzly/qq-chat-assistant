@@ -3,7 +3,7 @@ const crypto = require('node:crypto');
 const { redact } = require('./model.cjs');
 const { prepareAssistantRequest, parseDraftGuidance } = require('./assistant-model.cjs');
 const { selectMethods, runtimeCard } = require('./help-methods.cjs');
-const PROMPT_VERSION = 'relationship-context-2026-10-12.9';
+const PROMPT_VERSION = 'relationship-context-2026-10-12.10';
 const METHODS = {
   discussion: '围绕用户真正希望的恋爱发展选择当前帮助，可接续、邀请、表达好感或讨论。意思明确就直接帮助，只问会改变建议的必要问题。允许暂缓或不用助手，不强制每次制定目的。',
   review: '按实际覆盖回顾相处、共同经历、用户体验与双方明确的浪漫方向，分别说普通友好、活动意愿和恋爱意图。兼顾反证与未知，不计算好感分，不把回复归因为某条建议。',
@@ -15,6 +15,17 @@ const digest = value => crypto.createHash('sha256').update(JSON.stringify(value)
 const bytes = value => Buffer.byteLength(JSON.stringify(value), 'utf8');
 const sanitize = value => JSON.parse(JSON.stringify(value, (_key, item) => typeof item === 'string' ? redact(item) : item));
 const pick = (value, fields) => Object.fromEntries(fields.filter(key => value?.[key] !== undefined).map(key => [key, value[key]]));
+function modelTopic(record) {
+  const projected = sanitize(record);
+  // Revisions have already been checked against full sources. Keep source IDs
+  // and field authority in the model view; the manifest owns the exact hashes.
+  for (const key of ['sourceRevisions','purposeSourceRevisions','observationSourceRevisions','lifecycleSourceRevisions']) delete projected[key];
+  for (const key of ['purposeBindings','observationBindings']) if (projected[key]) projected[key] = Object.fromEntries(
+    Object.entries(projected[key]).map(([field, binding]) => {
+      const copy = { ...binding }; delete copy.sourceRevisions; return [field, copy];
+    }));
+  return projected;
+}
 function relevantTo(text, item) {
   const ignored = new Set(['今天','最近','什么','怎么','这个','那个','我们','你们','她的','我的','帮我','一下','觉得','想要','可以','现在','已经']);
   const terms = [...new Set([...(String(text).toLowerCase().match(/[a-z0-9_]{3,}/g) || []),
@@ -162,7 +173,7 @@ function buildContext(options) {
     generationOrigin,
     currentObservationSourceId: generationOrigin === 'qq_observation' ? currentObservationSourceId || (validQQ.at(-1) && `qq:${validQQ.at(-1).messageId}`) : null,
     topicContext: { version: topicView.version || 0, activeId: groundedTopic?.id || null,
-      active: groundedTopic ? sanitize(pick(groundedTopic, ['id','version','lifecycle','objective','direction','constraints','stage','progress','unknowns','interpretationStatus','purposeBindings','observationBindings','observationAuthorities','purposeSourceIds','purposeSourceRevisions','observationSourceIds','observationSourceRevisions','lifecycleSourceIds','lifecycleSourceRevisions','sourceIds','sourceRevisions'])) : null,
+      active: groundedTopic ? modelTopic(pick(groundedTopic, ['id','version','lifecycle','objective','direction','constraints','stage','progress','unknowns','interpretationStatus','purposeBindings','observationBindings','observationAuthorities','purposeSourceIds','observationSourceIds','lifecycleSourceIds','sourceIds'])) : null,
       retained: [], authority: 'private_direction_not_outbound_authorization' },
     workingState: state, coverage, selectedMaterialIds: materialIds.map(id => `note:${id}`),
     allowedMaterialIds: [],
@@ -208,12 +219,19 @@ function buildContext(options) {
     target.pop(); selected.clear(); for (const [id, source] of before) selected.set(id, source); refresh(); return false;
   };
   const evaluationTargets = [...feedbackTargets, ...(experienceContext?.evaluationTargets || [])];
-  if (evaluationTargets.length) {
-    payload.feedbackTargets = [];
-    const seen = new Set();
-    for (const item of evaluationTargets.slice(0, 8)) {
+  const requiredFeedbackSources = new Set(feedbackTargets.map(item => item.feedback?.sourceId).filter(Boolean));
+  if (intentSource.type === 'feedback') requiredFeedbackSources.add(intentSource.id);
+  for (const id of sourceTurnIds) {
+    const turn = companion.turns.find(item => item.id === id);
+    if (turn?.feedbackId) requiredFeedbackSources.add(companion.feedback?.find(item => item.id === turn.feedbackId)?.sourceId || `private:feedback-${turn.feedbackId}`);
+  }
+  if (evaluationTargets.length) payload.feedbackTargets = [];
+  const seenFeedback = new Set();
+  const includeEvaluationTargets = (items, required = false) => {
+    for (const item of items) {
+      if (seenFeedback.size >= 8) break;
       const id = item.feedback?.sourceId;
-      if (!id || seen.has(id) || !byId.has(id)) continue;
+      if (!id || seenFeedback.has(id) || !byId.has(id)) continue;
       const record = { ...item, sourceIds: [...new Set([id, ...(item.sourceIds || [])])] };
       const target = pick(item.target, ['artifactRef','body','kind','messageId','availability','authority','deliveredMethodRefs','reportedUsedMethodRefs','generationStages']);
       if (item.missing || ['purged','deleted','redacted','unavailable'].includes(target.availability)) delete target.body;
@@ -227,12 +245,16 @@ function buildContext(options) {
       else target.authority = item.target?.kind === 'actual_message' ? 'actual_qq_evaluation_target' : 'generated_evaluation_target_not_factual_evidence';
       const projected = { ...record, feedback: pick(item.feedback, ['id','sourceId','kind','targetRef']), target,
         correctionContext: (item.correctionContext || []).filter(item => byId.has(item.sourceId)).map(item => ({ sourceId: item.sourceId })) };
-      if (includeGrounded(projected, payload.feedbackTargets, ['feedback','target','missing','sourceIds','correctionContext'], id === intentSource.id)) seen.add(id);
-      else includeGrounded({ feedback: projected.feedback, target: pick(target, ['artifactRef','kind','authority']), missing: true,
+      if (includeGrounded(projected, payload.feedbackTargets, ['feedback','target','missing','sourceIds','correctionContext'], required)) {
+        seenFeedback.add(id);
+        if (required) for (const sourceId of record.sourceIds) essentialIds.add(sourceId);
+      } else if (required) throw new Error('所选反馈的完整对象或必要证据超过上下文预算或已经变化；输入已保留，内容未被截断');
+      else if (includeGrounded({ feedback: projected.feedback, target: pick(target, ['artifactRef','kind','authority']), missing: true,
         reason: '完整评价对象或其必要证据未能放入本次上下文，不能推断反馈针对哪句话。', sourceIds: [id] }, payload.feedbackTargets,
-        ['feedback','target','missing','reason','sourceIds']);
+        ['feedback','target','missing','reason','sourceIds'])) seenFeedback.add(id);
     }
-  }
+  };
+  includeEvaluationTargets(evaluationTargets.filter(item => requiredFeedbackSources.has(item.feedback?.sourceId)), true);
   // Current private meaning and the correction/acknowledgment exchange precede
   // optional summaries, methods and unrelated history. Preserve whole turns.
   const groups = []; let activeGroup = null;
@@ -264,13 +286,17 @@ function buildContext(options) {
       if (t.role === 'user') essentialIds.add(`private:${t.id}`);
     }
   }
+  // Incidental evaluations cannot consume the room reserved for the current
+  // meaning and its complete latest acknowledgment. Selected targets stay exact.
+  includeEvaluationTargets(evaluationTargets.filter(item => !requiredFeedbackSources.has(item.feedback?.sourceId)));
   for (const n of companion.notes.filter(n => n.kind === 'preference' && n.use !== 'disabled').slice(-12).reverse()) {
     const id = `note:${n.id}`;
     includeGrounded({ sourceId: id, text: redact(n.text), sourceIds: [id] }, payload.preferences, ['sourceId','text','sourceIds']);
   }
   if (sameScopeIfPresent(topicView, scope)) for (const topic of (topicView.retained || topicView.items || []).filter(item => item.lifecycle !== 'active').slice(-3).reverse()) {
-    includeGrounded({ ...topic, authority: 'closed_topic_navigation_not_active_control' }, payload.topicContext.retained,
-      ['id','version','lifecycle','objective','direction','constraints','stage','progress','unknowns','interpretationStatus','observationAuthorities','sourceIds','sourceRevisions','authority']);
+    const included = includeGrounded({ ...topic, authority: 'closed_topic_navigation_not_active_control' }, payload.topicContext.retained,
+      ['id','version','lifecycle','objective','direction','constraints','stage','progress','unknowns','interpretationStatus','observationAuthorities','sourceIds','authority']);
+    if (included) payload.topicContext.retained[payload.topicContext.retained.length - 1] = modelTopic(payload.topicContext.retained.at(-1));
   }
   if (relationshipContext && sameScopeIfPresent(relationshipContext, scope)) {
     payload.relationshipContext = { version: relationshipContext.version, asOf: relationshipContext.asOf,

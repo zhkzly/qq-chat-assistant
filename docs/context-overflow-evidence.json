@@ -1,0 +1,94 @@
+{
+  "date": "2026-10-12",
+  "phase": "candidate_verified_native_pending",
+  "baseline": "9b5641c",
+  "branch": "feature/context-overflow-20261012",
+  "promptVersion": "relationship-context-2026-10-12.10",
+  "goal": "Preserve useful private discussion and current relationship intent under bounded context, while retaining source-based original history and manual QQ sending.",
+  "observedFailure": {
+    "evidence": "user_screenshot_and_authenticated_native_task_metadata",
+    "phase": "context_assembly_before_model_request",
+    "actualHttpAttempts": 0,
+    "error": "\u6700\u8fd1\u5b8c\u6574\u79c1\u4e0b\u8ba8\u8bba\u4e0e\u5f53\u524d\u5fc5\u8981\u5185\u5bb9\u8d85\u8fc7\u4e0a\u4e0b\u6587\u9884\u7b97\uff0c\u8bf7\u5206\u6bb5\u5904\u7406\uff1b\u6ca1\u6709\u9759\u9ed8\u622a\u65ad",
+    "exactReplay": "unavailable_after_live_private_records_changed",
+    "boundary": "The latest private database copy did not reproduce the earlier request; do not claim exact incident replay."
+  },
+  "implementation": [
+    "nonselected old evaluation targets follow complete recent private discussion under remaining budget",
+    "canonical and selected feedback targets remain exact or fail explicitly when genuinely infeasible",
+    "topic model view excludes repeated revision maps; source records and program-side CAS remain unchanged"
+  ],
+  "syntheticRegression": {
+    "newCases": 4,
+    "redBeforeGreen": true,
+    "fixture": "legal persisted consumer shapes, including four approximately 4945-byte old feedback objects and a legal long latest assistant response",
+    "exactIncidentReplay": false,
+    "independentFocusedChecks": 52,
+    "result": "passed"
+  },
+  "functional": {
+    "passed": 288,
+    "failed": 0,
+    "log": "/tmp/qq-overflow-functional-final.log",
+    "syntax": "passed",
+    "diffCheck": "passed"
+  },
+  "browser": {
+    "checks": 28,
+    "directionChecks": 6,
+    "assistantChecks": 22,
+    "nativeQQIntegration": false,
+    "realModelCalls": 0,
+    "reports": [
+      {
+        "path": "/tmp/qq-direction-evidence-pkOLn4/report.json",
+        "sha256": "626784759c4eb546cdca0e2e4daa5c3e16a685c41cfc4c193c789cbbf071f9b6"
+      },
+      {
+        "path": "/tmp/qq-assistant-context-evidence-t0hrmh/report.json",
+        "sha256": "6fff2f6d0895729c936def5afe64035bf00ef1aa83779cb020c7946eab2565e7"
+      }
+    ]
+  },
+  "goalReplay": {
+    "directionSteps": 7,
+    "legacyCases": 9,
+    "legacyChecks": 27,
+    "realModelCalls": 0,
+    "reports": [
+      {
+        "path": "/tmp/qq-overflow-direction-replay.json",
+        "sha256": "4344ce78c31053e8d1a53f775f1c998f117c65ab892851ca6be7f38cf1d3d068"
+      },
+      {
+        "path": "/tmp/qq-overflow-legacy-replay.json",
+        "sha256": "7d4174647ea1009e80d8563404ef68a3f893c9473d54a7a8910b3e558a778766"
+      }
+    ]
+  },
+  "settings": {
+    "changed": false,
+    "selectedModelObserved": "gpt-6-astra",
+    "payloadByteBudget": 48000,
+    "completeTextRequestByteBudget": 64000,
+    "recommendedTokenThresholds": "proposed only; not configured or enforced"
+  },
+  "research": {
+    "document": "docs/context-compaction-settings_CN.md",
+    "externalUpload": false,
+    "jevCalls": 0,
+    "automaticSemanticCompactionImplemented": false,
+    "tokenizerVerified": false
+  },
+  "boundaries": {
+    "qqMessagesSent": 0,
+    "realChatArchived": false,
+    "credentialsArchived": false,
+    "romanticOutcomeVerified": false,
+    "requiredContextMayStillBeTooLarge": true,
+    "latestTwoQQDirectionGroupsRemainUnboundedByCountOrTime": true
+  },
+  "desktop": {
+    "status": "pending"
+  }
+}
