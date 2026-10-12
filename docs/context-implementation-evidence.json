@@ -1,0 +1,196 @@
+{
+  "date": "2026-10-12",
+  "baseline": "d45e629",
+  "branch": "feature/relationship-context",
+  "functionalTests": {
+    "passed": 100,
+    "failed": 0,
+    "command": "npm test",
+    "evidence": "source-shaped synthetic fixtures; no real QQ"
+  },
+  "syntaxCheck": {
+    "command": "npm run check",
+    "passed": true
+  },
+  "legacyBrowser": {
+    "passed": 16,
+    "evidence": "synthetic browser; report /tmp/qq-assistant-legacy-evidence-FtMsi3/browser-evidence.json"
+  },
+  "assistantBrowser": {
+    "passed": 10,
+    "evidence": "synthetic browser; /tmp/qq-assistant-context-evidence-qPjo8Y/report.json",
+    "screenshot": "/tmp/qq-assistant-context-evidence-qPjo8Y/assistant-synthetic.png"
+  },
+  "modelCanary": {
+    "model": "gpt-6.1-sol",
+    "passed": 4,
+    "total": 4,
+    "requests": 6,
+    "cases": [
+      {
+        "name": "open_private_discussion",
+        "passed": true
+      },
+      {
+        "name": "mixed_fear_and_explicit_share",
+        "passed": true
+      },
+      {
+        "name": "quoted_exclusion",
+        "passed": true
+      },
+      {
+        "name": "cancelled_plan_review",
+        "passed": true
+      }
+    ],
+    "evidence": "live configured loopback model; synthetic content only; bounded canary before final timestamp and timeout plumbing changes"
+  },
+  "actualQQIntegrationThisChange": false,
+  "deployed": false,
+  "mainMerged": false,
+  "realChatProcessed": false,
+  "mutationChecksRun": false,
+  "limitations": [
+    "No demonstrated relationship outcome",
+    "Mixed-request disclosure selection remains model-dependent",
+    "UTF-8 byte budget is not a verified provider tokenizer/window budget",
+    "Conservative source invalidation removes all derived assistant turns for this contact",
+    "Materials require explicit per-request selection for drafting",
+    "Original raw/private histories persist; full archival/retention policy is not implemented"
+  ],
+  "sourceSnapshot": [
+    {
+      "path": "src/assistant-context.cjs",
+      "sha256": "e74fb836d0f395b5c3f80ae7b1b787a3d00d80092309c002bf5cc1bfb76902fa"
+    },
+    {
+      "path": "src/assistant-model.cjs",
+      "sha256": "4655e74736c3d814b17da23a68093b65eaf581566f8ab53f4b688552efdefc39"
+    },
+    {
+      "path": "src/controller.cjs",
+      "sha256": "fe6bad175ba8ad04ebcbee0e4841b08d624d0ee1b3965e75f835c1135f2dc602"
+    },
+    {
+      "path": "src/media.cjs",
+      "sha256": "ee00a6f7af727634e60cc850a24ce0faab75d4a68f0a037e902e119d20b1178a"
+    },
+    {
+      "path": "src/messages.cjs",
+      "sha256": "5a7654207c8d66878a861bdfd37d003d8cdf08d5f4264f7dcbd7bc32742d5cae"
+    },
+    {
+      "path": "src/model.cjs",
+      "sha256": "9726fdb0469f2cb8a2e29b97bef40bb09f0801932ef61618da59fb94cdbf94ec"
+    },
+    {
+      "path": "src/providers.cjs",
+      "sha256": "01e8ed4f90d6889bf3cf5e25ed9f74c8cd4120e631e6640ec435f43fbf9eaea8"
+    },
+    {
+      "path": "src/server.cjs",
+      "sha256": "4bd195177f1d46a4d3a3d4cb84192b276e4c1d34d28d3c2f86b256e56350bcd9"
+    },
+    {
+      "path": "src/store.cjs",
+      "sha256": "201712ff905a6a2a0eedf8b3713cb6c78e2a850926711c2f508d0299bfe5881f"
+    },
+    {
+      "path": "ui/app.js",
+      "sha256": "a9d781151a161dbc38b4ae2d9f0170ef6d4e02214108bb5c02f7c7cc9fd2f210"
+    },
+    {
+      "path": "ui/index.html",
+      "sha256": "72a4fd376dce261dd62764747d20d4085d67190eaf6b86ffe93cd15e2493524b"
+    },
+    {
+      "path": "ui/style.css",
+      "sha256": "893e893f7ea8d4e6d98161b726cba0523c8f62e67532e8aafa7abdc3d678dd7d"
+    },
+    {
+      "path": "tests/assistant-context.test.cjs",
+      "sha256": "f8c9d6038accb913fe4871a7a729df3b43bc3f2cd66fbd459a6c1fac710713ba"
+    },
+    {
+      "path": "tests/assistant-controller.test.cjs",
+      "sha256": "c268f34a1ce914ee390ab9ad76ec0384f76538b02ff1cae99c14424fdb1034e6"
+    },
+    {
+      "path": "tests/assistant-server.test.cjs",
+      "sha256": "5d73d2aee438e27da5735e04a3d6a5179ee7abb2a16346b10434d1f54a19bd0d"
+    },
+    {
+      "path": "tests/companion-store.test.cjs",
+      "sha256": "d50c6cac228bc861e5b2cf8f85de4bd722eeaed2b4840753298bfc03108335bd"
+    },
+    {
+      "path": "tests/contact.test.cjs",
+      "sha256": "c33afe829e9e09c58a4dfa04231f227f3b56331f1dd460ace0d3b658d4ecdbd0"
+    },
+    {
+      "path": "tests/context-safety.test.cjs",
+      "sha256": "ae1ae012a1c6d19b88c129b99dfc7f8801601c43e58a82d8e26a08467cee5974"
+    },
+    {
+      "path": "tests/controller.test.cjs",
+      "sha256": "581253093b9f2e87ab56a367493f6a996f71221dad14fc9d05c3c6a3aaf6b71c"
+    },
+    {
+      "path": "tests/core.test.cjs",
+      "sha256": "5dd91977670b5ad0aba97f9ab0de9e4bca19fbd4c1976481ed34b8226a5e07ec"
+    },
+    {
+      "path": "tests/draft.test.cjs",
+      "sha256": "4ac9efc497b2c7c87b701222817054729b236624721c6a3be7dc3a5d354ee397"
+    },
+    {
+      "path": "tests/fixtures/native.cjs",
+      "sha256": "01601a18e301d83ad679654793306585d5c6c4f559010b20273c5702d4f8d465"
+    },
+    {
+      "path": "tests/gui-binding.test.cjs",
+      "sha256": "08a1a2281e37875ed7cf8e8f3b7f4c06da25cef578c6dfcd58626475ebabb0c5"
+    },
+    {
+      "path": "tests/history-state.test.cjs",
+      "sha256": "a45ff4cf6d037f863a648975a16ef75a3b5c075b6ea3cd6f6d5408bde875aed4"
+    },
+    {
+      "path": "tests/loader.test.cjs",
+      "sha256": "1a636c54d514b7c17ed22f5ed15a7c35662ac8c4acae95e1bdc21a2735f2e35e"
+    },
+    {
+      "path": "tests/media.test.cjs",
+      "sha256": "b9effea958c4ef36a9bc5d5abb61f5571551ed5e4e0ad44cffe0bf560037b60a"
+    },
+    {
+      "path": "tests/native.test.cjs",
+      "sha256": "e69cf33a99cfd7e485f61550d07da4fbd743f0de728cb7c2c2f4111b5a0f9989"
+    },
+    {
+      "path": "tests/plugin.test.cjs",
+      "sha256": "d56c569a452c8890e5b0ee4266b9073a6f3936250fbedd96ccabc79095cc32c0"
+    },
+    {
+      "path": "tests/providers.test.cjs",
+      "sha256": "35d7d3a21f2c88f0e2eab9c2b1ee5435168afdd08ae5c811907aa12c4001283f"
+    },
+    {
+      "path": "tests/reply-focus.test.cjs",
+      "sha256": "e5659355c959e7a3506b199d78ab145ac2c0921e99188779147b231652ef4258"
+    },
+    {
+      "path": "tests/server.test.cjs",
+      "sha256": "eb1ea13c2b4cf37e09e5ea5b054192d42e1f384f56cde71f0b6934790c54a98a"
+    },
+    {
+      "path": "tests/transport.test.cjs",
+      "sha256": "b70a5fc645537ac5f4110d5e96b0770cc501c8d771d9bb82e6d83aa9634b97d1"
+    },
+    {
+      "path": "tests/vision.test.cjs",
+      "sha256": "4a3c78e534b9b7361572ec85b79f3d49eb7fd4bc4007ccb6ecf63e618a9def73"
+    }
+  ]
+}

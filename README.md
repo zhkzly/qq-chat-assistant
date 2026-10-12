@@ -1,8 +1,10 @@
 # QQ Chat Assistant
 
-A local Ubuntu desktop companion for normal QQ conversations. It reads the selected private chat, loads accessible history, produces editable reply suggestions through the configured model, and supports copying or filling an unsent QQ draft for the human to review and send.
+A local Ubuntu desktop companion for normal QQ conversations. It reads the selected private chat, loads accessible history, and provides a persistent private assistant conversation for thinking through what to do, responding, sharing personal material and reviewing actual interaction. Optional drafts can be copied or filled into an unsent QQ input for the human to review and send.
 
-**Status:** installed personal MVP. The real QQ desktop bridge and history reads have executed successfully. The current chat has user-granted model consent; other account/contact/model/API combinations remain gated, and images require separate consent. Native source-window binding, draft insertion/cleanup and all 739 cached rows have been verified. Fresh live-message-to-suggestion confirmation remains open. 57 behavior, 55 mutation and 13 synthetic browser checks pass. No QQ messages are sent by the assistant.
+**Status:** the relationship-context implementation is verified with source-shaped functional tests and synthetic browser execution. This update has not been deployed into or tested against a live QQ session. Earlier desktop evidence for the existing bridge is recorded in historical verification documents and is not evidence for this new flow. No QQ messages are sent by the assistant.
+
+The context flow keeps account/contact-scoped private turns, an explicit user goal, editable material permissions, one source-backed working state, actual request manifests and local feedback. Drafting gets a restricted input after selecting the intended expression. Interpreting mixed private/shareable language still depends on the model; review the draft before using it. See [context design and limits](docs/context-management_CN.md).
 
 ## Use
 
@@ -15,12 +17,14 @@ The installed QQ binaries were copied into a private reversible runtime; `/opt/Q
 ```sh
 npm test
 npm run test:ui
+npm run test:assistant-ui
 npm run check
 npm run diagnose
-python3 scripts/mutations.py
 ```
 
 Tests use synthetic messages. Browser screenshots are labeled synthetic. Real history and credentials are under ignored, private `data/`; do not share that directory. The documentation archive excludes it.
+
+Mutation checks are optional when useful, not a normal prerequisite. Both browser checks use isolated temporary Chrome profiles; their results do not prove native integration or relationship outcomes.
 
 ## Architecture
 

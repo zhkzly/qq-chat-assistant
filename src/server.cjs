@@ -43,6 +43,7 @@ function createServer({ controller, token, uiDir, saveSettings, fillDraft, inspe
         return json(response,200,await inspectDraft({scope:controller.scope}));
       }
       if (request.method === 'GET' && url.pathname === '/api/state') return json(response, 200, controller.snapshot());
+      if (request.method === 'GET' && url.pathname === '/api/assistant-context') return json(response, 200, controller.assistantContext());
       if (request.method === 'GET' && url.pathname === '/api/model-profiles') return json(response, 200, publicProfiles(controller.settings));
       if(request.method==='GET' && url.pathname==='/api/media') {
         if(!controller.scope || url.searchParams.get('accountUid')!==controller.scope.accountUid || url.searchParams.get('peerUid')!==controller.scope.peerUid)throw new Error('会话已改变，请重新查看图片');
@@ -71,7 +72,16 @@ function createServer({ controller, token, uiDir, saveSettings, fillDraft, inspe
       }
       if (request.method !== 'POST') return json(response, 404, { error: 'Unknown read-only assistant route' });
       const args = await body(request);
+      if (['/api/assistant', '/api/goal', '/api/note', '/api/note-delete', '/api/turn-delete', '/api/feedback'].includes(url.pathname) &&
+          (!controller.scope || args.accountUid !== controller.scope.accountUid || args.peerUid !== controller.scope.peerUid))
+        throw new Error('会话已改变，请回到当前联系人后重试');
       switch (url.pathname) {
+        case '/api/assistant': await controller.assist(args); break;
+        case '/api/goal': controller.setGoal(args.text); break;
+        case '/api/note': controller.saveNote({ id: args.id, text: args.text, use: args.use }); break;
+        case '/api/note-delete': controller.deleteNote(args.id); break;
+        case '/api/turn-delete': controller.deleteTurn(args.id); break;
+        case '/api/feedback': controller.addFeedback({ requestId: args.requestId, text: args.text, kind: args.kind }); break;
         case '/api/models': return json(response, 200, await discoverModels(controller.settings, args, modelFetch));
         case '/api/model-selection': {
           if (!saveSettings) throw new Error('Settings unavailable');

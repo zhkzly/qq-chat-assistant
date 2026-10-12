@@ -5,15 +5,16 @@ if(suppliedToken)sessionStorage.setItem('qq-assistant-token',suppliedToken);
 const token=suppliedToken||sessionStorage.getItem('qq-assistant-token')||'';
 history.replaceState(null,'',location.pathname);
 let state=null,scopeKey='',lastAdvice='',polling=false,historyKey='',historyMessages=[],visibleCount=100,historyVersion='',loadingHistory=false,historyEpoch=0,imageSelection=[],imageBlobs=new Map(),localError='',consentKey='',replySelection=[];
+let assistantPending=false,assistantLocalError='',assistantThreadKey='',assistantNotesKey='',assistantStateKey='',goalVersion='',goalDirty=false,assistantContextVersion=0,draftMaterialIds=new Set(),draftOrigin=null;
 async function api(path,args) {
  const response=await fetch(path,{method:args===undefined?'GET':'POST',headers:{Authorization:`Bearer ${token}`,...(args===undefined?{}:{'Content-Type':'application/json'})},body:args===undefined?undefined:JSON.stringify(args)});
  if(!response.ok){const p=await response.json();throw new Error(p.error||`HTTP ${response.status}`)}return response;
 }
 function error(message){if(message)localError=message;const shown=state?.error||localError;$('error').textContent=shown;$('error').hidden=!shown}
 function keyOf(scope){return scope?`${scope.accountUid}/${scope.peerUid}`:''}
-function saveDraft(){if(scopeKey)localStorage.setItem(`draft:${scopeKey}`,$('draft').value)}
-function adopt(text){$('draft').value=text;saveDraft();$('draft-status').textContent='已放入草稿，可修改';$('draft').focus()}
-async function copyText(text){if(!text?.trim())return;try{await navigator.clipboard.writeText(text);$('draft-status').textContent='已复制，回 QQ 按 Ctrl+V 粘贴';}catch{adopt(text);$('draft').select();$('draft-status').textContent='请按 Ctrl+C 复制'}}
+function saveDraft(){if(scopeKey){localStorage.setItem(`draft:${scopeKey}`,$('draft').value);if(draftOrigin)localStorage.setItem(`draft-origin:${scopeKey}`,draftOrigin);else localStorage.removeItem(`draft-origin:${scopeKey}`)}}
+function adopt(text,origin=null){$('draft').value=text;draftOrigin=origin;saveDraft();$('draft-status').textContent='已放入草稿，可修改';$('draft').focus()}
+async function copyText(text){if(!text?.trim())return;try{await navigator.clipboard.writeText(text);$('draft-status').textContent='已复制，回 QQ 按 Ctrl+V 粘贴';}catch{adopt(text,text===$('draft').value?draftOrigin:null);$('draft').select();$('draft-status').textContent='请按 Ctrl+C 复制'}}
 function renderHistory(keepAnchor=false) {
  if(!state?.scope)return;
  const current=`${scopeKey}:${historyKey}:${visibleCount}:${state.revision}:${replySelection.join(',')}:${JSON.stringify(imageSelection)}`;
@@ -60,11 +61,11 @@ async function syncHistory() {
 function render(next) {
  const key=keyOf(next.scope);if(!state&&next.instruction)$('instruction').value=next.instruction;
  if(key!==scopeKey){saveDraft();scopeKey=key;if(next.scope)$('qq-number').value=next.scope.peerUin;imageSelection=[];for(const url of imageBlobs.values())URL.revokeObjectURL(url);imageBlobs.clear();historyEpoch++;historyKey='';historyMessages=[];historyVersion='';visibleCount=100;
-  $('draft').value=key?(localStorage.getItem(`draft:${key}`)||sessionStorage.getItem(`draft:${key}`)||''):'';if(key)saveDraft();$('draft-status').textContent='可自由修改';lastAdvice=null;}
+  $('draft').value=key?(localStorage.getItem(`draft:${key}`)||sessionStorage.getItem(`draft:${key}`)||''):'';draftOrigin=key?localStorage.getItem(`draft-origin:${key}`):null;if(key)saveDraft();$('draft-status').textContent='可自由修改';lastAdvice=null;resetCompanion();}
  if(state&&(state.model!==next.model||state.modelBaseUrl!==next.modelBaseUrl||state.activeModelProfileId!==next.activeModelProfileId)){imageSelection=[];historyVersion=''}
  replySelection=next.replyFocus?.mode==='selected'?[...next.replyFocus.messageIds]:[];
  imageSelection=[...(next.imageSelection||[])];
- state=next;syncModelPicker();renderReplyFocus();if(document.activeElement!==$('auto'))$('auto').checked=next.auto;const ready=next.status.phase==='ready';
+ state=next;syncModelPicker();renderReplyFocus();renderCompanion();if(document.activeElement!==$('auto'))$('auto').checked=next.auto;const ready=next.status.phase==='ready';
  $('connection-dot').classList.toggle('ready',ready);
  $('connection-label').textContent=ready?`已连接 QQ ${next.status.account.uin} · 只读监听`:({waiting_qq:'等待 QQ 客户端启动',waiting_login:'请在 QQ 窗口完成登录',initializing:'正在读取 QQ 账号…',offline:'QQ 已离线，请重新登录',integration_error:'QQ 接入未就绪，请查看诊断'}[next.status.phase]||next.status.phase);
  $('session').hidden=!next.scope;
@@ -90,6 +91,100 @@ function render(next) {
  }
  if(next.advice&&next.advice.revision!==next.revision)$('analysis').textContent=next.auto?'有新消息，正在更新建议。你的草稿会保留。':'有新消息，点生成可更新建议。你的草稿会保留。';error(next.error);
 }
+function resetCompanion(){
+ assistantPending=false;assistantLocalError='';assistantThreadKey='';assistantNotesKey='';assistantStateKey='';goalVersion='';goalDirty=false;draftMaterialIds.clear();assistantContextVersion++;
+ $('assistant-input').value='';$('goal-input').value='';resetNoteForm();$('feedback-form').reset();$('feedback-form').hidden=true;
+ $('assistant-thread').replaceChildren();$('notes-list').replaceChildren();$('draft-materials').replaceChildren();$('state-summary').replaceChildren();
+ $('assistant-error').hidden=true;$('assistant-context-records').replaceChildren();$('assistant-context-summary').textContent='';
+ if($('assistant-context-dialog').open)$('assistant-context-dialog').close();
+}
+function scopeArgs(){return {accountUid:state?.scope?.accountUid,peerUid:state?.scope?.peerUid}}
+function companionError(message=''){assistantLocalError=message;const shown=state?.assistantError||assistantLocalError;$('assistant-error').textContent=shown||'';$('assistant-error').hidden=!shown}
+async function companionAction(path,args){
+ const scope=scopeArgs(),expected=scopeKey,epoch=historyEpoch;if(!expected){companionError('先选择要讨论的好友。');return null}
+ companionError();
+ try{const next=await(await api(path,{...args,...scope})).json();if(epoch!==historyEpoch||expected!==scopeKey)return null;
+  if(next.scope&&keyOf(next.scope)!==expected)return null;render(next);return next;
+ }catch(e){if(epoch===historyEpoch&&expected===scopeKey)companionError(e.message);return null}
+}
+function button(text,run,className='text-button'){const element=document.createElement('button');element.type='button';element.className=className;element.textContent=text;element.onclick=run;return element}
+function paragraph(text,className=''){const p=document.createElement('p');p.textContent=text;p.className=className;return p}
+function renderCompanion(){
+ const companion=state.companion||{},busy=assistantPending||state.assistantBusy,available=!!state.scope&&!!state.modelConsent;
+ for(const id of ['assistant-send','assistant-draft','assistant-review'])$(id).disabled=!available||busy;
+ $('assistant-context-button').disabled=!state.scope;$('assistant-input').disabled=!state.scope;
+ $('assistant-status').textContent=!state.scope?'先连接一个私聊，这里的讨论会跟随当前好友保存。':busy?'正在结合你提供的内容一起想…':!state.modelConsent?'先在上方允许当前会话使用所选模型，之后就可以开始讨论。':'讨论会在本机保留；草稿、复制和填入输入框都不算已经发送。';
+ companionError(assistantLocalError);
+ const turns=companion.turns||[],threadKey=JSON.stringify(turns);
+ if(state.companion&&draftOrigin&&!turns.some(turn=>turn.id===draftOrigin)){draftOrigin=null;$('draft').value='';saveDraft();$('draft-status').textContent='原来的参考内容已更新或删除，关联草稿已清除';sessionStorage.removeItem(`draft:${scopeKey}`)}
+ if($('feedback-request-id').value&&!turns.some(turn=>turn.requestId===$('feedback-request-id').value)){$('feedback-form').reset();$('feedback-form').hidden=true}
+ if(threadKey!==assistantThreadKey){assistantThreadKey=threadKey;const pane=$('assistant-thread'),atEnd=pane.scrollHeight-pane.scrollTop-pane.clientHeight<60,oldTop=pane.scrollTop,fragment=document.createDocumentFragment(),expected=scopeKey,epoch=historyEpoch;
+  for(const turn of turns){const article=document.createElement('article');article.className=`assistant-turn ${turn.role==='user'?'user':'assistant'}`;article.dataset.turnId=turn.id;
+   const head=document.createElement('div');head.className='turn-heading';const who=document.createElement('strong');who.textContent=turn.role==='user'?'我 · 私下讨论':'助手';
+   const remove=button('删除',async()=>{if(expected!==scopeKey||epoch!==historyEpoch)return;if(confirm('删除这条私下讨论及依赖它的助手内容？QQ 消息不会删除。'))await companionAction('/api/turn-delete',{id:turn.id})});remove.setAttribute('aria-label',`删除${turn.role==='user'?'我的讨论':'助手回复'}`);head.append(who,remove);article.append(head,paragraph(turn.text||'','turn-text'));
+   for(const suggestion of turn.suggestions||[]){const card=document.createElement('div');card.className='assistant-suggestion';card.append(paragraph(suggestion.style||'参考表达','muted'),paragraph(suggestion.text||''));card.append(button('采用到草稿',()=>{if(expected===scopeKey&&epoch===historyEpoch)adopt(suggestion.text,turn.id)}));article.append(card)}
+   if(turn.role==='assistant'&&turn.requestId){const feedback=button('告诉助手哪儿有帮助或不合适',()=>{if(expected!==scopeKey||epoch!==historyEpoch)return;$('feedback-request-id').value=turn.requestId;$('feedback-text').value='';$('feedback-form').hidden=false;$('feedback-text').focus()});article.append(feedback)}
+   fragment.append(article);
+  }
+  if(!turns.length)fragment.append(paragraph(state.scope?'不必先想好目的。可以先说说今天发生了什么，或贴着当前 QQ 对话一起理清。':'选择好友后，从你正在犹豫的那件事开始。','assistant-empty'));
+  pane.replaceChildren(fragment);pane.scrollTop=atEnd?pane.scrollHeight:oldTop;
+ }
+ const currentGoalVersion=`${companion.goal?.version||0}:${companion.goal?.text||''}`;
+ if(currentGoalVersion!==goalVersion){goalVersion=currentGoalVersion;if(!goalDirty)$('goal-input').value=companion.goal?.text||''}
+ for(const formId of ['goal-form','note-form'])for(const element of $(formId).elements)element.disabled=!state.scope;
+ renderNotes(companion.notes||[]);renderCurrentState(companion.state);
+}
+function resetNoteForm(){$('note-form').reset();$('note-id').value='';$('note-cancel').hidden=true;$('note-save').textContent='保存近况'}
+function renderNotes(notes){
+ const available=new Set(notes.filter(note=>note.use==='draft').map(note=>note.id));draftMaterialIds=new Set([...draftMaterialIds].filter(id=>available.has(id)));
+ const notesKey=JSON.stringify(notes);if(notesKey===assistantNotesKey)return;assistantNotesKey=notesKey;
+ const list=document.createDocumentFragment(),materials=document.createDocumentFragment(),expected=scopeKey,epoch=historyEpoch;
+ if(available.size)materials.append(paragraph('这次写给她时，可以使用哪些近况？未勾选的内容只留作背景。','muted'));
+ for(const note of notes){const card=document.createElement('article');card.className='note-card';card.dataset.noteId=note.id;
+  card.append(paragraph(note.text),paragraph(({discussion:'仅供私下讨论',draft:'允许用于参考表达；每次需勾选',disabled:'本机保留，暂不提供给模型'})[note.use]||'仅供私下讨论','muted'));
+  const actions=document.createElement('div');actions.className='note-actions';actions.append(button('编辑',()=>{if(expected!==scopeKey||epoch!==historyEpoch)return;$('note-id').value=note.id;$('note-text').value=note.text;$('note-use').value=note.use;$('note-cancel').hidden=false;$('note-save').textContent='保存修改';$('note-text').focus()}),button('删除',async()=>{if(expected!==scopeKey||epoch!==historyEpoch)return;if(confirm('删除这条近况及依赖它的助手内容？')){const result=await companionAction('/api/note-delete',{id:note.id});if(result&&$('note-id').value===note.id)resetNoteForm()}}));card.append(actions);list.append(card);
+  if(note.use==='draft'){const label=document.createElement('label');label.className='toggle material-choice';const check=document.createElement('input');check.type='checkbox';check.value=note.id;check.checked=draftMaterialIds.has(note.id);check.onchange=()=>{if(expected!==scopeKey||epoch!==historyEpoch)return;if(check.checked)draftMaterialIds.add(note.id);else draftMaterialIds.delete(note.id)};label.append(check,document.createTextNode(note.text));materials.append(label)}
+ }
+ $('notes-list').replaceChildren(list);$('draft-materials').replaceChildren(materials);$('draft-materials').hidden=!available.size;
+}
+function renderCurrentState(current){
+ const key=`${historyKey}:${JSON.stringify(current||null)}`;if(key===assistantStateKey)return;assistantStateKey=key;const fragment=document.createDocumentFragment();
+ if(current){fragment.append(paragraph('助手目前的理解','state-heading'));
+  if(current.possiblyStale)fragment.append(paragraph('有新的信息尚未整理，以下理解可能需要更新。','muted'));
+  if(current.focus)fragment.append(paragraph(`当下关注：${current.focus}`));
+  for(const [label,items] of [['已记住',(current.items||[])],['未完的话题',(current.openThreads||[]).filter(item=>item.status!=='closed')]])for(const item of items){const row=document.createElement('div');row.className='state-item';row.append(paragraph(`${label}：${item.text}`));if(item.sourceIds?.length){const sources=document.createElement('details'),title=document.createElement('summary');title.textContent='查看参考来源';sources.append(title,...item.sourceIds.map(id=>paragraph(sourceDescription(id),'muted')));row.append(sources)}fragment.append(row)}
+  for(const unknown of current.unknowns||[])fragment.append(paragraph(`还不清楚：${typeof unknown==='string'?unknown:unknown.text}`,'muted'));
+ }
+ $('state-summary').replaceChildren(fragment);
+}
+function sourceDescription(sourceId){
+ const split=sourceId.indexOf(':'),kind=sourceId.slice(0,split),id=sourceId.slice(split+1);let item,label;
+ if(kind==='qq'){item=(historyMessages.length?historyMessages:state.messages).find(message=>message.messageId===id);label=item?.direction==='outgoing'?'我在 QQ 说':'对方在 QQ 说'}
+ else if(kind==='private'){item=state.companion?.turns.find(turn=>turn.id===id);label='我向助手说明'}
+ else if(kind==='note'){item=state.companion?.notes.find(note=>note.id===id);label='我补充的背景'}
+ return item?`${label}：${item.text}\n来源：${sourceId}`:`来源 ${sourceId}（当前列表尚未载入原文）`;
+}
+async function submitAssistant(purpose){
+ if(assistantPending||state?.assistantBusy)return;const input=$('assistant-input'),original=input.value,epoch=historyEpoch;
+ const text=original.trim()||(purpose==='review'?'帮我回顾最近的互动，哪些有依据，哪些还不清楚？':'');
+ if(!text){companionError(purpose==='draft'?'请先写下这次愿意向她表达的内容。':'可以先说一点近况或正在犹豫的事。');input.focus();return}
+ assistantPending=true;renderCompanion();const result=await companionAction('/api/assistant',{text,purpose,materialIds:purpose==='draft'?[...draftMaterialIds]:[]});
+ if(epoch!==historyEpoch)return;assistantPending=false;if(result&&input.value===original)input.value='';renderCompanion();
+}
+function initializeCompanion(){
+ $('assistant-form').onsubmit=e=>{e.preventDefault();submitAssistant('discussion')};$('assistant-draft').onclick=()=>submitAssistant('draft');$('assistant-review').onclick=()=>submitAssistant('review');
+ $('assistant-input').onkeydown=e=>{if((e.ctrlKey||e.metaKey)&&e.key==='Enter'){e.preventDefault();submitAssistant('discussion')}};
+ $('goal-input').oninput=()=>{goalDirty=true};$('goal-form').onsubmit=async e=>{e.preventDefault();const text=$('goal-input').value,epoch=historyEpoch;const result=await companionAction('/api/goal',{text});if(result&&epoch===historyEpoch&&$('goal-input').value===text){goalDirty=false;$('goal-input').value=result.companion?.goal?.text||''}};
+ $('note-cancel').onclick=resetNoteForm;$('note-form').onsubmit=async e=>{e.preventDefault();const values={id:$('note-id').value||undefined,text:$('note-text').value,use:$('note-use').value},epoch=historyEpoch;if(!values.text.trim()){companionError('先写一点想记住的内容。');return}const result=await companionAction('/api/note',values);if(result&&epoch===historyEpoch&&$('note-id').value===(values.id||'')&&$('note-text').value===values.text&&$('note-use').value===values.use)resetNoteForm()};
+ $('feedback-cancel').onclick=()=>{$('feedback-form').hidden=true};$('feedback-form').onsubmit=async e=>{e.preventDefault();const requestId=$('feedback-request-id').value,text=$('feedback-text').value,epoch=historyEpoch;if(!text.trim()){companionError('写一点具体感受，方便下次继续讨论。');return}const result=await companionAction('/api/feedback',{requestId,text});if(result&&epoch===historyEpoch&&$('feedback-request-id').value===requestId&&$('feedback-text').value===text){$('feedback-form').reset();$('feedback-form').hidden=true;$('assistant-status').textContent='反馈已记下。你也可以继续讨论想怎样调整。'}};
+ $('assistant-context-button').onclick=async()=>{const epoch=historyEpoch,expected=scopeKey,version=++assistantContextVersion;try{const data=await(await api('/api/assistant-context')).json();if(epoch!==historyEpoch||scopeKey!==expected||version!==assistantContextVersion||data.scope&&keyOf(data.scope)!==expected)return;
+   $('assistant-context-records').replaceChildren();const run=data.run||data.latestRun||data.manifest&&data||null;
+   $('assistant-context-summary').textContent=run?'以下是最近一次助手请求实际使用的参考内容，可核对哪些背景被采用。':'这个好友还没有可查看的助手请求。先开始一次讨论。';
+   if(run){const pre=document.createElement('pre');pre.textContent=JSON.stringify(run,null,2);$('assistant-context-records').append(pre)}$('assistant-context-dialog').showModal();
+  }catch(e){if(epoch===historyEpoch&&version===assistantContextVersion)companionError(`参考内容：${e.message}`)}};
+ $('assistant-context-close').onclick=()=>{$('assistant-context-dialog').close();assistantContextVersion++};
+}
+initializeCompanion();
 async function action(path,args){localError='';try{render(await(await api(path,args)).json());return true}catch(e){error(e.message);return false}}
 $('contact-form').onsubmit=e=>{e.preventDefault();action('/api/bind',{uin:$('qq-number').value.trim()})};
 $('generate').onclick=async()=>{if(await saveOptions())await action('/api/suggest',{})};
@@ -104,7 +199,7 @@ function renderReplyFocus(){
 $('clear-focus').onclick=()=>{replySelection=[];saveOptions()};
 $('history').onscroll=()=>{if($('history').scrollTop<24)showEarlier()};
 const saveOptions=()=>action('/api/options',{instruction:$('instruction').value,auto:$('auto').checked,images:imageSelection,replyMessageIds:replySelection,accountUid:state?.scope?.accountUid,peerUid:state?.scope?.peerUid});$('instruction').onchange=saveOptions;$('auto').onchange=saveOptions;
-$('draft').oninput=()=>{saveDraft();$('draft-status').textContent='你的修改会保留'};$('copy').onclick=()=>copyText($('draft').value);
+$('draft').oninput=()=>{if(!$('draft').value.trim())draftOrigin=null;saveDraft();$('draft-status').textContent='你的修改会保留'};$('copy').onclick=()=>copyText($('draft').value);
 $('fill-qq').onclick=async()=>{try{
  const requestedScope=scopeKey,args={accountUid:state.scope.accountUid,peerUin:state.scope.peerUin,text:$('draft').value};
  const desktop=await(await api('/api/desktop')).json();

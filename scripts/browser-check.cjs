@@ -145,9 +145,10 @@ async function until(test, label) { for (let i = 0; i < 80; i++) { if (await tes
     const out = JSON.parse(store.export(controller.scope, 'json').data);
     assert.equal(out.messages.every(m => m.peerUin === '2222222222'), true);
     checks.push('export stays bound to newly selected contact');
-    fs.writeFileSync(path.join(root, 'research/browser-evidence.json'), JSON.stringify({ type: 'synthetic-browser-execution',
+    const evidenceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'qq-assistant-legacy-evidence-'));
+    fs.writeFileSync(path.join(evidenceDir, 'browser-evidence.json'), JSON.stringify({ type: 'synthetic-browser-execution',
       timestamp: new Date().toISOString(), checks, nativeQQIntegration: false, result: 'PASS' }, null, 2));
-    console.log(JSON.stringify({ result: 'PASS', checks: checks.length, nativeQQIntegration: false }));
+    console.log(JSON.stringify({ result: 'PASS', checks: checks.length, nativeQQIntegration: false, evidenceDir }));
   } finally {
     cdp?.close(); chrome.kill('SIGTERM'); controller.close(); await new Promise(r => server.close(r)); store.close();
     fs.rmSync(profile, { recursive: true, force: true });

@@ -1,5 +1,7 @@
 # 实际架构
 
+> 2026-10-12 上下文实现已在 `feature/relationship-context` 完成候选验证；当前五部分流程见 [上下文管理](context-management_CN.md)。以下保留原有 QQ 接入与快速回复架构/阶段说明，不代表新流程已部署到实际 QQ。
+
 ```mermaid
 flowchart LR
   QQ[原有 QQ 正常聊天界面] --> IPC[同一客户端的只读 IPC]

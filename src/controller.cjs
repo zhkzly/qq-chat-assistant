@@ -3,17 +3,22 @@ const { EventEmitter } = require('node:events');
 const { normalize, sameScope, compare } = require('./messages.cjs');
 const {readImage,publicRecord}=require('./media.cjs');
 const { generate, replyFocusFor } = require('./model.cjs');
+const { randomUUID } = require('node:crypto');
+const { assistModel, parseAssistant } = require('./assistant-model.cjs');
+const { buildContext, buildDraftContext } = require('./assistant-context.cjs');
 class Controller extends EventEmitter {
-  constructor({ store, read, settings, model = generate }) {
-    super(); Object.assign(this, { store, read, settings, model });
+  constructor({ store, read, settings, model = generate, assistantModel = assistModel }) {
+    super(); Object.assign(this, { store, read, settings, model, assistantModel });
     this.status = { phase: 'waiting_qq', account: null };
     this.selectedImages=[];this.replyMessageIds=[];this.features={qqDraftFill:false};
     this.scope = null; this.epoch = 0; this.revision = 0; this.advice = null;
     this.busy = false; this.historyBusy = false; this.error = ''; this.instruction = settings.instruction || '自然一点，贴近我的说话方式';
-    this.visible = true; this.auto = settings.auto !== false; this.modelReady = !!(settings.apiKey || settings.anonymous); this.abort = null; this.timer = null;
+    this.visible = true; this.auto = settings.auto === true; this.modelReady = !!(settings.apiKey || settings.anonymous); this.abort = null; this.timer = null;
+    this.assistantAbort = null; this.assistantBusy = false; this.assistantError = '';
   }
   updateStatus(status) {
     if (status.account?.uid !== this.status.account?.uid || status.phase !== 'ready') {
+      this.invalidateAssistant();
       this.epoch++; this.selectedImages=[]; this.replyMessageIds=[]; this.scope = null; this.advice = null; this.busy = false;
       this.abort?.abort(); clearTimeout(this.timer);
     }
@@ -27,10 +32,13 @@ class Controller extends EventEmitter {
       messages: messages.slice(-100).map(publicRecord), total: messages.length,
       coverage: this.scope ? this.store.coverage(this.scope) : null,
       advice: this.advice, busy: this.busy, historyBusy: this.historyBusy, error: this.error,
+      companion: this.scope ? this.store.getCompanion(this.scope) : null,
+      assistantBusy: this.assistantBusy, assistantError: this.assistantError,
       activeModelProfileId: this.settings.activeModelProfileId, replyFocus: replyFocusFor(messages, this.replyMessageIds),
       instruction: this.instruction, auto: this.auto, model: this.settings.model, modelReady: this.modelReady, modelConsent:this.hasModelConsent(), modelBaseUrl:this.settings.baseUrl || '',imageSelection:this.selectedImages,modelVisionEnabled:!!this.settings.visionEnabled,imageConsent:!!(this.hasModelConsent()&&this.settings.realChatConsent?.allowImages),qqDraftFillAvailable:!!this.features.qqDraftFill };
   }
   async bind(uin) {
+    this.invalidateAssistant();
     const epoch = ++this.epoch;
     this.selectedImages=[];this.replyMessageIds=[];this.scope = null; this.advice = null; this.error = ''; this.busy = false;
     this.abort?.abort(); clearTimeout(this.timer); this.changed();
@@ -47,7 +55,7 @@ class Controller extends EventEmitter {
     if (!sameScope(scope, this.scope)) return 0;
     const normalized = raw.map(m => normalize(m, scope)).filter(Boolean);
     const count = this.store.add(scope, normalized);
-    if (count) { this.revision++; this.changed(); }
+    if (count) { this.invalidateAssistant(); this.revision++; this.changed(); }
     return count;
   }
   live(event) {
@@ -110,10 +118,11 @@ class Controller extends EventEmitter {
       const selected = replyFocusFor(this.store.messages(this.scope), replyMessageIds);
       const nextIds = selected.mode === 'selected' ? selected.messageIds : [];
       if (JSON.stringify(nextIds) !== JSON.stringify(this.replyMessageIds)) {
+        this.invalidateAssistant();
         this.replyMessageIds = nextIds; this.abort?.abort(); this.advice = null; clearTimeout(this.timer);
       }
     }
-    if (typeof instruction === 'string' && instruction.slice(0,2000)!==this.instruction) { this.instruction = instruction.slice(0, 2000); this.abort?.abort(); this.advice = null; }
+    if (typeof instruction === 'string' && instruction.slice(0,2000)!==this.instruction) { this.invalidateAssistant(); this.instruction = instruction.slice(0, 2000); this.abort?.abort(); this.advice = null; }
     this.settings.instruction = this.instruction;
     if(Array.isArray(images)) {
       const selected=images.slice(0,3).filter(i=>typeof i.messageId==='string'&&/^\d+$/.test(i.messageId)&&Number.isInteger(i.index));
@@ -124,12 +133,13 @@ class Controller extends EventEmitter {
     this.changed();
   }
   modelChanged() {
+    this.invalidateAssistant();
     this.abort?.abort(); this.abort = null; clearTimeout(this.timer);
     this.advice = null; this.busy = false; this.error = ''; this.selectedImages = [];
     this.modelReady = !!(this.settings.baseUrl && this.settings.model && (this.settings.apiKey || this.settings.anonymous));
     this.changed();
   }
-  setVisible(visible) { this.visible=visible;if(!visible){clearTimeout(this.timer);this.abort?.abort();}else if(this.auto && this.scope)this.schedule(); }
+  setVisible(visible) { this.visible=visible;if(!visible){this.invalidateAssistant();clearTimeout(this.timer);this.abort?.abort();}else if(this.auto && this.scope)this.schedule(); }
   schedule() { if(!this.visible)return;if(!this.hasModelConsent())return; clearTimeout(this.timer); this.timer = setTimeout(() => this.suggest().catch(() => {}), 1800); this.timer.unref?.(); }
   async suggest() {
     if (!this.scope) throw new Error('请先选择一个 QQ 私聊');
@@ -138,7 +148,7 @@ class Controller extends EventEmitter {
     const scope = this.scope, epoch = this.epoch, revision = this.revision, instruction = this.instruction;
     this.abort?.abort(); const abort = this.abort = new AbortController();
     const records = this.store.messages(scope);
-    if (!records.length) throw new Error('当前会话还没有可读取的记录');
+    if (!records.length) return this.assist({ text: this.instruction, purpose: 'discussion' });
     this.busy = true; this.error = ''; this.changed();
     try {
       const images=this.selectedImages.map(item=>{const record=records.find(m=>m.messageId===item.messageId);const image=readImage(record,item.index);return {url:`data:${image.type};base64,${image.data.toString('base64')}`,at:new Date(record.timestamp).toISOString(),speaker:record.direction==='outgoing'?'我':'对方',messageId:record.messageId}});
@@ -149,6 +159,87 @@ class Controller extends EventEmitter {
     } catch (error) { if (!abort.signal.aborted && epoch === this.epoch) this.error = error.message; }
     finally { if (this.abort === abort) { this.busy = false; this.changed(); } }
   }
-  close() { clearTimeout(this.timer); this.abort?.abort(); }
+  requireScope() { if (!this.scope) throw new Error('请先选择一个 QQ 私聊'); return this.scope; }
+  invalidateAssistant() {
+    this.assistantAbort?.abort(); this.assistantAbort = null;
+    this.assistantBusy = false; this.assistantError = '';
+  }
+  changedContext() {
+    this.invalidateAssistant(); this.abort?.abort(); this.advice = null; clearTimeout(this.timer); this.changed();
+  }
+  setGoal(text) { const result = this.store.setGoal(this.requireScope(), text); this.changedContext(); return result; }
+  saveNote(args) { const result = this.store.saveNote(this.requireScope(), args); this.changedContext(); return result; }
+  deleteNote(id) { const result = this.store.deleteNote(this.requireScope(), id); this.changedContext(); return result; }
+  deleteTurn(id) { const result = this.store.deleteTurn(this.requireScope(), id); this.changedContext(); return result; }
+  addFeedback(args) {
+    const scope = this.requireScope();
+    const feedback = this.store.addFeedback(scope, args);
+    this.store.appendTurn(scope, { role: 'user', kind: 'feedback', text: `对助手建议的反馈：${feedback.text}`, requestId: feedback.requestId });
+    this.changedContext(); return feedback;
+  }
+  assistantContext() {
+    const scope = this.requireScope(), companion = this.store.getCompanion(scope);
+    return { scope, run: companion.runs.at(-1) || null };
+  }
+  async assist({ text, purpose = 'discussion', materialIds = [] } = {}) {
+    const scope = this.requireScope();
+    if (!this.hasModelConsent()) throw new Error('请先允许当前会话使用配置的模型；私下资料与聊天记录目前仅在本机');
+    if (typeof text !== 'string' || !text.trim() || text.length > 16000) throw new Error('请输入这次想商量或表达的内容（最多 16000 字）');
+    if (!['discussion', 'draft', 'review'].includes(purpose)) throw new Error('未知的帮助用途');
+    this.invalidateAssistant();
+    const abort = this.assistantAbort = new AbortController(), requestId = randomUUID();
+    const turn = this.store.appendTurn(scope, { role: 'user', kind: purpose, text, requestId });
+    const companion = this.store.getCompanion(scope), epoch = this.epoch, revision = this.revision;
+    const settings = { ...this.settings }, baseRevision = companion.revision;
+    const binding = `${settings.baseUrl}\n${settings.model}\n${settings.activeModelProfileId || ''}`;
+    const current = () => this.assistantAbort === abort && !abort.signal.aborted && epoch === this.epoch && revision === this.revision &&
+      sameScope(scope, this.scope) && this.hasModelConsent() &&
+      binding === `${this.settings.baseUrl}\n${this.settings.model}\n${this.settings.activeModelProfileId || ''}` &&
+      this.store.getCompanion(scope).revision === baseRevision;
+    this.assistantBusy = true; this.assistantError = ''; this.changed();
+    let context;
+    try {
+      const records = this.store.messages(scope), coverage = this.store.coverage(scope);
+      context = buildContext({ scope, records, companion, turn, purpose: purpose === 'draft' ? 'draft_prepare' : purpose,
+        materialIds, coverage, requestId, byteBudget: settings.assistantContextBytes || 48000 });
+      this.store.saveRun(scope, { id: requestId, baseRevision, purpose: context.payload.purpose,
+        status: 'pending', payload: context.payload, manifest: context.manifest });
+      let result = parseAssistant(await this.assistantModel(settings, context, abort.signal), context.payload.purpose);
+      if (!current()) return;
+      let reviewed = context;
+      if (result.draftPlan?.clarification) {
+        result = { kind: 'question', text: result.draftPlan.clarification };
+      } else if (result.draftPlan) {
+        context = buildDraftContext(context, result.draftPlan, { scope, requestId, companion, coverage });
+        this.store.saveRun(scope, { id: requestId, baseRevision, purpose: 'draft', status: 'pending', payload: context.payload, manifest: context.manifest });
+        result = parseAssistant(await this.assistantModel(settings, context, abort.signal), 'draft');
+        if (!current()) return;
+        reviewed = null; // A restricted draft is not a review of the private state.
+      } else if (purpose === 'draft') throw new Error('模型未明确拟表达内容，请具体说明想告诉她哪件事');
+      let patchReceipt = null;
+      if (reviewed && result.kind !== 'question') {
+        patchReceipt = this.store.applyState(scope, result.statePatch || {}, { baseRevision,
+          baseStateVersion: companion.state.version, sourceIds: reviewed.manifest.sourceIds,
+          coverage: { complete: reviewed.manifest.completeReview, sourceIds: reviewed.manifest.sourceIds } });
+      }
+      if (!current()) return;
+      const reply = this.store.appendTurn(scope, { role: 'assistant', kind: result.kind, text: result.text,
+        requestId, suggestions: result.suggestions, sourceIds: context.manifest.sourceIds });
+      this.store.saveRun(scope, { id: requestId, baseRevision, purpose: context.payload.purpose, status: 'complete',
+        payload: context.payload, manifest: context.manifest, replyId: reply.id,
+        patchReceipt, maintenance: reviewed ? (patchReceipt?.applied ? (result.statePatch ? 'applied' : 'reviewed_no_change') : 'rejected') : 'deferred' });
+      return reply;
+    } catch (error) {
+      if (current()) {
+        this.assistantError = error.message;
+        if (context) this.store.saveRun(scope, { id: requestId, baseRevision, purpose: context.payload.purpose,
+          status: 'failed', payload: context.payload, manifest: context.manifest, error: error.message, maintenance: 'failed' });
+        throw error;
+      }
+    } finally {
+      if (this.assistantAbort === abort) { this.assistantBusy = false; this.assistantAbort = null; this.changed(); }
+    }
+  }
+  close() { this.invalidateAssistant(); clearTimeout(this.timer); this.abort?.abort(); }
 }
 module.exports = { Controller };

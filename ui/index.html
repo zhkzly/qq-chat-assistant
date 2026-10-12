@@ -3,9 +3,26 @@
 <body><main>
 <header><div><span class="spark">✦</span><h1>聊天助手</h1><span class="tag">由你发送</span></div><button id="settings-button" class="subtle" title="模型设置">⚙ 模型设置</button></header>
 <section class="connection"><span id="connection-dot" class="dot"></span><span id="connection-label">正在连接 QQ…</span></section>
-<section class="model-summary"><div>当前模型：<strong id="current-model"></strong><div id="current-api" class="muted"></div></div><button id="context-button" class="text-button">查看上下文</button></section>
+<section class="model-summary"><div>当前模型：<strong id="current-model"></strong><div id="current-api" class="muted"></div></div><button id="context-button" class="text-button">QQ 参考范围</button></section>
 <section class="model-picker"><label for="quick-profile">API 配置</label><select id="quick-profile" aria-label="切换 API 配置"></select><label for="quick-model">选择模型</label><div class="row"><select id="quick-model" aria-label="切换模型"></select><button id="refresh-models" class="text-button">刷新列表</button></div><p id="model-list-status" class="muted" aria-live="polite"></p></section>
 <form id="contact-form"><label for="qq-number">当前私聊</label><div class="row"><input id="qq-number" inputmode="numeric" placeholder="选择好友 QQ 号" autocomplete="off"><button type="submit">连接会话</button></div></form>
+<section id="model-consent" class="consent" hidden><strong>允许 AI 参考当前会话</strong><p id="consent-destination"></p><p class="muted">相关 QQ 文字、你与助手的讨论及允许使用的背景会提供给这个模型服务。记录在本机保存，回复仍由你手动发送。</p><label class="toggle"><input id="allow-images" type="checkbox">同时允许本次选定图片提供给模型</label><button id="allow-model">允许当前会话使用这个模型</button></section>
+<section class="companion" aria-labelledby="assistant-heading">
+<div class="section-label"><h2 id="assistant-heading">和助手一起想一想</h2><button id="assistant-context-button" class="text-button">查看本次参考</button></div>
+<p class="muted companion-intro">这里是你和助手的私下讨论。可以说近况、想法或不知道怎么办的地方，再一起决定下一步。</p>
+<div id="assistant-thread" class="assistant-thread" aria-live="polite"></div>
+<p id="assistant-status" class="muted" role="status"></p><p id="assistant-error" class="error" hidden></p>
+<form id="assistant-form"><label for="assistant-input">你现在想聊什么</label><textarea id="assistant-input" rows="3" maxlength="12000" placeholder="例如：今天去了一个挺有意思的地方，想找她聊，但还没想清楚想表达什么。"></textarea>
+<div class="assistant-actions"><button id="assistant-send" type="submit">一起想一想</button><button id="assistant-draft" type="button" class="secondary">帮我写参考表达</button><button id="assistant-review" type="button" class="text-button">回顾最近互动</button></div>
+<p class="muted">助手会先识别你这次愿意表达的内容，再组织草稿；使用前请核对，改成自己的话后由你在 QQ 发送。</p>
+<div id="draft-materials" class="draft-materials" hidden></div></form>
+<form id="feedback-form" class="feedback-form" hidden><input id="feedback-request-id" type="hidden"><label for="feedback-text">这次哪里有帮助，或哪里不合适</label><textarea id="feedback-text" rows="2" maxlength="2000"></textarea><div class="row"><button id="feedback-cancel" class="text-button" type="button">取消</button><button type="submit">记下反馈</button></div></form>
+<details id="background-panel" class="background-panel"><summary>目标、近况与记住的内容</summary><p class="muted">这些背景属于当前好友。目标可以慢慢理清，不必每次重新填写。</p>
+<form id="goal-form"><label for="goal-input">我希望这段关系怎样发展</label><textarea id="goal-input" rows="2" maxlength="2000" placeholder="例如：慢慢了解彼此，希望相处更自然，也多一些双向的关心。"></textarea><button type="submit" class="secondary">保存目标</button></form>
+<div id="state-summary" class="state-summary"></div><div id="notes-list" class="notes-list"></div>
+<form id="note-form"><input id="note-id" type="hidden"><label for="note-text">补充一条近况或背景</label><textarea id="note-text" rows="2" maxlength="4000" placeholder="最近发生的事、自己的偏好，或想请助手记住的背景"></textarea><label for="note-use">这条内容怎样使用</label><select id="note-use"><option value="discussion">仅供私下讨论</option><option value="draft">允许用于参考表达（每次仍需勾选）</option><option value="disabled">保留在本机，暂不提供给模型</option></select><div class="row"><button id="note-cancel" type="button" class="text-button" hidden>取消编辑</button><button id="note-save" type="submit" class="secondary">保存近况</button></div></form>
+</details>
+</section>
 <section id="session" hidden>
 <div class="session-head"><strong id="contact-title"></strong><span id="history-count" class="muted"></span></div>
 <button id="view-older" class="text-button" hidden>查看更早消息</button><div id="history" class="history"></div>
@@ -13,12 +30,12 @@
 <div class="exports"><button id="export-json" class="text-button">导出 JSON</button><button id="export-txt" class="text-button">导出文本</button></div>
 <div class="reply-focus"><div class="row"><strong id="focus-summary">默认回应最近消息</strong><button id="clear-focus" class="text-button" hidden>回到最新消息</button></div><p class="muted">连续消息按话题一起回应；也可勾选上方消息，指定本次回复重点（最多 8 条）。</p><div id="focus-preview"></div><p class="muted">这里只指定 AI 关注的内容；需要 QQ 原生引用时，在 QQ 中对原消息选择「回复」。</p></div>
 </section>
-<section id="model-consent" class="consent" hidden><strong>允许 AI 参考当前会话</strong><p id="consent-destination"></p><p class="muted">部分聊天文字会发给配置的模型服务。记录先在本机保存，回复仍由你复制并手动发送。</p><label class="toggle"><input id="allow-images" type="checkbox">同时允许本次选定图片提供给模型</label><button id="allow-model">允许当前会话使用这个模型</button></section>
-<section class="intent"><label for="instruction">你希望怎么回应</label><textarea id="instruction" rows="2" placeholder="例如：先接住她的情绪，语气自然，不急着邀约">自然一点，贴近我的说话方式</textarea><div class="row"><label class="toggle"><input id="auto" type="checkbox" checked> 新消息自动更新建议</label><button id="generate">生成建议 <span>↗</span></button></div></section>
+<details class="quick-reply-panel"><summary>快速参考 QQ 消息生成回复</summary><section class="intent"><label for="instruction">你希望怎么回应</label><textarea id="instruction" rows="2" placeholder="例如：先接住她的情绪，语气自然，不急着邀约">自然一点，贴近我的说话方式</textarea><div class="row"><label class="toggle"><input id="auto" type="checkbox"> 新消息自动更新建议</label><button id="generate">生成建议 <span>↗</span></button></div></section>
+<section id="advice"><div class="section-label">参考回复 <span id="model-label"></span></div><p id="analysis" class="analysis">连接一个私聊后，可以结合 QQ 记录生成参考表达。</p><div id="suggestions"></div></section></details>
 <p id="error" class="error" hidden></p>
-<section id="advice"><div class="section-label">参考回复 <span id="model-label"></span></div><p id="analysis" class="analysis">连接一个私聊后，助手会结合聊天记录给你三种表达。</p><div id="suggestions"></div></section>
 <section class="draft"><div class="section-label"><label for="draft">我的回复草稿</label><span id="draft-status">可自由修改</span></div><textarea id="draft" rows="4" placeholder="选一条建议，改成自己的话…"></textarea><div class="row"><span class="muted">回填后仍由你发送</span><button id="fill-qq">填入 QQ 输入框</button><button id="copy">复制回复</button></div></section>
 <footer>只读取所选私聊 · 图片本机预览，勾选授权后才给模型 · 本机保存记录</footer>
 </main>
 <dialog id="settings"><form id="settings-form"><h2>模型与 API 配置</h2><label>已保存的配置<select name="profileId" id="settings-profile"></select></label><label>配置名称<input name="name" placeholder="例如：本地代理、DeepSeek、Ollama" maxlength="80" required></label><label>API 地址<input name="baseUrl" value="http://127.0.0.1:8317/v1" placeholder="https://服务地址/v1" required></label><p class="muted">使用 OpenAI 兼容接口；原生 Claude / Gemini 地址需要兼容代理。</p><label>API Key<input name="apiKey" type="password" placeholder="原地址留空保留密钥；新地址需重新填写" autocomplete="new-password"></label><label class="toggle"><input name="anonymous" type="checkbox">无需 API Key（仅用于免密服务）</label><div class="row"><label for="settings-model-list">服务提供的模型</label><button id="settings-refresh-models" type="button" class="text-button">读取模型列表</button></div><select id="settings-model-list" aria-label="服务提供的模型"></select><p id="settings-model-status" class="muted" aria-live="polite"></p><label>模型 ID（也可手动填写）<input name="model" value="gpt-6.1-sol" required></label><label class="toggle"><input name="visionEnabled" type="checkbox">已确认此模型支持图片输入</label><p id="settings-error" class="error" hidden></p><div class="row"><button id="settings-cancel" type="button" class="subtle">取消</button><button type="submit">保存并使用</button></div></form></dialog>
-<dialog id="context-dialog"><h2>本次提供给 AI 的上下文</h2><p id="context-summary"></p><div id="context-records"></div><button id="context-close">关闭</button></dialog><script src="/app.js"></script></body></html>
+<dialog id="context-dialog"><h2>快速回复将参考的 QQ 内容</h2><p id="context-summary"></p><div id="context-records"></div><button id="context-close">关闭</button></dialog>
+<dialog id="assistant-context-dialog"><h2>助手这次实际参考的内容</h2><p id="assistant-context-summary"></p><div id="assistant-context-records"></div><button id="assistant-context-close">关闭</button></dialog><script src="/app.js"></script></body></html>

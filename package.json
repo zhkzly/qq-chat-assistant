@@ -10,7 +10,8 @@
     "check": "node scripts/check.cjs",
     "web": "node src/server.cjs",
     "diagnose": "node scripts/diagnose.cjs",
-    "test:ui": "node scripts/browser-check.cjs"
+    "test:ui": "node scripts/browser-check.cjs",
+    "test:assistant-ui": "node scripts/assistant-browser-check.cjs"
   },
   "engines": {
     "node": ">=22"
