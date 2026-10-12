@@ -1,5 +1,5 @@
 {
-  "phase": "verified_candidate",
+  "phase": "integrated_and_running",
   "timestamp": "2026-10-12T07:12:50.870200+00:00",
   "scope": "conversation-first UI; relationship context pipeline unchanged",
   "functional": {
@@ -36,6 +36,29 @@
     "scripts/assistant-browser-check.cjs": "b950a6d88ba63d665b07291588ffbb7b7f03d927b68ea2250f052c520988f7f5"
   },
   "desktop": {
-    "verified": false
-  }
+    "verified": true,
+    "evidence": "actual Electron helper DOM/layout inspection and UI-only page reload",
+    "timestamp": "2026-10-12T07:13:56.824302+00:00",
+    "viewport": {
+      "width": 482,
+      "height": 891
+    },
+    "defaultPanel": "discussion",
+    "composerVisibleWithinViewport": true,
+    "pageOverflow": false,
+    "secondaryPanelsInitiallyHidden": true,
+    "rawQQRecords": 747,
+    "rawRecordsUnchanged": true,
+    "scopeUnchanged": true,
+    "goalUnchanged": true,
+    "allUnsentInputHashesUnchanged": true,
+    "recoveryCapsuleCleared": true,
+    "qqRestarted": false,
+    "serviceRestarted": false,
+    "qqMessagesSentByAssistant": 0,
+    "modelRequestsExplicitlySubmittedForVerification": 0,
+    "privateEvidence": "/tmp/qq-ui-clarity-desktop-after.json"
+  },
+  "sourceCommit": "4259564",
+  "mainMerged": true
 }

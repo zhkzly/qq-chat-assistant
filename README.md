@@ -6,6 +6,8 @@ A local Ubuntu desktop companion for normal QQ conversations. It reads the selec
 
 Users can discuss goals and recent experiences naturally, continue a previous idea into a draft without copying it again, correct or forget context, and inspect what was used. Explicit user intent controls lasting goals and disclosure; uncertain operations show a concrete proposal. The assistant never sends QQ messages. See [context behavior and limits](docs/context-management_CN.md).
 
+The window opens directly into a private discussion with a fixed composer. QQ history and relationship memory have separate tabs; API configuration lives in Settings, and adopting an expression opens an editable draft dialog. The [interface verification record](docs/ui-clarity-evidence.json) includes 40 synthetic browser checks and an actual desktop layout/reload check.
+
 ## Use
 
 Start `bash scripts/launch.sh`, log in normally if QQ asks, and open **✦ AI 建议** in a private chat or press **Ctrl+Shift+A** in QQ. The same helper window is reused. Enter a friend's QQ number if the current window cannot be identified. History loads automatically; export is optional. See [Chinese usage guide](docs/usage_CN.md).

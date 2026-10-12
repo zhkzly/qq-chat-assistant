@@ -16,7 +16,7 @@ Acceptance basis: Current ui/index.html/app.js consumers, the running helper, an
 - [x] Notes, source search, confirmations, feedback, model settings and reply focus remain accessible.
 - [x] Switching contacts clears stale scoped UI and never mixes inputs or drafts.
 - [x] Actual pointer-based browser checks and visual inspection verify the new flow.
-- [ ] Verified changes are integrated and loaded in the desktop helper with user data and unsent inputs preserved.
+- [x] Verified changes are integrated and loaded in the desktop helper with user data and unsent inputs preserved.
 
 ## Decisions
 
@@ -30,3 +30,5 @@ Acceptance basis: Current ui/index.html/app.js consumers, the running helper, an
 - The native UI-only reload helper now captures a scoped temporary recovery snapshot, refuses pending settings/contact/request states, and verifies restoration before deleting it. Synthetic browser verification is required before using it on the desktop.
 
 - Final candidate verification: all 155 functional tests and 40 pointer-based synthetic browser checks pass. Reload tests include unchanged configuration, exact scope and unsaved input hashes after a further poll. Screenshots at 370x560 and 480x900 were visually inspected.
+
+- Integrated source commit 4259564 into main and refreshed the actual Electron helper without restarting QQ or its service. At 482x891 the composer is fully visible, only the discussion panel is visible and the page does not overflow. All 747 QQ records, current goal/contact and unsent input hashes remain unchanged. The first refresh attempt correctly waited for an existing request to finish.
