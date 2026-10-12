@@ -8,4 +8,4 @@
 - [x] All model attempts including compaction/repair count toward task budget; transport/format failures keep originals and give actionable status.
 - [x] Actual serialized byte budgets and estimation/usage metadata are honest; UI makes compaction/reuse visible without adding a required workflow.
 - [x] Functional 325/0 and browser 40 checks pass; final Astra synthetic multi-turn flow passes. Claude final synthetic flow remains a recorded model/schema limitation, not a pass.
-- [ ] Native update preserves QQ, scope and unsent inputs; integration gate remains pending until the fresh service-only refresh is verified.
+- [x] Native service-only refresh verified source b936a1b / prompt .18: QQ process unchanged, 751 selected-contact raw records preserved, scope/goal and all nine measured unsent input/state fields preserved, mode controls enabled, no recovery pending. One native Claude automatic task completed after one format repair; no native long-history compaction or naturalness generalization is claimed.

@@ -1,6 +1,6 @@
 {
   "date": "2026-10-12",
-  "phase": "candidate_verified_with_explicit_model_limitation",
+  "phase": "integrated_and_running_with_explicit_model_limitation",
   "baseline": "8fa8dca",
   "branch": "feature/discussion-compaction-20261012",
   "promptVersion": "relationship-context-2026-10-12.18",
@@ -230,8 +230,120 @@
     "realChatOrCredentialsArchived": false,
     "semanticSummaryGuaranteedCorrect": false,
     "arbitrarilyLargeProtectedInputsGuaranteedFit": false,
-    "desktopIntegrationVerified": false,
+    "desktopIntegrationVerified": true,
     "romanticOutcomeVerified": false
   },
-  "desktop": null
+  "desktop": {
+    "timestamp": "2026-10-12T14:07:49.753304+00:00",
+    "evidence": "actual_existing_QQ_and_native_helper_service_refresh",
+    "qqRestarted": false,
+    "qqMessagesSentByTest": 0,
+    "ready": true,
+    "rawCount": 751,
+    "originalRawMessagesPreserved": true,
+    "scopePreserved": true,
+    "goalPreserved": true,
+    "unsavedInputsPreserved": {
+      "draftHash": true,
+      "privateInputHash": true,
+      "goalDraftHash": true,
+      "noteDraftHash": true,
+      "feedbackDraftHash": true,
+      "feedbackTargetHash": true,
+      "draftArtifactRefsHash": true,
+      "experienceReviewHash": true,
+      "experienceGuidanceHash": true
+    },
+    "health": {
+      "version": "conversation-direction-2026-10-12.1",
+      "unifiedContext": true,
+      "persistentMemory": true,
+      "relationshipLearning": true,
+      "requestAccounting": true,
+      "topicContinuity": true,
+      "promptVersion": "relationship-context-2026-10-12.18",
+      "memoryVersion": "relationship-memory-2026-10-12.6",
+      "authenticated": true,
+      "selected": true,
+      "memoryConfigured": true,
+      "qqMessagesSentByAssistant": 0
+    },
+    "rawCountDenominator": "selected-contact API export; isolated migration counts all database messages",
+    "restorationCapsule": {
+      "ok": true,
+      "qqRestarted": false,
+      "serviceRestarted": true,
+      "ready": true,
+      "scopePreserved": true,
+      "unsavedAssistantInputsPreserved": true,
+      "draftsPreserved": true,
+      "draftOriginPreserved": true,
+      "draftNeedsReview": false,
+      "artifactOriginsPreserved": true,
+      "feedbackTargetPreserved": true,
+      "noteEditDetached": false,
+      "feedbackTargetDetached": false,
+      "forgottenFeedbackCleared": false,
+      "closedReadOnlyInspector": false,
+      "activeTab": "discussion"
+    },
+    "layout": {
+      "nextPurpose": "discussion",
+      "modeSelectorsEnabled": true,
+      "privateInputEnabled": true,
+      "pageOverflow": {
+        "horizontal": false,
+        "vertical": false,
+        "scrollWidth": 482,
+        "scrollHeight": 847,
+        "clientWidth": 482,
+        "clientHeight": 847
+      },
+      "primaryPanelVisible": true,
+      "recoveryPending": false
+    },
+    "nativeAssistance": {
+      "sourceCommit": "b936a1b",
+      "promptVersion": "relationship-context-2026-10-12.18",
+      "model": "claude-sonnet-4-6",
+      "assistantBusy": false,
+      "assistantErrorPresent": false,
+      "tasks": [
+        {
+          "status": "complete",
+          "attempts": 2,
+          "limit": 4,
+          "origin": "automatic",
+          "createdAt": "2026-10-12T14:07:36.430Z",
+          "updatedAt": "2026-10-12T14:07:59.781Z",
+          "errorCode": null,
+          "requests": [
+            {
+              "purpose": "reply",
+              "inputBytes": 63088,
+              "httpStatus": 200,
+              "errorCode": null,
+              "elapsedMs": 16370
+            },
+            {
+              "purpose": "format_repair",
+              "inputBytes": 58144,
+              "httpStatus": 200,
+              "errorCode": null,
+              "elapsedMs": 6270
+            }
+          ]
+        }
+      ],
+      "latestRunStatus": "complete",
+      "latestRunPurpose": "reply",
+      "serializedTextRequestBytes": 63088,
+      "byteBudget": 64000,
+      "compactionObservedInThisNativeTask": false,
+      "naturalWordingOrRelationshipOutcomeJudged": false,
+      "boundary": "Existing consent permitted the automatic reply task after service rebinding; it completed after one format repair. This is one native assistance result, not native long-history compaction or general Claude reliability."
+    },
+    "versionBoundary": "Native helper uses source commit b936a1b. The follow-up release commit updates documentation only."
+  },
+  "sourceCommit": "b936a1b"
 }
