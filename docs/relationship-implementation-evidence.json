@@ -1,6 +1,6 @@
 {
   "date": "2026-10-12",
-  "phase": "budget_fix_verified_pending_native_refresh",
+  "phase": "integrated_and_running",
   "baseline": "95ef8e3",
   "researchBaseline": "d307081",
   "branch": "feature/relationship-learning-20261012",
@@ -120,7 +120,7 @@
     }
   },
   "migration": {
-    "timestamp": "2026-10-12T09:44:23.809Z",
+    "timestamp": "2026-10-12T09:59:32.156Z",
     "evidence": "real_local_database_copied_and_migrated_in_isolated_private_copy",
     "productionDatabaseModified": false,
     "realModelCalls": 0,
@@ -141,12 +141,13 @@
         "privateTurnsAfter": 1,
         "feedbackBefore": 0,
         "feedbackAfter": 0,
-        "typedPending": 745
+        "typedPending": 617
       }
-    ]
+    ],
+    "preSchemaUpgradeBackupReport": "data/backups/relationship-candidate-0gv171/report.json"
   },
   "desktop": {
-    "timestamp": "2026-10-12T09:47:52.671366+00:00",
+    "timestamp": "2026-10-12T10:00:32.751771+00:00",
     "evidence": "actual_existing_QQ_and_native_helper_service_refresh",
     "qqRestarted": false,
     "qqMessagesSentByTest": 0,
@@ -167,7 +168,7 @@
       "experienceGuidanceHash": true
     },
     "health": {
-      "version": "relationship-learning-2026-10-12.1",
+      "version": "relationship-learning-2026-10-12.2",
       "unifiedContext": true,
       "persistentMemory": true,
       "relationshipLearning": true,
@@ -180,10 +181,16 @@
       "qqMessagesSentByAssistant": 0
     },
     "memory": {
-      "pending": 745,
-      "busy": true,
-      "version": 775,
-      "errors": []
+      "pending": 617,
+      "busy": false,
+      "version": 779,
+      "errors": [
+        {
+          "code": "model_http_408_provider",
+          "message": "Memory model HTTP 408 (provider)",
+          "at": "2026-10-12T10:00:29.532Z"
+        }
+      ]
     },
     "layout": {
       "helperPresent": true,
@@ -207,7 +214,34 @@
     },
     "runtimeFilesMatchVerifiedCandidate": true,
     "bootstrapPending": true,
-    "originalHistoryFullyRetyped": false
+    "originalHistoryFullyRetyped": false,
+    "automaticAssistance": {
+      "origin": "automatic",
+      "status": "complete",
+      "attempts": 2,
+      "createdAt": "2026-10-12T09:59:35.321Z",
+      "errorCode": null,
+      "requests": [
+        {
+          "purpose": "reply",
+          "bytes": 63859,
+          "httpStatus": 200
+        },
+        {
+          "purpose": "draft",
+          "bytes": 53218,
+          "httpStatus": 200
+        }
+      ]
+    },
+    "assistantErrorEmpty": true,
+    "maintenanceProgress": {
+      "initialPending": 745,
+      "latestPending": 617,
+      "completedSources": 128,
+      "latestFailure": "provider HTTP 408; queued sources retained; no source-content archive",
+      "allHistoricalSourcesReviewed": false
+    }
   },
   "limits": [
     "Structural tests and simulated journeys do not establish relationship effectiveness.",
@@ -219,13 +253,13 @@
   "syntaxAndDiff": true,
   "runtimeFiles": {
     "src/assistant-actions.cjs": "54bd959aadce35e4491e60aad72c072ae9d9abf0eb3a8f6b8193261988aa7e1d",
-    "src/assistant-context.cjs": "87a0f04e7ca7a906b0585c6530882a07c73b57ba2f329f462d1208c06b9d3a30",
-    "src/assistant-model.cjs": "c970ba98db4ef98ecc6df655bbf7571a2f0b40b91334b752b3b4721ccada5b01",
-    "src/controller.cjs": "a8188953b6398f77e6ed72e1b4f7ba3722ae22aa3a06fe07f7c90490f53d5234",
+    "src/assistant-context.cjs": "f2a065b0781f9b94e9798eb7d6ba18bb4a982b1edc15604116252805410d92aa",
+    "src/assistant-model.cjs": "7b14abf72e35b6b7aa79ec7c594bb1e31d5e92a7100ff8d96c0d17a78038c72d",
+    "src/controller.cjs": "6698def538114b18c55dcc9b0267982bd6bf7c42f68d6af009e8116484770ada",
     "src/experience-store.cjs": "64423e0d10af36ff1a19debb3e56c1e4625f7a08746d9e469c76e5f9b2b91a3f",
     "src/help-methods.cjs": "aaa637e815c113b197f290a3eb091770b772c894c95e47b4e5b3c50ed3362362",
     "src/media.cjs": "ee00a6f7af727634e60cc850a24ce0faab75d4a68f0a037e902e119d20b1178a",
-    "src/memory-engine.cjs": "19cd3f206851377d92f787f13daf25d5be462e984fb2a48badb2adfc1fd5c6df",
+    "src/memory-engine.cjs": "3e966bc04f82540f3eda6d09939c7e5dc4e04dcbb62c6fce8449c78b07d68d52",
     "src/memory-scheduler.cjs": "d97432625255df2af15fda76cf2756ab7c32654767cd050fccea8338e2b7fe45",
     "src/memory-search.cjs": "e38074fc638e44340b51c6cdf0f29c0f38f8277975b7e0d61ff092a060cef121",
     "src/messages.cjs": "5a7654207c8d66878a861bdfd37d003d8cdf08d5f4264f7dcbd7bc32742d5cae",
@@ -236,7 +270,7 @@
     "src/relationship-schema.cjs": "5ebf2f30fd7f1eeeb15c92761cafa4c8bc4b5705df26312fd24a06c56679c54d",
     "src/relationship-store.cjs": "a5b82678782d001627850d17216b7d2b6782d55923b589bba45118547eee429c",
     "src/request-budget.cjs": "8587c93b915e919906bf67be097471f53b20c0aa69dbca17605f2f27f975a6b7",
-    "src/server.cjs": "b709b2202a3068d4a807e40f16318c621e6c8c2ce621a0aa7c85b6b81796a85b",
+    "src/server.cjs": "1173cb4fff426eec21dccbee1f8752df5fd558b17468e50633d32f4872b8032e",
     "src/store.cjs": "3287633166d3c0917f85a04e384eb5f395e584b87388723e128df98a6bf1d48e",
     "ui/app.js": "eb9ad188695ae8b1a137c8360e1288c755b85a4cb6f52f6b5df8bfb6b0a3d3ea",
     "ui/index.html": "3f5d8daa104bec6ab5ff593a1c64a8a889ea5d6533dc06655e95efa45db07e25",
@@ -251,7 +285,7 @@
     "plugin/probe.cjs": "122c43b2dbc4cef2772931342e772e93a6dd3b3a7cef40fccda7c9f60e251783",
     "plugin/renderer.js": "9fcaca9554ac5df1c5e8141c67822035807b1ce1195deed0691f7acf4f7f4870"
   },
-  "sourceCommit": "761376e",
+  "sourceCommit": "97804f6",
   "nativeRegression": {
     "detectedOnCommit": "761376e",
     "entry": "automatic foreground assistance",
@@ -259,7 +293,7 @@
     "failure": "Complete serialized text request exceeded 64000 bytes (65281), despite meeting the 48000-byte payload budget.",
     "cause": "Selection did not reserve actual system and nested JSON envelope overhead.",
     "repair": "Use one actual serialized-envelope measurement during selection, drafting and repair; rebind smaller memory batches to their complete request budget. Do not raise the configured cap.",
-    "status": "synthetic_regressions_passed_pending_native_refresh",
+    "status": "fixed_and_verified_in_actual_native_helper",
     "additionalChecks": [
       "actual Controller.suggest with realistic large synthetic history",
       "configured 32000-byte full envelope",
@@ -267,6 +301,15 @@
       "essential input remains complete or is rejected before transport",
       "selected authorized image and source survive repair into final draft",
       "60000-character escaped memory source completes across bounded contiguous segments"
+    ],
+    "verifiedOnCommit": "97804f6",
+    "actualHttpStatuses": [
+      200,
+      200
+    ],
+    "actualInputBytes": [
+      63859,
+      53218
     ]
   }
 }

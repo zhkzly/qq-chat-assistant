@@ -22,3 +22,5 @@ Acceptance basis: Product95ef8e3, researchd307081 implementation specifications/
 - 2026-10-12: Actual deployed helper rejected an automatic foreground request before HTTP (65281/64000 bytes). Context selection will use the same complete serialized envelope as transport, preserve current input and the latest complete exchange, and evict optional whole entries. Draft and repair use the same measurement; background batches must retain their bound review receipts. No global budget increase or actual-history truncation.
 
 - 2026-10-12: Initial native refresh preserved the original QQ process and all records/inputs. An actual automatic-entry full-envelope overflow was then reproduced with synthetic long history and repaired before final release.
+
+- 2026-10-12: Budget fix 97804f6 fast-forwarded into main and service-refreshed. Native automatic reply and draft both completed with HTTP 200 at 63,859 and 53,218 bytes. All 747 selected messages, goal and unsent inputs remained intact. Historical bootstrap advanced 128 sources; 617 remain and a provider HTTP 408 is recorded separately from the fixed local budget defect.
