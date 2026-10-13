@@ -9,6 +9,7 @@ let nextPurpose='discussion',composerEditVersion=0;
 let assistantPending=false,assistantLocalError='',assistantThreadKey='',assistantNotesKey='',assistantStateKey='',goalVersion='',goalDirty=false,assistantContextVersion=0,draftMaterialIds=new Set(),draftOrigin=null;
 let actionPanelKey='',memorySearchVersion=0,memoryResultsRevision=null,selectedDiscussion=null;
 let memoryRetryPending=false;
+let topicActionPending=null;
 let helpingMethods=new Map();
 let draftArtifactRefs=[],draftRevision=0,draftDirty=false,draftSyncBusy=false,draftSyncBlocked=false,draftRetryAt=0,draftEditTimer=null,draftEditPending=false,legacyDraftCandidate=null;
 let feedbackPending=false,feedbackTaskId=null,feedbackRetryReady=false,feedbackSubmittedText=null,feedbackSavedId=null,topicViewKey='',feedbackTargetRef=null,feedbackClientId=null,experienceViewKey='',relationshipViewKey='',guidanceEditVersion=null,experienceReviewTarget=null,experienceReviewClientId=null;
@@ -149,7 +150,13 @@ async function syncHistory() {
  }catch(e){if(epoch===historyEpoch)error(e.message)}finally{loadingHistory=false}
 }
 function render(next) {
- const key=keyOf(next.scope);if(!state&&next.instruction)$('instruction').value=next.instruction;
+ const key=keyOf(next.scope);
+ // A poll started before a local action may arrive after its confirmation.
+ // Keep the monotonic topic projection while still accepting live busy/settings.
+ if(key===scopeKey&&Number.isSafeInteger(state?.topicContext?.version)&&Number.isSafeInteger(next.topicContext?.version)&&next.topicContext.version<state.topicContext.version){
+  next={...next,topicContext:state.topicContext,...(next.companion&&state.companion?{companion:{...next.companion,topics:state.companion.topics}}:{})};
+ }
+ if(!state&&next.instruction)$('instruction').value=next.instruction;
  if(key!==scopeKey){checkpointDraft();saveDraft();scopeKey=key;if(next.scope)$('qq-number').value=next.scope.peerUin;imageSelection=[];for(const url of imageBlobs.values())URL.revokeObjectURL(url);imageBlobs.clear();historyEpoch++;historyKey='';historyMessages=[];historyVersion='';visibleCount=100;
   const legacy=next.scope?`${next.scope.accountUid}/${next.scope.peerUid}`:'',legacyOrigin=localStorage.getItem(`draft-origin:${legacy}`),legacyBody=localStorage.getItem(`draft:${legacy}`),serverDraft=next.experience?.draft;
   const verifiedLegacy=legacyOrigin&&draftOriginState(next,legacyOrigin)!=='unknown';legacyDraftCandidate=legacyBody&&!verifiedLegacy?legacyBody:null;
@@ -187,6 +194,7 @@ function render(next) {
  if(next.advice&&next.advice.revision!==next.revision)$('analysis').textContent=next.auto?'有新消息，正在更新建议。你的草稿会保留。':'有新消息，点生成可更新建议。你的草稿会保留。';error(next.error);
 }
 function resetCompanion(){
+ topicActionPending=null;syncTopicActionButtons();
  feedbackPending=false;feedbackTaskId=null;feedbackRetryReady=false;feedbackSubmittedText=null;feedbackSavedId=null;$('feedback-text').readOnly=false;topicViewKey='';$('topic-direction').hidden=true;$('topic-direction').open=false;feedbackTargetRef=null;feedbackClientId=null;experienceViewKey='';relationshipViewKey='';guidanceEditVersion=null;experienceReviewTarget=null;experienceReviewClientId=null;$('experience-review-form').hidden=true;$('experience-guidance-form').hidden=true;$('relationship-view').replaceChildren();$('experiences-list').replaceChildren();$('experience-guidance').replaceChildren();
  nextPurpose='discussion';composerEditVersion++;if(scopeKey){const savedPurpose=sessionStorage.getItem(`assistant-purpose:${scopeKey}`);if(['discussion','draft','review'].includes(savedPurpose))nextPurpose=savedPurpose;}syncAssistantPurpose();
  assistantPending=false;assistantLocalError='';assistantThreadKey='';assistantNotesKey='';assistantStateKey='';goalVersion='';goalDirty=false;draftMaterialIds.clear();assistantContextVersion++;
@@ -211,7 +219,12 @@ function responseRecoveryKind(turn){
  const kind=turn?.responseRecovery?.kind;
  return turn?.role==='assistant'&&['private_help','restricted_draft'].includes(kind)?kind:null;
 }
+function syncTopicActionButtons(){
+ const pending=topicActionPending?.scopeKey===scopeKey&&topicActionPending?.epoch===historyEpoch;
+ for(const id of ['topic-adjust','topic-complete','topic-remove'])$(id).disabled=!!pending;
+}
 function renderTopicDirection(){
+ syncTopicActionButtons();
  const topic=state?.topicContext?.active,visible=!!topic&&topic.lifecycle==='active';
  $('topic-direction').hidden=!visible;if(!visible){$('topic-direction').open=false;topicViewKey='';return;}
  const latestAssistant=(state.companion?.turns||[]).findLast(turn=>turn.role==='assistant');
@@ -229,12 +242,21 @@ function renderTopicDirection(){
  for(const item of (topic.progress||[]).slice(-2))fragment.append(paragraph(item,'muted'));
  $('topic-direction-detail').replaceChildren(fragment);
 }
-function adjustTopic(completed=false){
+function adjustTopic(){
  const topic=state?.topicContext?.active;if(!topic||topic.lifecycle!=='active')return;
  const label=topic.objective||topic.direction||'刚才这件事';$('topic-direction').open=false;
- attachDiscussionContext(completed?`这次关于「${label}」已经聊清楚了，先结束这个话题。`:`关于这次「${label}」，我想把方向调整为：`);
+ attachDiscussionContext(`关于这次「${label}」，我想把方向调整为：`);
 }
-$('topic-adjust').onclick=()=>adjustTopic();$('topic-complete').onclick=()=>adjustTopic(true);
+async function closeTopic(operation){
+ const topic=state?.topicContext?.active;if(topicActionPending||!topic||topic.lifecycle!=='active')return;
+ const pending={scopeKey,epoch:historyEpoch,id:topic.id,version:topic.version,operation};topicActionPending=pending;
+ // A control change cancels the previous task; its late submit must not clear
+ // private input even if that input still equals the original submitted text.
+ composerEditVersion++;syncTopicActionButtons();
+ try{await companionAction('/api/topic-action',{id:pending.id,expectedVersion:pending.version,operation});}
+ finally{if(topicActionPending===pending){topicActionPending=null;syncTopicActionButtons();}}
+}
+$('topic-adjust').onclick=()=>adjustTopic();$('topic-complete').onclick=()=>closeTopic('complete');$('topic-remove').onclick=()=>closeTopic('remove');
 $('topic-direction').ontoggle=()=>{if($('topic-direction').open){$('assistant-tools').open=false;$('draft-material-panel').open=false;}};
 function syncAssistantPurpose(){
  const modes={discussion:['讨论','聊一聊'],draft:['组织表达','组织表达'],review:['回顾互动','回顾互动']};

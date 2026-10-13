@@ -213,6 +213,12 @@ class Controller extends EventEmitter {
     this.memoryLastActivityAt=Date.now();this.invalidateAssistant(); this.abort?.abort(); this.advice = null; clearTimeout(this.timer); this.changed(); this.scheduleMemory();
   }
   setGoal(text) { const result = this.store.setGoal(this.requireScope(), text); this.changedContext(); return result; }
+  topicAction(args) {
+    const result=this.store.topicAction(this.requireScope(),args),oldAssistantError=this.assistantError;
+    this.changedContext();
+    if(this.error===oldAssistantError)this.error='';
+    this.changed();return result;
+  }
   saveNote(args) { const result = this.store.saveNote(this.requireScope(), args); this.changedContext(); return result; }
   deleteNote(id) { const scope=this.requireScope(),result = this.store.deleteNote(scope, id);this.usage.redactInputs(scope); this.changedContext(); return result; }
   deleteTurn(id) { const scope=this.requireScope(),result = this.store.deleteTurn(scope, id);this.usage.redactInputs(scope); this.changedContext(); return result; }

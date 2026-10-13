@@ -175,6 +175,7 @@ async function inspectHelperLayout() {
  const current=typeof state==='undefined'?null:state,tab=typeof workspace==='string'&&['discussion','history','background'].includes(workspace)?workspace:'legacy';
  return {helperPresent:true,privateDiscussion:!!el('assistant-form'),memorySearch:!!el('memory-search-form'),memoryStatus:!!el('memory-status'),goalEditor:!!el('goal-form'),pendingActions:!!el('pending-actions'),contextInspector:!!el('assistant-context-dialog'),
   privateInputEnabled:!!el('assistant-input')&&!el('assistant-input').disabled,actualRows:document.querySelectorAll('.message').length,qqSendActionExposed:false,activeTab:tab,
+  activeTopicPresent:!!current?.topicContext?.active,topicCardVisible:visible(el('topic-direction')),topicRemoveAvailable:!!el('topic-remove'),
   nextPurpose:typeof nextPurpose==='undefined'?null:nextPurpose,modeSelectorsEnabled:['assistant-discussion','assistant-draft','assistant-review'].every(id=>!!el(id)&&!el(id).disabled),
   composerVisibleWithinViewport:!modal&&within(el('assistant-form')),viewport:{width:innerWidth,height:innerHeight},
   pageOverflow:{horizontal:root.scrollWidth>root.clientWidth+1,vertical:root.scrollHeight>root.clientHeight+1,scrollWidth:root.scrollWidth,scrollHeight:root.scrollHeight,clientWidth:root.clientWidth,clientHeight:root.clientHeight},

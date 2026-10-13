@@ -1,0 +1,30 @@
+{
+  "baseCommit": "9b4c692",
+  "promptVersion": "relationship-context-2026-10-13.8",
+  "functional": {
+    "command": "npm test",
+    "files": 56,
+    "passed": 417,
+    "failed": 0,
+    "log": "/tmp/qq-direct-topic-full.log"
+  },
+  "browser": {
+    "evidenceLevel": "synthetic real pointer",
+    "topicLifecycle": {
+      "checks": 7,
+      "report": "/tmp/qq-topic-lifecycle-evidence-KLkuww/report.json"
+    },
+    "existingDirection": {
+      "checks": 6,
+      "report": "/tmp/qq-direction-evidence-5fqmsk/report.json"
+    },
+    "red": "Old completion button sent zero state actions while model unavailable; /tmp/qq-topic-lifecycle-evidence-1ZIFtN/"
+  },
+  "runtime": {
+    "status": "pending",
+    "qqMessagesSent": 0
+  },
+  "scope": "Only selected local topic lifecycle/removal; original conversation, goal and factual relationship sources preserved",
+  "modelCallsByAction": 0,
+  "liveModelEvaluationRequired": false
+}

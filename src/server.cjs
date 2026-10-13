@@ -82,7 +82,7 @@ function createServer({ controller, token, uiDir, saveSettings, fillDraft, inspe
       const refreshRoute=url.pathname==='/api/refresh-resume'||url.pathname==='/api/options'&&args.refreshRestore===true;
       if(refreshRoute&&(!controller.scope||['accountUid','accountUin','peerUid','peerUin'].some(field=>typeof args[field]!=='string'||!args[field]||args[field]!==controller.scope[field])))
         throw new Error('会话已改变，未恢复助手输入');
-      const relationshipRoutes=['/api/interaction-events','/api/experience-link','/api/experience-review','/api/experience-adaptation','/api/feedback-context','/api/claim-action','/api/feedback-continue'];
+      const relationshipRoutes=['/api/interaction-events','/api/experience-link','/api/experience-review','/api/experience-adaptation','/api/feedback-context','/api/claim-action','/api/feedback-continue','/api/topic-action'];
       if (['/api/assistant', '/api/suggest', '/api/goal', '/api/note', '/api/note-delete', '/api/turn-delete', '/api/feedback','/api/confirm-action','/api/undo-action','/api/memory-search','/api/memory-maintain',...relationshipRoutes].includes(url.pathname) &&
           (!controller.scope || args.accountUid !== controller.scope.accountUid || args.peerUid !== controller.scope.peerUid ||
            ['accountUin','peerUin'].some(field=>(url.pathname==='/api/suggest'||relationshipRoutes.includes(url.pathname)||Object.hasOwn(args,field))&&args[field]!==controller.scope[field])))
@@ -90,6 +90,11 @@ function createServer({ controller, token, uiDir, saveSettings, fillDraft, inspe
       if((url.pathname==='/api/experience-link'||url.pathname==='/api/experience-adaptation'&&args.operation!=='propose')&&!Number.isSafeInteger(args.expectedVersion))
         throw new Error('请刷新并核对当前记录的版本后重试');
       switch (url.pathname) {
+        case '/api/topic-action': {
+          if(Object.keys(args).some(key=>!['accountUid','accountUin','peerUid','peerUin','id','expectedVersion','operation'].includes(key)))throw new Error('话题操作包含未知字段');
+          const topicAction=controller.topicAction({id:args.id,expectedVersion:args.expectedVersion,operation:args.operation});
+          return json(response,200,{...snapshot(),topicAction});
+        }
         case '/api/refresh-resume':
           if(refreshIsHeld?.()!==true||typeof refreshResume!=='function')throw new Error('助手没有待恢复的更新');
           await refreshResume();break;

@@ -407,6 +407,36 @@ class Store {
   topicView(scope) {
     return this._atomic(()=>topicView(scope,this.getCompanion(scope).topics));
   }
+  topicAction(scope,{id,expectedVersion,operation}={}) {
+    return this._atomic(()=>{
+      identifier(id,'topic id');
+      if(!['complete','cancel','remove'].includes(operation))throw new Error('未知的话题操作');
+      const before=this.getCompanion(scope),topic=before.topics.items.find(item=>item.id===id);
+      if(!topic)throw new Error('这个话题已不存在，请刷新后核对');
+      if(!Number.isSafeInteger(expectedVersion)||expectedVersion!==topic.version)throw new Error('话题已经变化，请刷新后核对版本');
+      if(operation!=='remove'&&(topic.lifecycle!=='active'||before.topics.activeId!==id))throw new Error('这个话题已经结束，无需再次关闭');
+      const wasActive=before.topics.activeId===id;
+      const command={complete:'这次话题已经聊清楚了，结束它的当前目的、方向和限制。',cancel:'取消这次话题，不再沿用它的当前目的、方向和限制。',remove:'移除这次话题，不再把它作为当前或保留话题。'}[operation];
+      const requestId=randomUUID(),turn=this.appendTurn(scope,{role:'user',kind:'user_control',requestId,text:`${command}\n话题：${topic.objective||topic.direction||id}\n只操作这个讨论话题，保留原始聊天、私下历史和长期关系目标。`});
+      const sourceId=`private:${turn.id}`,record=this.getCompanion(scope);
+      if(operation==='remove'){
+        record.topics={...record.topics,version:record.topics.version+1,activeId:wasActive?null:record.topics.activeId,items:record.topics.items.filter(item=>item.id!==id)};
+        this._writeCompanion(scope,record);
+      }else{
+        const source=this._rawMemorySources(scope,record).find(item=>item.id===sourceId);
+        const receipt=this.applyTopicPatch(scope,{operation,topicId:id,stage:'',purposeSourceIds:[sourceId],intentQuote:command},{baseRevision:record.revision,baseTopicVersion:record.topics.version,activeId:record.topics.activeId,sourceIds:[sourceId],sourceRevisions:{[sourceId]:source.revision},currentSourceId:sourceId,origin:'user_control',requestId});
+        if(!receipt.applied)throw new Error(`话题未关闭：${receipt.detail||receipt.reason}`);
+      }
+      const next=this.getCompanion(scope);
+      // Focus is unsourced navigation for the active task. Preserve factual
+      // items and unresolved evidence, but require review after local closure.
+      if(wasActive&&next.state.focus){next.state={...next.state,focus:'',version:next.state.version+1};this._writeCompanion(scope,next);}
+      // Removing a retained topic may leave the active-topic binding identical;
+      // explicitly discard derived discussion summaries for this scope.
+      this.db.prepare('DELETE FROM discussion_compactions WHERE scope_key=?').run(scopeKey(scope));
+      return {applied:true,operation,topicId:id,lifecycle:operation==='remove'?'removed':operation==='complete'?'completed':'cancelled',topicVersion:next.topics.version,revision:next.revision,sourceId};
+    });
+  }
   getDiscussionCompaction(scope,options={}) { return this.discussionCompactions.get(scope,options); }
   saveDiscussionCompaction(scope,record,expected={}) { return this.discussionCompactions.save(scope,record,expected); }
   applyTopicPatch(scope,patch,options={}) {
