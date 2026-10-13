@@ -162,6 +162,52 @@ async function runProbe(states){
  if(process.env.CHAT_ASSISTANT_PROBE!=='1')return null;
  const file=path.resolve(__dirname,'../data/native-probe-action.json');if(!fs.existsSync(file))return null;
  const action=JSON.parse(fs.readFileSync(file,'utf8'));fs.unlinkSync(file);
+ if(['arm-read-transport','inspect-read-transport','upgrade-read-transport'].includes(action.action)) {
+  // Capture only the already-owned instances on their next read. This probe
+  // never creates an IPC event, changes a header, or exposes message payloads.
+  const {QQTransport}=require('./ipc-transport.cjs'),{NativeDriver}=require('./native-driver.cjs');
+  const key=Symbol.for('qq-chat-assistant.development-read-probe');
+  let probe=QQTransport[key];
+  if(!probe&&action.action==='arm-read-transport') {
+   const transportPrototype=QQTransport.prototype,driverPrototype=NativeDriver.prototype;
+   probe={transportPrototype,driverPrototype,call:transportPrototype.call,response:transportPrototype.response,command:driverPrototype.command,responses:[]};
+   transportPrototype.call=function(...args){probe.transport=new WeakRef(this);return Reflect.apply(probe.call,this,args);};
+   transportPrototype.response=function(header,result,wc){
+    if(header?.type==='response'&&header.callbackId?.startsWith('qq-chat-assistant-')) {
+     const transport=probe.transport?.deref(),pending=transport?.pending?.get(header.callbackId),sender=pending?.sender||transport?.context?.event?.sender;
+     probe.responses.push({expectedSenderId:sender?.id??null,actualSenderId:wc?.id??null,pendingPresent:!!pending,sameSender:!!sender&&sender===wc,full:header.promiseStatue==='full'});
+     if(probe.responses.length>12)probe.responses.shift();
+    }
+    return Reflect.apply(probe.response,this,[header,result,wc]);
+   };
+   driverPrototype.command=function(...args){probe.driver=new WeakRef(this);return Reflect.apply(probe.command,this,args);};
+   QQTransport[key]=probe;
+  }
+  if(!probe)return {armed:false,instanceCaptured:false};
+  const transport=probe.transport?.deref(),driver=probe.driver?.deref();
+  if(action.action==='upgrade-read-transport') {
+   if(!transport||!driver)throw new Error('A scoped native read must capture the owned transport and driver first');
+   probe.transportPrototype.call=probe.call;probe.transportPrototype.response=probe.response;probe.driverPrototype.command=probe.command;
+   delete require.cache[require.resolve('./ipc-transport.cjs')];delete require.cache[require.resolve('./native-driver.cjs')];
+   const current=require('./ipc-transport.cjs'),CurrentDriver=require('./native-driver.cjs').NativeDriver;
+   if(typeof current.upgradeTransport!=='function')throw new Error('Reviewed native transport upgrade is not available');
+   const before=driver.scope();
+   current.upgradeTransport(transport,{observedWindows:require('electron').BrowserWindow.getAllWindows()});
+   // Keep the existing adapter and listener; capture() would clear selection.
+   Object.setPrototypeOf(driver,CurrentDriver.prototype);
+   driver.session.getReadiness=()=>transport.readiness().ready;
+   driver.session.onReadinessChange=listener=>{const onReady=value=>listener(value.ready);transport.on('readiness',onReady);return()=>transport.off('readiness',onReady);};
+   if(!driver[key]){driver[key]=true;transport.on('readiness',()=>driver.emit('status',driver.status()));}
+   driver.emit('status',driver.status());
+   const after=driver.scope();
+   return {upgraded:true,qqRestarted:false,adapterPreserved:true,scopePreserved:Object.keys(before).every(k=>before[k]===after[k]),readiness:transport.readiness()};
+  }
+  const context=transport?.context,sender=context?.event?.sender;
+  return {armed:true,instanceCaptured:!!transport,driverCaptured:!!driver,accountPresent:!!transport?.account,
+   contextPresent:!!context,senderId:sender?.id??null,senderDestroyed:sender?sender.isDestroyed():null,
+   senderOwnerMatches:!!sender&&transport?.windowAccounts?.get(sender)===transport?.account?.uid,
+   readiness:typeof transport?.readiness==='function'?transport.readiness():null,responses:probe.responses};
+ }
  if(action.action==='refresh-service') {
   const {webContents,ipcMain}=require('electron');
   const contents=webContents.getAllWebContents().find(w=>w.getURL().startsWith('http://127.0.0.1:17860/'));
