@@ -15,11 +15,16 @@ function captureHelperReload(resume) {
  if(prior)return {blocked:true,reason:'pending_reload_recovery',message:'上次刷新保留了未恢复输入；请先使用 reload-helper 的 resume:true 恢复，避免覆盖它。'};
  const scope=current?.scope?Object.fromEntries(['accountUid','accountUin','peerUid','peerUin'].map(k=>[k,current.scope[k]])):null;
  if(scope&&Object.values(scope).some(value=>typeof value!=='string'||!value))return {blocked:true,reason:'incomplete_scope',message:'当前会话标识尚未就绪，未刷新助手。'};
+ const bodyInertBefore=!!document.body.inert,originalFocus=document.activeElement;
+ document.body.inert=true;
+ const status=document.createElement('div');status.id='qq-helper-reload-status';status.setAttribute('role','status');status.textContent='正在更新助手，输入已保留。更新期间暂不能编辑。';
+ Object.assign(status.style,{position:'fixed',inset:'0',zIndex:'2147483647',display:'grid',placeItems:'center',padding:'24px',background:'rgba(16,21,30,.92)',color:'#e5ecfa',font:'14px sans-serif'});document.documentElement.append(status);
+ try{
  const value=id=>el(id)?.value||'',position=id=>{const node=el(id);return node?{top:node.scrollTop,left:node.scrollLeft,follow:node.scrollHeight-node.scrollTop-node.clientHeight<(id==='history'?40:60)}:null;};
  const noteId=value('note-id'),note=(current?.companion?.notes||[]).find(n=>n.id===noteId);
- const active=document.activeElement,focus=['assistant-input','draft','goal-input','note-text','feedback-text','memory-query','experience-review-text','experience-guidance-text','experience-guidance-when'].includes(active?.id)?{id:active.id,start:active.selectionStart,end:active.selectionEnd}:null;
+ const active=originalFocus,focus=['assistant-input','draft','goal-input','note-text','feedback-text','memory-query','experience-review-text','experience-guidance-text','experience-guidance-when'].includes(active?.id)?{id:active.id,start:active.selectionStart,end:active.selectionEnd}:null;
  const tab=typeof workspace==='string'&&['discussion','history','background'].includes(workspace)?workspace:'discussion';
- const saved={version:1,scope,nextPurpose:typeof nextPurpose==='undefined'?'discussion':nextPurpose,instruction:value('instruction'),draft:value('draft'),draftOrigin:typeof draftOrigin==='undefined'?null:draftOrigin,
+ const saved={version:1,scope,bodyInertBefore,replyMessageIds:current?.replyFocus?.mode==='selected'?[...current.replyFocus.messageIds]:[],imageSelection:structuredClone(current?.imageSelection||[]),nextPurpose:typeof nextPurpose==='undefined'?'discussion':nextPurpose,instruction:value('instruction'),draft:value('draft'),draftOrigin:typeof draftOrigin==='undefined'?null:draftOrigin,
   draftArtifactRefs:typeof draftArtifactRefs==='undefined'?[]:draftArtifactRefs,draftRevision:typeof draftRevision==='undefined'?null:draftRevision,
   draftDirty:typeof draftDirty!=='undefined'&&draftDirty,draftEditPending:typeof draftEditPending!=='undefined'&&draftEditPending,
   draftSyncBlocked:typeof draftSyncBlocked!=='undefined'&&draftSyncBlocked,
@@ -44,24 +49,42 @@ function captureHelperReload(resume) {
  // settings APIs: a visual refresh must not change application configuration.
  if(typeof saveDraft==='function')saveDraft();
  return {captured:true,resume:false,boundScopePresent:!!scope};
+ }catch(error){document.body.inert=bodyInertBefore;status.remove();throw error;}
 }
-function restoreHelperReload() {
+function releaseHelperReload() {
+ let saved;try{saved=JSON.parse(sessionStorage.getItem('qq-assistant-ui-reload-v1'));}catch{}
+ document.body.inert=!!saved?.bodyInertBefore;document.getElementById('qq-helper-reload-status')?.remove();document.getElementById('helper-refresh-status')?.remove();
+ return {released:true,recoveryPending:!!sessionStorage.getItem('qq-assistant-ui-reload-v1')};
+}
+async function restoreHelperReload() {
  const key='qq-assistant-ui-reload-v1',raw=sessionStorage.getItem(key),el=id=>document.getElementById(id);
  if(!raw)return {ready:false,blocked:true,reason:'missing_recovery_capsule'};
  let saved;try{saved=JSON.parse(raw);}catch{return {ready:false,blocked:true,reason:'invalid_recovery_capsule'};}
  if(saved.version!==1)return {ready:false,blocked:true,reason:'incompatible_recovery_capsule'};
+ const thaw=()=>{document.body.inert=!!saved.bodyInertBefore;el('qq-helper-reload-status')?.remove();el('helper-refresh-status')?.remove();};
+ const failed=result=>{thaw();return result;};
+ document.body.inert=true;
  if(typeof state==='undefined'||!state||!el('assistant-input')||!el('draft'))return {ready:false,reason:'loading_helper'};
  const current=state.scope||null,fields=['accountUid','accountUin','peerUid','peerUin'];
- if(!!saved.scope!==!!current||saved.scope&&fields.some(k=>saved.scope[k]!==current[k]))return {ready:false,blocked:true,reason:'scope_changed_input_not_restored'};
- if(el('settings')?.open)return {ready:false,blocked:true,reason:'settings_open_input_not_restored'};
- if((el('qq-number')?.value?.trim()||'')!==(current?.peerUin||''))return {ready:false,blocked:true,reason:'pending_contact_input_not_restored'};
+ if(!!saved.scope!==!!current||saved.scope&&fields.some(k=>saved.scope[k]!==current[k]))return failed({ready:false,blocked:true,reason:'scope_changed_input_not_restored'});
+ if(el('settings')?.open)return failed({ready:false,blocked:true,reason:'settings_open_input_not_restored'});
+ if((el('qq-number')?.value?.trim()||'')!==(current?.peerUin||''))return failed({ready:false,blocked:true,reason:'pending_contact_input_not_restored'});
  if(typeof loadingHistory!=='undefined'&&loadingHistory)return {ready:false,reason:'loading_history'};
+ try{
+ const expectedFocus=saved.replyMessageIds||(state.replyFocus?.mode==='selected'?state.replyFocus.messageIds:[]),expectedImages=saved.imageSelection||state.imageSelection||[];
+ const sameSelections=next=>JSON.stringify(next.replyFocus?.mode==='selected'?next.replyFocus.messageIds:[])===JSON.stringify(expectedFocus)&&JSON.stringify(next.imageSelection||[])===JSON.stringify(expectedImages);
+ if(!sameSelections(state)){
+  if(state.refreshHeld!==true||typeof api!=='function')return failed({ready:false,blocked:true,reason:'selected_context_changed_not_restored'});
+  const next=await(await api('/api/options',{...current,replyMessageIds:expectedFocus,images:expectedImages,refreshRestore:true})).json();
+  if(!next.scope||fields.some(field=>next.scope[field]!==current[field])||!sameSelections(next))return failed({ready:false,blocked:true,reason:'selected_context_restore_not_verified'});
+  if(typeof render==='function')render(next);else state=next;
+ }
  const set=(id,value)=>{const node=el(id);if(node)node.value=value;};
  const turns=state.companion?.turns||[],notes=state.companion?.notes||[];
  const savedRefs=saved.draftArtifactRefs||[],resolvedRefs=typeof resolveDraftArtifactRefs==='function'?resolveDraftArtifactRefs(state,saved.draftOrigin,savedRefs):savedRefs;
  const bridgedLegacyOrigin=!savedRefs.length&&!!saved.draftOrigin&&!!resolvedRefs.length;
  const originState=typeof draftOriginState==='function'?draftOriginState(state,saved.draftOrigin,resolvedRefs):(!saved.draftOrigin?'active':'unknown');
- if(originState==='unknown')return {ready:false,blocked:true,reason:'draft_origin_unknown_capsule_quarantined'};
+ if(originState==='unknown')return failed({ready:false,blocked:true,reason:'draft_origin_unknown_capsule_quarantined'});
  const originValid=originState!=='redacted',artifactOriginsValid=originValid;
  if(typeof draftOrigin!=='undefined')draftOrigin=originValid?saved.draftOrigin:null;
  if(typeof draftArtifactRefs!=='undefined')draftArtifactRefs=originValid?resolvedRefs:[];
@@ -123,20 +146,25 @@ function restoreHelperReload() {
  position('conversation-scroll',saved.scroll.discussion);position('history',saved.scroll.history);position('panel-background',saved.scroll.background);position('draft',saved.scroll.draft);
  if(saved.draftDialogOpen&&el('draft-dialog')&&!el('draft-dialog').open)el('draft-dialog').showModal();
  else if(saved.contactDialogOpen&&el('contact-dialog')&&!el('contact-dialog').open)el('contact-dialog').showModal();
- if(saved.focus){const node=el(saved.focus.id);if(node?.getClientRects().length){node.focus({preventScroll:true});if(Number.isInteger(saved.focus.start)&&Number.isInteger(saved.focus.end)&&node.setSelectionRange)node.setSelectionRange(saved.focus.start,saved.focus.end);}}
  window.scrollTo(saved.scroll.window.x,saved.scroll.window.y);
  if(typeof saveDraft==='function')saveDraft();
  if(typeof syncDraftIndicator==='function')syncDraftIndicator();
  const preserved=el('assistant-input').value===saved.privateInput&&(!saved.goalDirty||el('goal-input')?.value===saved.goalDraft)&&el('note-text')?.value===saved.noteText&&el('feedback-text')?.value===recoveredFeedbackText&&el('draft').value===(originValid?saved.draft:'')&&(!el('experience-review-text')||el('experience-review-text').value===(experienceReview.text||''))&&(!el('experience-guidance-text')||el('experience-guidance-text').value===(experienceGuidance.text||''));
- if(!preserved)return {ready:false,blocked:true,reason:'input_verification_failed'};
+ if(!preserved)return failed({ready:false,blocked:true,reason:'input_verification_failed'});
  // Bind a legacy edited body to its response family without claiming adoption.
  if(originValid&&bridgedLegacyOrigin&&typeof checkpointDraft==='function')checkpointDraft();
  // Successful same-scope recovery migrates the old two-ID browser cache. Do
  // not leave a second copy that a later source-forget cannot invalidate.
  if(current){const legacy=`${current.accountUid}/${current.peerUid}`;localStorage.removeItem(`draft:${legacy}`);localStorage.removeItem(`draft-origin:${legacy}`);sessionStorage.removeItem(`draft:${legacy}`);if(typeof legacyDraftCandidate!=='undefined')legacyDraftCandidate=null;if(el('draft-recover-legacy'))el('draft-recover-legacy').hidden=true;}
- sessionStorage.removeItem(key);
+ if(state.refreshHeld===true){
+  const next=await(await api('/api/refresh-resume',{...current})).json();
+  if(next.refreshHeld!==false||!next.scope||fields.some(field=>next.scope[field]!==current[field]))return failed({ready:false,blocked:true,reason:'refresh_resume_not_verified'});
+ }
+ thaw();sessionStorage.removeItem(key);
+ if(saved.focus){const node=el(saved.focus.id);if(node?.getClientRects().length){node.focus({preventScroll:true});if(Number.isInteger(saved.focus.start)&&Number.isInteger(saved.focus.end)&&node.setSelectionRange)node.setSelectionRange(saved.focus.start,saved.focus.end);}}
  return {ready:true,scopePreserved:true,unsavedAssistantInputsPreserved:true,draftsPreserved:originValid,draftOriginPreserved:originValid,draftNeedsReview:originState==='stale',artifactOriginsPreserved:artifactOriginsValid,feedbackTargetPreserved:feedbackCompatible,noteEditDetached:!noteCompatible,feedbackTargetDetached:!feedbackCompatible,forgottenFeedbackCleared:feedbackForgotten,closedReadOnlyInspector:saved.closedReadOnlyInspector,
   activeTab:typeof workspace==='string'&&['discussion','history','background'].includes(workspace)?workspace:'legacy'};
+ }catch(error){return failed({ready:false,blocked:true,reason:'scoped_recovery_failed',error:error.message});}
 }
 async function inspectHelperLayout() {
  const el=id=>document.getElementById(id),visible=node=>!!node&&node.getClientRects().length>0&&getComputedStyle(node).visibility!=='hidden'&&getComputedStyle(node).display!=='none';
@@ -162,7 +190,7 @@ async function runProbe(states){
  if(process.env.CHAT_ASSISTANT_PROBE!=='1')return null;
  const file=path.resolve(__dirname,'../data/native-probe-action.json');if(!fs.existsSync(file))return null;
  const action=JSON.parse(fs.readFileSync(file,'utf8'));fs.unlinkSync(file);
- if(['arm-read-transport','inspect-read-transport','upgrade-read-transport','verify-read-history'].includes(action.action)) {
+ if(['arm-read-transport','inspect-read-transport','upgrade-read-transport','verify-read-history','inspect-quote-metadata'].includes(action.action)) {
   // Capture only the already-owned instances on their next read. This probe
   // never creates an IPC event, changes a header, or exposes message payloads.
   const {QQTransport}=require('./ipc-transport.cjs'),{NativeDriver}=require('./native-driver.cjs');
@@ -185,6 +213,22 @@ async function runProbe(states){
   }
   if(!probe)return {armed:false,instanceCaptured:false};
   const transport=probe.transport?.deref(),driver=probe.driver?.deref();
+  if(action.action==='inspect-quote-metadata') {
+   if(!transport||!driver)throw new Error('Owned native read instances were not captured');
+   const scope=driver.scope(),beforeEpoch=driver.epoch,latest=await driver.command('latest',{scope});
+   const cursor=latest.messages.map(message=>message.msgId).filter(id=>typeof id==='string'&&/^\d+$/.test(id)).sort((a,b)=>BigInt(a)<BigInt(b)?-1:BigInt(a)>BigInt(b)?1:0)[0];
+   const older=cursor?await driver.command('older',{scope,cursor}):{messages:[]};
+   const messages=[...new Map([...latest.messages,...older.messages].map(message=>[message.msgId,message])).values()];
+   const replies=messages.flatMap(message=>(message.elements||[]).filter(element=>element.replyElement).map(element=>element.replyElement));
+   const fields=['sourceMsgIdInRecords','replayMsgSeq','replayMsgId','senderUin','senderUidStr'];
+   const fieldTypes=Object.fromEntries(fields.map(field=>[field,[...new Set(replies.map(reply=>reply[field]===undefined?'absent':typeof reply[field]))]]));
+   const after=driver.scope();
+   // Report shape and coverage only: no QQ identities, IDs, bodies or quote text.
+   return {metadataOnly:true,latestCount:latest.messages.length,olderCount:older.messages.length,quoteElementCount:replies.length,fieldTypes,
+    nonzeroStringIdCount:replies.filter(reply=>fields.slice(0,3).filter(field=>field!=='replayMsgSeq').some(field=>typeof reply[field]==='string'&&/^\d+$/.test(reply[field])&&reply[field]!=='0')).length,
+    scopedAuthorCount:replies.filter(reply=>[scope.accountUin,scope.peerUin].includes(String(reply.senderUin))||[scope.accountUid,scope.peerUid].includes(reply.senderUidStr)).length,
+    scopePreserved:Object.keys(scope).every(key=>scope[key]===after[key]),epochPreserved:driver.epoch===beforeEpoch,pendingCount:transport.pending.size,qqMessagesSent:0,qqRestarted:false};
+  }
   if(action.action==='verify-read-history') {
    if(!transport||!driver)throw new Error('Owned native read instances were not captured');
    const scope=driver.scope(),beforeEpoch=driver.epoch;
@@ -236,14 +280,15 @@ async function runProbe(states){
   const capture=await contents.executeJavaScript(`(${captureHelperReload.toString()})(false)`);
   if(capture.blocked)return {scheduled:false,qqRestarted:false,serviceRestarted:false,...capture};
   const peer=await contents.executeJavaScript("typeof state==='undefined'?'':state?.scope?.peerUin||''");
-  if(!/^\d{5,12}$/.test(peer))throw new Error('Cannot preserve helper conversation; inputs remain in the local recovery capsule');
+  if(!/^\d{5,12}$/.test(peer)){await contents.executeJavaScript(`(${releaseHelperReload.toString()})()`);throw new Error('Cannot preserve helper conversation; inputs remain in the local recovery capsule');}
   const output=path.join(root,'data/service-refresh-result.json');
-  const oldURL=fs.readFileSync(path.join(root,'data/assistant-url.txt'),'utf8').trim();
+  let oldURL;try{oldURL=fs.readFileSync(path.join(root,'data/assistant-url.txt'),'utf8').trim();}catch(error){await contents.executeJavaScript(`(${releaseHelperReload.toString()})()`);throw error;}
   setTimeout(async()=>{try{
    process.kill(Number(children[0]),'SIGTERM');
    for(let n=0;n<100 && fs.existsSync(`/proc/${children[0]}`);n++)await new Promise(r=>setTimeout(r,100));
    if(fs.existsSync(`/proc/${children[0]}`))throw new Error('Owned assistant worker did not stop');
-   await openHelper({sender:contents},peer);
+   const previousHold=process.env.CHAT_ASSISTANT_REFRESH_HOLD;process.env.CHAT_ASSISTANT_REFRESH_HOLD='1';
+   try{await openHelper({sender:contents},peer);}finally{if(previousHold===undefined)delete process.env.CHAT_ASSISTANT_REFRESH_HOLD;else process.env.CHAT_ASSISTANT_REFRESH_HOLD=previousHold;}
    const url=fs.readFileSync(path.join(root,'data/assistant-url.txt'),'utf8').trim();
    if(!/^http:\/\/127\.0\.0\.1:17860\/#\w+$/.test(url)||url===oldURL)throw new Error('New helper URL is not ready');
    await contents.loadURL(url.replace('/#',`/?refresh=${Date.now()}#`));
@@ -259,7 +304,7 @@ async function runProbe(states){
    if(!restored?.ready)throw new Error(`Helper restarted; scoped inputs remain in the recovery capsule (${restored?.reason||'timeout'})`);
    const layout=await contents.executeJavaScript(`(${inspectHelperLayout.toString()})()`);
    fs.writeFileSync(output,JSON.stringify({ok:true,qqRestarted:false,serviceRestarted:true,...restored,layout}),{mode:0o600});
-  }catch(e){fs.writeFileSync(output,JSON.stringify({ok:false,qqRestarted:false,recoveryPending:true,error:e.message}),{mode:0o600});}},250);
+  }catch(e){try{await contents.executeJavaScript(`(${releaseHelperReload.toString()})()`);}catch{}fs.writeFileSync(output,JSON.stringify({ok:false,qqRestarted:false,recoveryPending:true,error:e.message}),{mode:0o600});}},250);
   return {scheduled:true,qqRestarted:false};
  }
  if(action.action==='search-contact') {
@@ -289,10 +334,10 @@ async function runProbe(states){
   const capture=await contents.executeJavaScript(`(${captureHelperReload.toString()})(${action.resume===true})`);
   if(capture.blocked)return {reloaded:false,qqRestarted:false,serviceRestarted:false,...capture};
   if(!capture.resume){
-   const url=fs.readFileSync(path.resolve(__dirname,'../data/assistant-url.txt'),'utf8').trim();
-   if(!/^http:\/\/127\.0\.0\.1:17860\/#\w+$/.test(url))throw new Error('Invalid private helper URL; unsaved inputs remain in the local recovery capsule');
+   let url;try{url=fs.readFileSync(path.resolve(__dirname,'../data/assistant-url.txt'),'utf8').trim();}catch(error){await contents.executeJavaScript(`(${releaseHelperReload.toString()})()`);throw error;}
+   if(!/^http:\/\/127\.0\.0\.1:17860\/#\w+$/.test(url)){await contents.executeJavaScript(`(${releaseHelperReload.toString()})()`);throw new Error('Invalid private helper URL; unsaved inputs remain in the local recovery capsule');}
    try{await contents.loadURL(url.replace('/#',`/?refresh=${Date.now()}#`));}
-   catch{throw new Error('Helper page reload failed; unsaved inputs remain in the local recovery capsule');}
+   catch{await contents.executeJavaScript(`(${releaseHelperReload.toString()})()`);throw new Error('Helper page reload failed; unsaved inputs remain in the local recovery capsule');}
   }
   let restored;
   for(let n=0;n<100;n++){
@@ -301,7 +346,7 @@ async function runProbe(states){
    if(restored.ready||restored.blocked)break;
    await new Promise(resolve=>setTimeout(resolve,100));
   }
-  if(!restored?.ready)return {reloaded:!capture.resume,qqRestarted:false,serviceRestarted:false,restored:false,recoveryPending:true,reason:restored?.reason||'restoration_timeout',message:'未将输入恢复到未经确认的会话。原输入仍保留在本机恢复区，可在当前会话就绪后用 resume:true 重试。'};
+  if(!restored?.ready){await contents.executeJavaScript(`(${releaseHelperReload.toString()})()`);return {reloaded:!capture.resume,qqRestarted:false,serviceRestarted:false,restored:false,recoveryPending:true,reason:restored?.reason||'restoration_timeout',message:'未将输入恢复到未经确认的会话。原输入仍保留在本机恢复区，可在当前会话就绪后用 resume:true 重试。'};}
   return {reloaded:!capture.resume,qqRestarted:false,serviceRestarted:false,...restored};
  }
  if(action.action==='inspect-context-helper') {

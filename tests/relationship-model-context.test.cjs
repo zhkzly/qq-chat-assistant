@@ -20,18 +20,22 @@ function fixture(t, text = '我对她有好感，想多认识她，帮我说出�
   return { store, args: { scope, records, turn, companion: store.getCompanion(scope), requestId: 'method-context', coverage: { status: 'partial' } } };
 }
 
-test('actual model request delivers applicable method cards including romantic expression, not just registry IDs', async t => {
+test('actual model request delivers meaningful romantic catalog guidance and a small applicable full-card set', async t => {
   const { args } = fixture(t);
   const context = buildContext({ ...args, purpose: 'reply' });
   const result = await assistModel(settings, context, undefined, async (_, request) => {
     const body = JSON.parse(request.body), payload = JSON.parse(body.messages[1].content);
-    const card = payload.methodCards?.find(item => item.id === 'express_interest');
-    assert.ok(card, 'the actual serialized request must teach the expression method');
-    for (const key of ['version', 'applicability', 'avoid', 'requiredContext', 'instruction', 'outputKinds', 'evidenceLimit']) assert.ok(card[key], key);
-    assert.match(card.instruction, /历史少|稀少/);
-    assert.equal(JSON.stringify(card).includes('https://'), false, 'paper catalog stays outside the hot path');
+    const expression = payload.methodCatalog?.find(item => item.id === 'express_interest');
+    assert.ok(expression?.version && expression.name && expression.brief, 'the serialized romantic method must carry guidance, not just an ID');
+    assert.match(expression.brief, /表达|欣赏|约会/);
+    assert.match(body.messages[0].content, /即使历史少/, 'shared behavior still permits truthful expression with sparse history');
+    assert.ok(payload.methodCards.length > 0 && payload.methodCards.length <= 2);
+    for (const card of payload.methodCards) for (const key of ['version', 'applicability', 'avoid', 'requiredContext', 'instruction', 'outputKinds', 'evidenceLimit']) assert.ok(card[key], key);
+    assert.ok(payload.methodCards.some(card => card.id === 'respond'), 'a reply request receives full reply guidance');
+    assert.equal(JSON.stringify([...payload.methodCards, ...payload.methodCatalog]).includes('https://'), false, 'paper catalog stays outside the hot path');
     assert.equal(payload.goal, '与她发展双方愿意的恋爱关系');
-    assert.ok(context.manifest.methodTrace.delivered.some(item => item.id === 'express_interest'));
+    assert.ok(context.manifest.methodTrace.catalog.some(item => item.id === expression.id && item.version === expression.version));
+    assert.deepEqual(context.manifest.methodTrace.delivered.map(item => item.id), payload.methodCards.map(item => item.id));
     return response({ kind: 'discussion', text: '可以直接表达你想多认识她，不用先猜她是否喜欢你。', methodIds: ['express_interest'] });
   });
   assert.deepEqual(result.methodIds, ['express_interest']);
@@ -82,12 +86,13 @@ test('restricted draft has only compose stage, preserving preparation trace with
     for (const key of ['relationshipContext', 'experienceContext', 'feedbackTargets', 'goal', 'privateConversation', 'preferences']) assert.equal(payload[key], undefined, key);
     return response({ kind: 'draft', text: '直接表达真实意思。', suggestions: [{ style: '自然', text: '我对你有好感，也想多认识你。' }] });
   });
-  assert.ok(prepared.manifest.methodTrace.delivered.some(item => item.id === 'express_interest'));
+  assert.ok(prepared.manifest.methodTrace.catalog.some(item => item.id === 'express_interest'));
+  assert.deepEqual(prepared.manifest.methodTrace.delivered.map(item => item.id), prepared.payload.methodCards.map(item => item.id));
   assert.deepEqual(context.manifest.methodTrace.delivered.map(item => item.id), ['compose']);
   assert.equal(context.manifest.methodTrace.reported, null, 'absence of a reported method is not fabricated use');
 });
 
-test('reported method must be one of the delivered cards, not merely a valid registry entry', () => {
+test('reported method must be one of the delivered catalog/card options, not merely a valid registry entry', () => {
   assert.throws(() => parseAssistant({ kind: 'discussion', text: '测试', methodIds: ['express_interest'] }, 'discussion',
     { methodSelection: { candidates: ['respond'] }, methodCards: [{ id: 'respond' }] }), /methodIds|本次|方法/);
   assert.match(SYSTEM, /恋爱/);
@@ -103,8 +108,17 @@ test('a preparation response preserves sourced understanding alongside its draft
   assert.equal(result.stateReview, 'no_change');
   const draft = { kind: 'draft', text: '表达', suggestions: [{ style: '自然', text: '我想多认识你。' }] };
   for (const field of ['relationshipPatch','statePatch','actions']) assert.throws(() => parseAssistant({ ...draft, [field]: field === 'actions' ? [] : {} }, 'draft'), /受限草稿/);
-  assert.throws(() => parseAssistant({ kind: 'discussion', text: '尝试保存', relationshipPatch: { claims: [{ ...patch.claims[0], sourceIds: ['qq:undelivered'] }] } }, 'discussion', prepared.payload), /sourceIds/);
-  assert.throws(() => parseAssistant({ kind: 'discussion', text: '尝试保存', relationshipPatch: { claims: [{ ...patch.claims[0], assertionKind: 'inferred', epistemicStatus: 'supported' }] } }, 'discussion', prepared.payload), /epistemicStatus/);
+  for (const [invalid, expected] of [
+    [{ ...patch.claims[0], sourceIds: ['qq:undelivered'] }, /sourceIds/],
+    [{ ...patch.claims[0], assertionKind: 'inferred', epistemicStatus: 'supported' }, /epistemicStatus/]
+  ]) {
+    const invalidPatch = { claims: [invalid] }, diagnostics = {};
+    const readable = parseAssistant({ kind: 'discussion', text: '尝试保存', relationshipPatch: invalidPatch, stateReview: 'no_change' }, 'discussion', prepared.payload, diagnostics);
+    assert.equal(readable.text, '尝试保存'); assert.equal(readable.relationshipPatch, undefined); assert.equal(readable.stateReview, undefined);
+    assert.equal(diagnostics.auxiliaryErrors[0].field, 'relationshipPatch'); assert.match(diagnostics.auxiliaryErrors[0].message, expected);
+    assert.throws(() => parseAssistant({ draftPlan: { quotes: [{ sourceId, text: '我对她有好感，想多认识她' }] }, relationshipPatch: invalidPatch }, 'discussion', prepared.payload), expected,
+      'source-bound preparation retains its strict evidence contract');
+  }
 });
 
 test('feedback context hydrates the exact full evaluated artifact without creating a second factual source or leaking it to drafts', async t => {
@@ -148,15 +162,29 @@ test('only an explicitly enabled review can propose inactive local guidance from
   const result = parseAssistant({ kind: 'review', text: '这次可以减少连问，保留你真正想说的部分。', experienceProposals: [proposal] }, 'review', review.payload);
   assert.deepEqual(result.experienceProposals, [proposal]);
   assert.equal(review.payload.experienceProposalPolicy.enabled, true);
+  const catalogMethod = review.manifest.methodTrace.catalog.find(method => method.id === proposal.methodId);
+  assert.ok(catalogMethod, 'the proposed method has a version in the actually delivered catalog');
+  const provided = [...new Map([...review.manifest.methodTrace.catalog, ...review.manifest.methodTrace.delivered].map(method => [method.id, method])).values()];
+  assert.throws(() => store.experiences.proposeFromModel(scope, result.experienceProposals[0], { allowedSourceIds: review.manifest.sourceIds,
+    allowedCaseIds: [], deliveredMethods: provided.filter(method => method.id !== proposal.methodId) }), /method.*delivered/i);
   const saved = store.experiences.proposeFromModel(scope, result.experienceProposals[0], { allowedSourceIds: review.manifest.sourceIds,
-    allowedCaseIds: [], deliveredMethods: review.manifest.methodTrace.delivered });
+    allowedCaseIds: [], deliveredMethods: provided });
   assert.equal(saved.status, 'candidate');
   assert.notEqual(saved.authority, 'user_approved_assistance_guidance');
+  assert.deepEqual(saved.methodRef, { methodId: proposal.methodId, version: catalogMethod.version });
   const ordinary = buildContext({ ...options, allowExperienceProposals: false });
   assert.equal(ordinary.payload.experienceProposalPolicy.enabled, false);
-  assert.throws(() => parseAssistant({ kind: 'discussion', text: '聊新话题', experienceProposals: [proposal] }, 'discussion', ordinary.payload), /experienceProposals|复盘/);
-  for (const change of [{ sourceIds: ['qq:undelivered'] }, { sourceIds: [`private:${args.turn.id}`] }, { caseIds: ['another-contact-case'] }, { status: 'active' }])
-    assert.throws(() => parseAssistant({ kind: 'review', text: '候选', experienceProposals: [{ ...proposal, ...change }] }, 'review', review.payload), /experienceProposals/);
+  const disabledDiagnostics = {}, disabled = parseAssistant({ kind: 'discussion', text: '聊新话题', experienceProposals: [proposal] }, 'discussion', ordinary.payload, disabledDiagnostics);
+  assert.equal(disabled.text, '聊新话题'); assert.equal(disabled.experienceProposals, undefined);
+  assert.equal(disabledDiagnostics.auxiliaryErrors[0].field, 'experienceProposals'); assert.match(disabledDiagnostics.auxiliaryErrors[0].message, /未开启|复盘/);
+  for (const change of [{ sourceIds: ['qq:undelivered'] }, { sourceIds: [`private:${args.turn.id}`] }, { caseIds: ['another-contact-case'] }, { status: 'active' }]) {
+    const invalid = { ...proposal, ...change }, diagnostics = {};
+    const readable = parseAssistant({ kind: 'review', text: '候选', experienceProposals: [invalid] }, 'review', review.payload, diagnostics);
+    assert.equal(readable.text, '候选'); assert.equal(readable.experienceProposals, undefined);
+    assert.equal(diagnostics.auxiliaryErrors[0].field, 'experienceProposals'); assert.match(diagnostics.auxiliaryErrors[0].message, /experienceProposals/);
+    assert.throws(() => store.experiences.proposeFromModel(scope, invalid, { allowedSourceIds: review.manifest.sourceIds,
+      allowedCaseIds: [], deliveredMethods: provided }), /proposal|feedback|case|evidence/i);
+  }
 });
 
 test('recorded live feedback review commits atomically without hydrated feedback changing its own revision', async t => {

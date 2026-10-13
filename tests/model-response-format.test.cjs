@@ -1,7 +1,7 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
 const {responseEnvelope}=require('../src/model-response-format.cjs'),{readModelOutput,parseModelJson}=require('../src/model-json.cjs');
-const {assistModel,prepareAssistantRequest}=require('../src/assistant-model.cjs');
+const {assistModel,prepareAssistantRequest,parseAssistant}=require('../src/assistant-model.cjs');
 test('verified non-thinking Claude uses a pure result envelope; thinking/other models retain compatible JSON mode',()=>{
  for(const purpose of ['discussion','draft','discussion_compaction','memory']){
   const settings={model:'claude-sonnet-4-6'},result=responseEnvelope(settings,purpose);
@@ -31,6 +31,29 @@ test('only documented proxy padding at optional-object schema paths is removed',
  assert.equal(result.draftPlan.guidance.objective.text,data.draftPlan.guidance.objective.text);assert.equal(result.unknown,'retain');
  const required=readModelOutput({choices:[{message:{tool_calls:[{function:{name:'discussion_compaction_result',arguments:JSON.stringify({summary:'x',reviewedTurnIds:[],quoteRefs:[{_:true,turnId:'x',role:'assistant',text:'x'}]})}}]}}]});
  assert.equal(parseModelJson(required.text).quoteRefs[0]._,true,'unknown required-object fields still reach the strict local validator');
+});
+test('result-tool framing decodes only schema-declared containers and retains source validation',()=>{
+ const source={id:'private:current',type:'private',role:'user',text:'我住得很近，帮我回答她。',revision:'r1'};
+ const payload={purpose:'reply',userRequest:{sourceId:source.id,text:source.text},sources:[source]};
+ const plan={_:true,quotes:JSON.stringify([{sourceId:source.id,text:'我住得很近'}]),style:'natural',
+  guidance:JSON.stringify({_:true,currentStep:{text:'回答距离，不加经历',sourceIds:[source.id]}})};
+ const expected={kind:'discussion',text:'准备一句完整表达。',draftPlan:JSON.stringify(plan)};
+ const carrier=value=>({choices:[{message:{tool_calls:[{function:{name:'assistant_result',arguments:JSON.stringify(value)}}]}}]});
+ const decoded=parseModelJson(readModelOutput(carrier(expected)).text);
+ assert.equal(typeof decoded.draftPlan,'object');assert.equal(decoded.draftPlan._,undefined);assert.ok(Array.isArray(decoded.draftPlan.quotes));
+ assert.equal(decoded.draftPlan.guidance._,undefined);assert.equal(decoded.draftPlan.guidance.currentStep.text,plan.guidance&&JSON.parse(plan.guidance).currentStep.text);
+ assert.equal(parseAssistant(decoded,'reply',payload).draftPlan.quotes[0].text,'我住得很近');
+ const scalar='{"kind":"discussion","text":"literal quoted JSON"}';
+ const literal=parseModelJson(readModelOutput(carrier({kind:'discussion',text:scalar,unknown:JSON.stringify({text:'unknown schema path'})})).text);
+ assert.equal(literal.text,scalar);assert.equal(typeof literal.unknown,'string');
+ const textCarrier=parseModelJson(readModelOutput({choices:[{message:{content:JSON.stringify(expected)}}]}).text);
+ assert.equal(typeof textCarrier.draftPlan,'string','plain message data is not container-decoded');
+ for(const malformed of [JSON.stringify(plan)+'}',JSON.stringify(plan)+'\n'+JSON.stringify(plan),'[]','{broken']){
+  const bad=parseModelJson(readModelOutput(carrier({...expected,draftPlan:malformed})).text);
+  assert.equal(bad.draftPlan,malformed);assert.throws(()=>parseAssistant(bad,'reply',payload),/拟表达内容/);
+ }
+ const forbidden=parseModelJson(readModelOutput(carrier({...expected,draftPlan:JSON.stringify({...plan,guidance:{currentStep:{text:'unsupported control',sourceIds:['private:missing']}}})})).text);
+ assert.throws(()=>parseAssistant(forbidden,'reply',payload),/sourceIds/,'framing does not relax control-source authority');
 });
 test('Claude response envelope still passes local phase validation and the full serialized request budget',async()=>{
  const settings={model:'claude-sonnet-4-6',baseUrl:'http://fixture.invalid/v1',anonymous:true},context={payload:{purpose:'review',userRequest:{sourceId:'request:x',text:'先回顾，不写新句子'},sources:[]},manifest:{}};

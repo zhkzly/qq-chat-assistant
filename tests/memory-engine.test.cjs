@@ -76,6 +76,36 @@ test('wire aliases reconstruct exact long original IDs and prior record identiti
   assert.equal(s.applyMemoryBatch(scope,batch,result).applied,true);assert.equal(s.searchMemory(scope,'看展').items[0].status,'cancelled');
 });
 
+test('background wire aliases ordering, authors and reply edges without exposing native identifiers',async t=>{
+  const {normalize}=require('../src/messages.cjs'),{raw}=require('./fixtures/native.cjs');
+  const {prepareMemoryRequest}=require('../src/memory-engine.cjs');
+  const s=new Store(':memory:');t.after(()=>s.close());
+  const firstId='810000000000000000001',secondId='810000000000000000002',thirdId='810000000000000000003',fourthId='810000000000000000004',missingId='810000000000000000099';
+  const firstSeq='910000000000000000001',secondSeq='910000000000000000002',thirdSeq='910000000000000000003',fourthSeq='910000000000000000004';
+  const quote=messageId=>({replyElement:{replayMsgId:messageId,replayMsgSeq:firstSeq,senderUidStr:scope.accountUid,senderUin:scope.accountUin}});
+  s.add(scope,[normalize(raw(firstId,true,{msgSeq:firstSeq,elements:[{textElement:{content:'Synthetic self proposal.'}}]}),scope),
+    normalize(raw(secondId,false,{msgSeq:secondSeq,elements:[quote(firstId),{textElement:{content:'Synthetic contact acceptance.'}}]}),scope),
+    normalize(raw(thirdId,false,{msgSeq:thirdSeq,elements:[quote(missingId),{textElement:{content:'Another synthetic quoted response.'}}]}),scope),
+    normalize(raw(fourthId,false,{msgSeq:fourthSeq,elements:[{replyElement:{replayMsgSeq:firstSeq,senderUidStr:scope.accountUid,senderUin:scope.accountUin}},
+      {textElement:{content:'Synthetic sequence-only quote.'}}]}),scope)]);
+  const batch=s.memoryBatch(scope),before=JSON.stringify(batch),request=prepareMemoryRequest(settingsForMemory(),batch);
+  const p=JSON.parse(JSON.parse(request.serialized).messages[1].content),[self,contact,unavailable,sequenceOnly]=p.sources;
+  for(const value of [firstId,secondId,thirdId,fourthId,missingId,firstSeq,secondSeq,thirdSeq,fourthSeq,...Object.values(scope)])
+    assert.equal(request.serialized.includes(value),false,'native structural identifiers stay local');
+  assert.equal(self.author,'self');assert.equal(contact.author,'contact');
+  assert.match(self.sequence,/^q\d+$/);assert.match(contact.sequence,/^q\d+$/);
+  assert.ok(Number(self.sequence.slice(1))<Number(contact.sequence.slice(1)),'numeric sequence order survives aliasing');
+  assert.equal(contact.replyTo.sourceId,self.id);assert.equal(contact.replyTo.sequence,self.sequence);assert.equal(contact.replyTo.author,'self');
+  assert.equal(unavailable.replyTo.targetUnavailable,true);assert.match(unavailable.replyTo.messageRef,/^r\d+$/);
+  assert.equal(unavailable.replyTo.sourceId,undefined,'an unavailable original is not introduced as citable evidence');
+  assert.equal(unavailable.replyTo.sequence,self.sequence);assert.equal(unavailable.replyTo.author,'self');
+  assert.equal(sequenceOnly.replyTo.sourceId,self.id);assert.equal(sequenceOnly.replyTo.sequence,self.sequence);assert.equal(sequenceOnly.replyTo.author,'self');
+  for(const source of p.sources){assert.equal(source.senderUid,undefined);assert.equal(source.senderUin,undefined);assert.equal(source.replyTo?.messageId,undefined);}
+  assert.equal(JSON.stringify(batch),before,'wire projection does not rewrite local records or revision bindings');
+  const decoded=request.decode(wireNoop(p));assert.deepEqual(decoded.reviewedSourceIds,batch.reviewedSourceIds);
+  assert.equal(s.applyMemoryBatch(scope,batch,decoded).applied,true);
+});
+
 test('wire review receipt rejects absent, false and mismatched acknowledgments without advancing any queued source',async t=>{
   const s=new Store(':memory:');t.after(()=>s.close());turn(s);const batch=s.memoryBatch(scope);
   for(const change of [p=>({...wireNoop(p),reviewedAll:false}),p=>{const r=wireNoop(p);delete r.reviewedAll;return r;},p=>({...wireNoop(p),batchId:'b0000000000000000'}),p=>{const r=wireNoop(p);delete r.items;return r;},p=>({...noop(batch)})]) {

@@ -186,27 +186,50 @@ test('bounded plain drafting repair retains guidance provenance and chosen image
   for (const forbidden of ['PRIVATE_MOTIVE_', 'PRIVATE_LONG_GOAL_']) assert.ok(calls.every(body => !body.includes(forbidden)));
 });
 
-test('parser rejects closed-topic updates and active-topic resumes before a terminal Store rejection', t => {
-  const { args, topic } = fixture(t), prepared = buildContext(args), currentId = prepared.payload.userRequest.sourceId;
+test('ordinary help drops closed-topic updates and active-topic resumes while legacy and planning stay strict', t => {
+  const { args, topic, guidance } = fixture(t), prepared = buildContext(args), currentId = prepared.payload.userRequest.sourceId;
+  const plan = { quotes: [], intent: 'reply', guidance };
+  const rejected = (output, payload) => {
+    const diagnostics = {}, result = parseAssistant({ ...output, stateReview: 'no_change' }, 'discussion', payload, diagnostics);
+    assert.equal(result.text, output.text); assert.equal(result.topicPatch, undefined); assert.equal(result.stateReview, undefined);
+    assert.equal(diagnostics.auxiliaryErrors[0].field, 'topicPatch'); assert.match(diagnostics.auxiliaryErrors[0].message, /topicPatch.*(?:lifecycle|closed|active)/);
+    assert.throws(() => parseAssistant(output, 'discussion', { ...payload, taskContext: undefined }), /topicPatch.*(?:lifecycle|closed|active)/);
+    assert.ok(parseAssistant({ kind: 'discussion', text: output.text, draftPlan: plan }, 'draft_prepare', payload).draftPlan, 'the planning fixture is valid without the rejected auxiliary');
+    assert.throws(() => parseAssistant({ ...output, draftPlan: plan }, 'draft_prepare', payload), /topicPatch.*(?:lifecycle|closed|active)/);
+  };
   for (const lifecycle of ['paused','completed','cancelled']) {
     const payload = { ...prepared.payload, topicContext: { ...prepared.payload.topicContext, active: null, activeId: null,
       retained: [{ ...prepared.payload.topicContext.active, lifecycle }] } };
-    for (const operation of ['update','pause','complete','cancel']) assert.throws(() => parseAssistant({ kind: 'discussion', text: '继续帮助',
-      topicPatch: { operation, topicId: topic.id, direction: '新方向', purposeSourceIds: [currentId], intentQuote: prepared.payload.userRequest.text } }, 'discussion', payload), /topicPatch.*(?:lifecycle|closed|active)/);
+    for (const operation of ['update','pause','complete','cancel']) rejected({ kind: 'discussion', text: '继续帮助',
+      topicPatch: { operation, topicId: topic.id, direction: '新方向', purposeSourceIds: [currentId], intentQuote: prepared.payload.userRequest.text } }, payload);
   }
-  assert.throws(() => parseAssistant({ kind: 'discussion', text: '继续帮助', topicPatch: { operation: 'resume', topicId: topic.id,
-    purposeSourceIds: [currentId], intentQuote: prepared.payload.userRequest.text } }, 'discussion', prepared.payload), /topicPatch.*(?:lifecycle|active)/);
+  rejected({ kind: 'discussion', text: '继续帮助', topicPatch: { operation: 'resume', topicId: topic.id,
+    purposeSourceIds: [currentId], intentQuote: prepared.payload.userRequest.text } }, prepared.payload);
 });
 
 test('QQ-only completion requires an actual transient observation origin and its current QQ source', t => {
   const { args, topic } = fixture(t), prepared = buildContext(args), qqId = `qq:${args.records[0].messageId}`;
-  const output = { kind: 'review', text: '这次安排已确认', topicPatch: { operation: 'complete', topicId: topic.id, observationSourceIds: [qqId] } };
-  assert.throws(() => parseAssistant(output, 'review', { ...prepared.payload, generationOrigin: 'user', currentObservationSourceId: qqId }), /topicPatch.*(?:purposeSourceIds|intentQuote)/);
+  const output = { kind: 'review', text: '可以按实际来信继续核对安排。', topicPatch: { operation: 'complete', topicId: topic.id, observationSourceIds: [qqId] } };
+  const wrongOrigin = { ...prepared.payload, generationOrigin: 'user', currentObservationSourceId: qqId }, wrongDiagnostics = {};
+  const wrong = parseAssistant({ ...output, stateReview: 'no_change' }, 'review', wrongOrigin, wrongDiagnostics);
+  assert.equal(wrong.text, output.text); assert.equal(wrong.topicPatch, undefined); assert.equal(wrong.stateReview, undefined);
+  assert.match(wrongDiagnostics.auxiliaryErrors[0].message, /topicPatch.*(?:purposeSourceIds|intentQuote)/);
+  assert.throws(() => parseAssistant(output, 'review', { ...wrongOrigin, taskContext: undefined }), /topicPatch.*(?:purposeSourceIds|intentQuote)/);
   const transient = { id: 'request:observation', type: 'request', role: 'user', text: '结合最新来信帮我看看', revision: 'synthetic' };
   const automatic = { ...prepared.payload, generationOrigin: 'qq_observation', currentObservationSourceId: qqId,
     userRequest: { sourceId: transient.id, text: transient.text }, intentAuthority: { sourceId: transient.id }, sources: [...prepared.payload.sources, transient] };
   assert.equal(parseAssistant(output, 'reply', automatic).topicPatch.operation, 'complete');
-  assert.throws(() => parseAssistant(output, 'reply', { ...automatic, currentObservationSourceId: 'qq:missing' }), /topicPatch.*(?:purposeSourceIds|intentQuote)/);
+  const missing = { ...automatic, currentObservationSourceId: 'qq:missing' }, missingDiagnostics = {};
+  const rejected = parseAssistant(output, 'reply', missing, missingDiagnostics);
+  assert.equal(rejected.topicPatch, undefined); assert.equal(missingDiagnostics.auxiliaryErrors[0].field, 'topicPatch');
+  assert.match(missingDiagnostics.auxiliaryErrors[0].message, /topicPatch.*(?:purposeSourceIds|intentQuote)/);
+  assert.throws(() => parseAssistant(output, 'reply', { ...missing, taskContext: undefined }), /topicPatch.*(?:purposeSourceIds|intentQuote)/);
+  const checkedOptions = { sourceIds: prepared.manifest.sourceIds, sourceRevisions: prepared.manifest.sourceRevisions,
+    currentSourceId: qqId, origin: 'qq_observation', requestId: 'synthetic-qq-completion' };
+  const checked = prepareTopicPatch(args.companion, args.availableSources, output.topicPatch, checkedOptions);
+  const completed = checked.topics.items.find(item => item.id === topic.id);
+  assert.equal(completed.lifecycle, 'completed'); assert.equal(completed.objective, topic.objective); assert.deepEqual(completed.purposeSourceIds, topic.purposeSourceIds);
+  assert.throws(() => prepareTopicPatch(args.companion, args.availableSources, output.topicPatch, { ...checkedOptions, currentSourceId: 'qq:missing' }), /QQ observations require current actual QQ evidence/);
 });
 
 test('old working-state navigation cannot evict the latest complete private correction and acknowledgment', t => {
@@ -249,17 +272,38 @@ test('recorded LIVE new-topic shape accepts current private task phase without i
   assert.equal(topic.observationAuthorities.unknowns, 'private_task_state');
 });
 
-test('unsupported external progress reaches the existing bounded format repair instead of a late Store rejection', async t => {
-  const { args, topic } = fixture(t), context = buildContext(args), currentId = context.payload.userRequest.sourceId;
+test('ordinary help rejects unsupported progress without repair while source-bound planning still repairs strictly', async t => {
+  const { store, args, topic, guidance } = fixture(t);
+  const turn = store.appendTurn(scope, { role: 'user', kind: 'discussion', requestId: 'synthetic-progress-intent', text: '继续按已有方向商量参考表达。' });
+  const options = { ...args, turn, companion: store.getCompanion(scope), availableSources: store.memorySources(scope), requestId: turn.requestId, purpose: 'discussion' };
+  const context = buildContext(options), currentId = context.payload.userRequest.sourceId;
   const invalid = { kind: 'discussion', text: '继续商量', topicPatch: { operation: 'update', topicId: topic.id, direction: '当前方式',
     purposeSourceIds: [currentId], intentQuote: context.payload.userRequest.text, progress: ['已给她发出了邀请'], observationSourceIds: [] } };
-  assert.throws(() => parseAssistant(invalid, 'discussion', context.payload), /topicPatch.observationSourceIds.*progress/);
+  const diagnostics = {}, parsed = parseAssistant(invalid, 'discussion', context.payload, diagnostics);
+  assert.equal(parsed.text, invalid.text); assert.equal(parsed.topicPatch, undefined); assert.match(diagnostics.auxiliaryErrors[0].message, /topicPatch.observationSourceIds.*progress/);
+  assert.throws(() => parseAssistant(invalid, 'discussion', { ...context.payload, taskContext: undefined }), /topicPatch.observationSourceIds.*progress/);
   const calls = [], result = await assistModel(settings, context, undefined, async (_, request) => {
     calls.push(JSON.parse(JSON.parse(request.body).messages[1].content));
-    return { ok: true, json: async () => ({ choices: [{ message: { content: JSON.stringify(calls.length === 1 ? invalid : { kind: 'discussion', text: '当前只是在准备表达，尚未观察到发送。' }) } }] }) };
+    return { ok: true, json: async () => ({ choices: [{ message: { content: JSON.stringify(invalid) } }] }) };
   });
-  assert.equal(calls.length, 2); assert.match(calls[1].formatError, /topicPatch.observationSourceIds.*progress/);
-  assert.equal(result.topicPatch, undefined);
+  assert.equal(calls.length, 1); assert.equal(result.text, invalid.text); assert.equal(result.topicPatch, undefined);
+  assert.equal(context.manifest.formatRepair, undefined); assert.equal(context.manifest.responseRecovery, undefined);
+  assert.ok(context.manifest.auxiliaryErrors.some(error => error.field === 'topicPatch' && /progress/.test(error.message)));
+  const before = JSON.stringify(store.topicView(scope));
+  const receipt = store.applyTopicPatch(scope, invalid.topicPatch, { baseRevision: options.companion.revision, baseTopicVersion: options.companion.topics.version,
+    sourceIds: context.manifest.sourceIds, sourceRevisions: context.manifest.sourceRevisions, currentSourceId: currentId, origin: 'private_discussion', requestId: turn.requestId });
+  assert.equal(receipt.applied, false); assert.match(receipt.detail, /progress requires explicit observation evidence/); assert.equal(JSON.stringify(store.topicView(scope)), before);
+  const plan = { quotes: [], intent: 'reply', guidance: { ...guidance, currentStep: { text: '提供一句待用户选择的参考表达', sourceIds: [currentId] } } };
+  const strict = buildContext({ ...options, purpose: 'draft_prepare' });
+  assert.ok(parseAssistant({ kind: 'discussion', text: '按真实意思准备', draftPlan: plan }, 'draft_prepare', strict.payload).draftPlan);
+  assert.throws(() => parseAssistant({ ...invalid, draftPlan: plan }, 'draft_prepare', strict.payload), /topicPatch.observationSourceIds.*progress/);
+  const strictCalls = [], planned = await assistModel(settings, strict, undefined, async (_, request) => {
+    strictCalls.push(JSON.parse(JSON.parse(request.body).messages[1].content));
+    const output = strictCalls.length === 1 ? { ...invalid, draftPlan: plan } : { kind: 'discussion', text: '当前只是在准备表达，尚未观察到发送。', draftPlan: plan };
+    return { ok: true, json: async () => ({ choices: [{ message: { content: JSON.stringify(output) } }] }) };
+  });
+  assert.equal(strictCalls.length, 2); assert.match(strictCalls[1].formatError, /topicPatch.observationSourceIds.*progress/);
+  assert.deepEqual(planned.draftPlan.guidance, plan.guidance); assert.equal(planned.topicPatch, undefined);
 });
 
 test('a current private draft task can refresh its phase without changing objective or recording an actual send', t => {

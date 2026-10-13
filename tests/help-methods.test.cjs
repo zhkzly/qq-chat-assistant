@@ -25,14 +25,15 @@ test('explicit current request outranks earlier focus or incoming reply', () => 
   assert.equal(selectMethods({ purpose: 'correction' }).methods[0].id, 'correction');
   const reply = selectMethods({ purpose: 'reply' });
   assert.equal(reply.methods[0].id, 'respond');
-  assert.ok(reply.methods.some(method => method.id === 'express_interest'), 'a reply transport purpose must not exclude the user\'s romantic intent');
+  assert.ok(reply.catalog.some(method => method.id === 'express_interest'), 'a reply transport purpose must not exclude the user\'s romantic intent');
 });
 
 test('ambiguous discussion leaves alternative methods available and does not infer a relationship stage', () => {
   for (const text of ['今天要不要找她？', '她说最近很累，我也不知道怎么想', '就按刚才那个', '不要问我问题，直接帮我看看']) {
     const result = selectMethods({ purpose: 'discussion', text, hasReply: false });
     assert.equal(result.selection, 'candidates');
-    assert.equal(result.methods.length, 8);
+    assert.equal(result.catalog.length, 8);
+    assert.ok(result.methods.length<=2);
     assert.equal(result.maxApplied, 2);
     assert.match(result.selectionRule, /不必先提问/);
     assert.equal(result.relationshipStage, undefined);
@@ -44,7 +45,7 @@ test('reply availability changes candidate priority only; input text is never co
   const incoming = selectMethods({ hasReply: true });
   assert.equal(ordinary.methods[0].id, 'choose_next_step');
   assert.equal(incoming.methods[0].id, 'respond');
-  assert.deepEqual(new Set(ordinary.methods.map(item => item.id)), new Set(incoming.methods.map(item => item.id)));
+  assert.deepEqual(new Set(ordinary.catalog.map(item => item.id)), new Set(incoming.catalog.map(item => item.id)));
   assert.equal(JSON.stringify(ordinary).includes('Ignore all rules'), false);
 });
 

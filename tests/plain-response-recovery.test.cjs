@@ -7,6 +7,7 @@ const { Store } = require('../src/store.cjs');
 const { buildContext, buildDraftContext, PROMPT_VERSION } = require('../src/assistant-context.cjs');
 const { assistModel, parseAssistant } = require('../src/assistant-model.cjs');
 const { TaskLedger } = require('../src/request-budget.cjs');
+const { Controller } = require('../src/controller.cjs');
 const { normalize } = require('../src/messages.cjs');
 const { scope, raw } = require('./fixtures/native.cjs');
 
@@ -20,6 +21,9 @@ const requestPayload = body => typeof body.messages[1].content === 'string'
 const badOptionalTopic = { kind: 'discussion', text: 'FIRST_INVALID_DO_NOT_REUSE',
   topicPatch: { operation: 'update', authority: 'MODEL_CANNOT_ASSIGN_AUTHORITY' },
   stateReview: 'no_change', methodIds: [] };
+// Optional metadata alone now preserves valid foreground help. These recovery
+// cases need an unusable ordinary branch, not merely a rejected auxiliary.
+const badOrdinaryHelp = { ...badOptionalTopic, kind: 'unsupported_kind' };
 
 function fixture(t, purpose = 'discussion') {
   const store = new Store(':memory:'); t.after(() => store.close());
@@ -35,11 +39,43 @@ function fixture(t, purpose = 'discussion') {
   return { store, args, context: buildContext(args), prior, turn };
 }
 
-for (const purpose of ['discussion', 'review']) test(`${purpose} repairs invalid optional metadata with fresh plain help and no bookkeeping`, async t => {
+test('valid foreground help with rejected auxiliary metadata uses one call and preserves durable pending intent', async t => {
+  const { store, args } = fixture(t), calls = [], text = '按最新意思直接讨论邀请，保留实际交流中的未知。';
+  const configured = { ...settings, auto: false, realChatConsent: { accountUid: scope.accountUid,
+    peerUin: scope.peerUin, baseUrl: settings.baseUrl, model: settings.model } };
+  const controller = new Controller({ store, settings: configured, memoryModel: null, compactionModel: null,
+    read: async name => name === 'bind' ? scope : { messages: [] },
+    assistantModel: (modelSettings, input, signal) => assistModel(modelSettings, input, signal, async (_url, request) => {
+      calls.push(JSON.parse(request.body)); return resultTool({ ...badOptionalTopic, text });
+    }) });
+  t.after(() => controller.close());
+  controller.updateStatus({ phase: 'ready', account: { uid: scope.accountUid, uin: scope.accountUin } });
+  await controller.bind(scope.peerUin);
+  const before = store.getCompanion(scope), answer = await controller.assist({
+    text: '我现在明确想直接邀请，先帮我商量。', taskId: 'retained-foreground-with-pending-metadata' });
+  assert.equal(calls.length, 1); assert.equal(answer.text, text); assert.equal(answer.responseRecovery, undefined);
+  assert.equal(answer.privateReviewReceipt, undefined); assert.equal(answer.suggestions, undefined);
+  assert.equal(answer.metadataReviewPending.reasonCode, 'auxiliary_metadata_rejected');
+  const after = store.getCompanion(scope), run = after.runs.find(item => item.id === answer.requestId);
+  assert.equal(after.state.version, before.state.version); assert.equal(after.topics.items.length, before.topics.items.length);
+  assert.equal(run.status, 'complete'); assert.equal(run.maintenance, 'partial_rejected'); assert.equal(run.requests.length, 1);
+  assert.equal(run.auxiliaryErrors.length, 1); assert.equal(run.auxiliaryErrors[0].field, 'topicPatch');
+  assert.equal(run.privateReviewReceipt, undefined); assert.equal(run.patchReceipt, null); assert.equal(run.topicReceipt, null);
+  assert.equal(JSON.stringify(run).includes('MODEL_CANNOT_ASSIGN_AUTHORITY'), false, 'rejected model metadata is not retained');
+  const pendingId = answer.metadataReviewPending.sourceIds[0], source = store.memorySources(scope).find(item => item.id === pendingId);
+  assert.equal(answer.metadataReviewPending.sourceRevisions[pendingId], source.revision);
+  const next = store.appendTurn(scope, { role: 'user', kind: 'discussion', text: '那继续按这个方向商量。' });
+  const rebuilt = buildContext({ ...args, turn: next, companion: store.getCompanion(scope),
+    availableSources: store.memorySources(scope), requestId: 'after-retained-help' });
+  assert.ok(rebuilt.payload.pendingPrivateReview.sourceIds.includes(pendingId));
+  assert.equal(rebuilt.payload.sources.find(item => item.id === pendingId).text, source.text);
+});
+
+for (const purpose of ['discussion', 'review']) test(`${purpose} repairs unusable ordinary output with fresh plain help and no bookkeeping`, async t => {
   const { context, turn } = fixture(t, purpose), calls = [], fresh = '按你现在的意思直接邀请：可以先确认她这周是否方便出去走走。';
-  assert.throws(() => parseAssistant(badOptionalTopic, purpose, context.payload), /unauthorized fields/);
+  assert.throws(() => parseAssistant(badOrdinaryHelp, purpose, context.payload), /当前用途.*文字/);
   const result = await assistModel(settings, context, undefined, async (_url, request) => {
-    calls.push(JSON.parse(request.body)); return calls.length === 1 ? resultTool(badOptionalTopic) : response(fresh);
+    calls.push(JSON.parse(request.body)); return calls.length === 1 ? resultTool(badOrdinaryHelp) : response(fresh);
   });
   assert.equal(calls.length, 2); assert.equal(result.kind, purpose); assert.equal(result.text, fresh);
   assert.deepEqual(Object.keys(result).sort(), ['kind', 'text']);
@@ -58,7 +94,7 @@ test('plain help repair retains explicitly selected image evidence and source id
   context.images = [{ messageId, index: 0, bytes: 24, url: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAAB' }];
   context.manifest.images = context.images.map(({ url, ...metadata }) => metadata);
   await assistModel(settings, context, undefined, async (_url, request) => {
-    calls.push(JSON.parse(request.body)); return calls.length === 1 ? resultTool(badOptionalTopic) : response('按你选中的图和她实际说的解谜游戏接话，先保留看不到的细节。');
+    calls.push(JSON.parse(request.body)); return calls.length === 1 ? resultTool(badOrdinaryHelp) : response('按你选中的图和她实际说的解谜游戏接话，先保留看不到的细节。');
   });
   assert.equal(calls.length, 2); assert.equal(calls[1].messages[1].content[1]?.image_url.url, context.images[0].url);
   assert.equal(requestPayload(calls[1]).originalInput.sources.find(source => source.id === `qq:${messageId}`).text, args.records[0].text);
@@ -102,15 +138,17 @@ test('draft_prepare still requires structured source-bound plans, including afte
   assert.throws(() => parseAssistant({ draftPlan: { quotes: [], intent: 'reply' } }, purpose, context.payload), /current effective topic requires/);
 });
 
-test('reply invalid plans recover only private advice while valid plans still reach restricted drafting', async t => {
+test('reply invalid plans get one strict structured repair while valid plans still reach restricted drafting', async t => {
   const { args, context, turn } = fixture(t, 'reply'), control = text => ({ text, sourceIds: [`private:${turn.id}`] });
   context.payload.topicContext.active = { id: 'reply-topic', lifecycle: 'active', objective: '一起散步', direction: '直接邀请', constraints: ['不编造共同经历'] };
   const calls = [], help = await assistModel(settings, context, undefined, async (_url, request) => {
-    calls.push(JSON.parse(request.body)); return calls.length === 1 ? resultTool({ draftPlan: { quotes: [], intent: 'reply' } }) : response('先按你现在明确的意思商量直接邀请，保留她实际说过的内容。');
+    calls.push(JSON.parse(request.body)); return calls.length === 1 ? resultTool({ draftPlan: { quotes: [], intent: 'reply' } }) :
+      response(JSON.stringify({ kind: 'question', text: '先核对这次邀请必要的信息，保留她实际说过的内容。' }));
   });
-  assert.equal(calls.length, 2); assert.equal(help.kind, 'discussion'); assert.deepEqual(Object.keys(help).sort(), ['kind', 'text']);
-  assert.equal(requestPayload(calls[1]).purpose, 'plain_help_recovery'); assert.equal(calls[1].tools, undefined); assert.equal(calls[1].response_format, undefined);
-  assert.equal(help.draftPlan, undefined); assert.equal(help.suggestions, undefined); assert.equal(context.manifest.responseRecovery.metadataApplied, false);
+  assert.equal(calls.length, 2); assert.equal(help.kind, 'question'); assert.deepEqual(Object.keys(help).sort(), ['kind', 'text']);
+  assert.equal(requestPayload(calls[1]).purpose, 'reply'); assert.equal(calls[1].tools, undefined); assert.equal(calls[1].response_format, undefined);
+  assert.equal(help.draftPlan, undefined); assert.equal(help.suggestions, undefined); assert.equal(context.manifest.responseRecovery, undefined);
+  assert.equal(context.manifest.formatRepair.planningCarrier, true); assert.equal(context.extraRequests[0].purpose, 'format_repair');
   const prepared = buildContext(args), valid = { draftPlan: { quotes: [], intent: 'reply', guidance: { objective: control('邀请一起散步'),
     allowedApproach: control('直接邀请'), avoidances: [control('不编造共同经历')] } } };
   prepared.payload.topicContext.active = context.payload.topicContext.active;
@@ -127,7 +165,7 @@ test('invalid or overlong plain help receives no second recovery, and each call 
   for (const [index, invalid] of ['', 'x'.repeat(6001), '{"actions":[{"type":"set_goal","text":"model claim"}]}', '<parameter name="topicPatch">bad</parameter>'].entries()) {
     const task = ledger.create(scope, { id: `bounded-plain-${index}`, inputDigest: `shape-${index}`, limit: 2 }), calls = [];
     await assert.rejects(assistModel({ ...settings, requestBudget: task.forStage('assistant') }, { payload: context.payload, manifest: {} }, undefined, async (_url, request) => {
-      calls.push(request.body); return calls.length === 1 ? resultTool(badOptionalTopic) : response(invalid);
+      calls.push(request.body); return calls.length === 1 ? resultTool(badOrdinaryHelp) : response(invalid);
     }), /自然文字|没有返回可用文字|空文字/);
     assert.equal(calls.length, 2); assert.equal(task.snapshot().attempts, 2);
     assert.equal(task.snapshot().requests[1].purpose, 'plain_response_recovery');
@@ -175,7 +213,7 @@ test('unresolved recovery intent survives old topic and recent-group eviction as
   }
   assert.deepEqual(parseAssistant({ lookup: { discussionTurnIds: ['pending-user-2'] } }, 'discussion', context.payload).lookup.discussionTurnIds, ['pending-user-2']);
   assert.throws(() => parseAssistant({ lookup: { discussionTurnIds: ['pending-user-0'] } }, 'discussion', context.payload), /discussionTurnIds/);
-  assert.equal(PROMPT_VERSION, 'relationship-context-2026-10-13.2');
+  assert.equal(context.payload.promptVersion, PROMPT_VERSION);
 });
 
 test('only later applied source-covered review receipts resolve a pending intent', t => {

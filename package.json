@@ -21,7 +21,10 @@
     "test:compaction-goal": "node scripts/compaction-goal-check.cjs",
     "test:recovery-ui": "node scripts/response-recovery-browser-check.cjs",
     "test:recovery-goal": "node scripts/response-recovery-goal-check.cjs",
-    "test:readiness-ui": "node scripts/native-readiness-browser-check.cjs"
+    "test:readiness-ui": "node scripts/native-readiness-browser-check.cjs",
+    "test:current-task-ui": "node scripts/current-task-browser-check.cjs",
+    "test:current-task-goal": "node scripts/current-task-goal-check.cjs",
+    "test:refresh-ui": "node scripts/refresh-preservation-browser-check.cjs"
   },
   "engines": {
     "node": ">=22"

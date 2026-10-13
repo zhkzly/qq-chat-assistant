@@ -11,7 +11,18 @@ const { DiscussionCompactionStore, validateDiscussionTurnFingerprints } = requir
 const hash = value => createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const { DatabaseSync } = require('node:sqlite');
 const {publicRecord}=require('./media.cjs');
-const { compare, sameScope } = require('./messages.cjs');
+const { compare, sameScope, qqSourceMetadata } = require('./messages.cjs');
+function messageEvidence(message) {
+  const { sequence, senderUid, ...evidence } = message;
+  return JSON.stringify(evidence);
+}
+function sourceRevision(source) {
+  if(source.type!=='qq')return hash(source);
+  // Ordering and redundant scoped author identity can enrich legacy sources
+  // without discarding their derived memory. A reply edge remains evidence.
+  const {sequence,senderUid,senderUin,...evidence}=source;
+  return hash(evidence);
+}
 const scopeFields = ['accountUid', 'accountUin', 'peerUid', 'peerUin'];
 function scopeKey(scope) {
   if (!scope || scopeFields.some(key => typeof scope[key] !== 'string' || !scope[key].trim() || scope[key].length > 256)) throw new Error('Invalid conversation scope: four nonempty string identifiers are required');
@@ -33,6 +44,13 @@ function normalizeResponseRecovery(value) {
   if(intentSourceIds.length>1||intentSourceIds.some(id=>!id.startsWith('private:'))||value.kind==='restricted_draft'&&intentSourceIds.length)throw new Error('Invalid response recovery intent sources');
   if(value.intentSourceRevisions!==undefined&&(!plain(value.intentSourceRevisions)||Object.keys(value.intentSourceRevisions).some(id=>!intentSourceIds.includes(id))||intentSourceIds.some(id=>typeof value.intentSourceRevisions[id]!=='string')))throw new Error('Invalid response recovery intent source revisions');
   return {kind:value.kind,reasonCode:value.reasonCode,metadataApplied:false,intentSourceIds,...(value.intentSourceRevisions?{intentSourceRevisions:{...value.intentSourceRevisions}}:{})};
+}
+function normalizeMetadataReviewPending(value) {
+  if(!plain(value)||Object.keys(value).some(key=>!['reasonCode','sourceIds','sourceRevisions'].includes(key))||value.reasonCode!=='auxiliary_metadata_rejected')throw new Error('Invalid pending metadata review marker');
+  const sourceIds=sourceList(value.sourceIds,'pending metadata review sources');
+  if(value.sourceIds.length!==1||sourceIds.length!==1||!sourceIds[0].startsWith('private:'))throw new Error('Pending metadata review requires one private user source');
+  if(!plain(value.sourceRevisions)||Object.keys(value.sourceRevisions).length!==1||typeof value.sourceRevisions[sourceIds[0]]!=='string'||!value.sourceRevisions[sourceIds[0]])throw new Error('Invalid pending metadata source revision');
+  return {reasonCode:value.reasonCode,sourceIds,sourceRevisions:{...value.sourceRevisions}};
 }
 function normalizePrivateReviewReceipt(value) {
   if(!plain(value)||Object.keys(value).some(key=>!['applied','sourceIds','sourceRevisions'].includes(key))||value.applied!==true)throw new Error('Invalid private review receipt');
@@ -116,7 +134,7 @@ class Store {
           const previous = JSON.parse(old.record);
           if (previous.recalled && sameScope(previous, scope)) continue;
         }
-        if (old) invalidates = true;
+        if (old && messageEvidence(JSON.parse(old.record)) !== messageEvidence(message)) invalidates = true;
         this.insert.run(scope.accountUid, scope.peerUid, message.messageId, data);
         changes++;accepted.push(message);
       }
@@ -318,6 +336,12 @@ class Store {
           if(!direct||!delivered.has(id)&&!refs.has(id)||refs.has(id)&&refs.get(id)!==source.revision||expected[id]!==undefined&&expected[id]!==source.revision)throw new Error('Unavailable or undelivered private metadata source');}
         return Object.fromEntries(ids.map(id=>[id,live.get(id).revision]));
       };
+      if(turn.metadataReviewPending!==undefined){
+        if(turn.role!=='assistant')throw new Error('Pending metadata review is assistant program metadata');
+        if(turn.privateReviewReceipt!==undefined)throw new Error('Pending metadata review cannot claim an applied private review');
+        const pending=normalizeMetadataReviewPending(turn.metadataReviewPending);
+        saved.metadataReviewPending={...pending,sourceRevisions:checkPrivateMetadataSources(pending.sourceIds,pending.sourceRevisions)};
+      }
       if(turn.responseRecovery!==undefined){
         if(turn.role!=='assistant')throw new Error('Response recovery is assistant program metadata');
         const recovery=normalizeResponseRecovery(turn.responseRecovery);
@@ -524,12 +548,12 @@ class Store {
     record={...emptyCompanion(),...record};
     const excluded=new Set(this.db.prepare('SELECT source_id FROM memory_exclusions WHERE scope_key=?').all(scopeKey(scope)).map(r=>r.source_id));
     const sources=[
-      ...this.messages(scope).filter(m=>!m.recalled).map(m=>({id:`qq:${m.messageId}`,type:'qq',text:m.text,at:new Date(m.timestamp).toISOString(),role:m.direction==='outgoing'?'user':'contact',direction:m.direction,use:'discussion',messageId:m.messageId})),
+      ...this.messages(scope).filter(m=>!m.recalled).map(m=>({id:`qq:${m.messageId}`,type:'qq',text:m.text,at:new Date(m.timestamp).toISOString(),role:m.direction==='outgoing'?'user':'contact',direction:m.direction,use:'discussion',messageId:m.messageId,...qqSourceMetadata(m)})),
       ...record.turns.filter(t=>t.role==='user'&&!t.memoryExcluded&&!['feedback','feedback_ref'].includes(t.kind)).map(t=>({id:`private:${t.id}`,type:'private',text:t.text,at:t.createdAt,role:'user',use:'discussion',kind:t.kind,version:t.version||1})),
       ...record.notes.filter(n=>n.use!=='disabled').map(n=>({id:`note:${n.id}`,type:'note',text:n.text,at:n.updatedAt,use:n.use,kind:n.kind||'material',version:n.version,...(n.evidenceSourceIds?{evidenceSourceIds:n.evidenceSourceIds}:{}),...(n.evidenceRevisions?{evidenceRevisions:n.evidenceRevisions}:{})})),
       ...this.experiences.sourceRows(scope)
     ].filter(s=>!excluded.has(s.id));
-    return sources.map(s=>({...s,revision:hash(s)}));
+    return sources.map(s=>({...s,revision:sourceRevision(s)}));
   }
   _syncMemory(scope, record=this.getCompanion(scope)) {
     // A source invalidation can redact feedback about an affected artifact, which
@@ -568,6 +592,7 @@ class Store {
     for(const previous of old) {
       const source=byId.get(previous.source_id);
       if(source&&source.revision!==previous.revision)write(source,'upsert',JSON.parse(previous.record).use==='draft'&&source.use!=='draft'?'forget':'correct');
+      else if(source&&JSON.stringify(source)!==previous.record)this.db.prepare('UPDATE memory_sources SET record=? WHERE scope_key=? AND source_id=?').run(JSON.stringify(source),key,source.id);
       if(!source&&!previous.deleted)write({id:previous.source_id,type:JSON.parse(previous.record).type,deleted:true,text:'',at:new Date().toISOString(),revision:hash({previous:previous.revision,deleted:true})},'remove',JSON.parse(previous.record).kind==='feedback'?'correct':'forget');
     }
     for(const source of live)if(!oldIds.has(source.id))write(source,'upsert');
@@ -806,4 +831,4 @@ class Store {
   }
   close() { this.db.close(); }
 }
-module.exports = { Store, normalizeResponseRecovery };
+module.exports = { Store, normalizeResponseRecovery, normalizeMetadataReviewPending, sourceRevision };

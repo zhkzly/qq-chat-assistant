@@ -19,8 +19,9 @@ async function body(request) {
   for await (const chunk of request) { size += chunk.length; if (size > 65536) throw new Error('Request too large'); parts.push(chunk); }
   return JSON.parse(Buffer.concat(parts).toString() || '{}');
 }
-function createServer({ controller, token, uiDir, saveSettings, fillDraft, inspectDraft, modelFetch }) {
+function createServer({ controller, token, uiDir, saveSettings, fillDraft, inspectDraft, modelFetch, refreshIsHeld, refreshResume }) {
   ensureProfiles(controller.settings);
+  const snapshot=()=>({...controller.snapshot(),refreshHeld:refreshIsHeld?.()===true});
   const files = { '/': ['index.html', 'text/html; charset=utf-8'], '/app.js': ['app.js', 'text/javascript; charset=utf-8'],
     '/style.css': ['style.css', 'text/css; charset=utf-8'] };
   return http.createServer(async (request, response) => {
@@ -34,7 +35,8 @@ function createServer({ controller, token, uiDir, saveSettings, fillDraft, inspe
     if (request.method === 'GET' && files[url.pathname]) {
       const [filename, mime] = files[url.pathname];
       response.writeHead(200, { 'Content-Type': mime, 'Cache-Control': 'no-store' });
-      return response.end(fs.readFileSync(path.join(uiDir, filename)));
+      const contents=fs.readFileSync(path.join(uiDir, filename));
+      return response.end(filename==='index.html'&&refreshIsHeld?.()===true?contents.toString().replace(/<body([^>]*)>/,'<body$1 inert><p id="helper-refresh-status" role="status">正在更新助手，输入已保留…</p>'):contents);
     }
     const auth = Buffer.from(request.headers.authorization || '');
     const expected = Buffer.from(`Bearer ${token}`);
@@ -44,7 +46,7 @@ function createServer({ controller, token, uiDir, saveSettings, fillDraft, inspe
         if(!controller.scope || !inspectDraft)throw new Error('QQ 输入框检查尚未启用');
         return json(response,200,await inspectDraft({scope:controller.scope}));
       }
-      if (request.method === 'GET' && url.pathname === '/api/state') return json(response, 200, controller.snapshot());
+      if (request.method === 'GET' && url.pathname === '/api/state') return json(response, 200, snapshot());
       if (request.method === 'GET' && url.pathname === '/api/assistant-context') return json(response, 200, controller.assistantContext());
       if (request.method === 'GET' && url.pathname === '/api/methods') return json(response, 200, {methods:listMethods()});
       if(request.method==='GET'&&url.pathname==='/api/relationship-view'){const scope=controller.requireScope();return json(response,200,{scope,...controller.store.relationshipView(scope,{limit:24})});}
@@ -77,14 +79,20 @@ function createServer({ controller, token, uiDir, saveSettings, fillDraft, inspe
       }
       if (request.method !== 'POST') return json(response, 404, { error: 'Unknown read-only assistant route' });
       const args = await body(request);
+      const refreshRoute=url.pathname==='/api/refresh-resume'||url.pathname==='/api/options'&&args.refreshRestore===true;
+      if(refreshRoute&&(!controller.scope||['accountUid','accountUin','peerUid','peerUin'].some(field=>typeof args[field]!=='string'||!args[field]||args[field]!==controller.scope[field])))
+        throw new Error('会话已改变，未恢复助手输入');
       const relationshipRoutes=['/api/interaction-events','/api/experience-link','/api/experience-review','/api/experience-adaptation','/api/feedback-context','/api/claim-action','/api/feedback-continue'];
-      if (['/api/assistant', '/api/goal', '/api/note', '/api/note-delete', '/api/turn-delete', '/api/feedback','/api/confirm-action','/api/undo-action','/api/memory-search','/api/memory-maintain',...relationshipRoutes].includes(url.pathname) &&
+      if (['/api/assistant', '/api/suggest', '/api/goal', '/api/note', '/api/note-delete', '/api/turn-delete', '/api/feedback','/api/confirm-action','/api/undo-action','/api/memory-search','/api/memory-maintain',...relationshipRoutes].includes(url.pathname) &&
           (!controller.scope || args.accountUid !== controller.scope.accountUid || args.peerUid !== controller.scope.peerUid ||
-           ['accountUin','peerUin'].some(field=>(relationshipRoutes.includes(url.pathname)||Object.hasOwn(args,field))&&args[field]!==controller.scope[field])))
+           ['accountUin','peerUin'].some(field=>(url.pathname==='/api/suggest'||relationshipRoutes.includes(url.pathname)||Object.hasOwn(args,field))&&args[field]!==controller.scope[field])))
         throw new Error('会话已改变，请回到当前联系人后重试');
       if((url.pathname==='/api/experience-link'||url.pathname==='/api/experience-adaptation'&&args.operation!=='propose')&&!Number.isSafeInteger(args.expectedVersion))
         throw new Error('请刷新并核对当前记录的版本后重试');
       switch (url.pathname) {
+        case '/api/refresh-resume':
+          if(refreshIsHeld?.()!==true||typeof refreshResume!=='function')throw new Error('助手没有待恢复的更新');
+          await refreshResume();break;
         case '/api/assistant': await controller.assist({text:args.text,purpose:args.purpose,materialIds:args.materialIds,sourceTurnIds:args.sourceTurnIds,selectedOption:args.selectedOption,taskId:args.taskId}); break;
         case '/api/goal': controller.setGoal(args.text); break;
         case '/api/note': controller.saveNote({ id: args.id, text: args.text, use: args.use }); break;
@@ -118,6 +126,11 @@ function createServer({ controller, token, uiDir, saveSettings, fillDraft, inspe
           return json(response,200,await fillDraft({...args,scope:controller.scope}));
         case '/api/suggest': await controller.suggest(); break;
         case '/api/options':
+          if(args.refreshRestore===true){
+            if(refreshIsHeld?.()!==true)throw new Error('助手没有待恢复的更新');
+            if(Object.keys(args).some(key=>!['accountUid','accountUin','peerUid','peerUin','refreshRestore','images','replyMessageIds'].includes(key)))throw new Error('恢复只能设置原会话的消息和图片选择');
+            controller.configure({images:args.images,replyMessageIds:args.replyMessageIds});break;
+          }
           if (args.replyMessageIds !== undefined && (args.accountUid !== controller.scope?.accountUid || args.peerUid !== controller.scope?.peerUid)) throw new Error('会话已改变，请重新选择回复重点');
           controller.configure(args);if(saveSettings)saveSettings(controller.settings);break;
         case '/api/older': await controller.loadOlder(200); break;
@@ -135,7 +148,7 @@ function createServer({ controller, token, uiDir, saveSettings, fillDraft, inspe
         case '/api/open-window': if(process.send) process.send({type:'open-helper'});else throw new Error('QQ desktop helper is not connected');break;
         default: return json(response, 404, { error: 'Unknown read-only assistant route' });
       }
-      return json(response, 200, controller.snapshot());
+      return json(response, 200, snapshot());
     } catch (error) { return json(response, 400, { error: error.message }); }
   });
 }
@@ -158,6 +171,7 @@ function run() {
   }
   const store = new Store(path.join(data, 'messages.sqlite'));
   const controller = new Controller({ store, read, settings, memoryModel: consolidateMemory });
+  let refreshHeld=process.env.CHAT_ASSISTANT_REFRESH_HOLD==='1'&&!!process.send,desiredVisible=false;
   controller.usage.recoverInterrupted();
   if(process.send)controller.setVisible(false);
   process.on('message', message => {
@@ -179,14 +193,14 @@ function run() {
       }
     }
     if(message.type==='features'){controller.features=message.features;controller.changed();}
-    if (message.type === 'visibility') controller.setVisible(!!message.visible);
+    if (message.type === 'visibility') {desiredVisible=!!message.visible;if(!refreshHeld)controller.setVisible(desiredVisible);}
     if (message.type === 'messages') controller.live(message);
     if (message.type === 'open-contact' && message.uin && message.uin !== controller.scope?.peerUin)
       controller.bind(message.uin).catch(error => { controller.error = error.message; controller.changed(); });
   });
   const token = crypto.randomBytes(32).toString('hex');
   fs.writeFileSync(path.join(data, 'web-token.txt'), token, { mode: 0o600 });
-  const server = createServer({ controller, token, uiDir: path.join(root, 'ui'), inspectDraft(args) {return new Promise((resolve,reject)=>{const id=++next;const timer=setTimeout(()=>{pending.delete(id);reject(new Error('QQ 窗口检查响应超时'))},10000);pending.set(id,{resolve,reject,timer});process.send({type:'inspect-draft',id,args});});}, fillDraft(args) {return new Promise((resolve,reject)=>{const id=++next;const timer=setTimeout(()=>{pending.delete(id);reject(new Error('QQ 回填响应超时'))},10000);pending.set(id,{resolve,reject,timer});process.send({type:'fill-draft',id,args});});}, saveSettings(value) {
+  const server = createServer({ controller, token, uiDir: path.join(root, 'ui'),refreshIsHeld:()=>refreshHeld,refreshResume:()=>{refreshHeld=false;controller.setVisible(desiredVisible);}, inspectDraft(args) {return new Promise((resolve,reject)=>{const id=++next;const timer=setTimeout(()=>{pending.delete(id);reject(new Error('QQ 窗口检查响应超时'))},10000);pending.set(id,{resolve,reject,timer});process.send({type:'inspect-draft',id,args});});}, fillDraft(args) {return new Promise((resolve,reject)=>{const id=++next;const timer=setTimeout(()=>{pending.delete(id);reject(new Error('QQ 回填响应超时'))},10000);pending.set(id,{resolve,reject,timer});process.send({type:'fill-draft',id,args});});}, saveSettings(value) {
     fs.writeFileSync(settingsFile, JSON.stringify(value, null, 2), { mode: 0o600 });
   } });
   server.listen(Number(process.env.CHAT_ASSISTANT_PORT || 17860), '127.0.0.1', () => {

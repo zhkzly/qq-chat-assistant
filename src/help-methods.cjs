@@ -2,7 +2,7 @@
 
 // These are fallible assistance methods, not inferred facts or relationship stages.
 // Research references were checked in the local context-memory research package.
-const METHOD_VERSION = 'relationship-methods-2026-10-12.3';
+const METHOD_VERSION = 'relationship-methods-2026-10-13.1';
 const sources = {
   listening: { kind: 'human-study', source: 'https://doi.org/10.1177/0146167217747874',
     limit: '倾听与态度清晰度的实验，未检验 AI 恋爱咨询；清楚不等于正确。' },
@@ -99,9 +99,13 @@ function selectMethods({ purpose = 'discussion', text = '', focus = '', hasReply
   // Transport purposes prioritize help; only the restricted drafting stage
   // limits available methods. A reply can still express interest or invite.
   const ids = purpose === 'draft' ? ['compose'] : explicit ? [explicit, ...order.filter(id => id !== explicit)] : order;
-  const methods = ids.map(methodFor);
+  const fullIds=purpose==='draft'?['compose']:explicit?[explicit,...(explicit==='compose'?['clarify']:explicit==='review'?['correction']:['choose_next_step'])]
+    : hasReply?['respond','choose_next_step']:['choose_next_step', 'clarify'];
+  const methods = [...new Set(fullIds)].slice(0,purpose==='draft'?1:2).map(methodFor);
+  const briefs={clarify:'理清当前意思，只问影响帮助的必要问题。',choose_next_step:'比较有依据的下一步，支持主动联系、邀约、表意或暂缓。',respond:'接住她当前的问题和分享，按真实事实回应，不机械连问。',compose:'组织愿意表达的真实意思，保持已商量的分寸。',review:'回看实际交流及变化，区分建议、发送和反馈。',shared_activity:'基于双方兴趣考虑活动或邀请，提议与发生分别看。',correction:'处理明确纠正和使用范围，未保存不宣称记住。',express_interest:'帮助真实表达欣赏或约会意图，尊重明确边界。'};
+  const catalog=ids.map(id=>{const m=methodFor(id);return {id:m.id,version:m.version,name:m.name,brief:briefs[id]};});
   return { version: METHOD_VERSION, selection: explicit ? 'explicit' : 'candidates',
-    methods, maxApplied: purpose === 'draft' ? 1 : 2,
+    methods, catalog, maxApplied: purpose === 'draft' ? 1 : 2,
     instruction: methods.map(method => `${method.id}: ${method.instruction}`).join('\n'),
     selectionRule: '用户此次明确意图优先于旧 topic、focus、purpose和候选顺序；模糊续问承接仍有效的商量方向与局部纠正，明确改方向立即替换。候选不是必走步骤，可选择零至两个已载入方法或直接回答，不必先提问。缺方法卡不等于缺用户信息，不要求用户选择方法或固定关系阶段。',
     feedbackRule: '只使用来源有效且适用于当前场景的反馈；单次纠正不自动升级为长期偏好，不自动演化方法。论文提供有限机制参考，不能保证这段关系的结果。' };

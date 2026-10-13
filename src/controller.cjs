@@ -12,6 +12,7 @@ const { buildContext, buildDraftContext, expressionOptionsFor, PROMPT_VERSION } 
 const { planDiscussionCompaction, assistDiscussionCompaction } = require('./discussion-compaction.cjs');
 const { discussionTopicBinding, discussionModelBinding, DISCUSSION_COMPACTION_VERSION } = require('./discussion-compaction-store.cjs');
 const { normalizeResponseRecovery } = require('./store.cjs');
+const {retrievalQuery}=require('./context-task.cjs');
 const { maintainMemory: runMemoryMaintenance } = require('./memory-engine.cjs');
 const { applyUserActions, confirmUserAction, undoUserAction } = require('./assistant-actions.cjs');
 const { methodFor } = require('./help-methods.cjs');
@@ -165,7 +166,7 @@ class Controller extends EventEmitter {
       }
     }
     if (typeof instruction === 'string' && instruction.slice(0,2000)!==this.instruction) { this.invalidateAssistant(); this.instruction = instruction.slice(0, 2000); this.abort?.abort(); this.advice = null; }
-    this.settings.instruction = this.instruction;
+    if(typeof instruction==='string')this.settings.instruction = this.instruction;
     if(Array.isArray(images)) {
       const selected=images.slice(0,3).filter(i=>typeof i.messageId==='string'&&/^\d+$/.test(i.messageId)&&Number.isInteger(i.index));
       if(JSON.stringify(selected)!==JSON.stringify(this.selectedImages)){this.invalidateAssistant();this.selectedImages=selected;this.abort?.abort();this.advice=null;}
@@ -190,7 +191,8 @@ class Controller extends EventEmitter {
     if(automatic&&this.lastAutomaticFingerprint===this.automaticFingerprint())return this.advice;
     this.busy = true; this.error = ''; this.changed();
     try {
-      const reply = await this.assist({ text: this.instruction, purpose: 'reply', transient: true, origin:automatic?'automatic':'user' });
+      const reply = await this.assist({ text: '结合当前 QQ 的真实交流，帮我判断怎样回应或继续。',responsePreference:this.instruction,
+        purpose: 'reply', transient: true, origin:automatic?'automatic':'user' });
       if (!reply || epoch !== this.epoch || !sameScope(scope,this.scope)) return;
       this.advice = { analysis: reply.text, suggestions: reply.suggestions || [], scope,
         revision: this.revision, createdAt: new Date().toISOString(), requestId: reply.requestId };
@@ -337,7 +339,7 @@ class Controller extends EventEmitter {
       if(this.memoryAbort===abort){this.memoryBusy=false;this.memoryAbort=null;this.changed();if(this.store.memoryStatus(scope).pending)this.scheduleMemory(2500);}
     }
   }
-  async assist({ text, purpose = 'discussion', materialIds = [], sourceTurnIds = [], selectedOption, transient = false, resumeTurnId, resumes=0, taskId, origin='user',feedbackIntentId,privateKind } = {}) {
+  async assist({ text, purpose = 'discussion', materialIds = [], sourceTurnIds = [], selectedOption, transient = false, resumeTurnId, resumes=0, taskId, origin='user',feedbackIntentId,privateKind,responsePreference } = {}) {
     const scope = this.requireScope();
     if (!this.hasModelConsent()) throw new Error('请先允许当前会话使用配置的模型；私下资料与聊天记录目前仅在本机');
     if (typeof text !== 'string' || !text.trim() || text.length > 16000) throw new Error('请输入这次想商量或表达的内容（最多 16000 字）');
@@ -359,7 +361,7 @@ class Controller extends EventEmitter {
     const prior=resumeTurnId&&this.store.getCompanion(scope).turns.find(t=>t.id===resumeTurnId&&t.role==='user'&&t.text===text);
     if(resumeTurnId&&!prior&&!transient)throw new Error('原来的问题已变化，请使用当前问题');
     let turn = transient ? {id:requestId,role:'user',kind:purpose,text,transient:true} : prior||this.store.appendTurn(scope, { role: 'user', kind: privateKind||purpose, text, requestId });
-    this.activeAssist={scope,turnId:turn.id,taskId:budget.id,resumes,args:{text,purpose,materialIds,sourceTurnIds,selectedOption,transient,origin,feedbackIntentId,privateKind}};
+    this.activeAssist={scope,turnId:turn.id,taskId:budget.id,resumes,args:{text,purpose,materialIds,sourceTurnIds,selectedOption,transient,origin,feedbackIntentId,privateKind,responsePreference}};
     let companion = this.store.getCompanion(scope), baseRevision = companion.revision,baseGeneration=this.store.contextGeneration?.(scope);
     const epoch = this.epoch, revision = this.revision, settings = { ...this.settings };
     const binding = `${settings.baseUrl}\n${settings.model}\n${settings.activeModelProfileId || ''}`;
@@ -373,6 +375,7 @@ class Controller extends EventEmitter {
     let activeCompaction=null,compactionAttempted=false,sourceLookupIds=[],retrievedDiscussion=[];
     try {
       const records = this.store.messages(scope), coverage = this.store.coverage(scope);
+      query=retrievalQuery({text,records,companion,transient});
       const images=this.selectedImages.map(item=>{
         if(!this.store.memorySources(scope).some(s=>s.id===`qq:${item.messageId}`))throw new Error('所选图片来源已撤回或不再用于助手，请重新选择');
         const record=records.find(m=>m.messageId===item.messageId);const image=readImage(record,item.index);
@@ -395,7 +398,7 @@ class Controller extends EventEmitter {
           actionReceipts:receipts,lookupHistory,reviewRange,
           relationshipContext:this.store.relationshipView?.(scope,{query,limit:16}),
           experienceContext,allowExperienceProposals:purpose==='review'||explicitFeedbackIds.length>0,topicContext,intentSourceId,
-          generationOrigin:feedbackIntentId?'user_feedback':transient?'qq_observation':'private_discussion',
+          generationOrigin:feedbackIntentId?'user_feedback':transient?'qq_observation':'private_discussion',responsePreference,
           discussionCompaction:activeCompaction,sourceLookupIds,retrievedDiscussion,store:this.store,promptVersion:PROMPT_VERSION };
       };
       const attachImages=input=>{
@@ -450,7 +453,16 @@ class Controller extends EventEmitter {
           const output=await this.assistantModel(settings,input,abort.signal),resultInput=input.resultContext||input;
           const recoveryValue=resultInput.manifest?.responseRecovery||input.manifest?.responseRecovery,recovery=recoveryValue&&normalizeResponseRecovery(recoveryValue);
           if(recovery?.kind==='private_help'&&!['discussion','review','reply'].includes(resultInput.payload.purpose)||recovery?.kind==='restricted_draft'&&resultInput.payload.purpose!=='draft')throw new Error('Response recovery is unavailable for this assistance phase');
-          let result=parseAssistant(output,resultInput.payload.purpose,resultInput.payload);
+          const diagnostics={};
+          let result=parseAssistant(output,resultInput.payload.purpose,resultInput.payload,diagnostics);
+          const auxiliaryErrors=[...(input.manifest.auxiliaryErrors||[]),...(resultInput.manifest.auxiliaryErrors||[]),...(diagnostics.auxiliaryErrors||[])];
+          if(auxiliaryErrors.length){input.manifest.auxiliaryErrors=[...new Map(auxiliaryErrors.map(e=>[JSON.stringify(e),e])).values()];
+            const fields=new Set(auxiliaryErrors.map(e=>e.field));
+            if(fields.has('topicPatch'))topicProposals.length=0;
+            if(fields.has('relationshipPatch'))relationshipProposals.length=0;
+            if(fields.has('experienceProposals'))experienceProposals.length=0;
+            if(fields.has('statePatch'))stagedReview=null;
+          }
           if(recovery?.kind==='private_help'){
             // A private text fallback cannot commit an earlier queued proposal.
             // Already applied user actions and their real receipts remain intact.
@@ -522,22 +534,25 @@ class Controller extends EventEmitter {
       }
       if(!result||result.lookup)throw new Error('本次信息整理未能完成，请重试；原始输入已保存');
       let reviewed=context;stagedReview={context,result};
-      if(result.draftPlan?.clarification) result={...result,kind:'question',text:result.draftPlan.clarification};
+      if(result.draftPlan?.clarification) result={...result,kind:'question',text:result.kind==='question'&&typeof result.text==='string'&&result.text.trim()?result.text:result.draftPlan.clarification};
       else if(result.draftPlan){
         const allowedImages=context.images;
         context=buildDraftContext(context,result.draftPlan,{scope,requestId,companion,coverage,settings});context.images=allowedImages;
         result=await invoke(context);if(!current())return;reviewed=null;
-      } else if(purpose==='draft')throw new Error('模型尚未明确拟表达内容，请继续说明或选择一个方向');
+      } else if(purpose==='draft'&&!['question','discussion'].includes(result.kind))throw new Error('模型尚未明确拟表达内容，请继续说明或选择一个方向');
       if(!current())return;
       let expressionOptions=[];
       try{expressionOptions=expressionOptionsFor(context,result.expressionOptions||[]);}catch(error){receipts.push({status:'rejected',reason:error.message});}
       const methodIds=(result.methodIds||[]).filter(id=>methodFor(id));
       const generationStages=capturedRequests.filter(request=>request.manifest).map(request=>({stageId:request.manifest.stageId,purpose:request.purpose,
-        deliveredMethodRefs:(request.manifest.methodTrace?.delivered||[]).map(method=>({methodId:method.id,version:method.version})),reportedUsedMethodRefs:request.manifest.methodTrace?.reported?.map(id=>({methodId:id,version:methodFor(id)?.version}))??null}));
+        deliveredMethodRefs:[...new Map([...(request.manifest.methodTrace?.catalog||[]).map(method=>({...method,guidanceLevel:'catalog'})),...(request.manifest.methodTrace?.delivered||[]).map(method=>({...method,guidanceLevel:'full_card'}))].map(method=>[method.id,method])).values()].map(method=>({methodId:method.id,version:method.version,guidanceLevel:method.guidanceLevel})),reportedUsedMethodRefs:request.manifest.methodTrace?.reported?.map(id=>({methodId:id,version:methodFor(id)?.version}))??null}));
       let patchReceipt=null,relationshipReceipt=null,topicReceipt=null;
       const recoveryValue=context.manifest?.responseRecovery,responseRecovery=recoveryValue&&normalizeResponseRecovery(recoveryValue);
       const reply=this.store._atomic(()=>{
         if(!current())return null;
+        const rejectedAux=capturedRequests.flatMap(r=>r.manifest?.auxiliaryErrors||[]);
+        const bestEffort=context.payload.purpose!=='draft'&&context.payload.taskContext?.auxiliaryPolicy==='best_effort';
+        const recordRejection=(field,receipt)=>{if(receipt&&receipt.applied===false)rejectedAux.push({field,code:'rejected_auxiliary_metadata',message:String(receipt.detail||receipt.reason||'metadata rejected').slice(0,500)});};
         const topic=topicProposals.at(-1);
         if(topic&&this.store.applyTopicPatch){
           const manifest=topic.context.manifest,view=topic.context.payload.topicContext;
@@ -546,40 +561,47 @@ class Controller extends EventEmitter {
             activeId:view?.activeId??null,sourceIds:manifest.sourceIds,sourceRevisions:manifest.sourceRevisions,
             currentSourceId:feedbackIntentId?`private:feedback-${feedbackIntentId}`:transient?actualSource&&`qq:${actualSource.messageId}`:`private:${turn.id}`,
             currentFeedbackId:feedbackIntentId,origin:feedbackIntentId?'user_feedback':transient?'qq_observation':'private_discussion',requestId});
-          if(!topicReceipt.applied){const error=new Error(`这次交流方向未能安全更新：${topicReceipt.detail||topicReceipt.reason}；你的输入已保留。`);error.code='topic_patch_rejected';throw error;}
+          if(!topicReceipt.applied){if(bestEffort)recordRejection('topicPatch',topicReceipt);else{const error=new Error(`这次交流方向未能安全更新：${topicReceipt.detail||topicReceipt.reason}；你的输入已保留。`);error.code='topic_patch_rejected';throw error;}}
         }
         if(relationshipProposals.length&&this.store.applyRelationshipPatch){
           const patch={claims:[],events:[],retire:[]},refs=new Map();
           for(const proposal of relationshipProposals){for(const key of ['claims','events','retire'])patch[key].push(...(proposal.patch[key]||[]));for(const [id,version]of Object.entries(proposal.manifest.sourceRevisions||{}))if(/^(qq|private|note):/.test(id))refs.set(id,version);}
           for(const key of ['claims','events','retire'])patch[key]=[...new Map(patch[key].map(item=>[JSON.stringify(item),item])).values()];
           relationshipReceipt=this.store.applyRelationshipPatch(scope,patch,{baseRevision,sourceIds:[...refs.keys()],sourceRevisions:Object.fromEntries(refs),requestId});
+          recordRejection('relationshipPatch',relationshipReceipt);
         }
         const review=stagedReview;
         if(review&&review.result.kind!=='question'&&(review.result.statePatch||review.result.stateReview==='no_change')){
           patchReceipt=this.store.applyState(scope,review.result.statePatch||{},{baseRevision,baseStateVersion:companion.state.version,
             sourceIds:review.context.manifest.sourceIds,coverage:{complete:review.context.manifest.completeReview,sourceIds:review.context.manifest.sourceIds}});
+          recordRejection('statePatch',patchReceipt);
         }
         for(const candidate of experienceProposals){
           const experience=candidate.payload.experienceContext||candidate.payload.experiences||{};
           const allowedSourceIds=candidate.manifest.sourceIds||[];
           const allowedCaseIds=(experience.cases||[]).map(item=>item.id);
-          try{this.store.experiences.proposeFromModel(scope,candidate.proposal,{allowedSourceIds,allowedCaseIds,deliveredMethods:candidate.manifest.methodTrace?.delivered||[]});}
-          catch(error){receipts.push({status:'rejected',reason:`经验候选未保存：${error.message}`});}
+          const provided=[...(candidate.manifest.methodTrace?.delivered||[]),...(candidate.manifest.methodTrace?.catalog||[])];
+          try{this.store.experiences.proposeFromModel(scope,candidate.proposal,{allowedSourceIds,allowedCaseIds,deliveredMethods:[...new Map(provided.map(m=>[m.id,m])).values()]});}
+          catch(error){receipts.push({status:'rejected',reason:`经验候选未保存：${error.message}`});rejectedAux.push({field:'experienceProposals',code:'rejected_auxiliary_metadata',message:String(error.message).slice(0,500)});}
         }
         const reviewedSourceIds=new Set();
         if(patchReceipt?.applied)for(const id of stagedReview?.context.manifest.sourceIds||[])reviewedSourceIds.add(id);
         if(topicReceipt?.applied)for(const id of [...(topic?.patch.purposeSourceIds||[]),...(topic?.patch.observationSourceIds||[])])reviewedSourceIds.add(id);
         const live=new Map(this.store._rawMemorySources(scope).map(source=>[source.id,source]));
         const privateReviewed=[...reviewedSourceIds].filter(id=>{const source=live.get(id);return source?.role==='user'&&(source.type==='private'&&source.kind!=='feedback_continue'||source.type==='feedback'&&source.kind==='local'&&!!source.canonicalFeedbackId)}).slice(-64);
-        const privateReviewReceipt=responseRecovery?.kind!=='private_help'&&privateReviewed.length?{applied:true,sourceIds:privateReviewed}:undefined;
+        const intentId=feedbackIntentId?`private:feedback-${feedbackIntentId}`:!transient?`private:${turn.id}`:undefined;
+        const intent=live.get(intentId);
+        const metadataReviewPending=rejectedAux.length&&intent?.role==='user'&&intentId?.startsWith('private:')
+          ?{reasonCode:'auxiliary_metadata_rejected',sourceIds:[intentId],sourceRevisions:{[intentId]:intent.revision}}:undefined;
+        const privateReviewReceipt=!metadataReviewPending&&responseRecovery?.kind!=='private_help'&&privateReviewed.length?{applied:true,sourceIds:privateReviewed}:undefined;
         const saved=this.store.appendTurn(scope,{role:'assistant',kind:result.kind,text:result.text,requestId,suggestions:result.suggestions,
-          sourceIds:context.manifest.sourceIds,expressionOptions,methodIds,actionReceipts:receipts,generationStages,responseRecovery,privateReviewReceipt,
+          sourceIds:[...new Set([...context.manifest.sourceIds,...capturedRequests.flatMap(r=>r.manifest?.sourceIds||[])])],expressionOptions,methodIds,actionReceipts:receipts,generationStages,responseRecovery,privateReviewReceipt,metadataReviewPending,
           artifactMetadata:{generationStages,goalVersion:companion.goal.version,inputSourceRefs:
             [...new Map(capturedRequests.flatMap(request=>Object.entries({...request.manifest?.discussionCompaction?.sourceRevisions,...request.manifest?.sourceRevisions}))).entries()].filter(([sourceId])=>/^(qq|private|note):/.test(sourceId)).map(([sourceId,revision])=>({sourceId,revision})),
             discussionTurnFingerprints:Object.assign({},...capturedRequests.map(request=>request.manifest?.discussionCompaction?.turnFingerprints||{})),model:settings.model,promptVersion:context.payload.promptVersion}});
         this.store.saveRun(scope,{id:requestId,baseRevision,purpose:context.payload.purpose,status:'complete',payload:context.payload,manifest:context.manifest,
           requests:capturedRequests,replyId:saved.id,patchReceipt,relationshipReceipt,topicReceipt,actionReceipts:receipts,privateReviewReceipt:saved.privateReviewReceipt,
-          maintenance:patchReceipt?.applied?(stagedReview?.result.statePatch?'applied':'reviewed_no_change'):patchReceipt?'rejected':'deferred'});
+          auxiliaryErrors:rejectedAux,maintenance:metadataReviewPending?'partial_rejected':patchReceipt?.applied?(stagedReview?.result.statePatch?'applied':'reviewed_no_change'):patchReceipt?'rejected':'deferred'});
         this.usage.finish(scope,budget.id,'complete');return saved;
       });
       if(!reply)return;

@@ -52,6 +52,9 @@ for(const purpose of ['discussion','draft_prepare','draft'])test(`${purpose} rec
 });
 test('an essential exchange that cannot fit the envelope fails before transport without slicing',t=>{
  const {args}=fixture(t,{assistantRequestBytes:18000});
+ // The lean foreground instructions leave more room than the old protocol.
+ // Make the protected native-shaped exchange itself exceed the wire budget.
+ for(const record of args.records.slice(-4))record.text=record.text.repeat(12);
  assert.throws(()=>buildContext(args),/预算.*没有静默截断/);
 });
 test('automatic controller entry uses the configured envelope and persists the exact repaired evidence',async t=>{
@@ -60,7 +63,7 @@ test('automatic controller entry uses the configured envelope and persists the e
    realChatConsent:{accountUid:scope.accountUid,peerUin:scope.peerUin,model:settings.model,baseUrl:settings.baseUrl}},
   read:async command=>command==='bind'?scope:{messages:[],source:'synthetic'},
   assistantModel:(configured,context,signal)=>assistModel(configured,context,signal,async(_,request)=>{
-   calls.push(request.body);return ok(calls.length===1?JSON.stringify({kind:'discussion',text:'参考她实际说的安排自然回应。',topicPatch:{operation:'update',unexpected:true}}):'参考她实际说的安排自然回应。');
+   calls.push(request.body);return ok(calls.length===1?JSON.stringify({kind:'discussion',text:''}):'参考她实际说的安排自然回应。');
   })});
  controller.visible=false;t.after(()=>controller.close());controller.updateStatus({phase:'ready',account:{uid:scope.accountUid,uin:scope.accountUin}});await controller.bind(scope.peerUin);
  await controller.suggest({automatic:true});assert.equal(controller.assistantError,'');assert.equal(calls.length,2);assert.ok(calls.every(body=>Buffer.byteLength(body)<=32000));

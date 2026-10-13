@@ -1,0 +1,88 @@
+{
+  "date": "2026-10-13",
+  "baseCommit": "849e4bc",
+  "promptVersion": "relationship-context-2026-10-13.6",
+  "memoryVersion": "relationship-memory-2026-10-13.7",
+  "scope": "current-task/history/quotes/method delivery/generation contracts/helper activation",
+  "goal": "Support mutually desired romantic relationship development with grounded private help and manual QQ communication",
+  "functional": {
+    "command": "npm test",
+    "files": 55,
+    "passed": 406,
+    "failed": 0,
+    "evidenceLevel": "functional/synthetic",
+    "log": "/tmp/qq-context-task-functional-final-2.log"
+  },
+  "browser": {
+    "evidenceLevel": "synthetic real-pointer browser",
+    "checks": 37,
+    "currentTask": 6,
+    "assistant": 22,
+    "mode": 4,
+    "refresh": 5,
+    "reports": [
+      "/tmp/qq-current-task-evidence-qrUHYP/report.json",
+      "/tmp/qq-assistant-context-evidence-IJtG9f/report.json",
+      "/tmp/qq-mode-evidence-pGnDqA/report.json",
+      "/tmp/qq-refresh-evidence-gVf8En/report.json"
+    ]
+  },
+  "model": {
+    "endpoint": "localhost:8317",
+    "configuredAlias": "claude-sonnet-4-6",
+    "physicalIdentityVerified": false,
+    "realChatsUsed": false,
+    "actualRelationshipOutcomeVerified": false,
+    "initialPass": {
+      "protocol": ".3",
+      "families": 8,
+      "variants": 9,
+      "httpAttempts": 17,
+      "independentGrades": {
+        "good": 5,
+        "partial": 4,
+        "bad": 0
+      },
+      "limitations": [
+        "Useful clarification was replaced by an internal diagnosis",
+        "Some small unprovided embellishments and weak personal-interest wording",
+        "Four plans fell back to private help after malformed nested JSON"
+      ]
+    },
+    "secondPass": {
+      "protocol": ".4",
+      "httpAttempts": 13,
+      "completedVariants": 5,
+      "independentGrades": {
+        "good": 4,
+        "bad": 1
+      },
+      "negative": "Far-distance wording asserted arrival that had not been supplied",
+      "invitation": "Schema failure: unescaped quotation in structured repair",
+      "stoppedAt": "HTTP 429 on interest; changed-work/ending skipped"
+    },
+    "targetedPass": {
+      "protocol": ".5",
+      "httpAttempts": 1,
+      "stoppedAt": "HTTP 429 before invitation response"
+    },
+    "finalProtocol": ".6",
+    "finalProtocolFullLivePass": false,
+    "remainingEvidence": "The minimal escaping repair and explicit intention-vs-actual-action rule pass functional checks but could not be revalidated against this rate-limited provider",
+    "syntheticReports": [
+      "/tmp/qq-current-task-goal-live-20261013.json",
+      "/tmp/qq-current-task-goal-final-20261013.json",
+      "/tmp/qq-current-task-goal-invitation-final.json"
+    ]
+  },
+  "runtime": {
+    "status": "pending_actual_activation",
+    "qqMessagesSent": 0,
+    "qqInstallationModified": false
+  },
+  "privacy": {
+    "realChatsAndCredentialsCommitted": false,
+    "cloudUpload": false,
+    "backupLocation": "ignored local data/context-activation-20261013/"
+  }
+}

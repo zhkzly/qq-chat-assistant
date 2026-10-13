@@ -1,0 +1,40 @@
+'use strict';
+// Synthetic real-pointer recovery test. No native QQ, provider or private database.
+const fs=require('node:fs'),os=require('node:os'),path=require('node:path'),vm=require('node:vm'),assert=require('node:assert/strict');
+const {spawn,execFileSync}=require('node:child_process');
+const {Store}=require('../src/store.cjs'),{Controller}=require('../src/controller.cjs'),{createServer}=require('../src/server.cjs');
+const {scope,raw}=require('../tests/fixtures/native.cjs'),{CDP}=require('./cdp.cjs'),{actions}=require('./browser-actions.cjs');
+const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+async function until(check,label){for(let n=0;n<120;n++){if(await check())return;await sleep(100);}throw Error(`Timed out: ${label}`);}
+(async()=>{
+ const root=path.resolve(__dirname,'..'),temporary=fs.mkdtempSync(path.join(os.tmpdir(),'qq-refresh-fixture-')),profile=path.join(temporary,'chrome'),evidence=fs.mkdtempSync(path.join(os.tmpdir(),'qq-refresh-evidence-'));
+ const store=new Store(':memory:');let held=false,resumes=0,savedSettings=0,automaticCalls=0;
+ const controller=new Controller({store,settings:{anonymous:true,baseUrl:'http://fixture.invalid/v1',model:'synthetic-refresh',auto:false},read:async command=>command==='bind'?scope:{messages:command==='latest'?[raw()]:[],source:'synthetic-native-fixture'},assistantModel:async()=>{throw Error('No model calls permitted in recovery fixture');}});
+ const suggest=controller.suggest.bind(controller);controller.suggest=async options=>{automaticCalls++;return suggest(options);};
+ controller.updateStatus({phase:'ready',account:{uid:scope.accountUid,uin:scope.accountUin}});
+ const server=createServer({controller,token:'synthetic-refresh',uiDir:path.join(root,'ui'),saveSettings(){savedSettings++;},refreshIsHeld:()=>held,refreshResume(){resumes++;held=false;controller.setVisible(false);}});
+ await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+ const browser=spawn('/usr/bin/google-chrome',['--headless','--no-sandbox','--disable-gpu','--disable-background-networking','--no-first-run',`--user-data-dir=${profile}`,'--remote-debugging-port=0',`http://127.0.0.1:${server.address().port}/#synthetic-refresh`],{stdio:'ignore'});let cdp;
+ try{
+  await until(()=>fs.existsSync(path.join(profile,'DevToolsActivePort')),'Chrome');const port=Number(fs.readFileSync(path.join(profile,'DevToolsActivePort'),'utf8').split('\n')[0]);const tabs=await(await fetch(`http://127.0.0.1:${port}/json/list`)).json();cdp=await CDP.connect(tabs.find(tab=>tab.type==='page').webSocketDebuggerUrl);await cdp.call('Runtime.enable');await cdp.call('Page.enable');const ui=actions(cdp);
+  await cdp.call('Emulation.setDeviceMetricsOverride',{width:390,height:650,deviceScaleFactor:1,mobile:false});await until(()=>cdp.evaluate("!!document.querySelector('#contact-button')"),'helper');await ui.click('#contact-button');await ui.fill('#qq-number',scope.peerUin);await ui.click('#contact-form button[type=submit]');await until(()=>cdp.evaluate('!!state?.scope&&!loadingHistory'),'bound helper');
+  controller.configure({replyMessageIds:[raw().msgId]});controller.changed();await until(()=>cdp.evaluate("state.replyFocus.mode==='selected'"),'selected source-shaped message');
+  await ui.fill('#assistant-input','CAPTURED_PRIVATE_这句还没提交');const inputTarget=await ui.inspect('#assistant-input');
+  const probeSource=process.argv.includes('--baseline-capture')?execFileSync('git',['show','HEAD:plugin/dev-probe.cjs'],{cwd:root,encoding:'utf8'}):fs.readFileSync(path.join(root,'plugin/dev-probe.cjs'),'utf8');
+  const probe={exports:{}};vm.runInNewContext(`${probeSource}\nmodule.exports={captureHelperReload,restoreHelperReload,releaseHelperReload:typeof releaseHelperReload==='function'?releaseHelperReload:null};`,{module:probe,require:name=>{assert.ok(['node:fs','node:path'].includes(name));return require(name);}});
+  assert.equal((await cdp.evaluate(`(${probe.exports.captureHelperReload.toString()})(false)`)).captured,true);
+  const capsule=await cdp.evaluate("sessionStorage.getItem('qq-assistant-ui-reload-v1')");
+  await cdp.call('Input.dispatchMouseEvent',{type:'mousePressed',...inputTarget.point,button:'left',clickCount:1});await cdp.call('Input.dispatchMouseEvent',{type:'mouseReleased',...inputTarget.point,button:'left',clickCount:1});await cdp.call('Input.insertText',{text:'POST_CAPTURE_EDIT_MUST_NOT_ENTER'});
+  assert.equal(await cdp.evaluate("document.querySelector('#assistant-input').value"),'CAPTURED_PRIVATE_这句还没提交','real pointer/text input is blocked after capture');assert.equal(await cdp.evaluate("sessionStorage.getItem('qq-assistant-ui-reload-v1')"),capsule);
+  assert.equal(await cdp.evaluate('document.body.inert'),true);
+  held=true;controller.setVisible(false);controller.configure({auto:true,replyMessageIds:[],images:[]});const beforeSaved=savedSettings;
+  await cdp.call('Page.reload');await until(()=>cdp.evaluate('!!state?.scope&&state.refreshHeld===true&&!loadingHistory'),'held new renderer');assert.equal(await cdp.evaluate('document.body.inert'),true);
+  await sleep(2000);assert.equal(automaticCalls,0,'the held worker cannot schedule automatic suggestions');
+  const restored=await cdp.evaluate(`(${probe.exports.restoreHelperReload.toString()})()`);assert.equal(restored.ready,true,JSON.stringify(restored));assert.equal(resumes,1);assert.equal(held,false);assert.equal(savedSettings,beforeSaved,'selection recovery must not save auto/model/settings');assert.equal(controller.auto,true);assert.equal(controller.visible,false,'resume preserves a desired hidden worker');
+  assert.deepEqual(controller.replyMessageIds,[raw().msgId]);assert.deepEqual(controller.selectedImages,[]);assert.equal(await cdp.evaluate("document.querySelector('#assistant-input').value"),'CAPTURED_PRIVATE_这句还没提交');assert.equal(await cdp.evaluate('document.body.inert'),false);assert.equal(await cdp.evaluate("!!document.querySelector('#helper-refresh-status')"),false);assert.equal(await cdp.evaluate("sessionStorage.getItem('qq-assistant-ui-reload-v1')"),null);
+  await ui.fill('#assistant-input','RECOVERY_FAILURE_原输入要保留');assert.equal((await cdp.evaluate(`(${probe.exports.captureHelperReload.toString()})(false)`)).captured,true);const failedCapsule=await cdp.evaluate("sessionStorage.getItem('qq-assistant-ui-reload-v1')");
+  await cdp.evaluate("state={...state,scope:{...state.scope,peerUid:'synthetic-other'}}");const rejected=await cdp.evaluate(`(${probe.exports.restoreHelperReload.toString()})()`);assert.equal(rejected.reason,'scope_changed_input_not_restored');assert.equal(await cdp.evaluate('document.body.inert'),false);assert.equal(await cdp.evaluate("sessionStorage.getItem('qq-assistant-ui-reload-v1')"),failedCapsule,'failure retains original capsule without recapture');
+  fs.writeFileSync(path.join(evidence,'report.json'),JSON.stringify({result:'PASS',evidence:'synthetic_pointer_browser',nativeQQIntegration:false,realModelCalls:0,checks:['capture freezes real edits and capsule','held renderer stays inert without automatic work','scoped reply focus restored without settings writes','desired hidden visibility preserved','full-scope failure unlocks UI and retains capsule']},null,2));console.log(JSON.stringify({result:'PASS',checks:5,report:path.join(evidence,'report.json')}));
+ }catch(error){if(cdp)try{const image=await cdp.call('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});fs.writeFileSync(path.join(evidence,'failure.png'),Buffer.from(image.data,'base64'));console.error(`Screenshot: ${path.join(evidence,'failure.png')}`);}catch{}throw error;}
+ finally{cdp?.close();browser.kill('SIGTERM');if(browser.exitCode===null&&browser.signalCode===null)await new Promise(resolve=>{const timer=setTimeout(resolve,2000);browser.once('close',()=>{clearTimeout(timer);resolve();});});controller.close();await new Promise(resolve=>server.close(resolve));store.close();fs.rmSync(temporary,{recursive:true,force:true,maxRetries:10,retryDelay:100});}
+})().catch(error=>{console.error(error.stack);process.exitCode=1;});

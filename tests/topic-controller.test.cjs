@@ -40,8 +40,33 @@ test('concurrent continuation duplicates share the same request and retain a fai
  const same=await app.controller.continueFeedback(args);assert.equal(same.feedbackContinuation.status,'failed');assert.equal(calls,2);
  const retry=await app.controller.continueFeedback({...args,taskId:'explicit-new-attempt'});assert.equal(retry.feedbackContinuation.status,'complete');assert.equal(calls,3);assert.equal(app.store.experiences.listFeedback(scope).length,1);
 });
-test('a rejected topic update rolls back the assistant output and leaves the user input',async t=>{
- const app=setup(t,async(_s,input)=>({kind:'discussion',text:'不得假装当前方向已保存',topicPatch:start(input.payload)}));await app.controller.bind(scope.peerUin);
- const original=app.store.applyTopicPatch.bind(app.store);app.store.applyTopicPatch=()=>({applied:false,reason:'synthetic_rejected'});
- await assert.rejects(app.controller.assist({text:'想自然了解她的游戏兴趣',taskId:'rejected-topic'}),/方向未能/);assert.equal(app.store.topicView(scope).active,null);assert.equal(app.store.getCompanion(scope).turns.filter(x=>x.role==='assistant').length,0);assert.equal(app.store.getCompanion(scope).turns.filter(x=>x.role==='user').length,1);app.store.applyTopicPatch=original;
+test('ordinary help survives a rejected topic update with bound pending intent and no false review receipt',async t=>{
+ const text='可以先讨论你想了解的游戏体验，不急着直接邀约。';
+ const app=setup(t,async(_s,input)=>({kind:'discussion',text,topicPatch:start(input.payload),stateReview:'no_change'}));await app.controller.bind(scope.peerUin);
+ t.mock.method(app.store,'applyTopicPatch',()=>({applied:false,reason:'synthetic_rejected'}));
+ const answer=await app.controller.assist({text:'想自然了解她的游戏兴趣',taskId:'rejected-topic'}),companion=app.store.getCompanion(scope),user=companion.turns.find(x=>x.role==='user');
+ assert.equal(answer.text,text);assert.equal(answer.kind,'discussion');assert.equal(app.store.topicView(scope).active,null);assert.equal(app.store.topicView(scope).version,0);
+ assert.equal(companion.turns.filter(x=>x.role==='assistant').length,1);assert.equal(companion.turns.filter(x=>x.role==='user').length,1);
+ assert.equal(user.text,'想自然了解她的游戏兴趣');assert.equal(answer.privateReviewReceipt,undefined);assert.equal(answer.responseRecovery,undefined);
+ const source=app.store.memorySources(scope).find(s=>s.id===`private:${user.id}`);
+ assert.deepEqual(answer.metadataReviewPending,{reasonCode:'auxiliary_metadata_rejected',sourceIds:[source.id],sourceRevisions:{[source.id]:source.revision}});
+ assert.deepEqual(companion.turns.find(x=>x.id===answer.id).metadataReviewPending,answer.metadataReviewPending);
+ const run=companion.runs.find(r=>r.id==='rejected-topic');assert.equal(run.status,'complete');assert.equal(run.topicReceipt.applied,false);assert.equal(run.maintenance,'partial_rejected');assert.equal(run.privateReviewReceipt,undefined);
+ assert.ok(run.auxiliaryErrors.some(e=>e.field==='topicPatch'&&e.message==='synthetic_rejected'));assert.equal(run.requests.length,1);
+});
+test('source-bound draft planning still rolls back final output when Store rejects topic authority',async t=>{
+ const phases=[],question='你最近最喜欢哪种游戏？';
+ const app=setup(t,async(_s,input)=>{const p=input.payload;phases.push(p.purpose);
+  if(p.purpose==='draft_prepare'){const topicPatch=start(p);return {kind:'discussion',text:'按你明确想问的意思组织表达。',topicPatch,
+    draftPlan:{quotes:[{sourceId:intent(p),text:question}],guidance:guide(topicPatch),style:'natural'}};}
+  assert.equal(p.purpose,'draft');assert.deepEqual(p.outboundQuotes,[{sourceId:p.draftingGuidance.objective.sourceIds[0],text:question}]);
+  assert.equal(p.userRequest,undefined);assert.equal(p.goal,undefined);
+  return {kind:'draft',text:'一条完整参考表达',suggestions:[{style:'自然',text:question}]};
+ });await app.controller.bind(scope.peerUin);t.mock.method(app.store,'applyTopicPatch',()=>({applied:false,reason:'synthetic_rejected_planning_authority'}));
+ const request=`想含蓄了解她的游戏兴趣，先不直接邀约。请帮我问：${question}`;
+ await assert.rejects(app.controller.assist({text:request,purpose:'draft',taskId:'strict-planning-rejection'}),error=>error.code==='topic_patch_rejected'&&/synthetic_rejected_planning_authority/.test(error.message));
+ assert.deepEqual(phases,['draft_prepare','draft'],'a valid source-bound plan must actually reach restricted composition before the Store rejection');
+ const companion=app.store.getCompanion(scope);assert.equal(app.store.topicView(scope).active,null);assert.equal(companion.turns.filter(x=>x.role==='assistant').length,0);
+ assert.equal(companion.turns.filter(x=>x.role==='user').length,1);assert.equal(companion.turns.find(x=>x.role==='user').text,request);
+ assert.equal(app.store.experiences._all(scope,'artifact').length,0);assert.equal(companion.runs.find(r=>r.id==='strict-planning-rejection').status,'failed');
 });

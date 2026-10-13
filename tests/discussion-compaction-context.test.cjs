@@ -100,7 +100,7 @@ test('wrapped early draft preparation is repaired into a plan and still uses the
   assert.throws(() => parseAssistant(early, 'draft_prepare', prepared.payload), /purpose=draft_prepare.*draftPlan/);
   const planned = { draftPlan: { authorizationQuote: args.turn.text, quotes: [{ sourceId: `private:${user.id}`, text: '周末是否方便一起散步' }] } };
   const result = await assistModel(settings, prepared, undefined, async (_, request) => { calls.push(JSON.parse(JSON.parse(request.body).messages[1].content)); return response(calls.length === 1 ? early : JSON.stringify(planned)); });
-  assert.equal(calls.length, 2); assert.match(calls[1].task, /禁止直接draft/); assert.equal(result.suggestions, undefined);
+  assert.equal(calls.length, 2); assert.match(calls[1].task, /不能直接draft\/suggestions/); assert.equal(result.suggestions, undefined);
   const draft = buildDraftContext(prepared.resultContext || prepared, result.draftPlan, args);
   await assistModel(settings, draft, undefined, async (_, request) => { calls.push(JSON.parse(JSON.parse(request.body).messages[1].content)); return response(JSON.stringify({ kind: 'draft', text: '参考表达', suggestions: [{ style: '自然', text: '周末一起散步吗？' }] })); });
   assert.equal(calls.length, 3); assert.equal(calls[2].purpose, 'draft'); assert.equal(JSON.stringify(calls[2]).includes('PRIVATE_MOTIVE_'), false);

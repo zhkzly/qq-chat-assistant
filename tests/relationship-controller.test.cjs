@@ -12,7 +12,9 @@ test('foreground person understanding and exact artifact methods feed the next s
  assert.equal(app.store.relationshipView(scope).contact.length,1);
  const answer=app.store.getCompanion(scope).turns.find(turn=>turn.role==='assistant');assert.ok(answer.artifactRef);
  await app.controller.assist({text:'想和她一起玩合作游戏，也想自然表达想多认识她。'});
- assert.ok(captured.payload.methodCards.some(method=>method.id==='express_interest'));
+ assert.ok(captured.payload.methodCatalog.some(method=>method.id==='express_interest'));
+ assert.ok(captured.payload.methodSelection.candidates.includes('express_interest'));
+ assert.ok(captured.payload.methodCards.length<=2);
  assert.ok(JSON.stringify(captured.payload.relationshipContext).includes('合作游戏'));
  const target=app.store.experiences.artifact(scope,answer.artifactRef);assert.ok(target.generationStages.length);assert.equal(app.store.messages(scope).length,1);
 });
