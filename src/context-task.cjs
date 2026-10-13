@@ -1,7 +1,7 @@
 'use strict';
-const {compare,qqSourceMetadata}=require('./messages.cjs');
+const {compare,qqSourceMetadata,sameScope}=require('./messages.cjs');
 const {redact}=require('./model.cjs');
-const TASK_VERSION='relationship-task-2026-10-13.1';
+const TASK_VERSION='relationship-task-2026-10-13.2';
 function orderedActual(records){return records.filter(m=>m.kind==='actual'&&!m.recalled&&m.text!=='[已撤回]').sort(compare);}
 function recentExchange(records){
  const actual=orderedActual(records);let start=actual.length;
@@ -10,13 +10,17 @@ function recentExchange(records){
 }
 function quoteTarget(message,records,available){
  const reply=message.replyTo;if(!reply||reply.targetUnavailable)return null;
-  const eligible=orderedActual(records).filter(m=>available.has(`qq:${m.messageId}`)&&
+ // Resolve identity against the whole scoped actual cohort, including recalled
+ // or excluded rows. Availability cannot make an ambiguous key look unique.
+ const eligible=records.filter(m=>m.kind==='actual'&&sameScope(m,message)&&
   (!reply.direction||m.direction===reply.direction)&&(!reply.senderUin||m.senderUin===reply.senderUin)&&
-  (!reply.senderUid||reply.senderUid===(m.senderUid||(m.direction==='outgoing'?m.accountUid:m.peerUid))));
- if(reply.messageId){const found=eligible.find(m=>m.messageId===reply.messageId);return found&&(!reply.sequence||found.sequence===reply.sequence)?found:null;}
+  (!reply.senderUid||reply.senderUid===(m.senderUid||(m.direction==='outgoing'?m.accountUid:m.peerUid)))&&
+  (reply.timestamp===undefined||reply.timestamp===m.timestamp));
+ const usable=m=>m&&!m.recalled&&m.text!=='[已撤回]'&&available.has(`qq:${m.messageId}`);
+ if(reply.messageId){const found=eligible.find(m=>m.messageId===reply.messageId);return usable(found)&&(!reply.sequence||found.sequence===reply.sequence)?found:null;}
  if(!reply.sequence)return null;
  const matches=eligible.filter(m=>m.sequence===reply.sequence);
- return matches.length===1&&(reply.direction||reply.senderUin||reply.senderUid)?matches[0]:null;
+ return matches.length===1&&(reply.direction||reply.senderUin||reply.senderUid)&&usable(matches[0])?matches[0]:null;
 }
 function requiredQuoteSources(records,available,selectedIds=[]){const explicit=new Set(selectedIds);return [...new Set([...recentExchange(records),...records.filter(m=>explicit.has(m.messageId))].map(m=>quoteTarget(m,records,available)).filter(Boolean).map(m=>`qq:${m.messageId}`))];}
 function retrievalQuery({text,records,companion,transient=false}){
@@ -34,7 +38,7 @@ function taskContext({records,sources,scope,coverage,generationOrigin,currentSou
  const recent=recentExchange(available),latest=available.at(-1)||null;
  const view=m=>{const source=byId.get(`qq:${m.messageId}`),meta=qqSourceMetadata(m),result={sourceId:source.id,text:source.text,speaker:source.speaker|| (m.direction==='outgoing'?'我':'对方'),direction:m.direction,at:source.at,...(meta.sequence?{sequence:meta.sequence}:{})};
   if(source.historicalOnly)result.historicalOnly=true;
-  if(m.replyTo){const target=quoteTarget(m,available,byId),s=target&&byId.get(`qq:${target.messageId}`);result.quote=s?{sourceId:s.id,availability:'available',speaker:s.speaker,text:s.text,at:s.at,...(s.historicalOnly?{historicalOnly:true}:{})}:{availability:'unavailable'};}
+  if(m.replyTo){const target=quoteTarget(m,records,byId),s=target&&byId.get(`qq:${target.messageId}`);result.quote=s?{sourceId:s.id,availability:'available',speaker:s.speaker,text:s.text,at:s.at,...(s.historicalOnly?{historicalOnly:true}:{})}:{availability:'unavailable'};}
   return result;
  };
  const lastIncoming=available.findLastIndex(m=>m.direction==='incoming'),lastOutgoing=available.findLastIndex(m=>m.direction==='outgoing');

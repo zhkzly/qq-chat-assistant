@@ -8,6 +8,7 @@ const { scope, raw } = require('./fixtures/native.cjs');
 
 // Synthetic values in the maintained ReplyElement contract. Native spellings:
 // replayMsgId, replayMsgSeq, sourceMsgIdInRecords, senderUin, senderUidStr.
+// Receive-side sourceMsgIdInRecords addresses msg.records, not raw.msgId.
 const targetId = '720575940379279391';
 function quoted(reply = {}, overrides = {}) {
   return raw('720575940379279392', false, { elements: [
@@ -36,19 +37,43 @@ test('zero native reply IDs preserve a sequence-plus-author reference without in
     senderUin: scope.accountUin, direction: 'outgoing' });
   assert.equal(message.replyTo.messageId, undefined);
   const recordsId = normalize(quoted({ replayMsgId: '0', sourceMsgIdInRecords: targetId }), scope);
-  assert.equal(recordsId.replyTo.messageId, targetId);
+  assert.equal(recordsId.replyTo.messageId, undefined, 'embedded record IDs are not canonical QQ message IDs');
+  assert.equal(recordsId.replyTo.sequence, '90071992547409931');
   const uinOnly = normalize(quoted({ replayMsgId: '0', senderUidStr: undefined }), scope);
   assert.equal(uinOnly.replyTo.senderUid, scope.accountUid);
   assert.equal(uinOnly.replyTo.senderUin, scope.accountUin);
+});
+test('canonical replay IDs remain authoritative when the embedded records reference uses a different namespace', () => {
+  const message = normalize(quoted({ sourceMsgIdInRecords: '99999999999999991' }), scope);
+  assert.equal(message.replyTo.messageId, targetId);
+  assert.equal(message.replyTo.sequence, '90071992547409931');
+  assert.equal(message.replyTo.sourceMsgIdInRecords, undefined);
+  assert.equal(qqSourceMetadata(message).replyTo.messageId, targetId);
+});
+test('received UID-only sequence pointers preserve validated Unix reply time in normalized sources', () => {
+  const seconds = String(Number(raw().msgTime) - 1), timestamp = Number(seconds) * 1000;
+  for (const replayMsgId of [targetId, '0']) {
+    // Derived from the bounded native metadata shape: senderUidStr present,
+    // senderUin absent, embedded record reference not a canonical cache ID.
+    const message = normalize(quoted({ replayMsgId, sourceMsgIdInRecords: '99999999999999991',
+      senderUin: undefined, replyMsgTime: seconds }), scope);
+    assert.equal(message.replyTo.timestamp, timestamp);
+    assert.equal(message.replyTo.senderUid, scope.accountUid);
+    assert.equal(message.replyTo.senderUin, scope.accountUin);
+    assert.equal(message.replyTo.messageId, replayMsgId === '0' ? undefined : targetId);
+    assert.deepEqual(qqSourceMetadata(message).replyTo, message.replyTo);
+  }
+  for (const replyMsgTime of [undefined, '', '0', '-1', '1.5', 1791726000, '9007199254740993'])
+    assert.equal(normalize(quoted({ replyMsgTime }), scope).replyTo.timestamp, undefined, 'unknown or invalid time is not an invented anchor');
 });
 
 test('unusable and conflicting native quote metadata stays explicitly unknown; recalled messages expose no quote', () => {
   const failures = [
     { replayMsgId: 720575940379279400, replayMsgSeq: '0', sourceMsgIdInRecords: '0' },
     { replayMsgId: '0', replayMsgSeq: '0', sourceMsgIdInRecords: '0' },
+    { replayMsgId: '0', replayMsgSeq: '0', sourceMsgIdInRecords: targetId },
     { senderUidStr: 'u_foreign', senderUin: '1234567890' },
     { senderUidStr: scope.peerUid, senderUin: scope.accountUin },
-    { sourceMsgIdInRecords: '720575940379279399' },
     { replayMsgId: '0', senderUidStr: undefined, senderUin: '0' }
   ];
   for (const reply of failures) assert.deepEqual(normalize(quoted(reply), scope).replyTo, { targetUnavailable: true });
@@ -129,4 +154,14 @@ test('sequence-only quote target changes are semantic evidence rather than top-l
   assert.equal(after.replyTo.messageId, undefined);
   assert.equal(after.replyTo.sequence, '90071992547409932');
   assert.notEqual(after.revision, before.revision);
+});
+test('reply-time anchor changes revise quote evidence and survive Store source projection', t => {
+  const store = storeFixture(t), seconds = String(Number(raw().msgTime) - 1);
+  const message = normalize(quoted({ replayMsgId: '0', sourceMsgIdInRecords: '99999999999999991', replyMsgTime: seconds, senderUin: undefined }), scope);
+  store.add(scope, [message]);
+  const sourceId = `qq:${message.messageId}`, before = store.memorySources(scope).find(s => s.id === sourceId);
+  assert.equal(before.replyTo.messageId, undefined); assert.equal(before.replyTo.timestamp, Number(seconds) * 1000);
+  store.add(scope, [normalize(quoted({ replayMsgId: '0', replyMsgTime: String(Number(seconds) - 1), senderUin: undefined }), scope)]);
+  const after = store.memorySources(scope).find(s => s.id === sourceId);
+  assert.equal(after.replyTo.timestamp, (Number(seconds) - 1) * 1000); assert.notEqual(after.revision, before.revision);
 });

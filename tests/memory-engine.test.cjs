@@ -99,11 +99,47 @@ test('background wire aliases ordering, authors and reply edges without exposing
   assert.equal(unavailable.replyTo.targetUnavailable,true);assert.match(unavailable.replyTo.messageRef,/^r\d+$/);
   assert.equal(unavailable.replyTo.sourceId,undefined,'an unavailable original is not introduced as citable evidence');
   assert.equal(unavailable.replyTo.sequence,self.sequence);assert.equal(unavailable.replyTo.author,'self');
-  assert.equal(sequenceOnly.replyTo.sourceId,self.id);assert.equal(sequenceOnly.replyTo.sequence,self.sequence);assert.equal(sequenceOnly.replyTo.author,'self');
+  assert.equal(sequenceOnly.replyTo.sourceId,undefined);assert.equal(sequenceOnly.replyTo.targetUnavailable,true,'batch-only uniqueness is not complete-cache proof');
+  assert.equal(sequenceOnly.replyTo.sequence,self.sequence);assert.equal(sequenceOnly.replyTo.author,'self');
   for(const source of p.sources){assert.equal(source.senderUid,undefined);assert.equal(source.senderUin,undefined);assert.equal(source.replyTo?.messageId,undefined);}
   assert.equal(JSON.stringify(batch),before,'wire projection does not rewrite local records or revision bindings');
   const decoded=request.decode(wireNoop(p));assert.deepEqual(decoded.reviewedSourceIds,batch.reviewedSourceIds);
   assert.equal(s.applyMemoryBatch(scope,batch,decoded).applied,true);
+});
+
+test('background quote aliases retain time and cannot replace excluded or missing targets with a same-sequence message',t=>{
+  const {normalize}=require('../src/messages.cjs'),{raw}=require('./fixtures/native.cjs'),{prepareMemoryRequest}=require('../src/memory-engine.cjs');
+  const s=new Store(':memory:');t.after(()=>s.close());
+  const oldId='820000000000000000001',excludedId='820000000000000000002',missingId='820000000000000000099',recordRef='820000000000000000098';
+  const sequence='920000000000000000001',oldTime=1791726000,newTime=oldTime+10;
+  const quoted=(id,label,time,replayId='0')=>normalize(raw(id,false,{msgSeq:id,msgTime:String(newTime+1),elements:[
+    {replyElement:{replayMsgId:replayId,sourceMsgIdInRecords:recordRef,replayMsgSeq:sequence,replyMsgTime:String(time),senderUidStr:scope.accountUid,senderUin:scope.accountUin}},
+    {textElement:{content:label}}]}),scope);
+  s.add(scope,[normalize(raw(oldId,true,{msgSeq:sequence,msgTime:String(oldTime),elements:[{textElement:{content:'Older synthetic target.'}}]}),scope),
+    normalize(raw(excludedId,true,{msgSeq:sequence,msgTime:String(newTime),elements:[{textElement:{content:'Excluded newer synthetic target.'}}]}),scope),
+    quoted('820000000000000000003','Quote of the excluded newer target.',newTime),
+    quoted('820000000000000000004','Canonical target is missing.',oldTime,missingId),
+    quoted('820000000000000000005','Verified older sequence-only target.',oldTime),
+    quoted('820000000000000000006','Canonical older target with correct time.',oldTime,oldId),
+    quoted('820000000000000000007','Canonical older target with conflicting time.',newTime,oldId)]);
+  s.forgetSource(scope,`qq:${excludedId}`);
+  const batch=s.memoryBatch(scope),request=prepareMemoryRequest(settingsForMemory(),batch),p=JSON.parse(JSON.parse(request.serialized).messages[1].content);
+  const old=p.sources.find(source=>source.text==='Older synthetic target.');
+  const excluded=p.sources.find(source=>source.text.includes('Quote of the excluded'));
+  const canonicalMissing=p.sources.find(source=>source.text.includes('Canonical target'));
+  const verified=p.sources.find(source=>source.text.includes('Verified older'));
+  const canonicalVerified=p.sources.find(source=>source.text.includes('Canonical older target with correct'));
+  const canonicalWrongTime=p.sources.find(source=>source.text.includes('Canonical older target with conflicting'));
+  assert.equal(excluded.replyTo.targetUnavailable,true);assert.equal(excluded.replyTo.sourceId,undefined);
+  assert.equal(excluded.replyTo.timestamp,newTime*1000,'time remains readable without exposing a native identity');
+  assert.equal(canonicalMissing.replyTo.targetUnavailable,true);assert.equal(canonicalMissing.replyTo.sourceId,undefined);
+  assert.equal(canonicalMissing.replyTo.timestamp,oldTime*1000,'a missing canonical ID never falls through to another message');
+  assert.equal(verified.replyTo.sourceId,undefined);assert.equal(verified.replyTo.targetUnavailable,true,'even a uniquely matching live subset cannot certify sequence-only identity');
+  assert.equal(verified.replyTo.timestamp,oldTime*1000);
+  assert.equal(verified.replyTo.author,'self');assert.equal(verified.replyTo.sequence,old.sequence);
+  assert.equal(canonicalVerified.replyTo.sourceId,old.id);assert.equal(canonicalVerified.replyTo.timestamp,oldTime*1000);
+  assert.equal(canonicalWrongTime.replyTo.targetUnavailable,true);assert.equal(canonicalWrongTime.replyTo.sourceId,undefined,'a canonical ID does not override conflicting time');
+  for(const id of [oldId,excludedId,missingId,recordRef,sequence,...Object.values(scope)])assert.equal(request.serialized.includes(id),false);
 });
 
 test('wire review receipt rejects absent, false and mismatched acknowledgments without advancing any queued source',async t=>{

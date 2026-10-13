@@ -53,6 +53,23 @@ test('a known unavailable quote ID never resolves a different message with the s
  assert.ok(p.sources.some(s=>s.id==='qq:9302'),'the other actual message is available, so the missing quote must not be replaced with it');
  assert.equal(JSON.stringify(p).includes('REMOVED_SYNTHETIC_TARGET'),false);
 });
+test('received native record aliases resolve by scoped sequence and time but cannot substitute a removed target',t=>{
+ const at=Number(raw().msgTime),target=msg(9351,false,'Original actual quoted meaning',{msgSeq:'66',msgTime:String(at)});
+ const other=msg(9352,false,'A different actual meaning',{msgSeq:'66',msgTime:String(at+1)});
+ const reply=msg(9353,true,'Received native-shaped quote',{msgSeq:'67',msgTime:String(at+2),elements:[{replyElement:{replayMsgId:'0',sourceMsgIdInRecords:'72057594037929999999',replayMsgSeq:'66',senderUidStr:scope.peerUid,replyMsgTime:String(at)}},{textElement:{content:'Received native-shaped quote'}}]});
+ const f=setup(t,{records:[target,other,reply]});
+ const first=buildContext({...f.args,availableSources:f.store.memorySources(scope)}).payload;
+ assert.equal(first.taskContext.recentExchange.find(m=>m.sourceId==='qq:9353').quote.sourceId,'qq:9351');
+ assert.equal(reply.replyTo.timestamp,at*1000);assert.equal(reply.replyTo.messageId,undefined,'an embedded record alias is not a local QQ message ID');
+ f.store.forgetSource(scope,'qq:9351');
+ const after=buildContext({...f.args,companion:f.store.getCompanion(scope),availableSources:f.store.memorySources(scope)}).payload;
+ assert.equal(after.taskContext.recentExchange.find(m=>m.sourceId==='qq:9353').quote.availability,'unavailable');
+ assert.equal(JSON.stringify(after).includes(target.text),false,'a removed original cannot be reconstructed or replaced by another same-sequence message');
+ f.store.add(scope,[msg(9354,false,'An available same-time collision',{msgSeq:'66',msgTime:String(at)})]);
+ const collision=buildContext({...f.args,records:f.store.messages(scope),companion:f.store.getCompanion(scope),availableSources:f.store.memorySources(scope)}).payload;
+ assert.equal(collision.taskContext.recentExchange.find(m=>m.sourceId==='qq:9353').quote.availability,'unavailable','excluded matching identities still participate in ambiguity detection');
+ assert.equal(JSON.stringify(collision).includes(target.text),false);
+});
 test('an explicitly selected older quoted reply protects its available target beyond the recent window',t=>{
  const at=Number(raw().msgTime),target=msg(9401,false,'TARGET_ALPHA',{msgTime:String(at)});
  const reply=msg(9402,true,'Short reaction',{msgTime:String(at+1),elements:[{replyElement:{replayMsgId:'9401',replayMsgSeq:'9401',senderUidStr:scope.peerUid,senderUin:scope.peerUin}},{textElement:{content:'Short reaction'}}]});

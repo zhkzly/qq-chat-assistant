@@ -3,6 +3,10 @@ const {extractMedia}=require('./media.cjs');
 function sameScope(a, b) { return !!a && !!b && ['accountUid', 'accountUin', 'peerUid', 'peerUin'].every(k => a[k] === b[k]); }
 const decimal = value => typeof value === 'string' && value.length <= 256 && /^\d+$/.test(value);
 const pointer = value => decimal(value) && !/^0+$/.test(value) ? value : null;
+function nativeReplyTimestamp(value) {
+  const seconds = decimal(value) ? Number(value) : NaN;
+  return Number.isSafeInteger(seconds) && seconds > 0 && seconds <= 8640000000000 ? seconds * 1000 : null;
+}
 function scopedAuthor(scope, uid, uin) {
   uid = uid === undefined || uid === null || uid === '' || uid === '0' ? null : uid;
   uin = uin === undefined || uin === null || uin === '' || uin === '0' ? null : uin;
@@ -15,14 +19,16 @@ function scopedAuthor(scope, uid, uin) {
 }
 function nativeReplyReference(reply, scope) {
   if (!reply || typeof reply !== 'object' || Array.isArray(reply)) return { targetUnavailable: true };
-  // ReplyElement field contract: NapCatQQ 7471e3ecd648189a9e80530b00348a17a4528906,
-  // packages/napcat-core/types/element.ts. No embedded quote text is retained.
-  const originalId = pointer(reply.replayMsgId), recordsId = pointer(reply.sourceMsgIdInRecords);
-  if (originalId && recordsId && originalId !== recordsId) return { targetUnavailable: true };
-  const messageId = originalId || recordsId, sequence = pointer(reply.replayMsgSeq);
+  // Pinned receive/construct consumers: NapCatQQ 7471e3ecd648189a9e80530b00348a17a4528906,
+  // packages/napcat-onebot/api/msg.ts. sourceMsgIdInRecords indexes embedded
+  // msg.records, not canonical raw.msgId. A nonzero replayMsgId is authoritative;
+  // otherwise preserve the scoped sequence and optional verified time anchor.
+  // Embedded quote previews and record bodies never become original evidence.
+  const messageId = pointer(reply.replayMsgId), sequence = pointer(reply.replayMsgSeq);
+  const timestamp = nativeReplyTimestamp(reply.replyMsgTime);
   const author = scopedAuthor(scope, reply.senderUidStr, reply.senderUin);
   if (author === false || !messageId && !(sequence && author)) return { targetUnavailable: true };
-  return { ...(messageId ? { messageId } : {}), ...(sequence ? { sequence } : {}), ...(author || {}) };
+  return { ...(messageId ? { messageId } : {}), ...(sequence ? { sequence } : {}), ...(timestamp ? { timestamp } : {}), ...(author || {}) };
 }
 function qqSourceMetadata(message) {
   const metadata = {};
@@ -33,8 +39,10 @@ function qqSourceMetadata(message) {
   }
   if (!message.recalled && message.replyTo) {
     const reply = message.replyTo;
+    const timestamp = Number.isSafeInteger(reply.timestamp) && reply.timestamp > 0 && reply.timestamp <= 8640000000000000 && reply.timestamp % 1000 === 0 ? reply.timestamp : null;
     metadata.replyTo = reply.targetUnavailable === true ? { targetUnavailable: true } : nativeReplyReference({
-      replayMsgId: reply.messageId, replayMsgSeq: reply.sequence, senderUidStr: reply.senderUid, senderUin: reply.senderUin
+      replayMsgId: reply.messageId, replayMsgSeq: reply.sequence, senderUidStr: reply.senderUid, senderUin: reply.senderUin,
+      replyMsgTime: timestamp ? String(timestamp / 1000) : undefined
     }, message);
   }
   return metadata;

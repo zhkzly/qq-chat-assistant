@@ -8,7 +8,7 @@ const { eligibleDiscussionTurns } = require('./discussion-compaction-store.cjs')
 const {qqSourceMetadata}=require('./messages.cjs');
 const {requiredQuoteSources,taskContext}=require('./context-task.cjs');
 const {sourceRevision}=require('./store.cjs');
-const PROMPT_VERSION = 'relationship-context-2026-10-13.6';
+const PROMPT_VERSION = 'relationship-context-2026-10-13.7';
 const METHODS = {
   discussion: '围绕用户真正希望的恋爱发展选择当前帮助，可接续、邀请、表达好感或讨论。意思明确就直接帮助，只问会改变建议的必要问题。允许暂缓或不用助手，不强制每次制定目的。',
   review: '按实际覆盖回顾相处、共同经历、用户体验与双方明确的浪漫方向，分别说普通友好、活动意愿和恋爱意图。兼顾反证与未知，不计算好感分，不把回复归因为某条建议。',
