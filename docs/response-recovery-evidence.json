@@ -1,6 +1,6 @@
 {
   "date": "2026-10-13",
-  "phase": "candidate_verified_native_pending",
+  "phase": "integrated_and_running",
   "baseline": "8d37962",
   "branch": "fix/structured-dialogue-20261013",
   "promptVersion": "relationship-context-2026-10-13.2",
@@ -294,7 +294,119 @@
     "semanticCorrectnessGuaranteed": false,
     "sourceReceiptProvesMeaningCorrect": false,
     "romanticOutcomeVerified": false,
-    "nativeVerified": false
+    "nativeVerified": true
   },
-  "desktop": null
+  "desktop": {
+    "timestamp": "2026-10-13T02:17:02.852761+00:00",
+    "evidence": "actual_existing_QQ_and_native_helper_service_refresh",
+    "qqRestarted": false,
+    "qqMessagesSentByTest": 0,
+    "ready": true,
+    "rawCount": 787,
+    "originalRawMessagesPreserved": true,
+    "scopePreserved": true,
+    "goalPreserved": true,
+    "unsavedInputsPreserved": {
+      "draftHash": true,
+      "privateInputHash": true,
+      "goalDraftHash": true,
+      "noteDraftHash": true,
+      "feedbackDraftHash": true,
+      "feedbackTargetHash": true,
+      "draftArtifactRefsHash": true,
+      "experienceReviewHash": true,
+      "experienceGuidanceHash": true
+    },
+    "health": {
+      "version": "conversation-direction-2026-10-12.1",
+      "unifiedContext": true,
+      "persistentMemory": true,
+      "relationshipLearning": true,
+      "requestAccounting": true,
+      "topicContinuity": true,
+      "promptVersion": "relationship-context-2026-10-13.2",
+      "memoryVersion": "relationship-memory-2026-10-12.6",
+      "authenticated": true,
+      "selected": true,
+      "memoryConfigured": true,
+      "qqMessagesSentByAssistant": 0
+    },
+    "rawCountDenominator": "selected-contact export; isolated migration counts all database messages",
+    "restoration": {
+      "ok": true,
+      "qqRestarted": false,
+      "serviceRestarted": true,
+      "ready": true,
+      "scopePreserved": true,
+      "unsavedAssistantInputsPreserved": true,
+      "draftsPreserved": true,
+      "draftOriginPreserved": true,
+      "draftNeedsReview": false,
+      "artifactOriginsPreserved": true,
+      "feedbackTargetPreserved": true,
+      "noteEditDetached": false,
+      "feedbackTargetDetached": false,
+      "forgottenFeedbackCleared": false,
+      "closedReadOnlyInspector": false,
+      "activeTab": "discussion"
+    },
+    "layout": {
+      "nextPurpose": "discussion",
+      "modeSelectorsEnabled": true,
+      "privateInputEnabled": true,
+      "pageOverflow": {
+        "horizontal": false,
+        "vertical": false,
+        "scrollWidth": 482,
+        "scrollHeight": 847,
+        "clientWidth": 482,
+        "clientHeight": 847
+      },
+      "primaryPanelVisible": true,
+      "recoveryPending": false
+    },
+    "originalQuestionRetry": {
+      "timestamp": "2026-10-13T02:14:34.977346+00:00",
+      "evidence": "actual_native_helper_retry_of_original_failed_private_request",
+      "sourceCommit": "7d00a63",
+      "promptVersion": "relationship-context-2026-10-13.2",
+      "model": "claude-sonnet-4-6",
+      "status": "complete",
+      "sameScope": true,
+      "assistantErrorPresent": false,
+      "replyKind": "discussion",
+      "replyCharacters": 190,
+      "recoveryKind": "private_help",
+      "maintenance": "deferred",
+      "actualHttpAttempts": 2,
+      "taskHttpLimit": 4,
+      "requests": [
+        {
+          "purpose": "discussion",
+          "inputBytes": 62963,
+          "httpStatus": 200,
+          "errorCode": null,
+          "elapsedMs": 22817
+        },
+        {
+          "purpose": "plain_response_recovery",
+          "inputBytes": 38129,
+          "httpStatus": 200,
+          "errorCode": null,
+          "elapsedMs": 8441
+        }
+      ],
+      "newPrivateQuestionIsRetryOfOriginal": true,
+      "qqMessagesSentByVerification": 0,
+      "privateReplyBodyInPublicEvidence": false
+    },
+    "retryBoundary": "The original failed question was retried once using the normal running helper API. A fresh private user/reply pair was created; current unsent UI input was preserved. No QQ message was sent. Readable private output was delivered, while maintenance stayed deferred. This does not establish semantic perfection or relationship outcome.",
+    "rejectedProbe": {
+      "httpStatus": 400,
+      "modelRequests": 0,
+      "reason": "The first verification script used nested scope fields instead of the UI contract. The route rejected it before controller/model invocation; the corrected four-field retry completed."
+    },
+    "versionBoundary": "Native service runs source commit7d00a63. The follow-up commit updates documentation only."
+  },
+  "sourceCommit": "7d00a63"
 }
