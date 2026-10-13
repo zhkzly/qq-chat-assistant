@@ -20,7 +20,8 @@
     "test:mode-ui": "node scripts/mode-browser-check.cjs",
     "test:compaction-goal": "node scripts/compaction-goal-check.cjs",
     "test:recovery-ui": "node scripts/response-recovery-browser-check.cjs",
-    "test:recovery-goal": "node scripts/response-recovery-goal-check.cjs"
+    "test:recovery-goal": "node scripts/response-recovery-goal-check.cjs",
+    "test:readiness-ui": "node scripts/native-readiness-browser-check.cjs"
   },
   "engines": {
     "node": ">=22"

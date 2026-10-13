@@ -193,11 +193,12 @@ async function runProbe(states){
    if(typeof current.upgradeTransport!=='function')throw new Error('Reviewed native transport upgrade is not available');
    const before=driver.scope();
    current.upgradeTransport(transport,{observedWindows:require('electron').BrowserWindow.getAllWindows()});
+   current.QQTransport[key]=probe;
    // Keep the existing adapter and listener; capture() would clear selection.
    Object.setPrototypeOf(driver,CurrentDriver.prototype);
-   driver.session.getReadiness=()=>transport.readiness().ready;
-   driver.session.onReadinessChange=listener=>{const onReady=value=>listener(value.ready);transport.on('readiness',onReady);return()=>transport.off('readiness',onReady);};
-   if(!driver[key]){driver[key]=true;transport.on('readiness',()=>driver.emit('status',driver.status()));}
+   driver.session.getReadiness=()=>transport.readiness().nativeReadReady;
+   driver.session.onReadinessChange=listener=>{const onReady=value=>listener(value.nativeReadReady);transport.on('readiness',onReady);return()=>transport.off('readiness',onReady);};
+   if(!driver[key]){driver[key]=true;driver.readinessUnsubscribe=driver.session.onReadinessChange(()=>driver.emit('status',driver.status()));}
    driver.emit('status',driver.status());
    const after=driver.scope();
    return {upgraded:true,qqRestarted:false,adapterPreserved:true,scopePreserved:Object.keys(before).every(k=>before[k]===after[k]),readiness:transport.readiness()};

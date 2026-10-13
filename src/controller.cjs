@@ -100,6 +100,7 @@ class Controller extends EventEmitter {
   }
   async loadLatest(epoch = this.epoch) {
     const scope = this.scope;
+    const previousReadError = this.store.coverage(scope).error;
     const task = this.historyTask = Symbol('latest');
     this.historyEpoch = epoch; this.historyBusy = true;
     this.store.setCoverage(scope, {...this.store.coverage(scope),status:'loading'}); this.changed();
@@ -112,7 +113,8 @@ class Controller extends EventEmitter {
       this.store.setCoverage(scope, { status: messages.length ? 'partial' : cached.length ? 'cached_only' : 'empty',
         pages: 1, cursor: messages[0]?.messageId || null, oldestAt: cached[0]?.timestamp || null,
         checkedAt: new Date().toISOString(), source: result.source });
-      this.error = ''; this.changed();
+      if (previousReadError && this.error === previousReadError) this.error = '';
+      this.changed();
     } catch (error) {
       if(epoch===this.epoch && sameScope(scope,this.scope)) {
         this.error=error.message;
@@ -136,6 +138,9 @@ class Controller extends EventEmitter {
         const valid = result.messages.map(m => normalize(m, scope)).filter(Boolean).sort(compare);
         const older = valid.filter(m => BigInt(m.messageId) < BigInt(coverage.cursor));
         this.ingest(scope, result.messages);
+        const previousReadError = coverage.error;
+        coverage = { ...coverage }; delete coverage.error;
+        if (previousReadError && this.error === previousReadError) this.error = '';
         if (!older.length) { coverage = { ...coverage, status: 'accessible_end', checkedAt: new Date().toISOString() };
           this.store.setCoverage(scope, coverage); break; }
         coverage = { ...coverage, status: 'partial', cursor: older[0].messageId,

@@ -159,9 +159,10 @@ function render(next) {
  if(state&&(state.model!==next.model||state.modelBaseUrl!==next.modelBaseUrl||state.activeModelProfileId!==next.activeModelProfileId)){imageSelection=[];historyVersion=''}
  replySelection=next.replyFocus?.mode==='selected'?[...next.replyFocus.messageIds]:[];
  imageSelection=[...(next.imageSelection||[])];
- state=next;bridgeLegacyDraftOrigin();syncModelPicker();renderReplyFocus();renderCompanion();renderTopicDirection();renderRelationship();renderExperiences();renderUsage();flushDraftEvents();if(document.activeElement!==$('auto'))$('auto').checked=next.auto;const ready=next.status.phase==='ready';
- $('connection-dot').classList.toggle('ready',ready);$('workspace-dot').classList.toggle('ready',ready);$('workspace-status').textContent=ready?'QQ 已连接':'QQ 未连接';$('workspace-contact').textContent=next.scope?`好友 ${next.scope.peerUin}`:'选择 QQ 好友';$('draft-recipient').textContent=next.scope?`给好友 ${next.scope.peerUin} · 尚未发送`:'请先选择讨论对象';$('draft-button').disabled=!next.scope;
- $('connection-label').textContent=ready?`已连接 QQ ${next.status.account.uin} · 只读监听`:({waiting_qq:'等待 QQ 客户端启动',waiting_login:'请在 QQ 窗口完成登录',initializing:'正在读取 QQ 账号…',offline:'QQ 已离线，请重新登录',integration_error:'QQ 接入未就绪，请查看诊断'}[next.status.phase]||next.status.phase);
+ state=next;bridgeLegacyDraftOrigin();syncModelPicker();renderReplyFocus();renderCompanion();renderTopicDirection();renderRelationship();renderExperiences();renderUsage();flushDraftEvents();if(document.activeElement!==$('auto'))$('auto').checked=next.auto;const ready=next.status.phase==='ready',readUnavailable=ready&&next.status.nativeReadReady===false;
+ $('connection-dot').classList.toggle('ready',ready&&!readUnavailable);$('workspace-dot').classList.toggle('ready',ready&&!readUnavailable);$('workspace-status').textContent=ready?(readUnavailable?'QQ 读取待恢复':'QQ 已连接'):'QQ 未连接';$('workspace-contact').textContent=next.scope?`好友 ${next.scope.peerUin}`:'选择 QQ 好友';$('draft-recipient').textContent=next.scope?`给好友 ${next.scope.peerUin} · 尚未发送`:'请先选择讨论对象';$('draft-button').disabled=!next.scope;
+ $('connection-label').textContent=ready?(readUnavailable?`已登录 QQ ${next.status.account.uin} · 读取暂未就绪`:`已连接 QQ ${next.status.account.uin} · 只读监听`):({waiting_qq:'等待 QQ 客户端启动',waiting_login:'请在 QQ 窗口完成登录',initializing:'正在读取 QQ 账号…',offline:'QQ 已离线，请重新登录',integration_error:'QQ 接入未就绪，请查看诊断'}[next.status.phase]||next.status.phase);
+ $('native-read-status').hidden=!readUnavailable;
  $('session').hidden=!next.scope;
  $('model-label').textContent=next.modelReady?next.model:'尚未配置模型';$('current-model').textContent=next.model||'未配置';$('current-api').textContent=next.modelBaseUrl||'未配置 API';
  $('generate').disabled=!next.scope||next.busy||next.assistantBusy||assistantPending||!next.modelConsent;

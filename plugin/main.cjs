@@ -25,6 +25,7 @@ const windowPeers = new Map(), preloadSessions = new WeakSet(), hookedWindows = 
 function recordStatus(status) {
   fs.writeFileSync(path.join(privateDir, 'integration-status.json'), JSON.stringify({
     time: new Date().toISOString(), qqVersion: app.getVersion(), phase: status.phase,
+    nativeReadReady: status.nativeReadReady === true,
     readAdapterAttached: !!driver.session, authenticated: !!status.account,
     listenerAttached: !!driver.listenerSession, workerRunning: !!worker, helperOpen: !!helper
   }, null, 2), { mode: 0o600 });

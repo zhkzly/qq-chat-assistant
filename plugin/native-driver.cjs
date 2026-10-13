@@ -20,10 +20,20 @@ class NativeDriver extends EventEmitter {
     this.epoch = 0;
     this.listenerSession = null;
     this.binding = 0;
+    this.readinessUnsubscribe = null;
   }
   capture(session) {
+    this.readinessUnsubscribe?.();
+    this.readinessUnsubscribe = null;
     this.session = session;
     this.offline('waiting_login');
+    if (typeof session?.getReadiness === 'function' && typeof session.onReadinessChange === 'function') {
+      this.readinessUnsubscribe = session.onReadinessChange(() => {
+        // A renderer lifecycle change does not log the account out or change
+        // the selected contact. Only the read-channel capability changes.
+        if (this.session === session) this.emit('status', this.status());
+      });
+    }
   }
   async login(uid, uin) {
     this.epoch++;
@@ -57,7 +67,11 @@ class NativeDriver extends EventEmitter {
     this.selected = null;
     this.emit('status', this.status());
   }
-  status() { return { phase: this.phase, account: this.account, selected: this.selected }; }
+  status() {
+    const status = { phase: this.phase, account: this.account, selected: this.selected };
+    if (typeof this.session?.getReadiness === 'function') status.nativeReadReady = this.session.getReadiness() === true;
+    return status;
+  }
   async toUin(uid) {
     const result = await this.session.getUixConvertService().getUin([opaque(uid, 'UID')]);
     return result.uinInfo.get(uid);
