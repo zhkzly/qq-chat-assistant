@@ -19,3 +19,5 @@ No: real-chat research archive, cloud memory upload, automatic QQ sending, globa
 
 - Runtime evidence will be recorded after main integration and safe helper refresh. Existing user-owned untracked task/checklist files in main are preserved.
 - Native integration overturned the initial quote-field interpretation: in 100 actual messages, 45 references had no embedded-record-ID match, but 44 uniquely matched author/sequence and exact time. The pinned consumer distinguishes embedded records from canonical replay IDs. Correct normalization, resolve against the full scoped cached cohort before availability filtering, and leave batch-only memory references uncertain. Never convert ambiguous legacy aliases without re-reading raw native history.
+
+- Integration complete at implementation 6060afa: local main updated; only the helper worker refreshed, QQ parent preserved; exact data/input/settings preservation and the new actual request/quote views verified. Final provider capacity failure and prior synthetic quality negatives remain recorded. No actual QQ messages sent by this task.

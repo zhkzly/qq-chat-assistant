@@ -1,17 +1,17 @@
 {
   "date": "2026-10-13",
   "baseCommit": "849e4bc",
-  "promptVersion": "relationship-context-2026-10-13.6",
-  "memoryVersion": "relationship-memory-2026-10-13.7",
+  "promptVersion": "relationship-context-2026-10-13.7",
+  "memoryVersion": "relationship-memory-2026-10-13.8",
   "scope": "current-task/history/quotes/method delivery/generation contracts/helper activation",
   "goal": "Support mutually desired romantic relationship development with grounded private help and manual QQ communication",
   "functional": {
     "command": "npm test",
     "files": 55,
-    "passed": 406,
+    "passed": 411,
     "failed": 0,
     "evidenceLevel": "functional/synthetic",
-    "log": "/tmp/qq-context-task-functional-final-2.log"
+    "log": "/tmp/qq-context-task-native-quote-release.log"
   },
   "browser": {
     "evidenceLevel": "synthetic real-pointer browser",
@@ -66,9 +66,9 @@
       "httpAttempts": 1,
       "stoppedAt": "HTTP 429 before invitation response"
     },
-    "finalProtocol": ".6",
+    "finalProtocol": ".7",
     "finalProtocolFullLivePass": false,
-    "remainingEvidence": "The minimal escaping repair and explicit intention-vs-actual-action rule pass functional checks but could not be revalidated against this rate-limited provider",
+    "remainingEvidence": "The final generic escaping and intention-vs-action instructions were not fully revalidated on synthetic model cases because the configured provider returned 429. Initial actual .6 automatic help completed, then .7 automatic help encountered 429 capacity. No global quality or relationship outcome claim.",
     "syntheticReports": [
       "/tmp/qq-current-task-goal-live-20261013.json",
       "/tmp/qq-current-task-goal-final-20261013.json",
@@ -76,13 +76,74 @@
     ]
   },
   "runtime": {
-    "status": "pending_actual_activation",
+    "status": "actual_desktop_activated",
+    "evidenceLevel": "actual desktop integration and local private snapshot comparison",
     "qqMessagesSent": 0,
-    "qqInstallationModified": false
+    "qqRestarted": false,
+    "qqInstallationModified": false,
+    "assistantWorkerRefreshed": true,
+    "sameAccountAndContact": true,
+    "sameQQParent": true,
+    "originalRawRecordsBeforeRefresh": 873,
+    "originalRawRecordsAfterRefresh": 873,
+    "originalIDTextTimeDirectionMediaPreserved": true,
+    "currentContactRecords": 815,
+    "goalPreserved": true,
+    "settingsBytesPreserved": true,
+    "unsentInputsPreserved": true,
+    "inputHashChecks": 9,
+    "replyAndImageSelectionsPreserved": true,
+    "nativeReadReady": true,
+    "latestAndOlderReads": {
+      "latest": 50,
+      "older": 50,
+      "allIDsStrings": true,
+      "allMessagesScopeBound": true
+    },
+    "activePrompt": "relationship-context-2026-10-13.7",
+    "activeMemory": "relationship-memory-2026-10-13.8",
+    "newActualRequest": {
+      "status": "failed",
+      "promptVersion": "relationship-context-2026-10-13.7",
+      "taskVersion": "relationship-task-2026-10-13.2",
+      "recentRows": 9,
+      "availableQuoteViews": 4,
+      "unavailableQuoteViews": 0,
+      "requestPurposes": [
+        "reply"
+      ],
+      "sourceCount": 51,
+      "catalogCount": 8,
+      "fullCardCount": 2,
+      "requestBytes": 60696
+    },
+    "currentModelError": "HTTP429 capacity; final request input has the new task and four resolved quote targets, but no final model answer"
   },
   "privacy": {
     "realChatsAndCredentialsCommitted": false,
     "cloudUpload": false,
     "backupLocation": "ignored local data/context-activation-20261013/"
+  },
+  "implementationCommit": "6060afa",
+  "nativeQuoteRepair": {
+    "initialWrongContract": "Embedded sourceMsgIdInRecords was treated as canonical msgId",
+    "initialScopedCachedRecordCount": 812,
+    "initialNormalizedQuoteCount": 375,
+    "initialCanonicalTargetMatches": 0,
+    "metadataReadSample": {
+      "actualMessages": 100,
+      "references": 45,
+      "embeddedIDMatches": 0,
+      "canonicalReplayIDMatches": 2,
+      "uniqueScopedSequenceMatches": 44,
+      "exactTimeAgreements": 44
+    },
+    "finalNormalizedQuotes": 377,
+    "finalTimestampQuotes": 377,
+    "finalActualTaskAvailableQuotes": 4,
+    "finalActualTaskUnavailableQuotes": 0,
+    "policy": "Canonical replay IDs never fall back after missing/deletion. Sequence resolution checks full scoped cached identity cohort and exact available time before availability. Embedded quote bodies are never imported. Background batch-only sequence links remain unknown.",
+    "source": "https://github.com/NapNeko/NapCatQQ/blob/7471e3ecd648189a9e80530b00348a17a4528906/packages/napcat-onebot/api/msg.ts",
+    "privateSnapshotsKeptLocal": true
   }
 }

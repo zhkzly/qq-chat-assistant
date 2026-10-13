@@ -8,6 +8,8 @@
 - [x] Ordinary help, preparation, final wording and recovery share core behavioral rules; schemas and parsers accept the same intended branches.
 - [x] Auxiliary memory/state work cannot masquerade as reviewed; source, authorization and stale/deletion guards remain enforced.
 - [x] Functional/UI and live synthetic goal cases cover unknown→clarification→known near/far, initiation, explicit new sharing, invitation, interest, and changed/cancelled intent.
-- [ ] Integrate reviewed candidate with current main and running helper, preserve private state/inputs and verify current prompt/version; record evidence levels and unresolved limitations honestly.
+- [x] Integrate reviewed candidate with current main and running helper, preserve private state/inputs and verify current prompt/version; record evidence levels and unresolved limitations honestly.
 
-Evidence: 406 functional checks and 37 synthetic pointer-browser checks pass. All eight goal families have bounded live artifacts; the final protocol does not have an all-family live quality pass. A later run stopped on HTTP429, and a far-distance response inferred unconfirmed arrival. These failures remain visible in current-task-evidence.json.
+Evidence: 411 functional checks and 37 synthetic pointer-browser checks pass. All eight goal families have bounded live artifacts; the final protocol does not have an all-family live quality pass. A later run stopped on HTTP429, and a far-distance response inferred unconfirmed arrival. These failures remain visible in current-task-evidence.json.
+
+Actual desktop evidence: same QQ process and account/contact, original IDs/text/time/direction/media intact across 873 records, all nine input hashes and settings bytes preserved; native latest/older reads and four resolved quotes delivered in the new .7 request. The model returned HTTP429 capacity, recorded as a provider limitation rather than a passed semantic result.
