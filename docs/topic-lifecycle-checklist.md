@@ -5,6 +5,6 @@
 - [x] Actual QQ, goal, private originals, relationship memories and unsent UI fields are preserved.
 - [x] Late foreground results and compaction cannot revive obsolete topic state.
 - [x] Closed-topic history and working-state uncertainty are represented honestly in later contexts.
-- [ ] Functional and pointer checks pass; actual helper updated and the reported game topic is closed/removed with preservation evidence.
+- [x] Functional and pointer checks pass; actual helper updated and the reported game topic is closed/removed with preservation evidence.
 
-Runtime activation remains pending and will be recorded separately; functional417 and synthetic pointer13 checks pass.
+Functional417 and synthetic pointer13 checks pass. Actual helper card removed through the scoped API, all nine input hashes/settings/goal and 873 original records preserved; QQ parent unchanged.

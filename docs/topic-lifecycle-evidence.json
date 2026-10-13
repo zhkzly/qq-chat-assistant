@@ -21,10 +21,29 @@
     "red": "Old completion button sent zero state actions while model unavailable; /tmp/qq-topic-lifecycle-evidence-1ZIFtN/"
   },
   "runtime": {
-    "status": "pending",
-    "qqMessagesSent": 0
+    "status": "actual_desktop_verified",
+    "evidenceLevel": "actual helper DOM plus scoped API and private pre/post snapshots",
+    "reportedGameTopicRemoved": true,
+    "topicCardVisible": false,
+    "activeTopicPresent": false,
+    "removeControlInstalled": true,
+    "originalRecordsPreserved": true,
+    "rawRecords": 873,
+    "goalPreserved": true,
+    "settingsBytesPreserved": true,
+    "inputHashesPreserved": true,
+    "inputHashChecks": 9,
+    "scopePreserved": true,
+    "sameQQParent": true,
+    "recoveryPending": false,
+    "qqRestarted": false,
+    "qqMessagesSent": 0,
+    "modelCallsByTopicAction": 0,
+    "privateSnapshots": "ignored local data/context-activation-20261013/",
+    "cloudUpload": false
   },
   "scope": "Only selected local topic lifecycle/removal; original conversation, goal and factual relationship sources preserved",
   "modelCallsByAction": 0,
-  "liveModelEvaluationRequired": false
+  "liveModelEvaluationRequired": false,
+  "implementationCommit": "fda48cd"
 }

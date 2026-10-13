@@ -11,3 +11,5 @@ No: QQ sending, cloud upload, model/provider changes, inferred automatic memory 
 
 - Diagnosis: completion was a draft-composer helper rather than a state operation. A provider429 therefore prevented closure. The new explicit local API appends one current user_control source and updates/removes only the topic atomically.
 - Closed active focus is omitted, factual state retained/stale, summaries for this scope discarded, and obsolete requests cancelled. No substring classifier or broad source-forget operation is used.
+
+- Main integration and actual helper activation completed. The exact selected game topic was removed using its current scoped ID/version, with zero foreground model calls. Native DOM confirmed no active card; goal, settings bytes, all nine input hashes and 873 raw records preserved; QQ parent unchanged.
