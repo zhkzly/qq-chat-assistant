@@ -21,7 +21,26 @@
     "realModelCalls": 0
   },
   "runtime": {
-    "status": "pending"
+    "status": "actual_helper_verified",
+    "evidenceLevel": "actual scoped helper retry and native input hash inspection",
+    "configuredModel": "gpt-6-sol",
+    "modelChangedByAgent": false,
+    "qqRestarted": false,
+    "savedScreenshotQuestionRetried": true,
+    "retryStatus": "complete",
+    "answerKind": "draft",
+    "referenceCandidates": 1,
+    "globalErrorCleared": true,
+    "assistantErrorCleared": true,
+    "scopePreserved": true,
+    "goalPreserved": true,
+    "inputHashesPreserved": true,
+    "inputHashCount": 9,
+    "previousGameTopicRemainsRemoved": true,
+    "qqMessagesSent": 0,
+    "privateDataKeptLocal": true
   },
-  "deferredIndependentIssue": "Validated private explanatory text accompanying normal draftPlan is discarded by parser/controller; separate from this transport failure"
+  "deferredIndependentIssue": "Validated private explanatory text accompanying normal draftPlan is discarded by parser/controller; separate from this transport failure",
+  "implementationCommit": "52ffe71",
+  "currentModelNote": "The user-selected model at final inspection was gpt-6-sol; no profile change was made by the agent. An automatic request had also reported HTTP408 before the bounded manual retry completed. One minimal200 does not guarantee sustained service availability."
 }
