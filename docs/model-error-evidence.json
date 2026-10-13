@@ -1,0 +1,27 @@
+{
+  "baseCommit": "0208331",
+  "diagnosis": "Actual latest user request failed at HTTP429 capacity, with no model answer; duplicate banners came from copied/sticky error channels",
+  "minimalCanary": {
+    "configuredModelUnchanged": true,
+    "httpAttempts": 1,
+    "realChatsUsed": false,
+    "status": 200,
+    "reply": "OK",
+    "doesNotProveFullConversationRecovery": true
+  },
+  "functional": {
+    "files": 57,
+    "passed": 419,
+    "failed": 0
+  },
+  "browser": {
+    "checks": 6,
+    "report": "/tmp/qq-model-error-evidence-QTuWaH/report.json",
+    "evidence": "synthetic pointer browser",
+    "realModelCalls": 0
+  },
+  "runtime": {
+    "status": "pending"
+  },
+  "deferredIndependentIssue": "Validated private explanatory text accompanying normal draftPlan is discarded by parser/controller; separate from this transport failure"
+}

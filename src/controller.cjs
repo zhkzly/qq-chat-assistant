@@ -189,7 +189,7 @@ class Controller extends EventEmitter {
   async suggest({automatic=false}={}) {
     const scope = this.requireScope(), epoch = this.epoch;
     if(automatic&&this.lastAutomaticFingerprint===this.automaticFingerprint())return this.advice;
-    this.busy = true; this.error = ''; this.changed();
+    this.busy = true; this.changed();
     try {
       const reply = await this.assist({ text: '结合当前 QQ 的真实交流，帮我判断怎样回应或继续。',responsePreference:this.instruction,
         purpose: 'reply', transient: true, origin:automatic?'automatic':'user' });
@@ -197,7 +197,7 @@ class Controller extends EventEmitter {
       this.advice = { analysis: reply.text, suggestions: reply.suggestions || [], scope,
         revision: this.revision, createdAt: new Date().toISOString(), requestId: reply.requestId };
       if(automatic)this.lastAutomaticFingerprint=this.automaticFingerprint();
-    } catch (error) { if(epoch===this.epoch){this.error=error.message;this.changed();} throw error; }
+    } catch (error) { if(epoch===this.epoch){this.assistantError=error.message;this.changed();} throw error; }
     finally { if(epoch===this.epoch){this.busy=false;this.changed();} }
   }
   requireScope() { if (!this.scope) throw new Error('请先选择一个 QQ 私聊'); return this.scope; }
@@ -360,6 +360,7 @@ class Controller extends EventEmitter {
       if(previous.status==='complete')return this.store.getCompanion(scope).turns.find(turn=>turn.role==='assistant'&&turn.requestId===budget.id)||null;
       const error=new Error(previous.status==='running'?'这次请求仍在进行，请等待结果。':'这次请求已经结束；如需重新尝试，请重新提交。');error.code='task_already_exists';throw error;
     }
+    if(this.error===this.assistantError)this.error='';
     this.invalidateAssistant({preserveTask:resumes>0});
     this.memoryLastActivityAt=Date.now();this.store.maintainLocal?.(scope);
     const abort = this.assistantAbort = new AbortController(), requestId = budget.id;

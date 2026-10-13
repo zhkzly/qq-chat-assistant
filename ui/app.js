@@ -49,7 +49,7 @@ async function api(path,args) {
  const response=await fetch(path,{method:args===undefined?'GET':'POST',headers:{Authorization:`Bearer ${token}`,...(args===undefined?{}:{'Content-Type':'application/json'})},body:args===undefined?undefined:JSON.stringify(args)});
  if(!response.ok){const p=await response.json();throw new Error(p.error||`HTTP ${response.status}`)}return response;
 }
-function error(message){if(message)localError=message;const shown=state?.error||localError;$('error').textContent=shown;$('error').hidden=!shown;for(const id of ['draft-error','contact-error','settings-notice']){$(id).textContent=shown;$(id).hidden=!shown}}
+function error(message){if(arguments.length)localError=message||'';const privateError=state?.assistantError||assistantLocalError;const backendError=state?.error&&state.error!==privateError?state.error:'';const shown=backendError||(localError!==privateError?localError:'');$('error').textContent=shown;$('error').hidden=!shown;for(const id of ['draft-error','contact-error','settings-notice']){$(id).textContent=shown;$(id).hidden=!shown}}
 function keyOf(scope){return scope?JSON.stringify(['accountUid','accountUin','peerUid','peerUin'].map(key=>scope[key])):''}
 function localJSON(key,fallback){try{return JSON.parse(localStorage.getItem(key))??fallback}catch{return fallback}}
 function sameArtifactRef(a,b){return a?.artifactId===b?.artifactId&&a?.version===b?.version}
@@ -191,7 +191,7 @@ function render(next) {
    const actions=document.createElement('div');actions.className='suggestion-actions';const use=document.createElement('button');use.className='text-button';use.textContent='采用到草稿';use.onclick=()=>adopt(item.text,null,item.artifactRef?[item.artifactRef]:[]);
    const copy=document.createElement('button');copy.className='text-button';copy.textContent='复制这条';copy.onclick=()=>copyText(item.text,item.artifactRef?[item.artifactRef]:[]);actions.append(use,copy);row.append(style,actions);const text=document.createElement('p');text.textContent=item.text;card.append(row,text);$('suggestions').append(card)}
  }
- if(next.advice&&next.advice.revision!==next.revision)$('analysis').textContent=next.auto?'有新消息，正在更新建议。你的草稿会保留。':'有新消息，点生成可更新建议。你的草稿会保留。';error(next.error);
+  if(next.advice&&next.advice.revision!==next.revision)$('analysis').textContent=next.auto?'有新消息，正在更新建议。你的草稿会保留。':'有新消息，点生成可更新建议。你的草稿会保留。';error();
 }
 function resetCompanion(){
  topicActionPending=null;syncTopicActionButtons();
