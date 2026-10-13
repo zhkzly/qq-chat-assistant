@@ -162,7 +162,7 @@ async function runProbe(states){
  if(process.env.CHAT_ASSISTANT_PROBE!=='1')return null;
  const file=path.resolve(__dirname,'../data/native-probe-action.json');if(!fs.existsSync(file))return null;
  const action=JSON.parse(fs.readFileSync(file,'utf8'));fs.unlinkSync(file);
- if(['arm-read-transport','inspect-read-transport','upgrade-read-transport'].includes(action.action)) {
+ if(['arm-read-transport','inspect-read-transport','upgrade-read-transport','verify-read-history'].includes(action.action)) {
   // Capture only the already-owned instances on their next read. This probe
   // never creates an IPC event, changes a header, or exposes message payloads.
   const {QQTransport}=require('./ipc-transport.cjs'),{NativeDriver}=require('./native-driver.cjs');
@@ -185,6 +185,20 @@ async function runProbe(states){
   }
   if(!probe)return {armed:false,instanceCaptured:false};
   const transport=probe.transport?.deref(),driver=probe.driver?.deref();
+  if(action.action==='verify-read-history') {
+   if(!transport||!driver)throw new Error('Owned native read instances were not captured');
+   const scope=driver.scope(),beforeEpoch=driver.epoch;
+   const latest=await driver.command('latest',{scope});
+   const cursor=latest.messages.map(message=>message.msgId).filter(id=>typeof id==='string'&&/^\d+$/.test(id)).sort((a,b)=>BigInt(a)<BigInt(b)?-1:BigInt(a)>BigInt(b)?1:0)[0];
+   if(!cursor)throw new Error('Current private history returned no string message IDs');
+   const older=await driver.command('older',{scope,cursor});
+   const after=driver.scope(),messages=[...latest.messages,...older.messages];
+   return {latestRead:true,olderRead:true,latestCount:latest.messages.length,olderCount:older.messages.length,
+    source:latest.source,scopePreserved:Object.keys(scope).every(k=>scope[k]===after[k]),epochPreserved:driver.epoch===beforeEpoch,
+    messageIdsRemainStrings:messages.every(message=>typeof message.msgId==='string'),
+    allMessagesScopeBound:messages.every(message=>message.peerUid===scope.peerUid&&[scope.accountUid,scope.peerUid].includes(message.senderUid)),
+    pendingCount:transport.pending.size,qqMessagesSent:0,qqRestarted:false};
+  }
   if(action.action==='upgrade-read-transport') {
    if(!transport||!driver)throw new Error('A scoped native read must capture the owned transport and driver first');
    probe.transportPrototype.call=probe.call;probe.transportPrototype.response=probe.response;probe.driverPrototype.command=probe.command;
