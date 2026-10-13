@@ -222,9 +222,15 @@ async function runProbe(states){
    const replies=messages.flatMap(message=>(message.elements||[]).filter(element=>element.replyElement).map(element=>element.replyElement));
    const fields=['sourceMsgIdInRecords','replayMsgSeq','replayMsgId','senderUin','senderUidStr'];
    const fieldTypes=Object.fromEntries(fields.map(field=>[field,[...new Set(replies.map(reply=>reply[field]===undefined?'absent':typeof reply[field]))]]));
+   const matches=(reply,key)=>messages.filter(message=>typeof reply[key]==='string'&&message.msgId===reply[key]);
+   const bySequence=reply=>messages.filter(message=>message.msgSeq===reply.replayMsgSeq&&message.senderUid===reply.senderUidStr);
    const after=driver.scope();
    // Report shape and coverage only: no QQ identities, IDs, bodies or quote text.
    return {metadataOnly:true,latestCount:latest.messages.length,olderCount:older.messages.length,quoteElementCount:replies.length,fieldTypes,
+    recordIdMatches:replies.filter(reply=>matches(reply,'sourceMsgIdInRecords').length===1).length,replayIdMatches:replies.filter(reply=>matches(reply,'replayMsgId').length===1).length,
+    uniqueScopedSequenceMatches:replies.filter(reply=>bySequence(reply).length===1).length,conflictingNonzeroIds:replies.filter(reply=>reply.sourceMsgIdInRecords&&reply.sourceMsgIdInRecords!=='0'&&reply.replayMsgId&&reply.replayMsgId!=='0'&&reply.sourceMsgIdInRecords!==reply.replayMsgId).length,
+    sequenceMatchesRecordId:replies.filter(reply=>bySequence(reply).length===1&&bySequence(reply)[0].msgId===reply.sourceMsgIdInRecords).length,
+    sequenceMatchesReplayId:replies.filter(reply=>bySequence(reply).length===1&&bySequence(reply)[0].msgId===reply.replayMsgId).length,
     nonzeroStringIdCount:replies.filter(reply=>fields.slice(0,3).filter(field=>field!=='replayMsgSeq').some(field=>typeof reply[field]==='string'&&/^\d+$/.test(reply[field])&&reply[field]!=='0')).length,
     scopedAuthorCount:replies.filter(reply=>[scope.accountUin,scope.peerUin].includes(String(reply.senderUin))||[scope.accountUid,scope.peerUid].includes(reply.senderUidStr)).length,
     scopePreserved:Object.keys(scope).every(key=>scope[key]===after[key]),epochPreserved:driver.epoch===beforeEpoch,pendingCount:transport.pending.size,qqMessagesSent:0,qqRestarted:false};
