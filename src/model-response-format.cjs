@@ -39,6 +39,7 @@ const schemas={
  memory_result:object({batchId:string,reviewedAll:boolean,items:array(memoryItem),episodes:array(episode),retire:array(memoryRetirement),relationshipPatch},['batchId','reviewedAll','items','episodes','retire'])
 };
 function responseEnvelope(settings,purpose) {
+ if(settings.modelResponseMode==='plain_text')return {};
  // These are result envelopes, never executable tools. The local proxy's
  // Claude adapter maps named tool_choice; json_object is not mapped there.
  // Restrict the automatic choice to verified non-thinking 4.6 models.

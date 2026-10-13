@@ -94,10 +94,10 @@ test('compactor preserves exact original references and has one bounded format r
   await assert.rejects(assistDiscussionCompaction(settings, plan, undefined, async () => { failedCalls++; return response('bad'); }), /原文已保留/);
   assert.equal(failedCalls, 2);
 });
-test('wrapped early draft is repaired into a plan and still uses the restricted final stage', async t => {
-  const { args, user } = fixture(t), prepared = buildContext({ ...args, byteBudget: 48000 }), calls = [];
+test('wrapped early draft preparation is repaired into a plan and still uses the restricted final stage', async t => {
+  const { args, user } = fixture(t), prepared = buildContext({ ...args, purpose: 'draft_prepare', byteBudget: 48000 }), calls = [];
   const early = '先这样表达：\n```json\n' + JSON.stringify({ kind: 'draft', text: '表达', suggestions: [{ style: '自然', text: '周末一起散步吗？' }] }) + '\n```';
-  assert.throws(() => parseAssistant(early, 'discussion', prepared.payload), /purpose=discussion.*draftPlan/);
+  assert.throws(() => parseAssistant(early, 'draft_prepare', prepared.payload), /purpose=draft_prepare.*draftPlan/);
   const planned = { draftPlan: { authorizationQuote: args.turn.text, quotes: [{ sourceId: `private:${user.id}`, text: '周末是否方便一起散步' }] } };
   const result = await assistModel(settings, prepared, undefined, async (_, request) => { calls.push(JSON.parse(JSON.parse(request.body).messages[1].content)); return response(calls.length === 1 ? early : JSON.stringify(planned)); });
   assert.equal(calls.length, 2); assert.match(calls[1].task, /禁止直接draft/); assert.equal(result.suggestions, undefined);

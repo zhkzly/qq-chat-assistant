@@ -27,6 +27,20 @@ function sourceList(value, name = 'sourceIds') {
   if (!Array.isArray(value) || value.some(id => typeof id !== 'string' || !/^(qq|private|note):.+$/.test(id) || id.length > 300)) throw new Error(`Invalid ${name}`);
   return [...new Set(value)];
 }
+function normalizeResponseRecovery(value) {
+  if(!plain(value)||Object.keys(value).some(key=>!['kind','reasonCode','metadataApplied','intentSourceIds','intentSourceRevisions'].includes(key))||!['private_help','restricted_draft'].includes(value.kind)||value.reasonCode!=='structured_output_invalid'||value.metadataApplied!==false)throw new Error('Invalid program response recovery marker');
+  const intentSourceIds=sourceList(value.intentSourceIds||[],'response recovery intent sources');
+  if(intentSourceIds.length>1||intentSourceIds.some(id=>!id.startsWith('private:'))||value.kind==='restricted_draft'&&intentSourceIds.length)throw new Error('Invalid response recovery intent sources');
+  if(value.intentSourceRevisions!==undefined&&(!plain(value.intentSourceRevisions)||Object.keys(value.intentSourceRevisions).some(id=>!intentSourceIds.includes(id))||intentSourceIds.some(id=>typeof value.intentSourceRevisions[id]!=='string')))throw new Error('Invalid response recovery intent source revisions');
+  return {kind:value.kind,reasonCode:value.reasonCode,metadataApplied:false,intentSourceIds,...(value.intentSourceRevisions?{intentSourceRevisions:{...value.intentSourceRevisions}}:{})};
+}
+function normalizePrivateReviewReceipt(value) {
+  if(!plain(value)||Object.keys(value).some(key=>!['applied','sourceIds','sourceRevisions'].includes(key))||value.applied!==true)throw new Error('Invalid private review receipt');
+  const sourceIds=sourceList(value.sourceIds,'private review sources');
+  if(!sourceIds.length||sourceIds.length>64||sourceIds.some(id=>!id.startsWith('private:')))throw new Error('Invalid private review sources');
+  if(value.sourceRevisions!==undefined&&(!plain(value.sourceRevisions)||Object.keys(value.sourceRevisions).some(id=>!sourceIds.includes(id))||sourceIds.some(id=>typeof value.sourceRevisions[id]!=='string')))throw new Error('Invalid private review source revisions');
+  return {applied:true,sourceIds,...(value.sourceRevisions?{sourceRevisions:{...value.sourceRevisions}}:{})};
+}
 function emptyState(version = 0) {
   return { version, focus: '', items: [], openThreads: [], unknowns: [], possiblyStale: true, coverage: { complete: false, sourceIds: [] } };
 }
@@ -297,6 +311,22 @@ class Store {
       if(turn.methodIds!==undefined) {
         if(!Array.isArray(turn.methodIds)||turn.methodIds.length>12||turn.methodIds.some(id=>typeof id!=='string'||id.length>100))throw new Error('Invalid method IDs');
         saved.methodIds=[...turn.methodIds];
+      }
+      const checkPrivateMetadataSources=(ids,expected={})=>{
+        const live=new Map(this._rawMemorySources(scope,record).map(source=>[source.id,source])),delivered=new Set(turn.sourceIds||[]),refs=new Map((turn.artifactMetadata?.inputSourceRefs||[]).map(ref=>[ref.sourceId,ref.revision]));
+        for(const id of ids){const source=live.get(id),direct=source?.role==='user'&&(source.type==='private'&&source.kind!=='feedback_continue'||source.type==='feedback'&&source.kind==='local'&&!!source.canonicalFeedbackId);
+          if(!direct||!delivered.has(id)&&!refs.has(id)||refs.has(id)&&refs.get(id)!==source.revision||expected[id]!==undefined&&expected[id]!==source.revision)throw new Error('Unavailable or undelivered private metadata source');}
+        return Object.fromEntries(ids.map(id=>[id,live.get(id).revision]));
+      };
+      if(turn.responseRecovery!==undefined){
+        if(turn.role!=='assistant')throw new Error('Response recovery is assistant program metadata');
+        const recovery=normalizeResponseRecovery(turn.responseRecovery);
+        if(recovery.kind==='private_help'&&(!['discussion','review','question'].includes(turn.kind)||turn.suggestions?.length||turn.expressionOptions?.length)||recovery.kind==='restricted_draft'&&turn.kind!=='draft')throw new Error('Response recovery does not match the private help or restricted draft artifact');
+        saved.responseRecovery={...recovery,intentSourceRevisions:checkPrivateMetadataSources(recovery.intentSourceIds,recovery.intentSourceRevisions)};
+      }
+      if(turn.privateReviewReceipt!==undefined){
+        if(turn.role!=='assistant'||saved.responseRecovery?.kind==='private_help')throw new Error('Private help recovery cannot claim an applied private review');
+        const receipt=normalizePrivateReviewReceipt(turn.privateReviewReceipt);saved.privateReviewReceipt={...receipt,sourceRevisions:checkPrivateMetadataSources(receipt.sourceIds,receipt.sourceRevisions)};
       }
       if(turn.role==='assistant'&&turn.artifactMetadata?.discussionTurnFingerprints!==undefined){
         const references=validateDiscussionTurnFingerprints(record,turn.artifactMetadata.discussionTurnFingerprints,{newTurnId:saved.id});
@@ -776,4 +806,4 @@ class Store {
   }
   close() { this.db.close(); }
 }
-module.exports = { Store };
+module.exports = { Store, normalizeResponseRecovery };

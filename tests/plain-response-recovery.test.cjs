@@ -1,0 +1,282 @@
+'use strict';
+// Synthetic source-shaped regressions. The original failing proxy response was
+// not retained; these fixtures reproduce its observed validation boundary.
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const { Store } = require('../src/store.cjs');
+const { buildContext, buildDraftContext, PROMPT_VERSION } = require('../src/assistant-context.cjs');
+const { assistModel, parseAssistant } = require('../src/assistant-model.cjs');
+const { TaskLedger } = require('../src/request-budget.cjs');
+const { normalize } = require('../src/messages.cjs');
+const { scope, raw } = require('./fixtures/native.cjs');
+
+const settings = { model: 'claude-sonnet-4-6', baseUrl: 'http://synthetic.invalid/v1', anonymous: true };
+const response = content => ({ ok: true, json: async () => ({ choices: [{ message: { content } }] }) });
+const resultTool = value => ({ ok: true, json: async () => ({ choices: [{ finish_reason: 'tool_calls', message: {
+  content: null, tool_calls: [{ function: { name: 'assistant_result', arguments: JSON.stringify(value) } }]
+} }] }) });
+const requestPayload = body => typeof body.messages[1].content === 'string'
+  ? JSON.parse(body.messages[1].content) : JSON.parse(body.messages[1].content[0].text);
+const badOptionalTopic = { kind: 'discussion', text: 'FIRST_INVALID_DO_NOT_REUSE',
+  topicPatch: { operation: 'update', authority: 'MODEL_CANNOT_ASSIGN_AUTHORITY' },
+  stateReview: 'no_change', methodIds: [] };
+
+function fixture(t, purpose = 'discussion') {
+  const store = new Store(':memory:'); t.after(() => store.close());
+  const records = [normalize(raw('72057594037927939', false, {
+    elements: [{ elementType: 1, textElement: { content: '从对战换成了解谜，昨天刚玩了一会。' } }]
+  }), scope)];
+  store.add(scope, records); store.setGoal(scope, 'PRIVATE_GOAL_SENTINEL_希望发展双方愿意的关系');
+  const prior = store.appendTurn(scope, { role: 'user', kind: 'discussion', text: 'PRIVATE_MOTIVE_SENTINEL_有些担心。原来先含蓄接话，不直接邀约。' });
+  store.appendTurn(scope, { role: 'assistant', kind: 'discussion', text: '可以保留游戏反差，先轻松接话。', sourceIds: [`private:${prior.id}`] });
+  const turn = store.appendTurn(scope, { role: 'user', kind: purpose, text: '现在改成直接邀请一起散步，怎么继续？' });
+  const args = { scope, records, companion: store.getCompanion(scope), turn, purpose, settings,
+    availableSources: store.memorySources(scope), requestId: `plain-${purpose}`, coverage: { status: 'complete' } };
+  return { store, args, context: buildContext(args), prior, turn };
+}
+
+for (const purpose of ['discussion', 'review']) test(`${purpose} repairs invalid optional metadata with fresh plain help and no bookkeeping`, async t => {
+  const { context, turn } = fixture(t, purpose), calls = [], fresh = '按你现在的意思直接邀请：可以先确认她这周是否方便出去走走。';
+  assert.throws(() => parseAssistant(badOptionalTopic, purpose, context.payload), /unauthorized fields/);
+  const result = await assistModel(settings, context, undefined, async (_url, request) => {
+    calls.push(JSON.parse(request.body)); return calls.length === 1 ? resultTool(badOptionalTopic) : response(fresh);
+  });
+  assert.equal(calls.length, 2); assert.equal(result.kind, purpose); assert.equal(result.text, fresh);
+  assert.deepEqual(Object.keys(result).sort(), ['kind', 'text']);
+  const repair = requestPayload(calls[1]);
+  assert.equal(repair.purpose, 'plain_help_recovery'); assert.deepEqual(repair.originalInput, context.payload);
+  assert.equal(repair.originalInput.userRequest.text, turn.text);
+  for (const key of ['invalidResponse', 'formatError', 'task']) assert.equal(repair[key], undefined);
+  assert.equal(JSON.stringify(calls[1]).includes('FIRST_INVALID_DO_NOT_REUSE'), false);
+  assert.equal(calls[1].tools, undefined); assert.equal(calls[1].tool_choice, undefined); assert.equal(calls[1].response_format, undefined);
+  assert.deepEqual(context.manifest.responseRecovery, { kind: 'private_help', reasonCode: 'structured_output_invalid', metadataApplied: false, intentSourceIds: [`private:${turn.id}`] });
+  assert.equal(context.extraRequests.length, 1); assert.equal(context.extraRequests[0].manifest.methodTrace.reported, null);
+});
+
+test('plain help repair retains explicitly selected image evidence and source identity', async t => {
+  const { context, args } = fixture(t), calls = [], messageId = args.records[0].messageId;
+  context.images = [{ messageId, index: 0, bytes: 24, url: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAAB' }];
+  context.manifest.images = context.images.map(({ url, ...metadata }) => metadata);
+  await assistModel(settings, context, undefined, async (_url, request) => {
+    calls.push(JSON.parse(request.body)); return calls.length === 1 ? resultTool(badOptionalTopic) : response('按你选中的图和她实际说的解谜游戏接话，先保留看不到的细节。');
+  });
+  assert.equal(calls.length, 2); assert.equal(calls[1].messages[1].content[1]?.image_url.url, context.images[0].url);
+  assert.equal(requestPayload(calls[1]).originalInput.sources.find(source => source.id === `qq:${messageId}`).text, args.records[0].text);
+  assert.equal(context.extraRequests[0].manifest.imageCount, 1);
+  assert.deepEqual(context.extraRequests[0].manifest.images, context.manifest.images);
+});
+
+test('restricted final draft uses only its validated payload for a one-sentence plain repair', async t => {
+  const { args, context, turn } = fixture(t), quote = '直接邀请一起散步';
+  const draft = buildDraftContext(context, { quotes: [{ sourceId: `private:${turn.id}`, text: quote }],
+    guidance: { currentStep: { text: '按本次明确意思邀请一起散步', sourceIds: [`private:${turn.id}`] } } }, args), calls = [];
+  const result = await assistModel(settings, draft, undefined, async (_url, request) => {
+    calls.push(JSON.parse(request.body)); return response(calls.length === 1 ? '{bad final json' : '这周有空一起出去走走吗？');
+  });
+  assert.equal(calls.length, 2); assert.equal(result.kind, 'draft'); assert.equal(result.suggestions.length, 1);
+  assert.equal(result.suggestions[0].text, '这周有空一起出去走走吗？');
+  assert.deepEqual(Object.keys(result).sort(), ['kind', 'suggestions', 'text']);
+  const repair = requestPayload(calls[1]); assert.equal(repair.purpose, 'plain_draft_recovery'); assert.deepEqual(repair.originalInput, draft.payload);
+  for (const forbidden of ['PRIVATE_GOAL_SENTINEL', 'PRIVATE_MOTIVE_SENTINEL', 'pendingPrivateReview', 'privateConversation', 'discussionCompaction'])
+    assert.equal(JSON.stringify(calls).includes(forbidden), false, `${forbidden} must never enter final transport`);
+  assert.deepEqual(draft.manifest.responseRecovery.intentSourceIds, []); assert.equal(draft.manifest.responseRecovery.kind, 'restricted_draft');
+  assert.equal(calls[1].response_format, undefined); assert.equal(calls[1].tools, undefined);
+});
+
+test('draft_prepare still requires structured source-bound plans, including after repair', async t => {
+  const purpose = 'draft_prepare';
+  const { context, turn } = fixture(t, purpose), control = text => ({ text, sourceIds: [`private:${turn.id}`] });
+  context.payload.topicContext.active = { id: 'active-topic', lifecycle: 'active', objective: '一起散步', direction: '直接邀请', constraints: ['不编造共同经历'] };
+  const valid = { draftPlan: { quotes: [], intent: 'reply', guidance: { objective: control('邀请一起散步'), allowedApproach: control('直接邀请'), avoidances: [control('不编造共同经历')] } } };
+  const calls = [], result = await assistModel(settings, context, undefined, async (_url, request) => {
+    calls.push(JSON.parse(request.body)); return calls.length === 1 ? resultTool({ draftPlan: '<parameter name="_">true' }) : response(JSON.stringify(valid));
+  });
+  assert.equal(calls.length, 2); assert.deepEqual(result.draftPlan.guidance, valid.draftPlan.guidance);
+  assert.equal(requestPayload(calls[1]).purpose, purpose); assert.deepEqual(calls[1].response_format, { type: 'json_object' });
+  assert.equal(context.manifest.responseRecovery, undefined);
+  let failedCalls = 0;
+  await assert.rejects(assistModel(settings, { payload: context.payload, manifest: {} }, undefined, async () => {
+    failedCalls++; return failedCalls === 1 ? resultTool({ draftPlan: 'broken' }) : response('这周有空一起出去走走吗？');
+  }), /未能返回可用的结构化结果/);
+  assert.equal(failedCalls, 2);
+  assert.throws(() => parseAssistant({ draftPlan: { quotes: [], intent: 'reply' } }, purpose, context.payload), /current effective topic requires/);
+});
+
+test('reply invalid plans recover only private advice while valid plans still reach restricted drafting', async t => {
+  const { args, context, turn } = fixture(t, 'reply'), control = text => ({ text, sourceIds: [`private:${turn.id}`] });
+  context.payload.topicContext.active = { id: 'reply-topic', lifecycle: 'active', objective: '一起散步', direction: '直接邀请', constraints: ['不编造共同经历'] };
+  const calls = [], help = await assistModel(settings, context, undefined, async (_url, request) => {
+    calls.push(JSON.parse(request.body)); return calls.length === 1 ? resultTool({ draftPlan: { quotes: [], intent: 'reply' } }) : response('先按你现在明确的意思商量直接邀请，保留她实际说过的内容。');
+  });
+  assert.equal(calls.length, 2); assert.equal(help.kind, 'discussion'); assert.deepEqual(Object.keys(help).sort(), ['kind', 'text']);
+  assert.equal(requestPayload(calls[1]).purpose, 'plain_help_recovery'); assert.equal(calls[1].tools, undefined); assert.equal(calls[1].response_format, undefined);
+  assert.equal(help.draftPlan, undefined); assert.equal(help.suggestions, undefined); assert.equal(context.manifest.responseRecovery.metadataApplied, false);
+  const prepared = buildContext(args), valid = { draftPlan: { quotes: [], intent: 'reply', guidance: { objective: control('邀请一起散步'),
+    allowedApproach: control('直接邀请'), avoidances: [control('不编造共同经历')] } } };
+  prepared.payload.topicContext.active = context.payload.topicContext.active;
+  let count = 0;
+  const planned = await assistModel(settings, prepared, undefined, async () => { count++; return resultTool(valid); });
+  assert.equal(count, 1); assert.deepEqual(planned.draftPlan.guidance, valid.draftPlan.guidance); assert.equal(prepared.manifest.responseRecovery, undefined);
+  const final = buildDraftContext(prepared, planned.draftPlan, args);
+  assert.equal(final.payload.purpose, 'draft'); assert.equal(final.payload.draftingGuidance.objective.text, '邀请一起散步');
+  assert.equal(final.payload.privateConversation, undefined); assert.equal(JSON.stringify(final.payload).includes('PRIVATE_MOTIVE_SENTINEL'), false);
+});
+
+test('invalid or overlong plain help receives no second recovery, and each call remains in the original task budget', async t => {
+  const { store, context } = fixture(t), ledger = new TaskLedger(store);
+  for (const [index, invalid] of ['', 'x'.repeat(6001), '{"actions":[{"type":"set_goal","text":"model claim"}]}', '<parameter name="topicPatch">bad</parameter>'].entries()) {
+    const task = ledger.create(scope, { id: `bounded-plain-${index}`, inputDigest: `shape-${index}`, limit: 2 }), calls = [];
+    await assert.rejects(assistModel({ ...settings, requestBudget: task.forStage('assistant') }, { payload: context.payload, manifest: {} }, undefined, async (_url, request) => {
+      calls.push(request.body); return calls.length === 1 ? resultTool(badOptionalTopic) : response(invalid);
+    }), /自然文字|没有返回可用文字|空文字/);
+    assert.equal(calls.length, 2); assert.equal(task.snapshot().attempts, 2);
+    assert.equal(task.snapshot().requests[1].purpose, 'plain_response_recovery');
+  }
+});
+
+test('plain recovery rejects truncated output, wrapped machine objects and multi-paragraph final output', async t => {
+  const { args, context, turn } = fixture(t);
+  const draft = buildDraftContext(context, { quotes: [{ sourceId: `private:${turn.id}`, text: '直接邀请一起散步' }] }, args);
+  for (const [input, second] of [[context, response('以下是结果：\n{"kind":"discussion","text":"机器参数不是自然回答"}')],
+    [draft, response('第一句。\n第二句说明。')], [draft, response('x'.repeat(1201))],
+    [context, { ok: true, json: async () => ({ choices: [{ finish_reason: 'length', message: { content: '这是被截断的普通帮助' } }] }) }]]) {
+    let calls = 0;
+    await assert.rejects(assistModel(settings, input, undefined, async () => ++calls === 1 ? response('{broken') : second), /机器格式|分段说明|自然文字|截断/);
+    assert.equal(calls, 2);
+  }
+});
+
+function pendingFixture(t, count = 1) {
+  const { store, args, turn } = fixture(t), pending = [];
+  // Program-owned metadata injected in a source-shaped companion until Store's
+  // producer is wired; it is not supplied by the model response.
+  const companion = structuredClone(args.companion); companion.turns = companion.turns.filter(item => item.id !== turn.id);
+  const sources = args.availableSources.filter(item => item.id !== `private:${turn.id}`);
+  for (let index = 0; index < count; index++) {
+    const id = `pending-user-${index}`, sourceId = `private:${id}`, text = `未完成核对的明确纠正${index}：这轮要直接邀请。`;
+    companion.turns.push({ id, role: 'user', kind: 'discussion', text, createdAt: new Date(1791750000000 + index * 1000).toISOString() });
+    companion.turns.push({ id: `recovered-${index}`, role: 'assistant', kind: 'discussion', text: '本次只提供建议。',
+      responseRecovery: { kind: 'private_help', reasonCode: 'structured_output_invalid', metadataApplied: false, intentSourceIds: [sourceId],
+        intentSourceRevisions: { [sourceId]: `revision-${index}` } } });
+    sources.push({ id: sourceId, type: 'private', role: 'user', text, revision: `revision-${index}` }); pending.push(sourceId);
+  }
+  companion.turns.push(turn); return { store, args: { ...args, companion, availableSources: [...sources, args.availableSources.find(item => item.id === `private:${turn.id}`)] }, pending };
+}
+
+test('unresolved recovery intent survives old topic and recent-group eviction as exact protected sources', t => {
+  const { args, pending } = pendingFixture(t, 10), context = buildContext(args);
+  assert.equal(context.payload.pendingPrivateReview.authority, 'unreviewed_private_intent_not_external_fact');
+  assert.deepEqual(context.payload.pendingPrivateReview.sourceIds, pending.slice(-8));
+  assert.equal(context.payload.pendingPrivateReview.omittedCount, 2);
+  assert.deepEqual(context.payload.pendingPrivateReview.protectedSourceIds, pending.slice(-3));
+  for (const id of pending.slice(-3)) {
+    assert.equal(context.payload.sources.find(source => source.id === id).text, args.availableSources.find(source => source.id === id).text);
+    assert.ok(context.essentialSourceIds.includes(id));
+  }
+  assert.deepEqual(parseAssistant({ lookup: { discussionTurnIds: ['pending-user-2'] } }, 'discussion', context.payload).lookup.discussionTurnIds, ['pending-user-2']);
+  assert.throws(() => parseAssistant({ lookup: { discussionTurnIds: ['pending-user-0'] } }, 'discussion', context.payload), /discussionTurnIds/);
+  assert.equal(PROMPT_VERSION, 'relationship-context-2026-10-13.2');
+});
+
+test('only later applied source-covered review receipts resolve a pending intent', t => {
+  const { args, pending } = pendingFixture(t), id = pending[0];
+  const responseTurn = { id: 'valid-later-review', role: 'assistant', kind: 'discussion', text: '现在按直接邀请继续。' };
+  args.companion.turns.splice(-1, 0, responseTurn);
+  const valid = { applied: true, sourceIds: [id], sourceRevisions: { [id]: args.availableSources.find(source => source.id === id).revision } };
+  for (const invalid of [{ applied: false, sourceIds: [id] }, { applied: true, sourceIds: ['private:other'] }]) {
+    responseTurn.privateReviewReceipt = invalid; assert.ok(buildContext(args).payload.pendingPrivateReview.sourceIds.includes(id));
+  }
+  responseTurn.privateReviewReceipt = valid; assert.equal(buildContext(args).payload.pendingPrivateReview, undefined);
+  delete responseTurn.privateReviewReceipt; args.companion.turns[1].privateReviewReceipt = valid;
+  assert.ok(buildContext(args).payload.pendingPrivateReview.sourceIds.includes(id), 'an old receipt must not resolve a later correction');
+});
+
+test('pending intent marks topic only in the private model projection and never reaches final drafting', t => {
+  const { args, pending } = pendingFixture(t), currentId = `private:${args.turn.id}`, source = args.availableSources.find(item => item.id === currentId);
+  const topic = { id: 'stale-topic', version: 1, lifecycle: 'active', objective: '继续了解她', direction: '含蓄接话', constraints: [],
+    sourceIds: [currentId], sourceRevisions: { [currentId]: source.revision } };
+  args.topicContext = { version: 1, activeId: topic.id, active: topic };
+  const originalState = structuredClone(args.companion.state);
+  const context = buildContext(args); assert.equal(context.payload.topicContext.active.reviewPending, true);
+  assert.equal(topic.reviewPending, undefined); assert.deepEqual(args.companion.state, originalState);
+  const final = buildDraftContext(context, { quotes: [{ sourceId: currentId, text: '直接邀请一起散步' }] }, args);
+  assert.equal(final.payload.pendingPrivateReview, undefined); assert.equal(JSON.stringify(final.payload).includes(pending[0]), false);
+});
+
+test('oversized protected pending originals fail without silently cutting the correction', t => {
+  const { args, pending } = pendingFixture(t, 3);
+  for (const id of pending) {
+    const source = args.availableSources.find(source => source.id === id); source.text += '完整私下纠正。'.repeat(1700);
+    args.companion.turns.find(turn => `private:${turn.id}` === id).text = source.text;
+  }
+  for (let index = 0; index < 8; index++) {
+    const id = `later-user-${index}`, text = '稍后简短讨论。';
+    args.companion.turns.splice(-1, 0, { id, role: 'user', kind: 'discussion', text }, { id: `later-assistant-${index}`, role: 'assistant', kind: 'discussion', text: '简短回应。' });
+    args.availableSources.push({ id: `private:${id}`, type: 'private', role: 'user', text, revision: `later-${index}` });
+  }
+  args.byteBudget = 10000;
+  assert.throws(() => buildContext(args), /预算.*没有静默截断|预算.*内容未被截断/);
+});
+
+test('pending canonical feedback keeps its exact evaluated object or explicitly rejects its budget', t => {
+  const { store, args } = fixture(t), evaluated = store.appendTurn(scope, { role: 'assistant', kind: 'discussion',
+    text: '原始完整评价对象。'.repeat(650), sourceIds: [`private:${args.turn.id}`] });
+  const feedback = store.addFeedback(scope, { targetRef: { kind: 'artifact', artifactRef: evaluated.artifactRef }, text: '这句多问了，不要再连着追问。' });
+  const companion = store.getCompanion(scope);
+  const feedbackRevision = store.memorySources(scope).find(source => source.id === feedback.sourceId).revision;
+  companion.turns.push({ id: 'feedback-help', role: 'assistant', kind: 'discussion', text: '本次先按反馈继续帮助。',
+    responseRecovery: { kind: 'private_help', reasonCode: 'structured_output_invalid', metadataApplied: false, intentSourceIds: [feedback.sourceId],
+      intentSourceRevisions: { [feedback.sourceId]: feedbackRevision } } });
+  const sources = store.memorySources(scope);
+  for (let index = 0; index < 8; index++) {
+    const id = `after-feedback-${index}`, text = '稍后简短交流。';
+    companion.turns.push({ id, role: 'user', kind: 'discussion', text }, { id: `ack-feedback-${index}`, role: 'assistant', kind: 'discussion', text: '简短回复。' });
+    sources.push({ id: `private:${id}`, type: 'private', role: 'user', text, revision: `feedback-later-${index}` });
+  }
+  const turn = { id: 'continue-pending-feedback', role: 'user', kind: 'discussion', text: '那继续。' };
+  companion.turns.push(turn); sources.push({ id: `private:${turn.id}`, type: 'private', role: 'user', text: turn.text, revision: 'feedback-current' });
+  const target = store.experiences.hydrateFeedback(scope, feedback.id), options = { ...args, turn, companion, availableSources: sources,
+    feedbackTargets: [], experienceContext: { evaluationTargets: [target] }, byteBudget: 48000 };
+  const context = buildContext(options);
+  assert.equal(context.payload.sources.filter(source => source.id === feedback.sourceId).length, 1);
+  assert.equal(context.payload.sources.find(source => source.id === feedback.sourceId).text, feedback.text);
+  assert.equal(context.payload.sources.find(source => source.id === feedback.sourceId).type, 'feedback');
+  assert.equal(context.payload.feedbackTargets[0].target.body, evaluated.text);
+  assert.equal(context.payload.pendingPrivateReview.refs[0].turnId, undefined, 'canonical feedback is not cloned into an ordinary user fact');
+  assert.equal(context.payload.pendingPrivateReview.refs[0].targetAvailability, 'full');
+  const unavailable = buildContext({ ...options, experienceContext: null });
+  assert.equal(unavailable.payload.pendingPrivateReview.refs[0].targetAvailability, 'needs_lookup');
+  assert.equal(unavailable.payload.feedbackTargets, undefined);
+  assert.throws(() => buildContext({ ...options, byteBudget: 10000 }), /所选反馈.*预算/);
+});
+
+test('canonical feedback same-ID edits invalidate old recovery and cannot be cleared by stale or unbound review receipts', t => {
+  const { store, args } = fixture(t), first = store.experiences.review(scope, { text: '先保持含蓄。', clientEventId: 'hash-original-feedback' });
+  const id = first.feedback.sourceId, oldRevision = store.memorySources(scope).find(source => source.id === id).revision;
+  store.appendTurn(scope, { role: 'assistant', kind: 'discussion', text: '私下帮助，尚未更新背景。', sourceIds: [id],
+    responseRecovery: { kind: 'private_help', reasonCode: 'structured_output_invalid', metadataApplied: false, intentSourceIds: [id] } });
+  store.experiences.review(scope, { caseId: first.experience.id, feedbackId: first.feedback.id, expectedVersion: first.feedback.revision,
+    text: '改成直接邀请。', clientEventId: 'hash-edited-feedback' });
+  const sources = store.memorySources(scope), revision = sources.find(source => source.id === id).revision;
+  assert.notEqual(revision, oldRevision);
+  let companion = store.getCompanion(scope);
+  const contextOptions = () => ({ ...args, companion, availableSources: sources });
+  assert.equal(buildContext(contextOptions()).payload.pendingPrivateReview, undefined, 'a recovery about the replaced body cannot become current intent');
+  const currentRecovery = store.appendTurn(scope, { role: 'assistant', kind: 'discussion', text: '按新的原话先帮助，背景待核对。', sourceIds: [id],
+    responseRecovery: { kind: 'private_help', reasonCode: 'structured_output_invalid', metadataApplied: false, intentSourceIds: [id] } });
+  companion = store.getCompanion(scope);
+  // Deliberately replay stale/unbound historical receipt shapes at a later
+  // position. The consumer must independently verify the saved source hash.
+  companion.turns.push({ id: 'stale-replayed-receipt', role: 'assistant', kind: 'discussion', text: '旧回执',
+    privateReviewReceipt: { applied: true, sourceIds: [id], sourceRevisions: { [id]: oldRevision } } });
+  companion.turns.push({ id: 'legacy-unbound-receipt', role: 'assistant', kind: 'discussion', text: '旧无哈希回执', privateReviewReceipt: { applied: true, sourceIds: [id] } });
+  const pending = buildContext(contextOptions()).payload.pendingPrivateReview;
+  assert.deepEqual(pending.sourceIds, [id]); assert.equal(pending.refs[0].bindingStatus, 'source_bound');
+  assert.equal(pending.refs[0].sourceRevisions, undefined); assert.equal(pending.refs[0].revision, undefined);
+  companion.turns.push({ id: 'current-hash-receipt', role: 'assistant', kind: 'discussion', text: '新回执',
+    privateReviewReceipt: { applied: true, sourceIds: [id], sourceRevisions: { [id]: revision } } });
+  assert.equal(buildContext(contextOptions()).payload.pendingPrivateReview, undefined);
+  const legacy = companion.turns.find(turn => turn.id === currentRecovery.id); delete legacy.responseRecovery.intentSourceRevisions;
+  companion.turns = companion.turns.filter(turn => !['stale-replayed-receipt', 'legacy-unbound-receipt', 'current-hash-receipt'].includes(turn.id));
+  assert.equal(buildContext(contextOptions()).payload.pendingPrivateReview.refs[0].bindingStatus, 'legacy_hash_missing_needs_review');
+});

@@ -148,7 +148,7 @@ test('canonical feedback continuation is authoritative without duplicating its b
   assert.ok(final.manifest.sourceIds.includes(feedback.sourceId));
 });
 
-test('bounded drafting repair retains guidance provenance and chosen image sources while evicting optional QQ', async t => {
+test('bounded plain drafting repair retains guidance provenance and chosen image sources', async t => {
   const { store, args, request, guidance } = fixture(t);
   const more = Array.from({ length: 100 }, (_, index) => normalize(raw(String(900719925474200000n + BigInt(index)), index % 2 === 1,
     { msgTime: String(1791792000 + index), elements: [{ textElement: { content: `合成历史${index}：${'普通背景，不代表新的表达目的。'.repeat(20)}` } }] }), scope));
@@ -161,13 +161,15 @@ test('bounded drafting repair retains guidance provenance and chosen image sourc
   const images = [{ messageId: imageId, url: 'data:image/png;base64,iVBORw0KGgo=', bytes: 8, index: 0 }];
   draft.images = images; draft.manifest.images = images.map(({ url, ...metadata }) => metadata);
   const calls = [], invalid = 'INVALID_' + '原响应需要完整修复。'.repeat(1200);
-  await assistModel(settings, draft, undefined, async (_, request) => {
+  const result = await assistModel(settings, draft, undefined, async (_, request) => {
     calls.push(request.body);
-    return { ok: true, json: async () => ({ choices: [{ message: { content: calls.length === 1 ? invalid : JSON.stringify({ kind: 'draft', text: '参考表达', suggestions: [{ style: '自然', text: '周末有空一起散步吗？' }] }) } }] }) };
+    return { ok: true, json: async () => ({ choices: [{ message: { content: calls.length === 1 ? invalid : '周末有空一起散步吗？' } }] }) };
   });
   assert.equal(calls.length, 2); assert.ok(calls.every(body => Buffer.byteLength(body) < 64000 + JSON.stringify(images).length));
-  const repaired = draft.resultContext;
-  assert.ok(repaired, 'fixture must exercise actual context reconstruction');
+  assert.equal(result.suggestions[0].text, '周末有空一起散步吗？');
+  const repaired = draft.resultContext || draft;
+  // The smaller plain recovery envelope no longer includes the invalid output;
+  // reassembly is unnecessary when the validated final input already fits.
   assert.deepEqual(repaired.payload.draftingGuidance, draft.payload.draftingGuidance);
   assert.deepEqual(repaired.images, images);
   assert.ok(repaired.payload.sources.some(item => item.id === `qq:${imageId}`));
@@ -175,8 +177,12 @@ test('bounded drafting repair retains guidance provenance and chosen image sourc
     assert.ok(repaired.manifest.sourceIds.includes(id)); assert.ok(draft.extraRequests[0].manifest.sourceIds.includes(id));
     assert.equal(repaired.manifest.sourceRevisions[id], prepared.manifest.sourceRevisions[id]);
   }
-  assert.equal(draft.extraRequests[0].manifest.imageCount, 0); assert.equal(draft.extraRequests[0].manifest.images, undefined);
-  assert.equal(draft.extraRequests[0].inputBytes, Buffer.byteLength(calls[1]));
+  assert.equal(draft.extraRequests[0].manifest.imageCount, 1); assert.deepEqual(draft.extraRequests[0].manifest.images, draft.manifest.images);
+  const recoveryRequest = JSON.parse(calls[1]), recoveryPayload = JSON.parse(recoveryRequest.messages[1].content[0].text);
+  assert.equal(recoveryPayload.invalidResponse, undefined); assert.deepEqual(recoveryPayload.originalInput.draftingGuidance, draft.payload.draftingGuidance);
+  assert.equal(recoveryRequest.messages[1].content[1].image_url.url, images[0].url);
+  recoveryRequest.messages[1].content = JSON.stringify(recoveryPayload);
+  assert.equal(draft.extraRequests[0].inputBytes, Buffer.byteLength(JSON.stringify(recoveryRequest)));
   for (const forbidden of ['PRIVATE_MOTIVE_', 'PRIVATE_LONG_GOAL_']) assert.ok(calls.every(body => !body.includes(forbidden)));
 });
 
@@ -294,8 +300,8 @@ test('effective topic fields require guidance while explicitly removed restricti
     { ...prepared.payload, topicContext: { active: null, retained: [] } }).draftPlan.quotes.length, 1);
 });
 
-test('legacy active-topic reply is repaired once into source-bound guidance before restricted drafting', async t => {
-  const { args, guidance } = fixture(t), prepared = buildContext({ ...args, purpose: 'reply' }), calls = [];
+test('legacy active-topic draft preparation is repaired once into source-bound guidance before restricted drafting', async t => {
+  const { args, guidance } = fixture(t), prepared = buildContext({ ...args, purpose: 'draft_prepare' }), calls = [];
   const result = await assistModel(settings, prepared, undefined, async (_, request) => {
     calls.push(JSON.parse(JSON.parse(request.body).messages[1].content));
     const draftPlan = calls.length === 1 ? { intent: 'reply', quotes: [], style: 'natural' } : { intent: 'reply', quotes: [], style: 'natural', guidance };

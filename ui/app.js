@@ -206,15 +206,22 @@ async function companionAction(path,args){
 }
 function button(text,run,className='text-button'){const element=document.createElement('button');element.type='button';element.className=className;element.textContent=text;element.onclick=run;return element}
 function paragraph(text,className=''){const p=document.createElement('p');p.textContent=text;p.className=className;return p}
+function responseRecoveryKind(turn){
+ const kind=turn?.responseRecovery?.kind;
+ return turn?.role==='assistant'&&['private_help','restricted_draft'].includes(kind)?kind:null;
+}
 function renderTopicDirection(){
  const topic=state?.topicContext?.active,visible=!!topic&&topic.lifecycle==='active';
  $('topic-direction').hidden=!visible;if(!visible){$('topic-direction').open=false;topicViewKey='';return;}
- const nextKey=JSON.stringify(topic);if(nextKey===topicViewKey)return;topicViewKey=nextKey;
+ const latestAssistant=(state.companion?.turns||[]).findLast(turn=>turn.role==='assistant');
+ const pendingReview=responseRecoveryKind(latestAssistant)==='private_help'&&latestAssistant.responseRecovery.metadataApplied===false;
+ const nextKey=JSON.stringify({topic,pendingReview});if(nextKey===topicViewKey)return;topicViewKey=nextKey;
  const direction=topic.direction||topic.objective||'一起理清这次想怎么聊';
  $('topic-direction-label').textContent=`这次先：${direction}`;$('topic-direction-label').title=direction;
- $('topic-direction-status').textContent=topic.interpretationStatus==='tentative'?'暂定 · 可调整':'可调整';
+ $('topic-direction-status').textContent=pendingReview?'本次想法待核对':topic.interpretationStatus==='tentative'?'暂定 · 可调整':'可调整';
  $('topic-direction-objective').textContent=topic.objective||direction;
  const fragment=document.createDocumentFragment();
+ if(pendingReview)fragment.append(paragraph('这次想法待核对，以最新原话为准。','muted'));
  if(topic.direction&&topic.direction!==topic.objective)fragment.append(paragraph(topic.direction));
  if(topic.stage)fragment.append(paragraph(`目前：${topic.stage}`,'muted'));
  for(const item of (topic.constraints||[]).slice(0,3))fragment.append(paragraph(`这次注意：${item}`,'muted'));
@@ -267,8 +274,9 @@ function renderCompanion(){
   for(const turn of turns){const article=document.createElement('article');article.className=`assistant-turn ${turn.role==='user'?'user':'assistant'}`;article.dataset.turnId=turn.id;
    const head=document.createElement('div');head.className='turn-heading';const who=document.createElement('strong');who.textContent=turn.role==='user'?'我 · 私下讨论':'助手';
    const remove=button('删除',async()=>{if(expected!==scopeKey||epoch!==historyEpoch)return;if(confirm('删除这条私下讨论及依赖它的助手内容？QQ 消息不会删除。'))await companionAction('/api/turn-delete',{id:turn.id})});remove.setAttribute('aria-label',`删除${turn.role==='user'?'我的讨论':'助手回复'}`);head.append(who,remove);article.append(head,paragraph(turn.text||'','turn-text'));
-   for(const suggestion of turn.suggestions||[]){const card=document.createElement('div');card.className='assistant-suggestion';card.append(paragraph(suggestion.style||'参考表达','muted'),paragraph(suggestion.text||''));card.append(button('采用到草稿',()=>{if(expected===scopeKey&&epoch===historyEpoch)adopt(suggestion.text,turn.id,suggestion.artifactRef?[suggestion.artifactRef]:[])}));card.append(button('反馈这条表达',()=>{if(expected===scopeKey&&epoch===historyEpoch)openFeedback(turn,suggestion)}));card.querySelector('button').dataset.action='adopt';article.append(card)}
-   for(const [index,choice] of (turn.expressionOptions||[]).entries()){
+   const recoveryKind=responseRecoveryKind(turn);if(recoveryKind&&turn.responseRecovery.metadataApplied===false){const notice=paragraph(recoveryKind==='private_help'?'已先给出建议；部分背景整理未完成。':'表达参考 · 请核对','muted response-recovery');notice.dataset.responseRecovery=recoveryKind;article.append(notice)}
+   for(const suggestion of recoveryKind==='private_help'?[]:turn.suggestions||[]){const card=document.createElement('div');card.className='assistant-suggestion';card.append(paragraph(suggestion.style||'参考表达','muted'),paragraph(suggestion.text||''));card.append(button('采用到草稿',()=>{if(expected===scopeKey&&epoch===historyEpoch)adopt(suggestion.text,turn.id,suggestion.artifactRef?[suggestion.artifactRef]:[])}));card.append(button('反馈这条表达',()=>{if(expected===scopeKey&&epoch===historyEpoch)openFeedback(turn,suggestion)}));card.querySelector('button').dataset.action='adopt';article.append(card)}
+   for(const [index,choice] of (recoveryKind==='private_help'?[]:turn.expressionOptions||[]).entries()){
     const card=document.createElement('div');card.className='expression-option';card.append(paragraph(choice.label||choice.intent||'一个可表达的方向'));
     card.append(button('用这个方向写',()=>{if(expected!==scopeKey||epoch!==historyEpoch)return;submitAssistant('draft',{text:$('assistant-input').value.trim()||'按选中的方向组织表达',selectedOption:{turnId:turn.id,index},sourceTurnIds:[turn.id]})},'secondary'));article.append(card);
    }
@@ -414,7 +422,7 @@ function renderUsage(){
  if(schedule)fragment.append(paragraph(`后台：${schedule.pending||0} 条待整理${schedule.nextAt?` · 下次检查 ${new Date(schedule.nextAt).toLocaleTimeString('zh-CN')}`:''}`,'muted'));
  for(const task of state.requestUsage||[]){const card=document.createElement('details'),title=document.createElement('summary');title.textContent=`${task.origin==='maintenance'?'后台整理':task.origin==='auto'?'自动参考':'本次求助'} · ${task.attempts}/${task.limit} 次请求`;card.append(title,paragraph(`状态：${({complete:'完成',completed:'完成',failed:'未完成',running:'处理中',pending:'等待中'})[task.status]||task.status}`,'muted'));
   const usage=task.usage||{};card.append(paragraph(usage.totalTokens===null||usage.totalTokens===undefined?'服务未报告完整 token 用量。':`已报告 token：${usage.totalTokens}${usage.unreportedAttempts?'；部分请求用量未知。':''}`,'muted'));
-  for(const request of task.requests||[])card.append(paragraph(`${({discussion:'讨论',reply:'回应 QQ',draft_prepare:'整理拟表达内容',draft:'组织表达',review:'回顾',memory:'记忆整理',discussion_compaction:'较早讨论整理'})[request.purpose]||request.purpose} · ${request.elapsedMs===null?'未完成':`${request.elapsedMs} 毫秒`}${request.errorCode?` · ${request.errorCode}`:''}`,'muted'));
+  for(const request of task.requests||[])card.append(paragraph(`${({discussion:'讨论',reply:'回应 QQ',draft_prepare:'整理拟表达内容',draft:'组织表达',review:'回顾',memory:'记忆整理',discussion_compaction:'较早讨论整理',plain_response_recovery:'恢复回答',plain_help_recovery:'恢复私下建议',plain_draft_recovery:'恢复表达参考'})[request.purpose]||request.purpose} · ${request.elapsedMs===null?'未完成':`${request.elapsedMs} 毫秒`}${request.errorCode?` · ${request.errorCode}`:''}`,'muted'));
   fragment.append(card);
  }
  if(!(state.requestUsage||[]).length)fragment.append(paragraph('当前联系人还没有记录到模型请求。','muted'));$('request-usage').replaceChildren(fragment);

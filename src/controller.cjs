@@ -11,6 +11,7 @@ const { assistModel, parseAssistant } = require('./assistant-model.cjs');
 const { buildContext, buildDraftContext, expressionOptionsFor, PROMPT_VERSION } = require('./assistant-context.cjs');
 const { planDiscussionCompaction, assistDiscussionCompaction } = require('./discussion-compaction.cjs');
 const { discussionTopicBinding, discussionModelBinding, DISCUSSION_COMPACTION_VERSION } = require('./discussion-compaction-store.cjs');
+const { normalizeResponseRecovery } = require('./store.cjs');
 const { maintainMemory: runMemoryMaintenance } = require('./memory-engine.cjs');
 const { applyUserActions, confirmUserAction, undoUserAction } = require('./assistant-actions.cjs');
 const { methodFor } = require('./help-methods.cjs');
@@ -440,17 +441,33 @@ class Controller extends EventEmitter {
       const invoke=async(input)=>{
         const stage=budget.forStage(input.payload.purpose);settings.requestBudget=stage;input.manifest.stageId=stage.stageId;
         this.store.saveRun(scope,{id:requestId,baseRevision,purpose:input.payload.purpose,status:'pending',payload:input.payload,manifest:input.manifest});
-        const output=await this.assistantModel(settings,input,abort.signal),resultInput=input.resultContext||input;
-        const result=parseAssistant(output,resultInput.payload.purpose,resultInput.payload);
-        input.manifest.methodTrace ||= {delivered:(input.payload.methodCards||[]).map(method=>({id:method.id,version:method.version})),reported:null};
-        if(!input.extraRequests?.length)input.manifest.methodTrace.reported=Object.hasOwn(result,'methodIds')?[...result.methodIds]:null;
-        if(resultInput.payload.purpose!=='draft'&&result.relationshipPatch)relationshipProposals.push({patch:result.relationshipPatch,manifest:resultInput.manifest});
-        if(resultInput.payload.purpose!=='draft'&&result.topicPatch)topicProposals.push({patch:result.topicPatch,context:resultInput});
-        for(const proposal of result.experienceProposals||[])experienceProposals.push({proposal,payload:resultInput.payload,manifest:resultInput.manifest});
-        capturedRequests.push({purpose:input.payload.purpose,manifest:input.manifest,payload:input.payload});
-        if(input.extraRequests)capturedRequests.push(...input.extraRequests);
-        if(resultInput!==input)context=resultInput;
-        return result;
+        try{
+          const output=await this.assistantModel(settings,input,abort.signal),resultInput=input.resultContext||input;
+          const recoveryValue=resultInput.manifest?.responseRecovery||input.manifest?.responseRecovery,recovery=recoveryValue&&normalizeResponseRecovery(recoveryValue);
+          if(recovery?.kind==='private_help'&&!['discussion','review','reply'].includes(resultInput.payload.purpose)||recovery?.kind==='restricted_draft'&&resultInput.payload.purpose!=='draft')throw new Error('Response recovery is unavailable for this assistance phase');
+          let result=parseAssistant(output,resultInput.payload.purpose,resultInput.payload);
+          if(recovery?.kind==='private_help'){
+            // A private text fallback cannot commit an earlier queued proposal.
+            // Already applied user actions and their real receipts remain intact.
+            relationshipProposals.length=0;experienceProposals.length=0;topicProposals.length=0;stagedReview=null;
+            result={kind:['discussion','review','question'].includes(result.kind)?result.kind:'discussion',text:result.text};
+          }
+          input.manifest.methodTrace ||= {delivered:(input.payload.methodCards||[]).map(method=>({id:method.id,version:method.version})),reported:null};
+          if(!input.extraRequests?.length)input.manifest.methodTrace.reported=Object.hasOwn(result,'methodIds')?[...result.methodIds]:null;
+          if(!recovery&&resultInput.payload.purpose!=='draft'&&result.relationshipPatch)relationshipProposals.push({patch:result.relationshipPatch,manifest:resultInput.manifest});
+          if(!recovery&&resultInput.payload.purpose!=='draft'&&result.topicPatch)topicProposals.push({patch:result.topicPatch,context:resultInput});
+          if(!recovery)for(const proposal of result.experienceProposals||[])experienceProposals.push({proposal,payload:resultInput.payload,manifest:resultInput.manifest});
+          return result;
+        }finally{
+          // Failed transport/repair attempts still have useful diagnostics. Keep
+          // the normal input and stage manifest, never an invalid raw response.
+          capturedRequests.push({purpose:input.payload.purpose,manifest:input.manifest,payload:input.payload});
+          for(const extra of input.extraRequests||[]){
+            const payload=extra.payload?Object.fromEntries(['purpose','originalInput','formatError'].filter(key=>extra.payload[key]!==undefined).map(key=>[key,extra.payload[key]])):undefined;
+            capturedRequests.push({purpose:extra.purpose||extra.manifest?.purpose,manifest:extra.manifest,...(payload?{payload}:{}),...(extra.inputBytes!==undefined?{inputBytes:extra.inputBytes}:{})});
+          }
+          if(input.resultContext&&input.resultContext!==input)context=input.resultContext;
+        }
       };
       let result;
       for(let pass=0;pass<5;pass++) {
@@ -513,6 +530,7 @@ class Controller extends EventEmitter {
       const generationStages=capturedRequests.filter(request=>request.manifest).map(request=>({stageId:request.manifest.stageId,purpose:request.purpose,
         deliveredMethodRefs:(request.manifest.methodTrace?.delivered||[]).map(method=>({methodId:method.id,version:method.version})),reportedUsedMethodRefs:request.manifest.methodTrace?.reported?.map(id=>({methodId:id,version:methodFor(id)?.version}))??null}));
       let patchReceipt=null,relationshipReceipt=null,topicReceipt=null;
+      const recoveryValue=context.manifest?.responseRecovery,responseRecovery=recoveryValue&&normalizeResponseRecovery(recoveryValue);
       const reply=this.store._atomic(()=>{
         if(!current())return null;
         const topic=topicProposals.at(-1);
@@ -543,13 +561,19 @@ class Controller extends EventEmitter {
           try{this.store.experiences.proposeFromModel(scope,candidate.proposal,{allowedSourceIds,allowedCaseIds,deliveredMethods:candidate.manifest.methodTrace?.delivered||[]});}
           catch(error){receipts.push({status:'rejected',reason:`经验候选未保存：${error.message}`});}
         }
+        const reviewedSourceIds=new Set();
+        if(patchReceipt?.applied)for(const id of stagedReview?.context.manifest.sourceIds||[])reviewedSourceIds.add(id);
+        if(topicReceipt?.applied)for(const id of [...(topic?.patch.purposeSourceIds||[]),...(topic?.patch.observationSourceIds||[])])reviewedSourceIds.add(id);
+        const live=new Map(this.store._rawMemorySources(scope).map(source=>[source.id,source]));
+        const privateReviewed=[...reviewedSourceIds].filter(id=>{const source=live.get(id);return source?.role==='user'&&(source.type==='private'&&source.kind!=='feedback_continue'||source.type==='feedback'&&source.kind==='local'&&!!source.canonicalFeedbackId)}).slice(-64);
+        const privateReviewReceipt=responseRecovery?.kind!=='private_help'&&privateReviewed.length?{applied:true,sourceIds:privateReviewed}:undefined;
         const saved=this.store.appendTurn(scope,{role:'assistant',kind:result.kind,text:result.text,requestId,suggestions:result.suggestions,
-          sourceIds:context.manifest.sourceIds,expressionOptions,methodIds,actionReceipts:receipts,generationStages,
+          sourceIds:context.manifest.sourceIds,expressionOptions,methodIds,actionReceipts:receipts,generationStages,responseRecovery,privateReviewReceipt,
           artifactMetadata:{generationStages,goalVersion:companion.goal.version,inputSourceRefs:
             [...new Map(capturedRequests.flatMap(request=>Object.entries({...request.manifest?.discussionCompaction?.sourceRevisions,...request.manifest?.sourceRevisions}))).entries()].filter(([sourceId])=>/^(qq|private|note):/.test(sourceId)).map(([sourceId,revision])=>({sourceId,revision})),
             discussionTurnFingerprints:Object.assign({},...capturedRequests.map(request=>request.manifest?.discussionCompaction?.turnFingerprints||{})),model:settings.model,promptVersion:context.payload.promptVersion}});
         this.store.saveRun(scope,{id:requestId,baseRevision,purpose:context.payload.purpose,status:'complete',payload:context.payload,manifest:context.manifest,
-          requests:capturedRequests,replyId:saved.id,patchReceipt,relationshipReceipt,topicReceipt,actionReceipts:receipts,
+          requests:capturedRequests,replyId:saved.id,patchReceipt,relationshipReceipt,topicReceipt,actionReceipts:receipts,privateReviewReceipt:saved.privateReviewReceipt,
           maintenance:patchReceipt?.applied?(stagedReview?.result.statePatch?'applied':'reviewed_no_change'):patchReceipt?'rejected':'deferred'});
         this.usage.finish(scope,budget.id,'complete');return saved;
       });

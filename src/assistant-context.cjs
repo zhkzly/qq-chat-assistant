@@ -5,7 +5,7 @@ const { prepareAssistantRequest, parseDraftGuidance } = require('./assistant-mod
 const { selectMethods, runtimeCard } = require('./help-methods.cjs');
 const { validatedCompaction, candidatesForCompaction } = require('./discussion-compaction.cjs');
 const { eligibleDiscussionTurns } = require('./discussion-compaction-store.cjs');
-const PROMPT_VERSION = 'relationship-context-2026-10-12.18';
+const PROMPT_VERSION = 'relationship-context-2026-10-13.2';
 const METHODS = {
   discussion: '围绕用户真正希望的恋爱发展选择当前帮助，可接续、邀请、表达好感或讨论。意思明确就直接帮助，只问会改变建议的必要问题。允许暂缓或不用助手，不强制每次制定目的。',
   review: '按实际覆盖回顾相处、共同经历、用户体验与双方明确的浪漫方向，分别说普通友好、活动意愿和恋爱意图。兼顾反证与未知，不计算好感分，不把回复归因为某条建议。',
@@ -48,6 +48,37 @@ function supportedByAvailable(record, byId, scope) {
       const source = byId.get(id);
       return source && !source.deleted && !source.excluded && (!record.sourceRevisions?.[id] || record.sourceRevisions[id] === source.revision);
     });
+}
+function pendingPrivateReviews(companion, byId) {
+  const pending = new Map();
+  const directIntent = id => {
+    const source = byId.get(id);
+    return source?.role === 'user' && (source.type === 'feedback' || source.type === 'private' &&
+      !['feedback', 'feedback_ref', 'feedback_continue'].includes(source.kind));
+  };
+  const runReceipts = new Map((companion.runs || []).filter(run => run.status === 'complete' && run.replyId && run.privateReviewReceipt?.applied === true)
+    .map(run => [run.replyId, run.privateReviewReceipt]));
+  // These fields are verified program receipts, never model-reported patches.
+  // Apply them in turn order so an older review cannot erase a later correction.
+  for (const turn of companion.turns) {
+    if (turn.role !== 'assistant' || turn.memoryExcluded) continue;
+    const receipt = turn.privateReviewReceipt || runReceipts.get(turn.id);
+    if (receipt?.applied === true) for (const id of receipt.sourceIds || []) {
+      const expected = receipt.sourceRevisions?.[id];
+      if (directIntent(id) && typeof expected === 'string' && expected === byId.get(id).revision) pending.delete(id);
+    }
+    const recovery = turn.responseRecovery;
+    if (recovery?.kind !== 'private_help' || recovery.metadataApplied !== false || recovery.reasonCode !== 'structured_output_invalid') continue;
+    for (const id of recovery.intentSourceIds || []) if (directIntent(id)) {
+      const expected = recovery.intentSourceRevisions?.[id], source = byId.get(id);
+      if (expected !== undefined && (typeof expected !== 'string' || expected !== source.revision)) continue;
+      // Older saved markers cannot prove which source body was interpreted.
+      // Keep that uncertainty visible; an unbound receipt never resolves it.
+      pending.delete(id); pending.set(id, { ...source,
+        pendingBindingStatus: expected === undefined ? 'legacy_hash_missing_needs_review' : 'source_bound' });
+    }
+  }
+  return [...pending.values()];
 }
 function methodTrace(payload) {
   return { purpose: payload.purpose, delivered: (payload.methodCards || []).map(({ id, version }) => ({ id, version })), reported: null };
@@ -131,9 +162,11 @@ function buildContext(options) {
   const currentId = `private:${turn.id}`;
   const current = byId.get(currentId) || (turn.transient || turn.memoryExcluded ? { id: `request:${turn.id}`, type: 'request', text: redact(turn.text), revision: digest(turn), role: 'user' } : null);
   if (!current) throw new Error('当前私下请求不存在');
+  const pendingIntents = pendingPrivateReviews(companion, byId);
+  const protectedPendingIds = pendingIntents.slice(-3).map(source => source.id);
   const compacted = validatedCompaction(discussionCompaction, { scope, companion, turn, availableSources: all, settings, promptVersion: PROMPT_VERSION });
   const coveredTurnIds = new Set(compacted?.sourceTurnIds || []);
-  const protectedPrivateIds = new Set([current.id, intentSourceId, ...sourceLookupIds.map(id => id.startsWith('private:') ? id : `private:${id}`)]);
+  const protectedPrivateIds = new Set([current.id, intentSourceId, ...protectedPendingIds, ...sourceLookupIds.map(id => id.startsWith('private:') ? id : `private:${id}`)]);
   const latestPriorUser = [...eligibleDiscussionTurns(companion)].reverse().find(item => item.role === 'user' && item.id !== turn.id);
   if (latestPriorUser) protectedPrivateIds.add(`private:${latestPriorUser.id}`);
   for (const id of sourceTurnIds) if (companion.turns.some(item => item.id === id && item.role === 'user')) protectedPrivateIds.add(`private:${id}`);
@@ -141,6 +174,7 @@ function buildContext(options) {
   if (!Array.isArray(materialIds) || materialIds.length>12 || materialIds.some(id => typeof id !== 'string' || !companion.notes.some(n => n.id === id && n.use === 'draft')))
     throw new Error('草稿素材必须是当前联系人允许分享的近况');
   const selected = new Map([[current.id, current]]);
+  for (const id of protectedPendingIds) selected.set(id, byId.get(id));
   const validQQ = records.filter(m => eligibleQQ(m) && byId.has(`qq:${m.messageId}`));
   // Protect both complete sides of the latest exchange, including after the
   // user has already replied in several bubbles. Never lose her boundary then.
@@ -199,6 +233,19 @@ function buildContext(options) {
     sources: [...selected.values()], privateConversation: [],
     evidenceRule: 'historicalOnly=true 的消息仅为历史提及，后续可能有未读的更改，不可据此断言当前约定有效。possiblyStale 的状态只作需要核查的上次理解，新原话与用户纠正优先。',
     omittedStateEntries: 0 };
+  if (pendingIntents.length) {
+    const recent = pendingIntents.slice(-8);
+    const refs = recent.map(source => {
+      const originalTurn = source.type === 'private' && companion.turns.find(item => item.role === 'user' && `private:${item.id}` === source.id);
+      return { sourceId: source.id, type: source.type, ...(originalTurn ? { turnId: originalTurn.id } : {}),
+        bindingStatus: source.pendingBindingStatus,
+        availability: selected.has(source.id) ? 'full' : 'needs_lookup' };
+    });
+    payload.pendingPrivateReview = { authority: 'unreviewed_private_intent_not_external_fact', sourceIds: recent.map(source => source.id),
+      protectedSourceIds: protectedPendingIds, refs, lookupTurnIds: refs.filter(ref => ref.turnId).map(ref => ref.turnId),
+      omittedCount: pendingIntents.length - recent.length };
+    if (payload.topicContext.active) payload.topicContext.active.reviewPending = true;
+  }
   if (compacted) {
     payload.discussionCompaction = { id: compacted.id, summary: redact(compacted.summary), sourceTurnIds: [...compacted.sourceTurnIds],
       lookupTurnIds: [...new Set([...compacted.sourceTurnIds, ...[...foldedPrivateIds].map(id => id.slice(8))])],
@@ -214,6 +261,13 @@ function buildContext(options) {
     const feedbackSourceIds = (payload.feedbackTargets || []).filter(item => !item.missing && selected.get(item.feedback.sourceId)?.type === 'feedback').map(item => item.feedback.sourceId);
     payload.experienceProposalPolicy = { enabled: allowExperienceProposals === true && feedbackSourceIds.length > 0, maxItems: 2,
       feedbackSourceIds: allowExperienceProposals ? feedbackSourceIds : [], caseIds: allowExperienceProposals ? (payload.experienceContext?.cases || []).map(item => item.id) : [] };
+    if (payload.pendingPrivateReview) for (const ref of payload.pendingPrivateReview.refs) {
+      ref.availability = selected.has(ref.sourceId) ? 'full' : 'needs_lookup';
+      if (ref.type === 'feedback') {
+        const evaluated = payload.feedbackTargets?.find(item => item.feedback.sourceId === ref.sourceId);
+        ref.targetAvailability = evaluated && !evaluated.missing && evaluated.target.body ? 'full' : 'needs_lookup';
+      }
+    }
   };
   refresh();
   // A large derived state cannot make a small explicit request unusable. Drop
@@ -246,6 +300,7 @@ function buildContext(options) {
   };
   const evaluationTargets = [...feedbackTargets, ...(experienceContext?.evaluationTargets || [])];
   const requiredFeedbackSources = new Set(feedbackTargets.map(item => item.feedback?.sourceId).filter(Boolean));
+  for (const id of protectedPendingIds) if (byId.get(id)?.type === 'feedback') requiredFeedbackSources.add(id);
   if (intentSource.type === 'feedback') requiredFeedbackSources.add(intentSource.id);
   for (const id of sourceTurnIds) {
     const turn = companion.turns.find(item => item.id === id);

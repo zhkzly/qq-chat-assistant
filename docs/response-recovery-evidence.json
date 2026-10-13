@@ -1,0 +1,300 @@
+{
+  "date": "2026-10-13",
+  "phase": "candidate_verified_native_pending",
+  "baseline": "8d37962",
+  "branch": "fix/structured-dialogue-20261013",
+  "promptVersion": "relationship-context-2026-10-13.2",
+  "memoryVersion": "relationship-memory-2026-10-12.6",
+  "goal": "Keep useful private assistance toward a mutually desired relationship available when optional structured bookkeeping is invalid, while preserving intent, sources and validated outbound preparation.",
+  "observedIncident": {
+    "evidence": "user screenshot and authenticated live helper metadata",
+    "endpoint": "http://127.0.0.1:8317/v1",
+    "requestModel": "claude-sonnet-4-6",
+    "purpose": "discussion",
+    "promptVersion": "relationship-context-2026-10-12.18",
+    "httpAttempts": 2,
+    "httpStatuses": [
+      200,
+      200
+    ],
+    "firstValidationFailure": "Topic patch has unauthorized fields",
+    "repairFailure": "invalid JSON",
+    "originalFailedRawResponseAvailable": false,
+    "originalInputPreserved": true
+  },
+  "implementation": [
+    "one existing repair slot can request fresh private natural text for discussion/review/reply; no invalid response body is sent to that job",
+    "code constructs a bounded private answer with no state/topic/relationship/actions/experience/lookup or outbound artifact authority",
+    "draft_prepare remains source-bound; a validated restricted final input can recover one complete editable expression",
+    "real earlier action receipts and verified preparation updates remain truthful",
+    "program-marked pending private inputs: latest three complete originals protected, latest eight lookup references, later verified source-hash receipts required",
+    "same-ID edited feedback cannot reuse an old recovery or review binding",
+    "finally-stage diagnostics survive failure without retaining invalid raw response bodies",
+    "same endpoint/model/scope/consent, actual serialized byte budgets and task four-HTTP cap"
+  ],
+  "functional": {
+    "passed": 349,
+    "failed": 0,
+    "log": {
+      "path": "/tmp/qq-recovery-functional-v2.log",
+      "sha256": "7cef9cee2cd2923a3c930231ea43e6fb35a8ddde2eff951104052894800f0dd8"
+    },
+    "syntax": {
+      "path": "/tmp/qq-recovery-check-v2.log",
+      "sha256": "4ae5c78fd2f268d3568be858c46680b9dfa17bbc499010ff4a9917daa226ab63"
+    },
+    "diffCheck": "passed",
+    "mutationChecks": "optional; not run"
+  },
+  "browser": {
+    "checks": 31,
+    "reports": [
+      {
+        "path": "/tmp/qq-assistant-context-evidence-2oB3yU/report.json",
+        "sha256": "f1c471004aff2c386754822ec81f2e19a9cf8c8191aa6b59cd4d9f93d7a941e4",
+        "checks": 22,
+        "result": "PASS"
+      },
+      {
+        "path": "/tmp/qq-direction-evidence-4xu4At/report.json",
+        "sha256": "819a6f0d5c02cebe508f1910f4fbe6c05013e632633b9f054a885abd967ed3fa",
+        "checks": 6,
+        "result": "PASS"
+      },
+      {
+        "path": "/tmp/qq-recovery-evidence-MpfSwh/report.json",
+        "sha256": "91f05cb4150dd18f8953c162c9ed0a9d78e35b84c18a506f5f0947754faaf114",
+        "checks": 3,
+        "result": "PASS"
+      }
+    ],
+    "realModelCalls": 0,
+    "actualQQIntegration": false
+  },
+  "redThenGreen": {
+    "sourceConsumerProbe": {
+      "red": {
+        "path": "/tmp/qq-plain-recovery-red.log",
+        "sha256": "9d73e5dff213df565bfc4fedfa1bb05b82c3166b1d0e267f00167262f3d18316"
+      },
+      "green": {
+        "path": "/tmp/qq-plain-recovery-green.log",
+        "sha256": "953891f3f542df8b8c79ebb0f791924ef00c226c343a15189e23dc06cd80d913"
+      }
+    },
+    "uiRed": {
+      "path": "/tmp/qq-recovery-evidence-2o8JTW/failure.png"
+    },
+    "sourceHashFeedbackGuards": "focused canonical same-ID correction regression"
+  },
+  "syntheticReplay": {
+    "path": "/tmp/qq-recovery-goal-synthetic-v2.json",
+    "sha256": "2a9e8481082e06ac3d8ba55afc3536507e47f767516b79ec3f7816bca3ac4230"
+  },
+  "liveSynthetic": {
+    "evidence": "mixed injected source-shaped faults and real model responses; no real chat data",
+    "current": {
+      "path": "/tmp/qq-recovery-goal-live-v2.json",
+      "sha256": "d86a18349fa624c050840de316e9ce50fdcfcf285b769a315f1a8b9d383a2f6c",
+      "model": "claude-sonnet-4-6",
+      "endpoint": "http://127.0.0.1:8317/v1",
+      "realHttpAttempts": 3,
+      "ledgerAttempts": 6,
+      "steps": [
+        {
+          "id": "private-fault",
+          "status": "structural_checks_passed_semantic_review_required",
+          "transportAttempts": 2,
+          "realHttpAttempts": 1
+        },
+        {
+          "id": "draft-fault",
+          "status": "structural_checks_passed_semantic_review_required",
+          "transportAttempts": 3,
+          "realHttpAttempts": 1
+        },
+        {
+          "id": "fully-real-review",
+          "status": "structural_checks_passed_semantic_review_required",
+          "transportAttempts": 1,
+          "realHttpAttempts": 1
+        }
+      ],
+      "sourceHashesMatchRelease": true,
+      "allStepsStructurallyPassed": true,
+      "qqMessagesSent": 0
+    },
+    "astra": {
+      "path": "/tmp/qq-recovery-goal-astra.json",
+      "sha256": "0ffed4c4f6f088751a4aaf9e72228fcbe642ee413cca74d68a4a65b19ba4c9eb",
+      "model": "gpt-6-astra",
+      "endpoint": "http://127.0.0.1:8317/v1",
+      "realHttpAttempts": 3,
+      "ledgerAttempts": 6,
+      "steps": [
+        {
+          "id": "private-fault",
+          "status": "structural_checks_passed_semantic_review_required",
+          "transportAttempts": 2,
+          "realHttpAttempts": 1
+        },
+        {
+          "id": "draft-fault",
+          "status": "structural_checks_passed_semantic_review_required",
+          "transportAttempts": 3,
+          "realHttpAttempts": 1
+        },
+        {
+          "id": "fully-real-review",
+          "status": "structural_checks_passed_semantic_review_required",
+          "transportAttempts": 1,
+          "realHttpAttempts": 1
+        }
+      ],
+      "sourceHashesMatchRelease": true,
+      "allStepsStructurallyPassed": true,
+      "qqMessagesSent": 0
+    },
+    "totalRealHttpAttempts": 6,
+    "privateBodiesOrCredentialsArchived": false,
+    "modelSettingsChanged": false,
+    "semanticReview": {
+      "claude": {
+        "privateHelp": "Not an overall semantic pass: no game-name question or first-person fabricated forty-minute experience remained, but the answer presupposed a half-hour scene and teased intelligence. Initial contrast was ambiguous; do not retrospectively apply the later explicit explanation.",
+        "restrictedFinal": "Complete editable reference with no question, invitation or invented identity; ordinary wording in this known case.",
+        "laterReview": "Preserved the later explicit people-to-puzzles contrast and local constraints; did not generate a new line."
+      },
+      "astra": {
+        "privateHelp": "In this known case, a gentle people-to-levels contrast, no added question or invitation, no invented experience or personal judgment.",
+        "restrictedFinal": "Complete simple reference with the specified contrast.",
+        "laterReview": "Correct temporary restrictions and no claim of actual sending or a contact response."
+      },
+      "boundary": "A single same-proxy synthetic comparison, not model-wide ranking, unseen-case generalization or relationship outcome."
+    }
+  },
+  "currentPrivateSnapshotReplay": {
+    "evidence": "candidate_model_replay_of_current_authorized_private_failed_payload_no_production_writes",
+    "model": "claude-sonnet-4-6",
+    "endpoint": "http://127.0.0.1:8317/v1",
+    "promptVersion": "relationship-context-2026-10-13.2",
+    "startedAt": "2026-10-13T01:50:40.126Z",
+    "primarySource": "current helper failed discussion payload",
+    "originalRawResponseAvailable": false,
+    "productionStoreModified": false,
+    "qqMessagesSent": 0,
+    "requests": [
+      {
+        "attempt": 1,
+        "purpose": "discussion",
+        "requestBytes": 63705,
+        "toolEnvelope": true,
+        "httpStatus": 200,
+        "finishReason": "tool_calls",
+        "usage": {
+          "completion_tokens": 1187,
+          "total_tokens": 23130,
+          "prompt_tokens": 21943
+        }
+      }
+    ],
+    "codeAtStart": {
+      "src/assistant-model.cjs": "6f924900ae94b504d9d646beb355dc1a88790a6e4a8fb2d8b83bb92d91a441ab",
+      "src/help-methods.cjs": "0dd8586164e46d0216ccd50f8798caf826007cdb43cb1be5c0e3f458669d8ef4",
+      "src/model-http.cjs": "e897f79947f674f5c69998ab7546a305867eb0a2b21ff6625ef694ceeb333f72",
+      "src/relationship-schema.cjs": "5ebf2f30fd7f1eeeb15c92761cafa4c8bc4b5705df26312fd24a06c56679c54d",
+      "src/topic-schema.cjs": "a00fa302004397094bd24f290287310cd99d3f476186bc79a781d980a08c7e63",
+      "src/provenance.cjs": "bc52639b9bf117e8c15bec44b64b06eac74868d43b90e437eba595486f8b0c5d",
+      "src/model-json.cjs": "61f11b1d8867d867cb258d231c1a21cb8cf39ac78196dd45b6fe3cacd19aeeb6",
+      "src/model-response-format.cjs": "a0cd18aa84da623a70f7b4c356fed148a35cdaa76891cff89a4cde8e12ca1e73",
+      "src/assistant-context.cjs": "dddb0992d88069cbf405a734fe753fffe770b84e5bc88e3e725c23fbd625f545",
+      "src/model.cjs": "9726fdb0469f2cb8a2e29b97bef40bb09f0801932ef61618da59fb94cdbf94ec",
+      "src/discussion-compaction.cjs": "2a140d5716cfd372c533d62850ce5b3794fd384911b0b309aa32e39447ad610e",
+      "src/discussion-compaction-store.cjs": "14c84fd0c07b5c354d3ed770d64c80cb6a7166a84aaf0eeefa2d22520ffa1bfa"
+    },
+    "stillCurrent": true,
+    "status": "completed_current_candidate_result",
+    "resultKind": "discussion",
+    "recovery": null,
+    "textCharacters": 336,
+    "codeAtEnd": {
+      "src/assistant-model.cjs": "6f924900ae94b504d9d646beb355dc1a88790a6e4a8fb2d8b83bb92d91a441ab",
+      "src/help-methods.cjs": "0dd8586164e46d0216ccd50f8798caf826007cdb43cb1be5c0e3f458669d8ef4",
+      "src/model-http.cjs": "e897f79947f674f5c69998ab7546a305867eb0a2b21ff6625ef694ceeb333f72",
+      "src/relationship-schema.cjs": "5ebf2f30fd7f1eeeb15c92761cafa4c8bc4b5705df26312fd24a06c56679c54d",
+      "src/topic-schema.cjs": "a00fa302004397094bd24f290287310cd99d3f476186bc79a781d980a08c7e63",
+      "src/provenance.cjs": "bc52639b9bf117e8c15bec44b64b06eac74868d43b90e437eba595486f8b0c5d",
+      "src/model-json.cjs": "61f11b1d8867d867cb258d231c1a21cb8cf39ac78196dd45b6fe3cacd19aeeb6",
+      "src/model-response-format.cjs": "a0cd18aa84da623a70f7b4c356fed148a35cdaa76891cff89a4cde8e12ca1e73",
+      "src/assistant-context.cjs": "dddb0992d88069cbf405a734fe753fffe770b84e5bc88e3e725c23fbd625f545",
+      "src/model.cjs": "9726fdb0469f2cb8a2e29b97bef40bb09f0801932ef61618da59fb94cdbf94ec",
+      "src/discussion-compaction.cjs": "2a140d5716cfd372c533d62850ce5b3794fd384911b0b309aa32e39447ad610e",
+      "src/discussion-compaction-store.cjs": "14c84fd0c07b5c354d3ed770d64c80cb6a7166a84aaf0eeefa2d22520ffa1bfa"
+    },
+    "runtimeCodeUnchanged": true,
+    "finishedAt": "2026-10-13T01:51:05.159Z",
+    "actualHttpAttempts": 1,
+    "sourceSnapshotCurrentnessBoundary": "Frozen failed request replay with unchanged selected scope/settings during execution; not a fresh latest-chat interpretation or production UI write.",
+    "sourceHashesMatchRelease": true,
+    "naturalnessOrFactualityPassed": false,
+    "rawPayloadAndResultInPublicEvidence": false,
+    "privateDebugCopyRetainedLocallyInIgnoredBackup": true
+  },
+  "retainedNegativeEvidence": {
+    "report": {
+      "path": "/tmp/qq-recovery-goal-live-v1.json",
+      "sha256": "93a4d8de806f210e8d9c7b80bc5000b450b9cbdc7e423648cf61da85f58baf7c"
+    },
+    "semantic": "First private recovery bypassed the no-name restriction and used an unsupported first-person gaming scenario; the later review contradicted the later explicit direction. Engineering recovery succeeded, semantic quality did not."
+  },
+  "migration": {
+    "timestamp": "2026-10-13T01:51:55.284Z",
+    "evidence": "real_local_database_copied_and_migrated_in_isolated_private_copy",
+    "productionDatabaseModified": false,
+    "realModelCalls": 0,
+    "qqMessagesSent": 0,
+    "rawMessagesBefore": 845,
+    "rawMessagesAfter": 845,
+    "rawMessagesPreserved": true,
+    "integrity": "ok",
+    "schemaVersion": 1,
+    "scopes": [
+      {
+        "goalPreserved": true,
+        "notesPreserved": true,
+        "authoredInputsPreserved": true,
+        "notesBefore": 1,
+        "notesAfter": 1,
+        "privateTurnsBefore": 24,
+        "privateTurnsAfter": 24,
+        "feedbackBefore": 0,
+        "feedbackAfter": 1,
+        "typedPending": 38
+      }
+    ]
+  },
+  "settings": {
+    "changed": false,
+    "endpoint": "http://127.0.0.1:8317/v1",
+    "selectedModel": "claude-sonnet-4-6",
+    "modelListVerified": {
+      "selectedPresent": true,
+      "astraPresent": true
+    },
+    "payloadByteBudget": 48000,
+    "fullSerializedTextRequestByteBudget": 64000,
+    "taskHttpLimit": 4,
+    "noAutomaticModelSwitch": true,
+    "noNewDataDestination": true
+  },
+  "boundaries": {
+    "originalsDeleted": false,
+    "qqMessagesSent": 0,
+    "privateChatOrCredentialsInGit": false,
+    "researchUploaded": false,
+    "semanticCorrectnessGuaranteed": false,
+    "sourceReceiptProvesMeaningCorrect": false,
+    "romanticOutcomeVerified": false,
+    "nativeVerified": false
+  },
+  "desktop": null
+}

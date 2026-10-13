@@ -18,7 +18,9 @@
     "test:direction-ui": "node scripts/direction-browser-check.cjs",
     "test:direction-goal": "node scripts/direction-goal-check.cjs",
     "test:mode-ui": "node scripts/mode-browser-check.cjs",
-    "test:compaction-goal": "node scripts/compaction-goal-check.cjs"
+    "test:compaction-goal": "node scripts/compaction-goal-check.cjs",
+    "test:recovery-ui": "node scripts/response-recovery-browser-check.cjs",
+    "test:recovery-goal": "node scripts/response-recovery-goal-check.cjs"
   },
   "engines": {
     "node": ">=22"

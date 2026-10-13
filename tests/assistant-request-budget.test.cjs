@@ -28,21 +28,26 @@ for(const requestLimit of [64000,32000])test(`native-shaped long context fits th
  assert.equal(calls.length,1);assert.ok(Buffer.byteLength(calls[0])<=requestLimit);assert.equal(context.manifest.serializedTextRequestBytes,Buffer.byteLength(calls[0]));
  checkEssential(JSON.parse(JSON.parse(calls[0]).messages[1].content),args);assert.ok(context.manifest.omittedSourceCount>0);assert.ok(context.manifest.inputBytes<=48000);
 });
-for(const purpose of ['discussion','draft'])test(`${purpose} repair reselects optional context using its real envelope`,async t=>{
- const {args}=fixture(t),prepared=buildContext(args),context=purpose==='draft'?buildDraftContext(prepared,{quotes:[{sourceId:prepared.payload.userRequest.sourceId,text:args.turn.text}]},args):prepared;
- // Final drafting now has a smaller phase-specific system prompt; apply enough
- // malformed output pressure to exercise real reassembly for both phases.
- const invalid='INVALID_RESPONSE_'+('"\\\n原本的输出仍需完整修复。'.repeat(purpose==='draft'?700:350)),calls=[];
- const answer=purpose==='draft'?{kind:'draft',text:'参考表达',suggestions:[{style:'自然',text:'我想多认识你一点。'}]}:{kind:'discussion',text:'先自然回应她实际提到的安排。'};
- await assistModel(args.settings,context,undefined,async(_,request)=>{calls.push(request.body);return ok(calls.length===1?invalid:JSON.stringify(answer));});
+for(const purpose of ['discussion','draft_prepare','draft'])test(`${purpose} recovery or structural repair respects its actual envelope and complete evidence`,async t=>{
+ const {args}=fixture(t),prepared=buildContext({...args,purpose:purpose==='draft_prepare'?'draft_prepare':'discussion'}),context=purpose==='draft'?buildDraftContext(prepared,{quotes:[{sourceId:prepared.payload.userRequest.sourceId,text:args.turn.text}]},args):prepared;
+ const invalid='INVALID_RESPONSE_'+('"\\\\\n原本的输出仍需完整修复。'.repeat(purpose==='draft'?700:350)),calls=[];
+ const repaired=purpose==='draft_prepare'?JSON.stringify({draftPlan:{quotes:[{sourceId:prepared.payload.userRequest.sourceId,text:args.turn.text}]}}):purpose==='draft'?'我想多认识你一点。':'先自然回应她实际提到的安排。';
+ await assistModel(args.settings,context,undefined,async(_,request)=>{calls.push(request.body);return ok(calls.length===1?invalid:repaired);});
  assert.equal(calls.length,2);for(const body of calls)assert.ok(Buffer.byteLength(body)<=64000);
- const first=JSON.parse(JSON.parse(calls[0]).messages[1].content),repair=JSON.parse(JSON.parse(calls[1]).messages[1].content);
- assert.equal(repair.invalidResponse,invalid);checkEssential(repair.originalInput,args);assert.ok(repair.originalInput.sources.length<first.sources.length,'repair evicts optional sources instead of rejecting a full original context');
- if(purpose==='draft'){assert.equal(repair.originalInput.userRequest,undefined);assert.equal(repair.originalInput.goal,undefined);assert.equal(repair.originalInput.privateConversation,undefined);}
+ const first=JSON.parse(JSON.parse(calls[0]).messages[1].content),repair=JSON.parse(JSON.parse(calls[1]).messages[1].content),effective=context.resultContext||context;
+ checkEssential(repair.originalInput,args);
+ if(purpose==='draft_prepare'){
+  assert.equal(repair.invalidResponse,invalid);assert.ok(repair.originalInput.sources.length<first.sources.length,'mandatory structural repair evicts optional whole sources to fit its full envelope');
+ }else{
+  assert.equal(repair.invalidResponse,undefined,'fresh natural-language recovery never reuses the malformed output as authority');
+  assert.equal(repair.originalInput.sources.length,first.sources.length,'smaller recovery contract retains all originally delivered evidence');
+  assert.equal(JSON.parse(calls[1]).tools,undefined);assert.equal(JSON.parse(calls[1]).response_format,undefined);
+ }
+ if(purpose==='draft'){for(const key of ['userRequest','goal','privateConversation'])assert.equal(repair.originalInput[key],undefined);}
  assert.equal(context.extraRequests[0].inputBytes,Buffer.byteLength(calls[1]));
  const delivered=[...new Set([...repair.originalInput.sources.map(source=>source.id),...(repair.originalInput.outboundQuotes||[]).map(quote=>quote.sourceId)])].sort();
  assert.deepEqual([...new Set(context.extraRequests[0].manifest.sourceIds)].sort(),delivered);
- assert.deepEqual([...new Set(context.resultContext.manifest.sourceIds)].sort(),delivered);
+ assert.deepEqual([...new Set(effective.manifest.sourceIds)].sort(),delivered);
  assert.deepEqual(context.extraRequests[0].manifest.methodTrace.delivered,repair.originalInput.methodCards.map(({id,version})=>({id,version})));
 });
 test('an essential exchange that cannot fit the envelope fails before transport without slicing',t=>{
@@ -55,7 +60,7 @@ test('automatic controller entry uses the configured envelope and persists the e
    realChatConsent:{accountUid:scope.accountUid,peerUin:scope.peerUin,model:settings.model,baseUrl:settings.baseUrl}},
   read:async command=>command==='bind'?scope:{messages:[],source:'synthetic'},
   assistantModel:(configured,context,signal)=>assistModel(configured,context,signal,async(_,request)=>{
-   calls.push(request.body);return ok(calls.length===1?'INVALID_'+('"\\\n原响应待修复。'.repeat(120)):JSON.stringify({kind:'discussion',text:'参考她实际说的安排自然回应。',stateReview:'no_change'}));
+   calls.push(request.body);return ok(calls.length===1?JSON.stringify({kind:'discussion',text:'参考她实际说的安排自然回应。',topicPatch:{operation:'update',unexpected:true}}):'参考她实际说的安排自然回应。');
   })});
  controller.visible=false;t.after(()=>controller.close());controller.updateStatus({phase:'ready',account:{uid:scope.accountUid,uin:scope.accountUin}});await controller.bind(scope.peerUin);
  await controller.suggest({automatic:true});assert.equal(controller.assistantError,'');assert.equal(calls.length,2);assert.ok(calls.every(body=>Buffer.byteLength(body)<=32000));
