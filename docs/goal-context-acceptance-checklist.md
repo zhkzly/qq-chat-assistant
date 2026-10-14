@@ -6,4 +6,4 @@
 - [x] Context budget, image maps, source withdrawal, private restrictions and account/contact/model isolation remain enforced.
 - [x] Independent adversarial review checks both useful assistance and restraint, including nonresponse, uncertainty and explicit friendship boundaries.
 - [x] Functional and browser regressions pass; bounded synthetic live-model cases are reviewed against predeclared expectations, retaining failures.
-- [ ] Main integration and safe helper activation preserve original messages and unsent inputs; evidence is separated from relationship-effectiveness claims.
+- [x] Main integration and safe helper activation preserve original messages and unsent inputs; evidence is separated from relationship-effectiveness claims.

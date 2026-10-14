@@ -26,3 +26,9 @@ Acceptance: A visible explanation plus faithful editable wording; necessary loca
 ## Rationale-review disagreement
 - Both reviewers agree v3 retains useful original-evidence rationale and the two requested questions. One considers G9 sufficient; the other finds the predeclared positive link to the longer-term goal missing. Apply the stricter interpretation: a user-asked rationale should explain how the response supports understanding/responding/sharing, not merely repeat constraints.
 - Add one shared positive rationale instruction and bump prompt to 2026-10-14.4. Retest G9 only, capped at three HTTP requests; preserve both earlier review opinions and the transport failure.
+
+## Actual local integration
+- Local main fast-forwarded the isolated candidate. The helper window had been closed, so it was reopened before capturing a fresh baseline; no claim is made about unsaved input lost before that closure.
+- Only the owned helper worker was refreshed. QQ parent/start time, settings bytes, selected scope, stored goal, all 900 original message rows and prior visible private turns were preserved. Eight comparable input hashes matched; the feedback panel had opened after the earlier preinspection and its newly captured target was restored, not overwritten with the old null state. Recovery cleared and composer remained visible.
+- Runtime health reports prompt 2026-10-14.4. Existing authorized automation completed a real scoped reply task with eight operations, current draft-control contract, viewer timezone and three permitted recent images. No extra manual private-chat question was submitted for acceptance, and no QQ message was sent by the agent.
+- Two-stage explanation/copy behavior has fictional real-model and browser evidence; native activation does not by itself prove dialogue semantics or romantic outcomes. No credentials, real chats or image binaries entered Git/acceptance archives.

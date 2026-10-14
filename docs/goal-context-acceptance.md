@@ -47,3 +47,5 @@ The first eleven-case live run had zero deterministic failures, but reviewers qu
 - The local proxy's configured/reported model identity is recorded; the physical upstream model identity is not independently established.
 
 Executed candidate, integration and preservation evidence is recorded in the accompanying evidence and Chinese acceptance summary after completion. Real chat bodies, credentials and images are excluded from these records.
+
+Actual desktop activation on 2026-10-14: local main integrated the isolated candidate and the uniquely owned helper worker was refreshed. QQ parent, settings bytes, scope, goal, all 900 original message rows and eight comparable reopened-window input hashes were preserved. The feedback panel changed after the earlier preinspection; recovery preserved its latest captured target. Runtime prompt is 2026-10-14.4; existing authorized automation completed a scoped reply request with eight operations, current controls, timezone metadata and three permitted images. No QQ messages were sent. Only the reopened-window baseline is covered by input preservation evidence.

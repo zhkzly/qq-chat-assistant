@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "evidenceScope": "synthetic functional/browser, configured live model with fictional records, desktop activation pending",
+  "evidenceScope": "synthetic functional/browser, configured live model with fictional records, actual desktop helper activation",
   "functional": {
     "checks": 471,
     "failed": 0
@@ -197,5 +197,40 @@
     "Initial experience output does not isolate fallback causal effect",
     "Source-valid semantic contradictions remain possible",
     "Physical upstream model identity not independently verified"
-  ]
+  ],
+  "nativeActivation": {
+    "originalMessageRows": 900,
+    "allOriginalMessageRowsPreserved": true,
+    "goalAndScopePreserved": true,
+    "allPriorVisiblePrivateTurnsRetained": true,
+    "settingsBytesPreserved": true,
+    "qqParentPreserved": true,
+    "helperWorkerChanged": true,
+    "assistantError": "",
+    "globalError": "",
+    "latestRun": {
+      "status": "complete",
+      "promptVersion": "relationship-context-2026-10-14.4",
+      "stages": [
+        {
+          "purpose": "reply",
+          "draftControlsRequired": true,
+          "operations": 8,
+          "images": 3,
+          "viewerTimeZone": "Asia/Shanghai"
+        }
+      ],
+      "privateExplanationPresent": false
+    },
+    "qqMessagesSentByAgent": 0,
+    "comparableInputHashesPreserved": 8,
+    "feedbackTargetRestoredFromCapturedState": true,
+    "feedbackPanelOpenedAfterEarlierPreinspection": true,
+    "helperWindowInitiallyClosed": true,
+    "reopenedBeforeBaseline": true,
+    "composerVisible": true,
+    "recoveryPending": false,
+    "noPageOverflow": true,
+    "limitations": "Activation validates runtime version, normal read/model path and preservation. Full two-stage explanation UI has fictional live-model/browser evidence. The feedback panel changed after the earlier preinspection, so its old null hash is not the restoration oracle. Existing authorized automation may process real conversation data; benchmark inputs remain fictional."
+  }
 }
