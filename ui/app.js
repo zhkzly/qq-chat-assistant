@@ -252,6 +252,7 @@ async function companionAction(path,args){
 }
 function button(text,run,className='text-button'){const element=document.createElement('button');element.type='button';element.className=className;element.textContent=text;element.onclick=run;return element}
 function paragraph(text,className=''){const p=document.createElement('p');p.textContent=text;p.className=className;return p}
+function assistantVisibleBody(turn){return [...new Set([turn.discussionExplanation?.text,turn.text].filter(text=>typeof text==='string'&&text.length))].join('\n\n')}
 function responseRecoveryKind(turn){
  const kind=turn?.responseRecovery?.kind;
  return turn?.role==='assistant'&&['private_help','restricted_draft'].includes(kind)?kind:null;
@@ -361,7 +362,10 @@ function renderCompanion(){
  if(threadKey!==assistantThreadKey){assistantThreadKey=threadKey;const pane=$('assistant-thread'),scroller=$('conversation-scroll'),atEnd=scroller.scrollHeight-scroller.scrollTop-scroller.clientHeight<60,oldTop=scroller.scrollTop,fragment=document.createDocumentFragment(),expected=scopeKey,epoch=historyEpoch;
   for(const turn of turns){const article=document.createElement('article');article.className=`assistant-turn ${turn.role==='user'?'user':'assistant'}`;article.dataset.turnId=turn.id;
    const head=document.createElement('div');head.className='turn-heading';const who=document.createElement('strong');who.textContent=turn.role==='user'?'我 · 私下讨论':'助手';
-   const remove=button('删除',async()=>{if(expected!==scopeKey||epoch!==historyEpoch)return;if(confirm('删除这条私下讨论及依赖它的助手内容？QQ 消息不会删除。'))await companionAction('/api/turn-delete',{id:turn.id})});remove.setAttribute('aria-label',`删除${turn.role==='user'?'我的讨论':'助手回复'}`);head.append(who,remove);article.append(head,paragraph(turn.text||'','turn-text'));
+   const remove=button('删除',async()=>{if(expected!==scopeKey||epoch!==historyEpoch)return;if(confirm('删除这条私下讨论及依赖它的助手内容？QQ 消息不会删除。'))await companionAction('/api/turn-delete',{id:turn.id})});remove.setAttribute('aria-label',`删除${turn.role==='user'?'我的讨论':'助手回复'}`);head.append(who,remove);article.append(head);
+   const explanation=turn.role==='assistant'&&typeof turn.discussionExplanation?.text==='string'?turn.discussionExplanation.text:'';
+   if(explanation){const block=document.createElement('div');block.className='discussion-explanation';block.append(paragraph('这次的考虑 · 私下讨论','muted'));const text=paragraph(explanation,'turn-text');text.dataset.discussionExplanation='true';block.append(text);article.append(block)}
+   if(!explanation||turn.text!==explanation)article.append(paragraph(turn.text||'','turn-text'));
    const recoveryKind=responseRecoveryKind(turn);if(recoveryKind&&turn.responseRecovery.metadataApplied===false){const notice=paragraph(recoveryKind==='private_help'?'已先给出建议；部分背景整理未完成。':'表达参考 · 请核对','muted response-recovery');notice.dataset.responseRecovery=recoveryKind;article.append(notice)}
    else if(turn.metadataReviewPending?.reasonCode==='auxiliary_metadata_rejected'){const notice=paragraph('建议已保留；这次背景整理待复核。','muted response-recovery');notice.dataset.metadataReview='pending';article.append(notice)}
    for(const suggestion of recoveryKind==='private_help'?[]:turn.suggestions||[]){const card=document.createElement('div');card.className='assistant-suggestion';card.append(paragraph(suggestion.style||'参考表达','muted'),paragraph(suggestion.text||''));card.append(button('采用到草稿',()=>{if(expected===scopeKey&&epoch===historyEpoch)adopt(suggestion.text,turn.id,suggestion.artifactRef?[suggestion.artifactRef]:[])}));card.append(button('反馈这条表达',()=>{if(expected===scopeKey&&epoch===historyEpoch)openFeedback(turn,suggestion)}));card.querySelector('button').dataset.action='adopt';article.append(card)}
@@ -370,12 +374,12 @@ function renderCompanion(){
     card.append(button('用这个方向写',()=>{if(expected!==scopeKey||epoch!==historyEpoch)return;submitAssistant('draft',{text:$('assistant-input').value.trim()||'按选中的方向组织表达',selectedOption:{turnId:turn.id,index},sourceTurnIds:[turn.id]})},'secondary'));article.append(card);
    }
    if(turn.role==='user')article.append(button('继续聊这段',()=>{if(expected!==scopeKey||epoch!==historyEpoch)return;selectedDiscussion=turn.id;composerEditVersion++;$('assistant-input').placeholder='继续说说这段讨论里你想调整或表达的意思…';$('assistant-input').focus();$('assistant-status').textContent='这次会联系所选讨论继续；不会直接把整段私下内容写给她。'}));
-   if(turn.method||turn.methodBasis||turn.methodIds?.length||turn.evidence||turn.sourceIds?.length){const details=document.createElement('details');details.className='method-basis';const title=document.createElement('summary');title.textContent='参考依据与帮助思路';details.append(title);
+   if(turn.method||turn.methodBasis||turn.methodIds?.length||turn.evidence||turn.sourceIds?.length){const details=document.createElement('details');details.className='method-basis';const title=document.createElement('summary');title.textContent='本次参考';details.append(title,paragraph('本次提供给助手的资料与方法说明；具体考虑见上方讨论。','muted'));
     for(const id of turn.methodIds||[]){const method=helpingMethods.get(id);if(!method)continue;details.append(paragraph(method.name,'state-heading'),paragraph(method.goalContribution));
      for(const evidence of method.evidence||[]){const row=paragraph(evidence.limit||'','muted');if(/^https?:\/\//.test(evidence.source||'')){const link=document.createElement('a');link.href=evidence.source;link.target='_blank';link.rel='noopener noreferrer';link.textContent='研究来源';row.append(document.createTextNode(' '),link)}details.append(row)}
     }
     if(turn.methodBasis)details.append(paragraph(typeof turn.methodBasis==='string'?turn.methodBasis:JSON.stringify(turn.methodBasis)));
-    if(turn.method)details.append(paragraph(`这次采用：${typeof turn.method==='string'?turn.method:turn.method.label||turn.method.id||''}`));
+    if(turn.method)details.append(paragraph(`模型标记的方法：${typeof turn.method==='string'?turn.method:turn.method.label||turn.method.id||''}`));
     for(const id of turn.sourceIds||[])details.append(paragraph(sourceDescription(id),'muted'));
     article.append(details);
    }
@@ -456,7 +460,7 @@ function sourceDescription(sourceId){
 function openFeedback(turn,suggestion=null){
  if(feedbackPending)return;feedbackTaskId=null;feedbackRetryReady=false;feedbackSubmittedText=null;feedbackSavedId=null;
  const target=suggestion||turn;feedbackTargetRef=target.artifactRef?{kind:'artifact',artifactRef:target.artifactRef}:null;feedbackClientId=crypto.randomUUID();
- $('feedback-request-id').value=turn.requestId||'';$('feedback-text').value='';$('feedback-target-preview').textContent=`这次评价：${(target.text||target.body||'这次帮助').slice(0,220)}`;
+ $('feedback-request-id').value=turn.requestId||'';$('feedback-text').value='';$('feedback-target-preview').textContent=`这次评价：${(suggestion?target.text||target.body||'这次帮助':assistantVisibleBody(turn)||target.body||'这次帮助').slice(0,220)}`;
  sessionStorage.setItem(`feedback-target:${scopeKey}`,JSON.stringify({targetRef:feedbackTargetRef,requestId:turn.requestId||'',clientEventId:feedbackClientId}));
  for(const submit of $('feedback-form').querySelectorAll('[type=submit]'))submit.disabled=false;$('feedback-reload-notice')?.remove();$('feedback-form').hidden=false;showWorkspace('discussion');$('conversation-scroll').scrollTop=$('conversation-scroll').scrollHeight;$('feedback-text').focus();
 }

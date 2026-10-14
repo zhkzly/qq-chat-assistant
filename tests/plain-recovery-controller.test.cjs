@@ -63,7 +63,7 @@ test('restricted-draft recovery preserves verified preparation metadata and rece
       assert.equal(p.userRequest,undefined);assert.equal(p.privateConversation,undefined);assert.equal(p.topicContext,undefined);
       input.manifest.responseRecovery=draftRecovery();return {kind:'draft',text:'参考表达',suggestions:[{style:'自然',text:'周末要不要一起散步？'}]};
     }
-    const id=p.intentAuthority.sourceId;return {draftPlan:{quotes:[{sourceId:id,text:'一起散步'}],guidance:{objective:{text:'邀请一起散步',sourceIds:[id]},allowedApproach:{text:'直接自然地邀请',sourceIds:[id]}}},
+    const id=p.intentAuthority.sourceId;return {draftPlan:{quotes:[{sourceId:id,text:'一起散步'}],guidance:{objective:{text:'邀请一起散步',sourceIds:[id]},allowedApproach:{text:'直接自然地邀请',sourceIds:[id]},avoidances:[]}},
       topicPatch:{operation:'create',objective:'邀请她一起散步',direction:'直接自然地邀请',purposeSourceIds:[id],intentQuote:p.userRequest.text},stateReview:'no_change'};
   });await app.controller.bind(scope.peerUin);app.controller.live({scope,messages:[raw()]});
   const answer=await app.controller.assist({text:'我想邀请她周末一起散步，给我具体一句。',purpose:'draft',taskId:'restricted-draft-recovery'});

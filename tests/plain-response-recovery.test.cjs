@@ -24,6 +24,10 @@ const badOptionalTopic = { kind: 'discussion', text: 'FIRST_INVALID_DO_NOT_REUSE
 // Optional metadata alone now preserves valid foreground help. These recovery
 // cases need an unusable ordinary branch, not merely a rejected auxiliary.
 const badOrdinaryHelp = { ...badOptionalTopic, kind: 'unsupported_kind' };
+function walkingControls(sourceId) {
+  const control=text=>({text,sourceIds:[sourceId]});
+  return {objective:control('邀请一起散步'),allowedApproach:control('按本次明确意思直接邀请'),avoidances:[]};
+}
 
 function fixture(t, purpose = 'discussion') {
   const store = new Store(':memory:'); t.after(() => store.close());
@@ -105,7 +109,7 @@ test('plain help repair retains explicitly selected image evidence and source id
 test('restricted final draft uses only its validated payload for a one-sentence plain repair', async t => {
   const { args, context, turn } = fixture(t), quote = '直接邀请一起散步';
   const draft = buildDraftContext(context, { quotes: [{ sourceId: `private:${turn.id}`, text: quote }],
-    guidance: { currentStep: { text: '按本次明确意思邀请一起散步', sourceIds: [`private:${turn.id}`] } } }, args), calls = [];
+    guidance: { ...walkingControls(`private:${turn.id}`),currentStep: { text: '按本次明确意思邀请一起散步', sourceIds: [`private:${turn.id}`] } } }, args), calls = [];
   const result = await assistModel(settings, draft, undefined, async (_url, request) => {
     calls.push(JSON.parse(request.body)); return response(calls.length === 1 ? '{bad final json' : '这周有空一起出去走走吗？');
   });
@@ -135,7 +139,7 @@ test('draft_prepare still requires structured source-bound plans, including afte
     failedCalls++; return failedCalls === 1 ? resultTool({ draftPlan: 'broken' }) : response('这周有空一起出去走走吗？');
   }), /未能返回可用的结构化结果/);
   assert.equal(failedCalls, 2);
-  assert.throws(() => parseAssistant({ draftPlan: { quotes: [], intent: 'reply' } }, purpose, context.payload), /current effective topic requires/);
+  assert.throws(() => parseAssistant({ draftPlan: { quotes: [], intent: 'reply' } }, purpose, context.payload), /draftPlan.guidance.*(?:objective|allowedApproach|avoidances)/);
 });
 
 test('reply invalid plans get one strict structured repair while valid plans still reach restricted drafting', async t => {
@@ -174,7 +178,7 @@ test('invalid or overlong plain help receives no second recovery, and each call 
 
 test('plain recovery rejects truncated output, wrapped machine objects and multi-paragraph final output', async t => {
   const { args, context, turn } = fixture(t);
-  const draft = buildDraftContext(context, { quotes: [{ sourceId: `private:${turn.id}`, text: '直接邀请一起散步' }] }, args);
+  const draft = buildDraftContext(context, { quotes: [{ sourceId: `private:${turn.id}`, text: '直接邀请一起散步' }],guidance:walkingControls(`private:${turn.id}`) }, args);
   for (const [input, second] of [[context, response('以下是结果：\n{"kind":"discussion","text":"机器参数不是自然回答"}')],
     [draft, response('第一句。\n第二句说明。')], [draft, response('x'.repeat(1201))],
     [context, { ok: true, json: async () => ({ choices: [{ finish_reason: 'length', message: { content: '这是被截断的普通帮助' } }] }) }]]) {
@@ -237,7 +241,7 @@ test('pending intent marks topic only in the private model projection and never 
   const originalState = structuredClone(args.companion.state);
   const context = buildContext(args); assert.equal(context.payload.topicContext.active.reviewPending, true);
   assert.equal(topic.reviewPending, undefined); assert.deepEqual(args.companion.state, originalState);
-  const final = buildDraftContext(context, { quotes: [{ sourceId: currentId, text: '直接邀请一起散步' }] }, args);
+  const final = buildDraftContext(context, { quotes: [{ sourceId: currentId, text: '直接邀请一起散步' }],guidance:walkingControls(currentId) }, args);
   assert.equal(final.payload.pendingPrivateReview, undefined); assert.equal(JSON.stringify(final.payload).includes(pending[0]), false);
 });
 

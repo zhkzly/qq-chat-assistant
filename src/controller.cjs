@@ -17,6 +17,7 @@ const {retrievalQuery}=require('./context-task.cjs');
 const { maintainMemory: runMemoryMaintenance } = require('./memory-engine.cjs');
 const { applyUserActions, confirmUserAction, undoUserAction } = require('./assistant-actions.cjs');
 const { methodFor } = require('./help-methods.cjs');
+const { visibleResponseText } = require('./experience-store.cjs');
 class Controller extends EventEmitter {
   constructor({ store, read, settings, model = generate, assistantModel = assistModel, memoryModel = null, compactionModel = assistDiscussionCompaction }) {
     super(); Object.assign(this, { store, read, settings, model, assistantModel, memoryModel, compactionModel });
@@ -218,7 +219,7 @@ class Controller extends EventEmitter {
       const reply = await this.assist({ text: '结合当前 QQ 的真实交流，帮我判断怎样回应或继续。',responsePreference:this.instruction,
         purpose: 'reply', transient: true, origin:automatic?'automatic':'user' });
       if (!reply || epoch !== this.epoch || !sameScope(scope,this.scope)) return;
-      this.advice = { analysis: reply.text, suggestions: reply.suggestions || [], scope,
+      this.advice = { analysis: visibleResponseText(reply), suggestions: reply.suggestions || [], scope,
         revision: this.revision, createdAt: new Date().toISOString(), requestId: reply.requestId };
       if(automatic)this.lastAutomaticFingerprint=this.automaticFingerprint();
     } catch (error) { if(epoch===this.epoch){this.assistantError=error.message;this.changed();} throw error; }
@@ -567,9 +568,13 @@ class Controller extends EventEmitter {
         break;
       }
       if(!result||result.lookup)throw new Error('本次信息整理未能完成，请重试；原始输入已保存');
-      let reviewed=context;stagedReview={context,result};
-      if(result.draftPlan?.clarification) result={...result,kind:'question',text:result.kind==='question'&&typeof result.text==='string'&&result.text.trim()?result.text:result.draftPlan.clarification};
+      let reviewed=context,discussionExplanation;stagedReview={context,result};
+      if(result.draftPlan?.clarification) {
+        if(result.kind!=='question'&&typeof result.text==='string'&&result.text.trim())discussionExplanation={kind:result.kind,text:result.text};
+        result={...result,kind:'question',text:result.kind==='question'&&typeof result.text==='string'&&result.text.trim()?result.text:result.draftPlan.clarification};
+      }
       else if(result.draftPlan){
+        if(typeof result.text==='string'&&result.text.trim())discussionExplanation={kind:result.kind,text:result.text};
         const allowedImages=context.images;
         context=buildDraftContext(context,result.draftPlan,{scope,requestId,companion,coverage,settings});context.images=allowedImages;context.payload.imageContext=imageContextFor(context.payload,allowedImages,vision);context.manifest.imageContext=context.payload.imageContext;
         result=await invoke(context);if(!current())return;reviewed=null;
@@ -628,7 +633,7 @@ class Controller extends EventEmitter {
         const metadataReviewPending=rejectedAux.length&&intent?.role==='user'&&intentId?.startsWith('private:')
           ?{reasonCode:'auxiliary_metadata_rejected',sourceIds:[intentId],sourceRevisions:{[intentId]:intent.revision}}:undefined;
         const privateReviewReceipt=!metadataReviewPending&&responseRecovery?.kind!=='private_help'&&privateReviewed.length?{applied:true,sourceIds:privateReviewed}:undefined;
-        const saved=this.store.appendTurn(scope,{role:'assistant',kind:result.kind,text:result.text,requestId,suggestions:result.suggestions,
+        const saved=this.store.appendTurn(scope,{role:'assistant',kind:result.kind,text:result.text,discussionExplanation,requestId,suggestions:result.suggestions,
           sourceIds:[...new Set([...context.manifest.sourceIds,...capturedRequests.flatMap(r=>r.manifest?.sourceIds||[])])],expressionOptions,methodIds,actionReceipts:receipts,generationStages,responseRecovery,privateReviewReceipt,metadataReviewPending,
           artifactMetadata:{generationStages,goalVersion:companion.goal.version,inputSourceRefs:
             [...new Map(capturedRequests.flatMap(request=>Object.entries({...request.manifest?.discussionCompaction?.sourceRevisions,...request.manifest?.sourceRevisions}))).entries()].filter(([sourceId])=>/^(qq|private|note):/.test(sourceId)).map(([sourceId,revision])=>({sourceId,revision})),
@@ -639,7 +644,7 @@ class Controller extends EventEmitter {
         this.usage.finish(scope,budget.id,'complete');return saved;
       });
       if(!reply)return;
-      if(purpose==='reply')this.advice={analysis:reply.text,suggestions:reply.suggestions||[],scope,revision:this.revision,createdAt:new Date().toISOString(),requestId};
+      if(purpose==='reply')this.advice={analysis:visibleResponseText(reply),suggestions:reply.suggestions||[],scope,revision:this.revision,createdAt:new Date().toISOString(),requestId};
       return reply;
     } catch(error) {
       if(!current()){

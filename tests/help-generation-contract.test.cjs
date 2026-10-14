@@ -83,7 +83,8 @@ test('malformed planning carrier receives one strict JSON repair then the restri
     assert.equal(payload.privateConversation,undefined);assert.equal(payload.outboundQuotes[0].text,'我住得很近');
     return response(JSON.stringify({kind:'draft',text:'回答实际距离',suggestions:[{style:'自然',text:'不远，我住得挺近的。'}]}));
    }
-   const original=payload.originalInput||payload,plan={quotes:[{sourceId:original.userRequest.sourceId,text:'我住得很近'}],style:'natural'};
+   const original=payload.originalInput||payload,control=text=>({text,sourceIds:[original.userRequest.sourceId]}),plan={quotes:[{sourceId:original.userRequest.sourceId,text:'我住得很近'}],style:'natural',
+    guidance:{objective:control('回答她询问的实际距离'),allowedApproach:control('按已授权事实直接回应'),avoidances:[]}};
    if(calls.length===1)return {ok:true,json:async()=>({choices:[{message:{tool_calls:[{function:{name:'assistant_result',arguments:JSON.stringify({kind:'discussion',text:'准备完整表达。',draftPlan:JSON.stringify({...plan,_:true})+'}'})}}]}}]})};
    assert.equal(body.tools,undefined);assert.equal(body.response_format,undefined);assert.ok(payload.invalidResponse);assert.equal(payload.purpose,'reply');
    return response(JSON.stringify({kind:'discussion',text:'按授权事实组织表达。',draftPlan:plan}));

@@ -1,4 +1,5 @@
 'use strict';
+const {withCurrentDraftControls}=require('./fixtures/draft-controls.cjs');
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { Store } = require('../src/store.cjs');
@@ -26,8 +27,8 @@ test('actual model request delivers meaningful romantic catalog guidance and a s
   const result = await assistModel(settings, context, undefined, async (_, request) => {
     const body = JSON.parse(request.body), payload = JSON.parse(body.messages[1].content);
     const expression = payload.methodCatalog?.find(item => item.id === 'express_interest');
-    assert.ok(expression?.version && expression.name && expression.brief, 'the serialized romantic method must carry guidance, not just an ID');
-    assert.match(expression.brief, /表达|欣赏|约会/);
+    assert.ok(expression?.version && expression.name && expression.instruction, 'the serialized romantic method must carry executable guidance, not just an ID');
+    assert.match(expression.instruction, /表达|欣赏|约会/);
     assert.match(body.messages[0].content, /即使历史少/, 'shared behavior still permits truthful expression with sparse history');
     assert.ok(payload.methodCards.length > 0 && payload.methodCards.length <= 2);
     for (const card of payload.methodCards) for (const key of ['version', 'applicability', 'avoid', 'requiredContext', 'instruction', 'outputKinds', 'evidenceLimit']) assert.ok(card[key], key);
@@ -79,7 +80,7 @@ test('typed dyad context retains uncertainty and evidence while excluding unavai
 test('restricted draft has only compose stage, preserving preparation trace without private views or feedback', async t => {
   const { args } = fixture(t);
   const prepared = buildContext(args);
-  const context = buildDraftContext(prepared, { style: 'natural', quotes: [{ sourceId: prepared.payload.userRequest.sourceId, text: '我对她有好感，想多认识她' }] }, args);
+  const context = buildDraftContext(prepared, withCurrentDraftControls({ style: 'natural', quotes: [{ sourceId: prepared.payload.userRequest.sourceId, text: '我对她有好感，想多认识她' }] },prepared.payload), args);
   await assistModel(settings, context, undefined, async (_, request) => {
     const payload = JSON.parse(JSON.parse(request.body).messages[1].content);
     assert.deepEqual(payload.methodCards.map(card => card.id), ['compose']);
@@ -102,7 +103,7 @@ test('a preparation response preserves sourced understanding alongside its draft
   const { args } = fixture(t), prepared = buildContext(args), sourceId = prepared.payload.userRequest.sourceId;
   const patch = { claims: [{ subject: 'self', aspect: 'relationship_intent', text: '用户想表达好感并进一步认识她', assertionKind: 'stated', epistemicStatus: 'supported', sourceIds: [sourceId] }], events: [], retire: [] };
   const statePatch = { focus: '表达真实好感', items: [{ text: '用户愿意表达好感', sourceIds: [sourceId] }], openThreads: [], unknowns: ['她是否愿意发展恋爱尚不明确'] };
-  const result = parseAssistant({ draftPlan: { quotes: [{ sourceId, text: '我对她有好感，想多认识她' }] }, relationshipPatch: patch, statePatch, stateReview: 'no_change', methodIds: ['express_interest'] }, 'discussion', prepared.payload);
+  const result = parseAssistant({ draftPlan: withCurrentDraftControls({ quotes: [{ sourceId, text: '我对她有好感，想多认识她' }] },prepared.payload), relationshipPatch: patch, statePatch, stateReview: 'no_change', methodIds: ['express_interest'] }, 'discussion', prepared.payload);
   assert.deepEqual(result.relationshipPatch.claims[0].sourceIds, [sourceId]);
   assert.deepEqual(result.statePatch, statePatch);
   assert.equal(result.stateReview, 'no_change');
@@ -134,7 +135,7 @@ test('feedback context hydrates the exact full evaluated artifact without creati
   assert.match(evaluation.target.authority, /evaluation_target_not_factual_evidence/);
   assert.equal(prepared.payload.sources.filter(source => source.id === feedback.sourceId).length, 1);
   assert.equal(prepared.payload.sources.some(source => source.text === artifactText), false);
-  const draft = buildDraftContext(prepared, { quotes: [{ sourceId: prepared.payload.userRequest.sourceId, text: '想多认识她' }] }, contextArgs);
+  const draft = buildDraftContext(prepared, withCurrentDraftControls({ quotes: [{ sourceId: prepared.payload.userRequest.sourceId, text: '想多认识她' }] },prepared.payload), contextArgs);
   assert.equal(JSON.stringify(draft.payload).includes('PRIVATE_EVALUATED_PROPOSAL'), false);
   const fallback = buildContext({ ...contextArgs, availableSources: undefined });
   const feedbackTurns = store.getCompanion(scope).turns.filter(turn => ['feedback','feedback_ref'].includes(turn.kind));

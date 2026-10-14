@@ -1,4 +1,5 @@
 'use strict';
+const {withCurrentDraftControls}=require('./fixtures/draft-controls.cjs');
 const test=require('node:test'),assert=require('node:assert/strict');
 const {Store}=require('../src/store.cjs'),{Controller}=require('../src/controller.cjs');
 const {buildContext,buildDraftContext,sourcesFor}=require('../src/assistant-context.cjs'),{normalize}=require('../src/messages.cjs');
@@ -115,7 +116,7 @@ test('restricted draft propagates late omitted-chronology authority to quoted ta
  const f=setup(t,{text:'Synthetic current request',records:[target,...between,incoming,reply]}),prepared=buildContext({...f.args,availableSources:f.store.memorySources(scope)});
  assert.equal(prepared.payload.sources.find(s=>s.id==='qq:9800').historicalOnly,undefined,'preparation initially contains the subsequent chronology');
  const before=JSON.stringify(prepared.payload),requestMeasure=payload=>15000+Buffer.byteLength(JSON.stringify(payload),'utf8');
- const draft=buildDraftContext(prepared,{intent:'reply',quotes:[]},{scope,companion:f.args.companion,requestId:'synthetic-narrowed-draft',settings:{model:'synthetic',assistantRequestBytes:20000},requestMeasure});
+ const draft=buildDraftContext(prepared,withCurrentDraftControls({intent:'reply',quotes:[]},prepared.payload),{scope,companion:f.args.companion,requestId:'synthetic-narrowed-draft',settings:{model:'synthetic',assistantRequestBytes:20000},requestMeasure});
  assert.ok(draft.payload.sources.length<prepared.payload.sources.filter(s=>s.type==='qq').length,'the synthetic repair envelope must actually evict optional intermediate messages');
  const original=draft.payload.sources.find(s=>s.id==='qq:9800'),view=draft.payload.taskContext.recentExchange.find(m=>m.sourceId==='qq:9822');
  assert.equal(original.text,target.text);assert.equal(original.historicalOnly,true);assert.equal(view.quote.sourceId,original.id);assert.equal(view.quote.historicalOnly,true);assert.equal(view.quote.availability,'available');

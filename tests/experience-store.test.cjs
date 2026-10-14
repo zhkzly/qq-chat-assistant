@@ -91,6 +91,50 @@ test('personal guidance requires concrete scope and user activation, can retire,
  assert.equal(e.context({...scope,peerUid:'other'},{query:''}).adaptations.length,0);
  const retired=e.adapt(scope,{id:active.id,operation:'retire',expectedVersion:2});assert.equal(retired.status,'retired');assert.equal(e.context(scope,{query:''}).adaptations.length,0);
 });
+test('activated guidance is offered across equivalent phrasing without asserting relevance for unrelated or negated requests',t=>{
+ const store=setup(t),{user}=publish(store),e=store.experiences;
+ const proposed=e.adapt(scope,{operation:'propose',text:'先回应她分享的具体细节，不追加泛泛连问。',applicability:'回应近况已有足够信息时',sourceIds:[`private:${user.id}`],methodRef:{methodId:'respond',version:'1'}});
+ const active=e.adapt(scope,{id:proposed.id,operation:'activate',expectedVersion:1});
+ const match=e.context(scope,{query:'回应近况'}).adaptations[0];assert.equal(match.id,active.id);assert.equal(match.matchBasis,'lexical');
+ for(const query of ['Please answer the details of her update.','We are reviewing a contract; do not apply old conversation advice.','这次不要采用之前的回应近况规则。']){
+  const candidate=e.context(scope,{query}).adaptations.find(item=>item.id===active.id);
+  assert.ok(candidate);assert.equal(candidate.applicabilityStatus,'needs_model_check');assert.equal(candidate.applicable,undefined);
+ }
+ assert.equal(e.context(scope,{query:'Please answer the details of her update.'}).adaptations[0].matchBasis,'recent_active_fallback');
+ assert.equal(e._get(scope,'adaptation',active.id).applicabilityStatus,undefined,'retrieval candidacy never mutates activated guidance');
+ assert.equal(e.context({...scope,peerUid:'other'},{query:'回应近况'}).adaptations.length,0);
+ e.adapt(scope,{id:active.id,operation:'retire',expectedVersion:active.version});assert.equal(e.context(scope,{query:'回应近况'}).adaptations.length,0);
+});
+test('fallback considers only two recent active live guides and excludes stale or unapproved replayed records',t=>{
+ const store=setup(t),{user}=publish(store),e=store.experiences,active=[];
+ for(let index=0;index<4;index++){
+  const proposed=e.adapt(scope,{operation:'propose',text:`私下帮助规则${index}`,applicability:`限定场景${index}`,sourceIds:[`private:${user.id}`],methodRef:{methodId:'respond',version:'1'}});
+  const saved=e.adapt(scope,{id:proposed.id,operation:'activate',expectedVersion:1});saved.updatedAt=new Date(1791972000000+index*1000).toISOString();e._put(scope,'adaptation',saved.id,saved);active.push(saved);
+ }
+ const updated={...active[0],updatedAt:new Date(1791972010000).toISOString()};e._put(scope,'adaptation',updated.id,updated);
+ assert.deepEqual(e.context(scope,{query:'unrelatedwords',limit:8}).adaptations.map(item=>item.id),[active[0].id,active[3].id]);
+ const unapproved={...updated,authority:'provisional_assistance_guidance'};e._put(scope,'adaptation',updated.id,unapproved);
+ assert.ok(!e.context(scope,{query:'unrelatedwords'}).adaptations.some(item=>item.id===updated.id));
+ const missing={...updated,sourceIds:['private:missing'],sourceRefs:[{sourceId:'private:missing'}]};e._put(scope,'adaptation',updated.id,missing);
+ assert.ok(!e.context(scope,{query:'unrelatedwords'}).adaptations.some(item=>item.id===updated.id),'missing source and missing revision cannot agree as undefined');
+ store.updateTurn(scope,user.id,'Changed synthetic current evidence.');
+ e._put(scope,'adaptation',active[3].id,active[3]);
+ assert.equal(e.context(scope,{query:'限定场景'}).adaptations.length,0,'live-source verification independently rejects stale activated replay');
+});
+test('whole-response artifact includes visible explanation while drafts/options stay separate and legacy bodies are unchanged',t=>{
+ const store=setup(t),{turn,refs}=publish(store),e=store.experiences;
+ const explanation='先接住她的分享，再给一个可以自由选择的邀请。';
+ const value={...turn,discussionExplanation:{kind:'discussion',text:explanation},expressionOptions:[{label:'一个可选择方向'}]};
+ const newRefs=e.recordArtifacts(scope,value,{deliveredMethodRefs:[{methodId:'shared_activity',version:'1'}]});
+ assert.equal(e.artifact(scope,newRefs.responseRef).body,`${explanation}\n\n${turn.text}`);
+ assert.equal(e.artifact(scope,newRefs.suggestionRefs[0]).body,turn.suggestions[0].text);
+ assert.equal(e.artifact(scope,newRefs.optionRefs[0]).body,'一个可选择方向');
+ assert.equal(e.artifact(scope,refs.responseRef).body,turn.text,'the older artifact version remains unchanged');
+ const {visibleResponseText}=require('../src/experience-store.cjs');
+ assert.equal(visibleResponseText(turn),turn.text);assert.equal(visibleResponseText({...turn,discussionExplanation:{kind:'discussion',text:turn.text}}),turn.text);
+ const feedback=e.addFeedback(scope,{targetRef:{kind:'artifact',artifactRef:newRefs.responseRef},text:'这段分析和稿子一起更清楚。'});
+ assert.equal(e.hydrateFeedback(scope,feedback.id).target.body,visibleResponseText(value));
+});
 
 test('foreign and numeric actual message identities are rejected at the experience boundary',t=>{
  const store=setup(t),message=normalize(raw('900719925474099599',true),scope);

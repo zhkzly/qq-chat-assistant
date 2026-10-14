@@ -14,6 +14,12 @@ function ref(value) {
 }
 const refKey = value => `${value.artifactId}@${value.version}`;
 const unique = values => [...new Set(values)];
+function visibleResponseText(turn={}) {
+  const body=text(turn.text ?? '', 'assistant response text', 100000, true);
+  const explanation=turn.discussionExplanation?.text;
+  const parts=explanation===undefined?[body]:[text(explanation,'discussion explanation text',6000),body];
+  return unique(parts.filter(value=>value.length)).join('\n\n');
+}
 
 class ExperienceStore {
   constructor(store, { scopeKey } = {}) {
@@ -90,7 +96,7 @@ class ExperienceStore {
         this._put(scope, 'artifact', refKey(reference), { ...common, ...extra, ref: reference, kind, body: text(body, 'artifact body', 100000, true), bodyDigest: digest(body), signature, createdAt: now(), availability: 'active' });
         return reference;
       };
-      const responseRef = save(`turn:${turn.id}`, 'response', turn.text || '');
+      const responseRef = save(`turn:${turn.id}`, 'response', visibleResponseText(turn));
       const suggestionRefs = (turn.suggestions || []).map((suggestion, index) => save(`turn:${turn.id}:draft:${index}`, 'message_candidate', suggestion.text, { parentRef: responseRef, label: suggestion.style || '' }));
       const optionRefs = (turn.expressionOptions || []).map((option, index) => save(`turn:${turn.id}:option:${index}`, 'action_option', option.label, { parentRef: responseRef }));
       return { responseRef, suggestionRefs, optionRefs };
@@ -493,8 +499,19 @@ class ExperienceStore {
     const available = this.listFeedback(scope), matchedFeedback = available.filter(relevant), selectedFeedback = (matchedFeedback.length ? matchedFeedback : available.slice(-2)).slice(-count);
     const targets = selectedFeedback.map(f => this.hydrateFeedback(scope, f.id)).filter(Boolean);
     const cases = this._all(scope, 'case').filter(c => c.status !== 'invalidated').map(c => this._publicCase(scope, c)).filter(relevant).slice(-count);
-    return { scope:clone(scope),cases, adaptations: this._all(scope, 'adaptation').filter(a => a.status === 'active' && relevant(a)).slice(-count), evaluationTargets: targets,
-      constraints: ['Actual message occurrence is separate from confirmed suggestion use.', 'Feedback and generated evaluation targets do not establish her feelings or method causality.'] };
+    const live=this._sources(scope);
+    const active=this._all(scope,'adaptation').map((value,index)=>({value,index})).filter(({value:a})=>a.status==='active'&&a.authority==='user_approved_assistance_guidance'&&a.scope==='this_relationship'&&
+      Array.isArray(a.sourceIds)&&a.sourceIds.length&&Array.isArray(a.sourceRefs)&&a.sourceRefs.length&&a.sourceIds.every(id=>a.sourceRefs.some(reference=>reference?.sourceId===id))&&
+      a.sourceRefs.every(reference=>reference&&typeof reference.revision==='string'&&!!reference.revision&&live.has(reference.sourceId)&&live.get(reference.sourceId).revision===reference.revision))
+      .sort((a,b)=>(Date.parse(b.value.updatedAt||b.value.createdAt)||0)-(Date.parse(a.value.updatedAt||a.value.createdAt)||0)||b.index-a.index).map(({value})=>value);
+    const lexical=a=>terms.length&&terms.some(term=>`${a.text} ${a.applicability}`.toLowerCase().includes(term));
+    const matched=active.filter(lexical).slice(0,count),matchedIds=new Set(matched.map(a=>a.id));
+    const fallback=active.filter(a=>!matchedIds.has(a.id)&&!lexical(a)).slice(0,Math.min(2,count-matched.length));
+    const adaptations=[...matched.map(a=>({...clone(a),matchBasis:'lexical',applicabilityStatus:'needs_model_check'})),
+      ...fallback.map(a=>({...clone(a),matchBasis:'recent_active_fallback',applicabilityStatus:'needs_model_check'}))];
+    return { scope:clone(scope),cases, adaptations, evaluationTargets: targets,
+      constraints: ['Actual message occurrence is separate from confirmed suggestion use.', 'Feedback and generated evaluation targets do not establish her feelings or method causality.',
+        'Activated guidance is a scoped candidate, not proof of current applicability. Check its conditions and the latest user intent; irrelevant, negated or conflicting guidance must not be applied.'] };
   }
 }
-module.exports = { ExperienceStore };
+module.exports = { ExperienceStore, visibleResponseText };

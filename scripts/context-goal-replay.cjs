@@ -1,4 +1,5 @@
 'use strict';
+const {withCurrentDraftControls}=require('../tests/fixtures/draft-controls.cjs');
 // All events are synthetic. The application controller/store/context are real.
 // --live is opt-in and never receives production chat data.
 const fs = require('node:fs');
@@ -87,6 +88,7 @@ function application(testCase, filename = path.join(temp, `${testCase.id}.sqlite
     assistantModel: async (receivedSettings, context, signal) => {
       const captured = { stage, context: structuredClone(context) }; calls.push(captured);
       captured.result = live ? await assistModel(receivedSettings, context, signal) : responseFor(stage, context);
+      if(!live&&captured.result.draftPlan)captured.result={...captured.result,draftPlan:withCurrentDraftControls(captured.result.draftPlan,context.payload)};
       return captured.result;
     },
     memoryModel: async (receivedSettings, batch, signal) => {

@@ -1,4 +1,5 @@
 'use strict';
+const {withCurrentDraftControls}=require('./fixtures/draft-controls.cjs');
 const test=require('node:test'),assert=require('node:assert/strict');
 const {Store}=require('../src/store.cjs');const {Controller}=require('../src/controller.cjs');const {scope,raw}=require('./fixtures/native.cjs');
 function setup(t,model){const store=new Store(':memory:');const controller=new Controller({store,assistantModel:model,read:async command=>command==='bind'?scope:{messages:[]},settings:{auto:false,apiKey:'synthetic',model:'synthetic',baseUrl:'http://fixture.invalid',realChatConsent:{accountUid:scope.accountUid,peerUin:scope.peerUin,model:'synthetic',baseUrl:'http://fixture.invalid'}}});controller.updateStatus({phase:'ready',account:{uid:scope.accountUid,uin:scope.accountUin}});t.after(()=>{controller.close();store.close()});return {store,controller};}
@@ -10,7 +11,7 @@ test('actual controller preserves a corrected local purpose into vague-followup 
   if(p.purpose==='draft'){lastDraft=p;assert.equal(p.draftingGuidance.avoidances[0].text,'先不直接问游戏名字');return {kind:'draft',text:'沿当前方向组织表达',suggestions:[{style:'自然',text:'换成益智闯关，画风都变了哈哈。'}]};}
   round++;if(round===1)return {kind:'discussion',text:'可以先顺着游戏体验聊。',topicPatch:start(p)};
   if(round===2)return {kind:'discussion',text:'这次先不直接问名字。',topicPatch:{operation:'update',topicId:p.topicContext.active.id,direction:'先聊体验，再看她是否自然展开',constraints:['先不直接问游戏名字'],purposeSourceIds:[intent(p)],intentQuote:p.userRequest.text}};
-  assert.equal(p.topicContext.active.constraints[0],'先不直接问游戏名字');return {draftPlan:{quotes:[],intent:'reply',guidance:guide(p.topicContext.active),style:'natural',askFollowup:false}};
+  assert.equal(p.topicContext.active.constraints[0],'先不直接问游戏名字');return {draftPlan:withCurrentDraftControls({quotes:[],intent:'reply',guidance:guide(p.topicContext.active),style:'natural',askFollowup:false},p)};
  });await app.controller.bind(scope.peerUin);app.controller.live({scope,messages:[raw(undefined,false,{elements:[{textElement:{content:'我现在改玩益智闯关了'}}]})]});
  await app.controller.assist({text:'想自然了解她玩的游戏，暂时不直接约她。',taskId:'topic-start'});
  const initial=app.store.topicView(scope).active;assert.ok(initial);

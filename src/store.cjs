@@ -306,6 +306,13 @@ class Store {
       const id = turn.id === undefined ? randomUUID() : identifier(turn.id, 'turn id');
       if (record.turns.some(item => item.id === id)) throw new Error('Private turn id already exists');
       const saved = { id, role: turn.role, kind: turn.kind, text: turn.text||'', createdAt: new Date().toISOString() };
+      if(turn.discussionExplanation!==undefined){
+        const explanation=turn.discussionExplanation;
+        if(turn.role!=='assistant'||!plain(explanation)||Object.keys(explanation).some(key=>!['kind','text'].includes(key))||
+          !['discussion','question','options','review','acknowledgment'].includes(explanation.kind))throw new Error('Invalid assistant discussion explanation');
+        textValue(explanation.text,'discussion explanation',6000);
+        saved.discussionExplanation={kind:explanation.kind,text:explanation.text};
+      }
       if(turn.kind==='feedback_ref'){saved.feedbackId=identifier(turn.feedbackId,'feedback id');if(!record.feedback.some(f=>f.id===saved.feedbackId))throw new Error('Unknown feedback reference');}
       if(turn.kind==='feedback'){const canonical=record.feedback.filter(f=>f.requestId===turn.requestId&&turn.text===`对助手建议的反馈：${f.text}`);if(canonical.length===1){saved.kind='feedback_ref';saved.feedbackId=canonical[0].id;}}
       if (turn.requestId !== undefined) saved.requestId = identifier(turn.requestId, 'request id');
@@ -648,16 +655,17 @@ class Store {
     textValue(query,'memory query',100000,true);
     const all=this.memorySources(scope),derived=this._memoryRecords(scope),limit=Math.max(1,Math.min(200,Number(options.limit)||12));
     let sources=rank(all,query,{...options,limit});
+    const retrievalScores=new Map(sources.map(source=>[source.id,source.retrievalScore]));
     const items=rank(derived.filter(r=>r.recordType==='item'),query,{...options,limit});
     const episodes=rank(derived.filter(r=>r.recordType==='episode'),query,{...options,limit:Math.min(8,limit)});
     // Restore provenance and subsequent evidence for retrieved topics. A later
     // cancellation must accompany an earlier matching invitation when indexed.
     const ids=new Set(sources.map(s=>s.id));
-    for(const r of [...items,...episodes])for(const id of r.sourceIds)ids.add(id);
+    for(const r of [...items,...episodes])for(const id of r.sourceIds){ids.add(id);retrievalScores.set(id,Math.max(retrievalScores.get(id)||0,r.retrievalScore||0));}
     const topics=[...new Set([...items,...episodes].flatMap(r=>r.topicKeys||[]))];
     const followups=topics.length?rank(all,topics.join(' '),{limit:Math.min(12,limit)}):[];
-    for(const s of followups)ids.add(s.id);
-    sources=all.filter(s=>ids.has(s.id)).sort((a,b)=>Date.parse(a.at)-Date.parse(b.at));
+    for(const s of followups){ids.add(s.id);retrievalScores.set(s.id,Math.max(retrievalScores.get(s.id)||0,s.retrievalScore||0));}
+    sources=all.filter(s=>ids.has(s.id)).map(source=>({...source,retrievalScore:retrievalScores.get(source.id)||0})).sort((a,b)=>Date.parse(a.at)-Date.parse(b.at));
     const status=this.memoryStatus(scope);
     return {sources,items,episodes,coverage:{complete:status.pending===0,sourceCount:all.length,retrievedCount:sources.length,pending:status.pending,processed:status.processed,history:this.coverage(scope),retrieval:'lexical-han-bigram-bm25',semanticCertainty:false}};
   }

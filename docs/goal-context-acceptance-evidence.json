@@ -1,0 +1,201 @@
+{
+  "version": 1,
+  "evidenceScope": "synthetic functional/browser, configured live model with fictional records, desktop activation pending",
+  "functional": {
+    "checks": 471,
+    "failed": 0
+  },
+  "browser": {
+    "explanationChecks": 5,
+    "visionChecks": 5,
+    "realModelCalls": 0
+  },
+  "modelRuns": [
+    {
+      "phase": "initial_qualified",
+      "sha256": "9b168f91c3dfb691cf059af599e229c315c06c9ffa96b0d1b6e88ed6377f34e4",
+      "model": "gpt-6-sol",
+      "realHttpAttempts": 18,
+      "sourceUnchanged": true,
+      "settingsUnchanged": true,
+      "stopped": null,
+      "cases": [
+        {
+          "id": "G1",
+          "status": "executed_semantic_review_required",
+          "httpAttempts": 2,
+          "failedChecks": []
+        },
+        {
+          "id": "G2",
+          "status": "executed_semantic_review_required",
+          "httpAttempts": 1,
+          "failedChecks": []
+        },
+        {
+          "id": "G3",
+          "status": "executed_semantic_review_required",
+          "httpAttempts": 2,
+          "failedChecks": []
+        },
+        {
+          "id": "G4",
+          "status": "executed_semantic_review_required",
+          "httpAttempts": 2,
+          "failedChecks": []
+        },
+        {
+          "id": "G5",
+          "status": "executed_semantic_review_required",
+          "httpAttempts": 2,
+          "failedChecks": []
+        },
+        {
+          "id": "G6",
+          "status": "executed_semantic_review_required",
+          "httpAttempts": 1,
+          "failedChecks": []
+        },
+        {
+          "id": "G7",
+          "status": "executed_semantic_review_required",
+          "httpAttempts": 1,
+          "failedChecks": []
+        },
+        {
+          "id": "G8",
+          "status": "executed_semantic_review_required",
+          "httpAttempts": 2,
+          "failedChecks": []
+        },
+        {
+          "id": "G3-direct",
+          "status": "executed_semantic_review_required",
+          "httpAttempts": 2,
+          "failedChecks": []
+        },
+        {
+          "id": "G6-weak",
+          "status": "executed_semantic_review_required",
+          "httpAttempts": 1,
+          "failedChecks": []
+        },
+        {
+          "id": "G8-contrary",
+          "status": "executed_semantic_review_required",
+          "httpAttempts": 2,
+          "failedChecks": []
+        }
+      ]
+    },
+    {
+      "phase": "targeted_with_retained_timeout",
+      "sha256": "910d87cd1525d4371169d47489401f534732dcdd42e74ccf458e8cd12a970d52",
+      "model": "gpt-6-sol",
+      "realHttpAttempts": 8,
+      "sourceUnchanged": true,
+      "settingsUnchanged": true,
+      "stopped": {
+        "reason": "non_ok_http",
+        "status": 408,
+        "caseId": "G9"
+      },
+      "cases": [
+        {
+          "id": "G2",
+          "status": "executed_semantic_review_required",
+          "httpAttempts": 1,
+          "failedChecks": []
+        },
+        {
+          "id": "G3",
+          "status": "executed_semantic_review_required",
+          "httpAttempts": 2,
+          "failedChecks": []
+        },
+        {
+          "id": "G3-direct",
+          "status": "executed_semantic_review_required",
+          "httpAttempts": 2,
+          "failedChecks": []
+        },
+        {
+          "id": "G8",
+          "status": "executed_semantic_review_required",
+          "httpAttempts": 2,
+          "failedChecks": []
+        },
+        {
+          "id": "G9",
+          "status": "execution_failure",
+          "httpAttempts": 1,
+          "failedChecks": []
+        },
+        {
+          "id": "G8-two-questions",
+          "status": "skipped_verification_stopped",
+          "httpAttempts": 0,
+          "failedChecks": []
+        }
+      ]
+    },
+    {
+      "phase": "bounded_remaining_retry",
+      "sha256": "cb15f4baa22e00ea68914b94ac04d20e898192379715b8295800c17126adc6e0",
+      "model": "gpt-6-sol",
+      "realHttpAttempts": 4,
+      "sourceUnchanged": true,
+      "settingsUnchanged": true,
+      "stopped": null,
+      "cases": [
+        {
+          "id": "G9",
+          "status": "executed_semantic_review_required",
+          "httpAttempts": 2,
+          "failedChecks": []
+        },
+        {
+          "id": "G8-two-questions",
+          "status": "executed_semantic_review_required",
+          "httpAttempts": 2,
+          "failedChecks": []
+        }
+      ]
+    },
+    {
+      "phase": "strict_rationale_retest",
+      "sha256": "59e654f656ee59c3aa05945166df47b824949e14377295da04572bb8f72a5eb8",
+      "model": "gpt-6-sol",
+      "realHttpAttempts": 2,
+      "sourceUnchanged": true,
+      "settingsUnchanged": true,
+      "stopped": null,
+      "cases": [
+        {
+          "id": "G9",
+          "status": "executed_semantic_review_required",
+          "httpAttempts": 2,
+          "failedChecks": []
+        }
+      ]
+    }
+  ],
+  "totalRealHttpAttempts": 32,
+  "semanticReview": {
+    "initial": "9 pass, G3/G8 qualified",
+    "v3": "fixed fidelity/time and explicit two-question behavior; G9 reviewer disagreement retained",
+    "v4G9": "both independent reviewers pass exact predeclared positive-goal rationale criterion"
+  },
+  "privacy": {
+    "realChatInModelAcceptance": false,
+    "imagesInModelAcceptance": false,
+    "qqMessagesSent": 0,
+    "credentialsInArchive": false
+  },
+  "limits": [
+    "No romantic-effectiveness or unseen-case generalization claim",
+    "Initial experience output does not isolate fallback causal effect",
+    "Source-valid semantic contradictions remain possible",
+    "Physical upstream model identity not independently verified"
+  ]
+}

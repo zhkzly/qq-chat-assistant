@@ -1,4 +1,5 @@
 'use strict';
+const {withCurrentDraftControls}=require('../tests/fixtures/draft-controls.cjs');
 // Exercises the real controller and store with synthetic conversations only.
 // Live mode reads only the explicitly selected provider credentials/settings.
 const fs = require('node:fs');
@@ -90,7 +91,7 @@ function syntheticAnswer(body, purpose) {
     return { batchId: payload.batchId, reviewedAll: true, items: [], episodes: [], retire: [], relationshipPatch: patch };
   }
   if (payload.purpose === 'draft') return { kind: 'draft', text: '表达真实意思。', suggestions: [{ style: '自然', text: '我对你有好感，也想多认识你。' }], methodIds: ['compose'] };
-  if (activeCase.id === 'sparse-interest') return { draftPlan: { quotes: [{ sourceId: payload.userRequest.sourceId, text: '我对她有好感，想多认识她' }], style: 'natural' }, methodIds: ['express_interest'] };
+  if (activeCase.id === 'sparse-interest') return {kind:'discussion',text:'表达真实好感并保留对方选择', draftPlan: withCurrentDraftControls({ quotes: [{ sourceId: payload.userRequest.sourceId, text: '我对她有好感，想多认识她' }], style: 'natural' },payload,{objective:'表达想多认识她的真实意思',allowedApproach:'自然而明确地表达好感'}), methodIds: ['express_interest'] };
   if (activeCase.id === 'old-feedback') return { kind: 'review', text: '原建议连问三个问题；可以先回应她分享的具体内容，再决定是否需要问一句。', methodIds: ['review'],
     experienceProposals: [{ text: '回应个人近况时先接住具体内容，避免连续追问。', applicability: '已有具体个人分享可以回应时', methodId: 'respond',
       sourceIds: [payload.experienceProposalPolicy.feedbackSourceIds[0]], caseIds: [] }] };
@@ -240,7 +241,7 @@ async function main() {
         Object.assign(variant, { reply, inputBytes: Buffer.byteLength(JSON.stringify(payload)),
           includedNoiseSources: payload.sources.filter(source => source.text?.includes('NOISE_')).length });
         checked(result, `${noise ? 'noise' : 'control'} context respects the configured byte limit`, () => assert.ok(Buffer.byteLength(JSON.stringify(payload)) <= 48000));
-        checked(result, `${noise ? 'noise' : 'control'} keeps method choice available`, () => assert.ok(payload.methodCards.some(method => method.id === 'shared_activity')));
+        checked(result, `${noise ? 'noise' : 'control'} keeps method choice available`, () => assert.ok(payload.methodCatalog.some(method=>method.id==='shared_activity'&&(method.instruction||payload.methodSelection.operationalInstructionsLocation==='system'))));
         if (noise) checked(result, 'irrelevant index does not fill with every saved note', () => assert.ok(result.variants.at(-1).includedNoiseSources < 15));
       } finally {
         variant.calls = scrub(app.calls); variant.usage = scrub(app.controller.usage.recent(scope, 30));

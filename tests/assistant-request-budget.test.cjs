@@ -7,6 +7,7 @@ const {assistModel}=require('../src/assistant-model.cjs');
 const {scope,raw}=require('./fixtures/native.cjs');
 const settings={baseUrl:'http://synthetic.invalid/v1',model:'synthetic-relationship-context',anonymous:true};
 const ok=content=>({ok:true,json:async()=>({choices:[{message:{content}}]})});
+function currentControls(payload){const control=text=>({text,sourceIds:[payload.intentAuthority?.sourceId||payload.userRequest.sourceId]});return {objective:control('表达想多认识她的真实意愿'),allowedApproach:control('保留获准原意自然表达'),avoidances:[]};}
 function fixture(t,overrides={}){
  const store=new Store(':memory:');t.after(()=>store.close());
  // Same consumer shape as native QQ history: strings IDs, bursts, per-source
@@ -29,9 +30,9 @@ for(const requestLimit of [64000,32000])test(`native-shaped long context fits th
  checkEssential(JSON.parse(JSON.parse(calls[0]).messages[1].content),args);assert.ok(context.manifest.omittedSourceCount>0);assert.ok(context.manifest.inputBytes<=48000);
 });
 for(const purpose of ['discussion','draft_prepare','draft'])test(`${purpose} recovery or structural repair respects its actual envelope and complete evidence`,async t=>{
- const {args}=fixture(t),prepared=buildContext({...args,purpose:purpose==='draft_prepare'?'draft_prepare':'discussion'}),context=purpose==='draft'?buildDraftContext(prepared,{quotes:[{sourceId:prepared.payload.userRequest.sourceId,text:args.turn.text}]},args):prepared;
+ const {args}=fixture(t),prepared=buildContext({...args,purpose:purpose==='draft_prepare'?'draft_prepare':'discussion'}),context=purpose==='draft'?buildDraftContext(prepared,{quotes:[{sourceId:prepared.payload.userRequest.sourceId,text:args.turn.text}],guidance:currentControls(prepared.payload)},args):prepared;
  const invalid='INVALID_RESPONSE_'+('"\\\\\n原本的输出仍需完整修复。'.repeat(purpose==='draft'?700:350)),calls=[];
- const repaired=purpose==='draft_prepare'?JSON.stringify({draftPlan:{quotes:[{sourceId:prepared.payload.userRequest.sourceId,text:args.turn.text}]}}):purpose==='draft'?'我想多认识你一点。':'先自然回应她实际提到的安排。';
+ const repaired=purpose==='draft_prepare'?JSON.stringify({draftPlan:{quotes:[{sourceId:prepared.payload.userRequest.sourceId,text:args.turn.text}],guidance:currentControls(prepared.payload)}}):purpose==='draft'?'我想多认识你一点。':'先自然回应她实际提到的安排。';
  await assistModel(args.settings,context,undefined,async(_,request)=>{calls.push(request.body);return ok(calls.length===1?invalid:repaired);});
  assert.equal(calls.length,2);for(const body of calls)assert.ok(Buffer.byteLength(body)<=64000);
  const first=JSON.parse(JSON.parse(calls[0]).messages[1].content),repair=JSON.parse(JSON.parse(calls[1]).messages[1].content),effective=context.resultContext||context;
@@ -75,12 +76,12 @@ test('automatic controller entry uses the configured envelope and persists the e
 });
 test('a repaired preparation retains selected image evidence for the final restricted draft',async t=>{
  const {args}=fixture(t),imageMessageId=args.records[0].messageId;
- const prepared=buildContext({...args,purpose:'draft_prepare',imageMessageIds:[imageMessageId]}),calls=[];
  const images=[{url:'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAAB',messageId:imageMessageId,index:0,bytes:24}];
+ const prepared=buildContext({...args,purpose:'draft_prepare',imageMessageIds:[imageMessageId],images,mediaContext:{mode:'manual',omitted:[]}}),calls=[];
  prepared.images=images;prepared.manifest.images=images.map(({url,...metadata})=>metadata);
  const invalid='INVALID_'+('"\\\n原本的输出仍需完整修复。'.repeat(350));
  const plan=await assistModel(args.settings,prepared,undefined,async(_,request)=>{
-  calls.push(JSON.parse(request.body));return ok(calls.length===1?invalid:JSON.stringify({draftPlan:{quotes:[{sourceId:prepared.payload.userRequest.sourceId,text:args.turn.text}]}}));
+  calls.push(JSON.parse(request.body));return ok(calls.length===1?invalid:JSON.stringify({draftPlan:{quotes:[{sourceId:prepared.payload.userRequest.sourceId,text:args.turn.text}],guidance:currentControls(prepared.payload)}}));
  });
  const effective=prepared.resultContext;assert.ok(effective);assert.deepEqual(effective.images,images,'repair reconstruction must retain selected image input for the next authorized stage');
  assert.equal(effective.payload.sources.find(source=>source.id===`qq:${imageMessageId}`)?.text,args.records[0].text);

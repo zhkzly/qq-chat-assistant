@@ -25,7 +25,7 @@ const retirement=object({id:string,expectedVersion:integer,sourceIds:strings,lif
 const relationshipPatch=object({claims:array(claim),events:array(event),retire:array(retirement)});
 const expressionOption=object({label:string,quotes:array(quote),style:string},['label','quotes']);
 const experienceProposal=object({text:string,applicability:string,methodId:string,sourceIds:strings,caseIds:strings},['text','applicability','methodId','sourceIds','caseIds']);
-const quoteRef=object({turnId:string,role:choice(['user','assistant']),field:choice(['text','suggestions','expressionOptions']),index:integer,quoteIndex:integer,text:string,
+const quoteRef=object({turnId:string,role:choice(['user','assistant']),field:choice(['text','discussionExplanation','suggestions','expressionOptions']),index:integer,quoteIndex:integer,text:string,
  artifactRef:object({artifactId:string,version:integer},['artifactId','version']),sourceIds:strings},['turnId','role','text']);
 const memoryItem=object({id:string,kind:choice(['fact','preference','commitment','uncertainty']),text:string,sourceIds:strings,topicKeys:strings,
  status:choice(['active','resolved','cancelled','superseded']),certainty:choice(['stated','tentative']),explicitPreference:boolean},['kind','text','sourceIds','status','certainty']);

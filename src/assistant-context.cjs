@@ -1,14 +1,14 @@
 'use strict';
 const crypto = require('node:crypto');
 const { redact } = require('./model.cjs');
-const { prepareAssistantRequest, imageContextFor, parseDraftGuidance } = require('./assistant-model.cjs');
+const { prepareAssistantRequest, imageContextFor, parseDraftGuidance, requireDraftControlGuidance } = require('./assistant-model.cjs');
 const { selectMethods, runtimeCard } = require('./help-methods.cjs');
 const { validatedCompaction, candidatesForCompaction } = require('./discussion-compaction.cjs');
 const { eligibleDiscussionTurns } = require('./discussion-compaction-store.cjs');
 const {qqSourceMetadata}=require('./messages.cjs');
 const {requiredQuoteSources,taskContext}=require('./context-task.cjs');
 const {sourceRevision}=require('./store.cjs');
-const PROMPT_VERSION = 'relationship-context-2026-10-14.1';
+const PROMPT_VERSION = 'relationship-context-2026-10-14.4';
 const METHODS = {
   discussion: '围绕用户真正希望的恋爱发展选择当前帮助，可接续、邀请、表达好感或讨论。意思明确就直接帮助，只问会改变建议的必要问题。允许暂缓或不用助手，不强制每次制定目的。',
   review: '按实际覆盖回顾相处、共同经历、用户体验与双方明确的浪漫方向，分别说普通友好、活动意愿和恋爱意图。兼顾反证与未知，不计算好感分，不把回复归因为某条建议。',
@@ -86,7 +86,8 @@ function pendingPrivateReviews(companion, byId) {
 }
 function methodTrace(payload) {
   return { purpose: payload.purpose, delivered: (payload.methodCards || []).map(({ id, version }) => ({ id, version })),
-    catalog:(payload.methodCatalog||[]).map(({id,version})=>({id,version})),reported: null };
+    catalog:(payload.methodCatalog||[]).map(({id,version})=>({id,version})),
+    operationalDelivery:{location:payload.methodSelection?.operationalInstructionsLocation||'payload',ids:(payload.methodCatalog||[]).filter(method=>method.instruction||payload.methodSelection?.operationalInstructionsLocation==='system').map(method=>method.id)},reported: null };
 }
 function projectActualActions(actions, byId, scope) {
   return (actions || []).flatMap(action => {
@@ -222,6 +223,7 @@ function buildContext(options) {
   const payload = { promptVersion: PROMPT_VERSION, purpose, method: METHODS[purpose], methodCards: [],methodCatalog:methodSelection.catalog, methodSelection: {
     version: methodSelection.version, selection: methodSelection.selection, candidates: [],
     maxApplied: methodSelection.maxApplied, selectionRule: methodSelection.selectionRule, feedbackRule: methodSelection.feedbackRule }, asOf: new Date().toISOString(),
+    viewerTimeZone:Intl.DateTimeFormat().resolvedOptions().timeZone,
     userRequest: { sourceId: current.id, text: current.text }, goal: redact(companion.goal.text || ''),
     intentAuthority: { sourceId: intentSource.id },
     generationOrigin,
@@ -259,7 +261,7 @@ function buildContext(options) {
     if (payload.topicContext.active && payload.topicContext.active.sourceIds.some(id => foldedPrivateIds.has(id))) Object.assign(payload.topicContext.active, {
       authority: 'derived_private_discussion_needs_sources', foldedSourceIds: payload.topicContext.active.sourceIds.filter(id => foldedPrivateIds.has(id)), sourceAvailability: 'folded_originals_require_lookup' });
   }
-  if (retrievedDiscussion.length) payload.retrievedDiscussion = retrievedDiscussion.map(item => ({ ...sanitize(pick(item, ['id','role','kind','text','suggestions','expressionOptions','artifactRef'])), authority: 'generated_discussion_not_outbound_authorization' }));
+  if (retrievedDiscussion.length) payload.retrievedDiscussion = retrievedDiscussion.map(item => ({ ...sanitize(pick(item, ['id','role','kind','text','discussionExplanation','suggestions','expressionOptions','artifactRef'])), authority: 'generated_discussion_not_outbound_authorization' }));
   const candidatePool = candidatesForCompaction(compacted, companion, { sourceTurnIds, selectedOption, sourceLookupIds });
   const preferredCandidateTurnIds = new Set([...[...eligibleDiscussionTurns(companion)].reverse().filter(item => item.role === 'assistant').slice(0, 1).map(item => item.id), ...sourceTurnIds, selectedOption?.turnId, ...sourceLookupIds].filter(Boolean));
   let taskTextReferences=false;
@@ -268,6 +270,7 @@ function buildContext(options) {
     if(mediaContext || images?.length)payload.imageContext=imageContextFor(payload,images||[],mediaContext);
     payload.methodSelection.candidates=[...new Set([...(payload.methodCatalog||[]).map(m=>m.id),...payload.methodCards.map(m=>m.id)])];
     payload.taskContext=taskContext({records,sources:payload.sources,scope,coverage,generationOrigin,currentSourceId:current.id,responsePreference});
+    payload.taskContext.draftControlPolicy={version:1,required:true,requiredFields:['objective','allowedApproach','avoidances'],intentSourceId:intentSource.id};
     if(taskTextReferences){
       payload.taskContext.sourceTextLocation='sources';
       for(const item of payload.taskContext.recentExchange){delete item.text;if(item.quote)delete item.quote.text;}
@@ -293,8 +296,13 @@ function buildContext(options) {
     if(!fits(payload)&&!taskTextReferences){taskTextReferences=true;refresh();}
     for (const key of ['items', 'openThreads', 'unknowns']) while (!fits(payload) && state[key].length) { state[key].pop(); payload.omittedStateEntries++; }
     if (!fits(payload) && state.focus) { state.focus = ''; payload.omittedStateEntries++; }
-    if(!fits(payload)&&payload.methodCatalog.some(m=>m.brief)){payload.methodCatalog=payload.methodCatalog.map(({id,version,name})=>({id,version,name}));refresh();}
-    while(!fits(payload)&&payload.methodCatalog.length){payload.methodCatalog.pop();refresh();}
+    // Move the canonical operations to the measured system channel under
+    // payload pressure; this is relocation, never a title-only help request.
+    if(!fits(payload)&&payload.methodCatalog.some(method=>method.instruction)){
+      payload.methodCatalog=payload.methodCatalog.map(({id,version})=>({id,version}));
+      payload.methodSelection.operationalInstructionsLocation='system';
+      delete payload.methodSelection.selectionRule;delete payload.methodSelection.feedbackRule;refresh();
+    }
   };
   trimStateNavigation();
   // No substring truncation: reject if the request and latest complete exchange do not fit.
@@ -373,7 +381,7 @@ function buildContext(options) {
       ? { id: t.id, role: t.role, kind: t.kind, sourceId: `private:${t.id}`,text:byId.get(`private:${t.id}`).text,at:t.createdAt,requestId:t.requestId||null }
       : coveredTurnIds.has(t.id) && !sourceTurnIds.includes(t.id) && !sourceLookupIds.includes(t.id)
         ? { id: t.id, role: t.role, kind: t.kind, compacted: true, authority: 'derived_private_discussion_needs_sources' }
-        : { id: t.id, role: t.role, kind: t.kind, text: redact(t.text),at:t.createdAt,requestId:t.requestId||null, authority: 'assistant_discussion_not_factual_evidence' }).concat(previousTurns);
+        : { id: t.id, role: t.role, kind: t.kind, text: redact(t.text),...(t.discussionExplanation?{discussionExplanation:{kind:t.discussionExplanation.kind,text:redact(t.discussionExplanation.text)}}:{}),at:t.createdAt,requestId:t.requestId||null, authority: 'assistant_discussion_not_factual_evidence' }).concat(previousTurns);
     for (const t of group) if (t.role === 'user' && !foldedPrivateIds.has(`private:${t.id}`)) selected.set(`private:${t.id}`, byId.get(`private:${t.id}`));
     refresh();
     trimStateNavigation();
@@ -391,11 +399,32 @@ function buildContext(options) {
   // Candidate originals are available even without compaction. A whole choice
   // either fits or remains an explicit original-turn lookup reference.
   if (candidatePool.length) payload.privateCandidates = [];
-  for (const candidate of candidatePool) {
+  const orderedCandidates=[...candidatePool].sort((a,b)=>Number(preferredCandidateTurnIds.has(b.turnId))-Number(preferredCandidateTurnIds.has(a.turnId)));
+  for (const candidate of orderedCandidates) {
     payload.privateCandidates.push(candidate); trimStateNavigation();
+    // Exact current choices precede older optional discussion groups. Keep whole
+    // latest turns and move older evidence back to explicit lookup, not snippets.
+    if(preferredCandidateTurnIds.has(candidate.turnId))while(!fits(payload)){
+      const index=payload.privateConversation.findIndex(entry=>entry.role==='user'&&!requiredPrivateTurnIds.has(entry.id));
+      if(index<0)break;
+      let end=index+1;while(end<payload.privateConversation.length&&payload.privateConversation[end].role==='assistant')end++;
+      const removed=payload.privateConversation.splice(index,end-index);
+      for(const entry of removed)if(entry.role==='user'&&!essentialIds.has(entry.sourceId))selected.delete(entry.sourceId);
+      refresh();
+    }
     if (!fits(payload)) {
       const reference = { ...candidate, availability: 'needs_lookup' }; delete reference.text; delete reference.quotes;
       payload.privateCandidates[payload.privateCandidates.length - 1] = reference;
+      // An original-turn lookup handle is more useful than an older duplicate
+      // discussion body when the full candidate cannot fit. Latest turns stay.
+      while(!fits(payload)){
+        const index=payload.privateConversation.findIndex(entry=>entry.role==='user'&&!requiredPrivateTurnIds.has(entry.id));
+        if(index<0)break;
+        let end=index+1;while(end<payload.privateConversation.length&&payload.privateConversation[end].role==='assistant')end++;
+        const removed=payload.privateConversation.splice(index,end-index);
+        for(const entry of removed)if(entry.role==='user'&&!essentialIds.has(entry.sourceId))selected.delete(entry.sourceId);
+        refresh();
+      }
       if (!fits(payload)) { payload.privateCandidates.pop(); break; }
     }
   }
@@ -430,7 +459,7 @@ function buildContext(options) {
     }
   }
   if (experienceContext && sameScopeIfPresent(experienceContext, scope)) {
-    payload.experienceContext = { cases: [], adaptations: [], constraints: ['仅为局部经验；不是她的心理或方法因果效果证据。'] };
+    payload.experienceContext = { cases: [], adaptations: [], constraints: ['仅为局部经验；不是她的心理或方法因果效果证据。', '候选适用性尚未确定，核对applicability与当前任务后再使用；本轮明确意思优先，不相关或相反的指导不采用。'] };
     for (const item of (experienceContext.cases || []).slice(0, 4)) {
       const actualActions = projectActualActions(item.actualActions, byId, scope);
       const observations = projectObservations(item.observations, byId, scope);
@@ -444,7 +473,7 @@ function buildContext(options) {
     }
     for (const item of (experienceContext.adaptations || []).slice(0, 4)) {
       if (item.status !== 'active' || item.authority !== 'user_approved_assistance_guidance') continue;
-      includeGrounded(item, payload.experienceContext.adaptations, ['id','version','text','applicability','methodRef','status','scope','authority','sourceIds']);
+      includeGrounded(item, payload.experienceContext.adaptations, ['id','version','text','applicability','applicabilityStatus','matchBasis','methodRef','status','scope','authority','sourceIds']);
     }
   }
   // Complete evidence and evaluated artifacts precede optional method cards.
@@ -458,7 +487,18 @@ function buildContext(options) {
     payload.expressionOptions.unshift(option);
     if(!fits(payload)){payload.expressionOptions.shift();break;}
   }
-  for (const source of [...retrievedSources, ...(memoryResult?.sources || [])].sort((a,b)=>Date.parse(b.at||0)-Date.parse(a.at||0))) trySource(byId.get(source.id));
+  // Explicit lookups retain their own evidence path. Automatic raw retrieval
+  // and recent-note fallback share one bound, preserving relevance before time.
+  for(const source of retrievedSources)trySource(byId.get(source.id));
+  const optionalRawIds=new Set(),optionalRawLimit=8;
+  const tryOptionalRaw=source=>{
+    if(!source||selected.has(source.id))return;
+    if(optionalRawIds.size>=optionalRawLimit)return;
+    trySource(source);if(selected.has(source.id))optionalRawIds.add(source.id);
+  };
+  const optionalRetrieved=[...new Map((memoryResult?.sources||[]).map(source=>[source.id,source])).values()]
+    .sort((a,b)=>(b.retrievalScore||0)-(a.retrievalScore||0)||Date.parse(b.at||0)-Date.parse(a.at||0));
+  for(const source of optionalRetrieved)tryOptionalRaw(byId.get(source.id));
   for (const id of sourceTurnIds) {
     const t = companion.turns.find(t => t.id === id);
     if (!t) continue;
@@ -490,7 +530,7 @@ function buildContext(options) {
     for (const id of item.sourceIds || []) trySource(byId.get(id));
   // Relevant notes arrive through search. Keep a small recent fallback for open
   // requests such as "what could we talk about", never fill the budget with all notes.
-  for (const n of companion.notes.filter(n=>n.use!=='disabled').slice(-3).reverse()) trySource(byId.get(`note:${n.id}`));
+  for (const n of companion.notes.filter(n=>n.use!=='disabled').slice(-3).reverse()) tryOptionalRaw(byId.get(`note:${n.id}`));
   for (const r of restrictions) {
     if(!selected.has(r.sourceId)&&!r.evidenceSourceIds.some(id=>selected.has(id)))continue;
     const compact={sourceId:r.sourceId,evidenceSourceIds:r.evidenceSourceIds};
@@ -582,6 +622,14 @@ function buildContext(options) {
   payload.sources.sort((a, b) => order.get(a.id) - order.get(b.id));
   // End with the current factual position and exact current request. Neither
   // derived summaries nor old assistant prose becomes the active instruction.
+  // Grounding can release space after optional source eviction. Reconsider
+  // supporting cards instead of preserving an earlier empty-card decision.
+  for(const method of methodSelection.methods){
+    if(payload.methodCards.some(card=>card.id===method.id))continue;
+    payload.methodCards.push(runtimeCard(method));
+    if(!fits(payload))payload.methodCards.pop();
+  }
+  refresh();
   const currentRequest=payload.userRequest,position=payload.taskContext;delete payload.userRequest;delete payload.taskContext;
   payload.taskContext=position;payload.userRequest=currentRequest;
   const context=finish(payload, payload.sources, { scope, requestId, companion, coverage }, all, byteBudget, budget);
@@ -590,6 +638,7 @@ function buildContext(options) {
   if (compacted) context.manifest.discussionCompaction = { cacheId: compacted.id, identity: compacted.identity, reused: true,
     coveredTurns: compacted.sourceTurnIds.length, coveredTurnIds: [...compacted.sourceTurnIds], sourceRevisions: { ...compacted.sourceRevisions }, turnFingerprints: { ...compacted.turnFingerprints },
     foldedSourceIds: [...foldedPrivateIds], authority: 'derived_private_discussion_needs_sources' };
+  context.manifest.optionalRawRetrieval={limit:optionalRawLimit,admittedCount:optionalRawIds.size,deferredCount:optionalRetrieved.filter(source=>!selected.has(source.id)).length,ordering:'retrieval_score_then_recency'};
   context.essentialSourceIds=[...essentialIds];
   Object.defineProperty(context, 'fullAvailableSources', { value: all });
   Object.defineProperty(context,'rebuildForRequest',{value:measure=>buildContext({...options,requestMeasure:measure})});
@@ -627,8 +676,10 @@ function buildDraftContext(prepared, plan, info) {
   const qq = prepared.payload.sources.filter(s => s.type === 'qq');
   const selection = selectMethods({ purpose: 'draft' });
   const guidance = parseDraftGuidance(plan.guidance, prepared.payload);
+  requireDraftControlGuidance(guidance,prepared.payload);
   const payload = { promptVersion: PROMPT_VERSION, purpose: 'draft', method: METHODS.draft, methodCards: selection.methods.map(runtimeCard),
     methodSelection: { version: selection.version, candidates: ['compose'], maxApplied: 1 }, style, asOf: prepared.payload.asOf,
+    viewerTimeZone:prepared.payload.viewerTimeZone||Intl.DateTimeFormat().resolvedOptions().timeZone,
     outboundQuotes: quotes, sources: [...qq], coverage: prepared.payload.coverage,
     replyFocus: prepared.payload.replyFocus || [],
     presentation: { language: typeof plan.language==='string'&&/^[a-z]{2,3}(?:-[a-zA-Z0-9]{2,8})*$/.test(plan.language) ? plan.language : 'zh',
@@ -658,6 +709,11 @@ function buildDraftContext(prepared, plan, info) {
     refreshDraftTask();
     refreshDraftImages();
     if(budget.fits(payload))break;
+    if(payload.methodCards.length){
+      payload.methodCatalog=selection.catalog.map(({id,version})=>({id,version}));
+      payload.methodSelection.operationalInstructionsLocation='system';payload.methodCards=[];
+      delete payload.methodSelection.selectionRule;delete payload.methodSelection.feedbackRule;continue;
+    }
     if(payload.taskContext&&!draftTaskTextReferences){draftTaskTextReferences=true;continue;}
     const removable=payload.sources.findIndex(source=>!essentialIds.has(source.id));
     if(removable<0)throw new Error('当前拟表达内容或最新完整来信超过上下文预算，请分段处理；没有静默截断');

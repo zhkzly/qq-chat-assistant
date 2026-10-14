@@ -3,6 +3,7 @@ const test=require('node:test');const assert=require('node:assert/strict');
 const fs=require('node:fs');const os=require('node:os');const path=require('node:path');
 const {Store}=require('../src/store.cjs');const {Controller}=require('../src/controller.cjs');const {normalize}=require('../src/messages.cjs');
 const {replyFocusFor}=require('../src/model.cjs');const {assistModel}=require('../src/assistant-model.cjs');const {scope,raw}=require('./fixtures/native.cjs');
+const {withCurrentDraftControls}=require('./fixtures/draft-controls.cjs');
 const records=Array.from({length:80},(_,i)=>normalize(raw(String(72057594037927000n+BigInt(i)),i===76),scope));
 const settings=()=>({apiKey:'fixture',model:'fixture',baseUrl:'http://fixture.invalid/v1',realChatConsent:{...scope,model:'fixture',baseUrl:'http://fixture.invalid/v1'}});
 const plan={draftPlan:{quotes:[],intent:'reply',style:'natural'}};
@@ -32,7 +33,7 @@ test('changing reply focus discards a pending answer and contact binding clears 
 test('both unified model stages preserve exact selected targets as quoted data without QQ commands',async t=>{
  const inputs=[];const network=async(_,args)=>{
   const body=JSON.parse(args.body),input=JSON.parse(body.messages[1].content);inputs.push(input);
-  return {ok:true,json:async()=>({choices:[{message:{content:JSON.stringify(input.purpose==='draft'?draft:plan)}}]})};
+  return {ok:true,json:async()=>({choices:[{message:{content:JSON.stringify(input.purpose==='draft'?draft:{...plan,draftPlan:withCurrentDraftControls(plan.draftPlan,input)})}}]})};
  };
  const {store,controller}=app(t,(model,context,signal)=>assistModel(model,context,signal,network));
  const ids=[records[0].messageId];controller.configure({replyMessageIds:ids});const actualCount=store.messages(scope).length;
@@ -60,7 +61,7 @@ function cachedImage(t) {
 }
 
 test('authorized current-scope cached images reach both unified stages; foreign and ignored selections do not',async t=>{
- const file=cachedImage(t),calls=[];const {store,controller}=app(t,async(_,context)=>{calls.push(context);return context.payload.purpose==='draft'?draft:plan;});
+ const file=cachedImage(t),calls=[];const {store,controller}=app(t,async(_,context)=>{calls.push(context);return context.payload.purpose==='draft'?draft:{...plan,draftPlan:withCurrentDraftControls(plan.draftPlan,context.payload)};});
  const id='72057594037927991',message=normalize(raw(id,false,{elements:[{picElement:{sourcePath:file,fileName:'one.png'}}]}),scope);store.add(scope,[message]);
  controller.settings.visionEnabled=true;controller.settings.realChatConsent.allowImages=true;controller.configure({images:[{messageId:id,index:0}]});
  await controller.suggest();assert.equal(calls.length,2);assert.ok(calls.every(c=>c.images.length===1&&c.images[0].messageId===id&&c.images[0].url.startsWith('data:image/png;base64,')));

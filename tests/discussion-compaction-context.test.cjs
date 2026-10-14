@@ -1,4 +1,5 @@
 'use strict';
+const {withCurrentDraftControls}=require('./fixtures/draft-controls.cjs');
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { Store } = require('../src/store.cjs');
@@ -38,7 +39,7 @@ test('cached discussion folds a long prior assistant while preserving exact user
   assert.throws(() => parseAssistant({ lookup: { discussionTurnIds: ['foreign-turn'] } }, 'discussion', context.payload), /discussionTurnIds/);
   const plan = { quotes: [{ sourceId: `private:${user.id}`, text: '周末是否方便一起散步' }], authorizationQuote: args.turn.text,
     guidance: { currentStep: { text: '按用户选中的第二个方向表达', sourceIds: [context.payload.userRequest.sourceId] } } };
-  const draft = buildDraftContext(context, plan, args);
+  const draft = buildDraftContext(context, withCurrentDraftControls({...plan,guidance:undefined},context.payload,{objective:'按选中的第二个方向表达散步邀请',allowedApproach:'轻松组织邀请'}), args);
   for (const key of ['discussionCompaction','privateCandidates','privateConversation']) assert.equal(draft.payload[key], undefined);
   assert.equal(JSON.stringify(draft.payload).includes('PRIVATE_CACHE_SUMMARY_'), false); assert.equal(JSON.stringify(draft.payload).includes('PRIVATE_MOTIVE_'), false);
 });
@@ -99,7 +100,7 @@ test('wrapped early draft preparation is repaired into a plan and still uses the
   const early = '先这样表达：\n```json\n' + JSON.stringify({ kind: 'draft', text: '表达', suggestions: [{ style: '自然', text: '周末一起散步吗？' }] }) + '\n```';
   assert.throws(() => parseAssistant(early, 'draft_prepare', prepared.payload), /purpose=draft_prepare.*draftPlan/);
   const planned = { draftPlan: { authorizationQuote: args.turn.text, quotes: [{ sourceId: `private:${user.id}`, text: '周末是否方便一起散步' }] } };
-  const result = await assistModel(settings, prepared, undefined, async (_, request) => { calls.push(JSON.parse(JSON.parse(request.body).messages[1].content)); return response(calls.length === 1 ? early : JSON.stringify(planned)); });
+  const result = await assistModel(settings, prepared, undefined, async (_, request) => { calls.push(JSON.parse(JSON.parse(request.body).messages[1].content)); return response(calls.length === 1 ? early : JSON.stringify({...planned,draftPlan:withCurrentDraftControls(planned.draftPlan,prepared.payload)})); });
   assert.equal(calls.length, 2); assert.match(calls[1].task, /不能直接draft\/suggestions/); assert.equal(result.suggestions, undefined);
   const draft = buildDraftContext(prepared.resultContext || prepared, result.draftPlan, args);
   await assistModel(settings, draft, undefined, async (_, request) => { calls.push(JSON.parse(JSON.parse(request.body).messages[1].content)); return response(JSON.stringify({ kind: 'draft', text: '参考表达', suggestions: [{ style: '自然', text: '周末一起散步吗？' }] })); });

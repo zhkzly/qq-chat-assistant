@@ -1,4 +1,5 @@
 'use strict';
+const {withCurrentDraftControls}=require('./fixtures/draft-controls.cjs');
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -125,10 +126,10 @@ test('mixed private request is separated from the actual outgoing draft input', 
     if (context.payload.purpose === 'draft_prepare') {
       const material = context.payload.sources.find(source => source.type === 'note' && source.text === '今天去爬山了');
       assert.ok(material, 'selected draft material must reach preparation');
-      return { kind: 'draft', text: '', draftPlan: { style: 'short', quotes: [
+      return { kind: 'discussion', text: '只分享本次获准的真实近况。', draftPlan: withCurrentDraftControls({ style: 'short', quotes: [
         { sourceId: context.payload.userRequest.sourceId, text: shareable },
         { sourceId: material.id, text: material.text }
-      ] } };
+      ] },context.payload) };
     }
     assert.equal(context.payload.purpose, 'draft');
     return { kind: 'draft', text: '可以这样分享：', suggestions: [{ style: '简短', text: '实验终于成功啦，今天还出去爬了山，挺开心的。' }] };
@@ -158,13 +159,13 @@ test('invalid draft references cannot authorize discussion-only or unselected no
   const app = setup(async (_, context) => {
     calls++;
     assert.equal(context.payload.purpose, 'draft_prepare');
-    return { kind: 'draft', text: '', draftPlan: { style: 'natural', quotes: [{ sourceId: `note:${forbiddenId}`, text: '不想告诉她的担忧' }] } };
+    return { kind: 'draft', text: '', draftPlan: withCurrentDraftControls({ style: 'natural', quotes: [{ sourceId: `note:${forbiddenId}`, text: '不想告诉她的担忧' }] },context.payload) };
   });
   t.after(() => app.close());
   await app.bind();
   await app.controller.saveNote({ text: '不想告诉她的担忧', use: 'discussion' });
   forbiddenId = companion(app).notes[0].id;
-  await assert.rejects(app.controller.assist({ text: '帮我分享实验成功了。', purpose: 'draft', materialIds: [] }));
+  await assert.rejects(app.controller.assist({ text: '帮我分享实验成功了。', purpose: 'draft', materialIds: [] }),/拟表达内容未能对应/);
   assert.equal(calls, 1, 'invalid preparation must never reach the drafting call');
   assert.equal(assistantTexts(app).length, 0);
 });

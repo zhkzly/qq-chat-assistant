@@ -1,4 +1,5 @@
 'use strict';
+const {withCurrentDraftControls}=require('./fixtures/draft-controls.cjs');
 const test = require('node:test'), assert = require('node:assert/strict');
 const { Store } = require('../src/store.cjs');
 const { normalize } = require('../src/messages.cjs');
@@ -61,7 +62,7 @@ test('assembler budgets the source-bound image map and preserves older selected 
   assert.equal(context.manifest.inputBytes, Buffer.byteLength(JSON.stringify(context.payload)));
   assert.equal(context.manifest.serializedTextRequestBytes, prepareAssistantRequest(settings, context.payload, images).requestBytes);
   assert.deepEqual(context.images, images);
-  const draft = buildDraftContext(context, { intent: 'reply', quotes: [] }, args);
+  const draft = buildDraftContext(context, withCurrentDraftControls({ intent: 'reply', quotes: [] },context.payload), args);
   assert.deepEqual(draft.payload.imageContext.attached, context.payload.imageContext.attached);
   assert.equal(draft.manifest.inputBytes, Buffer.byteLength(JSON.stringify(draft.payload)));
   assert.equal(draft.manifest.serializedTextRequestBytes, prepareAssistantRequest(settings, draft.payload, images).requestBytes);
@@ -95,7 +96,7 @@ test('private help and its bounded natural-language recovery retain the same ima
 test('draft projection and text-only structural repair preserve sources without pretending that pixels were resent', async t => {
   const { prepared, args, images } = fixture(t), calls = [];
   prepared.payload.purpose = 'draft_prepare'; prepared.payload.mediaContext = prepared.mediaContext;
-  const planned = await assistModel(settings, prepared, undefined, async (_, request) => { calls.push(request.body); return response(calls.length === 1 ? 'invalid response' : JSON.stringify({ draftPlan: { intent: 'reply', quotes: [] } })); });
+  const planned = await assistModel(settings, prepared, undefined, async (_, request) => { calls.push(request.body); return response(calls.length === 1 ? 'invalid response' : JSON.stringify({ draftPlan: withCurrentDraftControls({ intent: 'reply', quotes: [] },prepared.payload) })); });
   const first = userPayload(calls[0]), repair = userPayload(calls[1]);
   assert.equal(typeof JSON.parse(calls[1]).messages[1].content, 'string');
   assert.deepEqual(repair.imageContext.attached, []); assert.deepEqual(repair.originalInput.imageContext.attached, []);

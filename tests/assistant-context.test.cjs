@@ -1,4 +1,5 @@
 'use strict';
+const {withCurrentDraftControls}=require('./fixtures/draft-controls.cjs');
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { Store } = require('../src/store.cjs');
@@ -121,7 +122,7 @@ test('draft preparation rejects unauthorized private sources and respects alread
     style: 'natural', quotes: [{ sourceId: source.id, text: source.text }]
   }, fixture.args), /本次明确请求|已选分享素材/);
   const allowed=prepared.payload.sources.find(source=>source.type==='note'&&source.use==='draft');
-  const withoutRepeatedCheckbox=buildDraftContext(prepared,{style:'natural',quotes:[{sourceId:allowed.id,text:allowed.text}]},fixture.args);
+  const withoutRepeatedCheckbox=buildDraftContext(prepared,withCurrentDraftControls({style:'natural',quotes:[{sourceId:allowed.id,text:allowed.text}]},prepared.payload),fixture.args);
   assert.equal(withoutRepeatedCheckbox.payload.outboundQuotes[0].text,allowed.text);
   assert.throws(() => buildDraftContext(prepared, { style: 'natural', quotes: [
     { sourceId: prepared.payload.userRequest.sourceId, text: '模型编造了一个新经历' }
@@ -140,10 +141,10 @@ test('actual serialized drafting request contains only selected expression and Q
   const selected = fixture.companion.notes.find(note => note.use === 'draft');
   const prepared = buildContext({ ...fixture.args, materialIds: [selected.id] });
   assert.ok(JSON.stringify(prepared.payload).includes(privateFear));
-  const context = buildDraftContext(prepared, { style: 'short', quotes: [
+  const context = buildDraftContext(prepared, withCurrentDraftControls({ style: 'short', quotes: [
     { sourceId: prepared.payload.userRequest.sourceId, text: shared },
     { sourceId: `note:${selected.id}`, text: selected.text }
-  ] }, fixture.args);
+  ] },prepared.payload,{objective:'分享实验成功及登山近况',allowedApproach:'简短地分享真实近况'}), fixture.args);
   let captured;
   const result = await assistModel({ apiKey: 'synthetic-only', baseUrl: 'http://fixture.invalid/v1', model: 'synthetic' }, context, undefined,
     async (url, request) => {

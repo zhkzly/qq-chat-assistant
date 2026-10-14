@@ -330,17 +330,18 @@ test('an active topic rejects legacy or empty guidance plans that would drop the
   }
 });
 
-test('effective topic fields require guidance while explicitly removed restrictions and closed topics do not', t => {
+test('removed topic restrictions stay removed while each current drafting task still evaluates its controls', t => {
   const { args, topic, guidance } = fixture(t), prepared = buildContext(args), currentId = prepared.payload.userRequest.sourceId;
   const patch = { operation: 'update', topicId: topic.id, direction: '', constraints: [], purposeSourceIds: [currentId], intentQuote: prepared.payload.userRequest.text };
-  const output = { topicPatch: patch, draftPlan: { quotes: [], intent: 'reply', guidance: { objective: guidance.objective } } };
-  assert.deepEqual(parseAssistant(output, 'draft_prepare', prepared.payload).draftPlan.guidance, { objective: guidance.objective });
+  const control=text=>({text,sourceIds:[currentId]}),currentGuidance={objective:control('组织本次获准表达'),allowedApproach:control('根据本轮明确意思自然表达'),avoidances:[]};
+  const output = { topicPatch: patch, draftPlan: { quotes: [], intent: 'reply', guidance: currentGuidance } };
+  assert.deepEqual(parseAssistant(output, 'draft_prepare', prepared.payload).draftPlan.guidance, currentGuidance);
   const created = { operation: 'create', objective: '此轮确认是否方便见面', direction: '直接确认', constraints: ['不追加无关问题'], purposeSourceIds: [currentId], intentQuote: prepared.payload.userRequest.text };
   assert.throws(() => parseAssistant({ topicPatch: created, draftPlan: { quotes: [], intent: 'reply' } }, 'draft_prepare',
     { ...prepared.payload, topicContext: { active: null, retained: [] } }), /draftPlan.guidance/);
   const closed = { operation: 'complete', topicId: topic.id, purposeSourceIds: [currentId], intentQuote: prepared.payload.userRequest.text };
-  assert.equal(parseAssistant({ topicPatch: closed, draftPlan: { quotes: [], intent: 'reply' } }, 'draft_prepare', prepared.payload).draftPlan.intent, 'reply');
-  assert.equal(parseAssistant({ draftPlan: { quotes: [{ sourceId: currentId, text: '给我具体一句' }] } }, 'draft_prepare',
+  assert.equal(parseAssistant({ topicPatch: closed, draftPlan: { quotes: [], intent: 'reply',guidance:currentGuidance } }, 'draft_prepare', prepared.payload).draftPlan.intent, 'reply');
+  assert.equal(parseAssistant({ draftPlan: { quotes: [{ sourceId: currentId, text: '给我具体一句' }],guidance:currentGuidance } }, 'draft_prepare',
     { ...prepared.payload, topicContext: { active: null, retained: [] } }).draftPlan.quotes.length, 1);
 });
 

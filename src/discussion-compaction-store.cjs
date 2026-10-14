@@ -2,7 +2,7 @@
 const {createHash}=require('node:crypto');
 const {sourceClosure}=require('./provenance.cjs');
 
-const DISCUSSION_COMPACTION_VERSION='discussion-compaction-2026-10-12.1';
+const DISCUSSION_COMPACTION_VERSION='discussion-compaction-2026-10-14.1';
 const LIMITS=Object.freeze({summaryBytes:8000,quoteBytes:6000,quotes:12,turns:128,turnDependencies:384,sources:1024,retained:3});
 const plain=value=>!!value&&typeof value==='object'&&!Array.isArray(value)&&[Object.prototype,null].includes(Object.getPrototypeOf(value));
 const canonical=value=>Array.isArray(value)?value.map(canonical):plain(value)?Object.fromEntries(Object.keys(value).sort().filter(key=>value[key]!==undefined).map(key=>[key,canonical(value[key])])):value;
@@ -81,8 +81,10 @@ function checkedQuotes(input,turns,sourceRevisions) {
     const turn=byId.get(text(quote.turnId,'quote turn id'));
     if(!turn||quote.role!==turn.role)throw new Error('Discussion quote role or original turn is unavailable');
     const field=quote.field||'text';let body,artifactRef=turn.artifactRef,permittedSources=turn.role==='user'?[`private:${turn.id}`]:turn.sourceIds||[];
-    if(field==='text'){
-      if(quote.index!==undefined||quote.quoteIndex!==undefined)throw new Error('Plain discussion quotes cannot choose an index');body=turn.text;
+    if(field==='text'||field==='discussionExplanation'){
+      if(quote.index!==undefined||quote.quoteIndex!==undefined)throw new Error('Plain discussion quotes cannot choose an index');
+      if(field==='discussionExplanation'&&turn.role!=='assistant')throw new Error('Only an assistant has a generated discussion explanation');
+      body=field==='text'?turn.text:turn.discussionExplanation?.text;
     }else if(['suggestions','expressionOptions'].includes(field)){
       if(!Number.isSafeInteger(quote.index)||quote.index<0)throw new Error('Structured discussion quote requires an original index');
       const item=turn[field]?.[quote.index];if(!item||turn.role!=='assistant')throw new Error('Original structured discussion candidate is unavailable');

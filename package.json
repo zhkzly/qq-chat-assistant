@@ -27,7 +27,9 @@
     "test:refresh-ui": "node scripts/refresh-preservation-browser-check.cjs",
     "test:topic-lifecycle-ui": "node scripts/topic-lifecycle-browser-check.cjs",
     "test:model-error-ui": "node scripts/model-error-browser-check.cjs",
-    "test:vision-ui": "node scripts/vision-browser-check.cjs"
+    "test:vision-ui": "node scripts/vision-browser-check.cjs",
+    "test:explanation-ui": "node scripts/explanation-browser-check.cjs",
+    "test:goal-acceptance": "node scripts/goal-acceptance-check.cjs"
   },
   "engines": {
     "node": ">=22"

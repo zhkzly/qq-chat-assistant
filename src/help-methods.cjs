@@ -2,7 +2,7 @@
 
 // These are fallible assistance methods, not inferred facts or relationship stages.
 // Research references were checked in the local context-memory research package.
-const METHOD_VERSION = 'relationship-methods-2026-10-13.1';
+const METHOD_VERSION = 'relationship-methods-2026-10-14.1';
 const sources = {
   listening: { kind: 'human-study', source: 'https://doi.org/10.1177/0146167217747874',
     limit: '倾听与态度清晰度的实验，未检验 AI 恋爱咨询；清楚不等于正确。' },
@@ -76,9 +76,34 @@ const definitions = [
     evidence: [sources.interest, sources.development, sources.userGoal], output: { kinds: ['discussion', 'options', 'draft'], maxItems: 3 } }
 ].map(item => ({ ...item, version: METHOD_VERSION }));
 
+// Every compact operation includes its use case, mechanism and key boundary.
+// These program-owned instructions never interpolate private user input.
+const compactInstructions={
+ clarify:'用户困惑或想先讨论时，区分事情、感受与此次希望，给可修正理解；只问答案会改变帮助的具体问题，不替用户定动机或反复做目的问卷。',
+ choose_next_step:'用户不知如何继续时，按真实近况比较一至三个不同方向及依据：分享、认识邀请、活动、表意或暂缓；不把少历史、沉默或最后自己发言变成固定等待规则。',
+ respond:'面对实际来信，先回应她具体的问题、分享或感受，再考虑真实自我分享或紧贴内容的跟进；已说清的不重复问，忙或收尾时尊重，不用夸奖或连问硬续聊。',
+ compose:'用户要具体表达时，选此次获准原文并保留小目的、方式与局部纠正，再写完整可编辑句子；私下理由不外发，不编经历，指代明确不让用户重抄。',
+ review:'用户回顾时，按时间核对原话、修正、实际发送和体验，区分友好、活动意愿与恋爱意图；兼顾反证未知，再建议继续、表意、修复或收束，不算好感分。',
+ shared_activity:'用户想一起做事时，按真实兴趣和条件提出具体活动及可拒绝的邀请，未知偏好可开放确认；提议、已邀请、接受和发生分开，不编共同点或恢复已取消安排。',
+ correction:'用户纠正事实、用法或分享范围时，定位准确来源与受影响表达，先改善这次帮助；只有明确长期要求才保存偏好，实际回执成功才说已改，不把抱怨升级规则。',
+ express_interest:'用户想表意时，按真实意思帮助表达欣赏、想多认识或约会邀请并准备自然后续；历史少不阻止真诚表达，不要求先证明她喜欢，不把朋友边界或拒绝解释为隐藏兴趣。'
+};
+
 const clone = value => structuredClone(value);
 function methodFor(id) { const found = definitions.find(item => item.id === id); return found ? clone(found) : null; }
 function listMethods() { return clone(definitions); }
+function compactOperationalCards() {
+  return definitions.map(item => ({ id: item.id, version: item.version, name: item.name, instruction: compactInstructions[item.id] }));
+}
+function operationsFor(ids) {
+  if (!Array.isArray(ids)) throw new TypeError('Assistance method IDs must be an array');
+  const cards = compactOperationalCards();
+  return [...new Set(ids)].map(id => {
+    const card = cards.find(item => item.id === id);
+    if (!card) throw new TypeError('Unknown assistance method');
+    return `${card.id}: ${card.instruction}`;
+  }).join('\n');
+}
 function runtimeCard(method) {
   const item = typeof method === 'string' ? methodFor(method) : method;
   if (!item) return null;
@@ -102,8 +127,8 @@ function selectMethods({ purpose = 'discussion', text = '', focus = '', hasReply
   const fullIds=purpose==='draft'?['compose']:explicit?[explicit,...(explicit==='compose'?['clarify']:explicit==='review'?['correction']:['choose_next_step'])]
     : hasReply?['respond','choose_next_step']:['choose_next_step', 'clarify'];
   const methods = [...new Set(fullIds)].slice(0,purpose==='draft'?1:2).map(methodFor);
-  const briefs={clarify:'理清当前意思，只问影响帮助的必要问题。',choose_next_step:'比较有依据的下一步，支持主动联系、邀约、表意或暂缓。',respond:'接住她当前的问题和分享，按真实事实回应，不机械连问。',compose:'组织愿意表达的真实意思，保持已商量的分寸。',review:'回看实际交流及变化，区分建议、发送和反馈。',shared_activity:'基于双方兴趣考虑活动或邀请，提议与发生分别看。',correction:'处理明确纠正和使用范围，未保存不宣称记住。',express_interest:'帮助真实表达欣赏或约会意图，尊重明确边界。'};
-  const catalog=ids.map(id=>{const m=methodFor(id);return {id:m.id,version:m.version,name:m.name,brief:briefs[id]};});
+  const compactCards=compactOperationalCards();
+  const catalog=ids.map(id=>compactCards.find(item=>item.id===id));
   return { version: METHOD_VERSION, selection: explicit ? 'explicit' : 'candidates',
     methods, catalog, maxApplied: purpose === 'draft' ? 1 : 2,
     instruction: methods.map(method => `${method.id}: ${method.instruction}`).join('\n'),
@@ -111,4 +136,4 @@ function selectMethods({ purpose = 'discussion', text = '', focus = '', hasReply
     feedbackRule: '只使用来源有效且适用于当前场景的反馈；单次纠正不自动升级为长期偏好，不自动演化方法。论文提供有限机制参考，不能保证这段关系的结果。' };
 }
 
-module.exports = { METHOD_VERSION, methodFor, listMethods, selectMethods, runtimeCard };
+module.exports = { METHOD_VERSION, methodFor, listMethods, selectMethods, compactOperationalCards, operationsFor, runtimeCard };
