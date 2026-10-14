@@ -1,13 +1,14 @@
 'use strict';
 const { EventEmitter } = require('node:events');
 const { normalize, sameScope, compare } = require('./messages.cjs');
-const {readImage,publicRecord}=require('./media.cjs');
+const {publicRecord}=require('./media.cjs');
+const {selectVisionContext}=require('./vision-context.cjs');
 const { generate, replyFocusFor } = require('./model.cjs');
 const { randomUUID, createHash } = require('node:crypto');
 const {TaskLedger}=require('./request-budget.cjs');
 const {maintenanceDecision}=require('./memory-scheduler.cjs');
 const fingerprint=value=>createHash('sha256').update(JSON.stringify(value)).digest('hex');
-const { assistModel, parseAssistant } = require('./assistant-model.cjs');
+const { assistModel, parseAssistant, imageContextFor } = require('./assistant-model.cjs');
 const { buildContext, buildDraftContext, expressionOptionsFor, PROMPT_VERSION } = require('./assistant-context.cjs');
 const { planDiscussionCompaction, assistDiscussionCompaction } = require('./discussion-compaction.cjs');
 const { discussionTopicBinding, discussionModelBinding, DISCUSSION_COMPACTION_VERSION } = require('./discussion-compaction-store.cjs');
@@ -20,10 +21,10 @@ class Controller extends EventEmitter {
   constructor({ store, read, settings, model = generate, assistantModel = assistModel, memoryModel = null, compactionModel = assistDiscussionCompaction }) {
     super(); Object.assign(this, { store, read, settings, model, assistantModel, memoryModel, compactionModel });
     this.status = { phase: 'waiting_qq', account: null };
-    this.selectedImages=[];this.replyMessageIds=[];this.features={qqDraftFill:false};
+    this.selectedImages=[];this.replyMessageIds=[];this.visionCache=null;this.features={qqDraftFill:false};
     this.scope = null; this.epoch = 0; this.revision = 0; this.advice = null;
     this.busy = false; this.historyBusy = false; this.error = ''; this.instruction = settings.instruction || '自然一点，贴近我的说话方式';
-    this.visible = true; this.auto = settings.auto === true; this.modelReady = !!(settings.apiKey || settings.anonymous); this.abort = null; this.timer = null;
+    this.visible = true; this.autoImages = settings.autoImages === true; this.auto = settings.auto === true; this.modelReady = !!(settings.apiKey || settings.anonymous); this.abort = null; this.timer = null;
     this.assistantAbort = null; this.assistantBusy = false; this.assistantError = '';
     this.memoryAbort = null; this.memoryTimer = null; this.memoryBusy = false; this.memoryRetryAfter = 0; this.memoryFailures=0;
     this.activeAssist=null;this.pendingAssist=null;this.assistantRetryTimer=null;
@@ -41,7 +42,29 @@ class Controller extends EventEmitter {
     this.status = status; this.changed();
   }
   changed() { this.emit('change', this.snapshot()); }
-  hasModelConsent() { const c=this.settings.realChatConsent;return !!(this.scope && c && c.accountUid===this.scope.accountUid && c.peerUin===this.scope.peerUin && c.baseUrl===this.settings.baseUrl && c.model===this.settings.model); }
+  hasModelConsent() { const c=this.settings.realChatConsent;return !!(this.scope && c && c.accountUid===this.scope.accountUid && c.peerUin===this.scope.peerUin && c.baseUrl===this.settings.baseUrl && c.model===this.settings.model && ['accountUin','peerUid'].every(field=>!Object.hasOwn(c,field)||c[field]===this.scope[field])); }
+  hasImageConsent({automatic=false}={}) {
+    const consent=this.settings.realChatConsent;
+    if(!this.hasModelConsent()||!consent?.allowImages)return false;
+    // Legacy permission remains manual-only. New grants bind all QQ identities.
+    if(['accountUin','peerUid'].some(field=>Object.hasOwn(consent,field)&&consent[field]!==this.scope[field]))return false;
+    return !automatic || consent.allowAutomaticImages===true&&['accountUid','accountUin','peerUid','peerUin'].every(field=>consent[field]===this.scope[field]);
+  }
+  visionContext({refresh=false}={}) {
+    const manual=this.selectedImages.length>0,automatic=this.autoImages&&this.settings.visionEnabled&&this.hasImageConsent({automatic:true});
+    const permitted=this.scope&&this.settings.visionEnabled&&this.hasImageConsent()&&(manual||automatic);
+    if(!permitted)return {mode:'off',images:[],omitted:[]};
+    const key=fingerprint({scope:this.scope,revision:this.revision,generation:this.store.contextGeneration?.(this.scope),selection:this.selectedImages,focus:this.replyMessageIds,automatic});
+    if(!refresh&&this.visionCache?.key===key&&Date.now()-this.visionCache.at<10000)return this.visionCache.value;
+    const value=selectVisionContext({records:this.store.messages(this.scope),availableSources:this.store.memorySources(this.scope),selectedImages:this.selectedImages,replyMessageIds:this.replyMessageIds,automatic});
+    this.visionCache={key,at:Date.now(),value};return value;
+  }
+  visionStatus() {
+    let context;
+    try{context=this.visionContext();}catch{return {mode:'manual',ready:false,reason:'所选图片不可读取或已不再用于助手，请重新选择',imageCount:0,omitted:[],automaticEnabled:false};}
+    const reason=!this.settings.visionEnabled?'当前模型尚未确认支持图片':!this.hasImageConsent()?'尚未允许当前好友图片进入当前模型':this.selectedImages.length?'手动选择的图片优先于自动参考':!this.autoImages?'自动图片参考已关闭':!this.hasImageConsent({automatic:true})?'尚未允许自动参考当前好友的近期图片':context.images.length?'本次会附上近期相关图片':'近期没有可附上的图片';
+    return {mode:context.mode,ready:context.mode!=='off',reason,imageCount:context.images.length,omitted:context.omitted,automaticEnabled:this.autoImages&&this.settings.visionEnabled&&this.hasImageConsent({automatic:true})};
+  }
   snapshot() {
     const messages = this.store.messages(this.scope);
     return { status: this.status, scope: this.scope, revision: this.revision,
@@ -57,7 +80,7 @@ class Controller extends EventEmitter {
       discussionCompaction:this.scope&&sameScope(this.discussionCompaction?.scope,this.scope)?this.discussionCompaction:null,
       requestUsage:this.scope?this.usage.recent(this.scope,8):[],maintenanceSchedule:this.scope?this.memorySchedule():null,
       activeModelProfileId: this.settings.activeModelProfileId, replyFocus: replyFocusFor(messages, this.replyMessageIds),
-      instruction: this.instruction, auto: this.auto, model: this.settings.model, modelReady: this.modelReady, modelConsent:this.hasModelConsent(), modelBaseUrl:this.settings.baseUrl || '',imageSelection:this.selectedImages,modelVisionEnabled:!!this.settings.visionEnabled,imageConsent:!!(this.hasModelConsent()&&this.settings.realChatConsent?.allowImages),qqDraftFillAvailable:!!this.features.qqDraftFill };
+      instruction: this.instruction, auto: this.auto, autoImages:this.autoImages,imageContext:this.visionStatus(),automaticImageConsent:this.hasImageConsent({automatic:true}), model: this.settings.model, modelReady: this.modelReady, modelConsent:this.hasModelConsent(), modelBaseUrl:this.settings.baseUrl || '',imageSelection:this.selectedImages,modelVisionEnabled:!!this.settings.visionEnabled,imageConsent:this.hasImageConsent(),qqDraftFillAvailable:!!this.features.qqDraftFill };
   }
   async bind(uin) {
     this.invalidateAssistant();
@@ -156,7 +179,7 @@ class Controller extends EventEmitter {
         if (this.auto && epoch === this.epoch) this.schedule(); this.scheduleMemory(); }
     }
   }
-  configure({ instruction, auto, images, replyMessageIds }) {
+  configure({ instruction, auto, autoImages, images, replyMessageIds }) {
     if (replyMessageIds !== undefined) {
       const selected = replyFocusFor(this.store.messages(this.scope), replyMessageIds);
       const nextIds = selected.mode === 'selected' ? selected.messageIds : [];
@@ -171,6 +194,7 @@ class Controller extends EventEmitter {
       const selected=images.slice(0,3).filter(i=>typeof i.messageId==='string'&&/^\d+$/.test(i.messageId)&&Number.isInteger(i.index));
       if(JSON.stringify(selected)!==JSON.stringify(this.selectedImages)){this.invalidateAssistant();this.selectedImages=selected;this.abort?.abort();this.advice=null;}
     }
+    if(typeof autoImages==='boolean'&&autoImages!==this.autoImages){this.invalidateAssistant();this.autoImages=autoImages;this.settings.autoImages=autoImages;this.visionCache=null;this.abort?.abort();this.advice=null;}
     if (typeof auto === 'boolean') {this.auto = auto;this.settings.auto=auto;}
     if (!this.auto) clearTimeout(this.timer);
     this.changed();
@@ -185,7 +209,7 @@ class Controller extends EventEmitter {
   }
   setVisible(visible) { this.visible=visible;if(!visible){this.invalidateAssistant();clearTimeout(this.timer);this.abort?.abort();}else { if(this.auto && this.scope)this.schedule(); this.scheduleMemory(); } }
   schedule() { if(!this.visible||this.assistantBusy||this.pendingAssist)return;if(!this.hasModelConsent())return; clearTimeout(this.timer); this.timer = setTimeout(() => this.suggest({automatic:true}).catch(() => {}), 1800); this.timer.unref?.(); }
-  automaticFingerprint(){return fingerprint({scope:this.scope,revision:this.revision,generation:this.store.contextGeneration?.(this.scope),model:this.settings.model,baseUrl:this.settings.baseUrl,instruction:this.instruction,images:this.selectedImages,focus:this.replyMessageIds});}
+  automaticFingerprint(){return fingerprint({scope:this.scope,revision:this.revision,generation:this.store.contextGeneration?.(this.scope),model:this.settings.model,baseUrl:this.settings.baseUrl,instruction:this.instruction,images:this.selectedImages,autoImages:this.autoImages,automaticImageConsent:this.hasImageConsent({automatic:true}),focus:this.replyMessageIds});}
   async suggest({automatic=false}={}) {
     const scope = this.requireScope(), epoch = this.epoch;
     if(automatic&&this.lastAutomaticFingerprint===this.automaticFingerprint())return this.advice;
@@ -202,6 +226,7 @@ class Controller extends EventEmitter {
   }
   requireScope() { if (!this.scope) throw new Error('请先选择一个 QQ 私聊'); return this.scope; }
   invalidateAssistant({preserveTask=false}={}) {
+    this.visionCache=null;
     this.discussionCompaction=null;
     const old=this.activeAssist||this.pendingAssist;if(!preserveTask&&old?.taskId){try{this.usage.finish(old.scope,old.taskId,'cancelled')}catch{}}
     clearTimeout(this.assistantRetryTimer);this.activeAssist=null;this.pendingAssist=null;
@@ -352,7 +377,7 @@ class Controller extends EventEmitter {
     if (!['discussion', 'draft', 'review','reply'].includes(purpose)) throw new Error('未知的帮助用途');
     if(!Array.isArray(sourceTurnIds)||sourceTurnIds.length>8||sourceTurnIds.some(id=>typeof id!=='string'))throw new Error('参考的私下讨论不合法');
     if(selectedOption&&(!Number.isInteger(selectedOption.index)||typeof selectedOption.turnId!=='string'))throw new Error('表达方向不合法');
-    if(this.selectedImages.length&&(!this.settings.visionEnabled||!this.settings.realChatConsent?.allowImages))throw new Error('所选图片需要启用视觉模型并明确允许图片发送');
+    if(this.selectedImages.length&&(!this.settings.visionEnabled||!this.hasImageConsent()))throw new Error('所选图片需要启用视觉模型并明确允许图片发送');
     const budget=resumes>0&&taskId?this.usage.resume(scope,taskId):this.usage.create(scope,{id:taskId,
       inputDigest:fingerprint({text,purpose,materialIds,sourceTurnIds,selectedOption,feedbackIntentId,scope,model:this.settings.model,baseUrl:this.settings.baseUrl}),origin,limit:Number(this.settings.assistantRequestLimit)||4});
     if(budget.reused&&!resumes){
@@ -383,14 +408,12 @@ class Controller extends EventEmitter {
     try {
       const records = this.store.messages(scope), coverage = this.store.coverage(scope);
       query=retrievalQuery({text,records,companion,transient});
-      const images=this.selectedImages.map(item=>{
-        if(!this.store.memorySources(scope).some(s=>s.id===`qq:${item.messageId}`))throw new Error('所选图片来源已撤回或不再用于助手，请重新选择');
-        const record=records.find(m=>m.messageId===item.messageId);const image=readImage(record,item.index);
-        return {url:`data:${image.type};base64,${image.data.toString('base64')}`,messageId:record.messageId,index:item.index,bytes:image.data.length};
-      });
+      const vision=this.visionContext({refresh:true}),images=vision.images;
       const assemblyOptions=()=>{
         companion=this.store.getCompanion(scope);
         const availableSources=this.store.memorySources(scope);
+        const liveImages=images.filter(image=>availableSources.some(source=>source.id===`qq:${image.messageId}`));
+        const liveMediaContext={mode:vision.mode,omitted:vision.omitted.filter(item=>availableSources.some(source=>source.id===item.sourceId))};
         const memoryResult=this.store.searchMemory(scope,query,{limit:16,...reviewRange});
         const index=this.store.searchMemory(scope,query,{limit:8});
         const explicitFeedbackIds=sourceTurnIds.map(id=>companion.turns.find(t=>t.id===id)?.feedbackId).filter(Boolean);
@@ -400,8 +423,8 @@ class Controller extends EventEmitter {
         const intentSourceId=feedbackIntentId?`private:feedback-${feedbackIntentId}`:undefined;
         if(intentSourceId&&!explicitFeedbackIds.includes(feedbackIntentId))throw new Error('本次反馈意图未绑定选中的反馈对象');
         return { scope, records, companion, turn, purpose: purpose === 'draft' ? 'draft_prepare' : purpose,
-          materialIds, coverage, requestId, settings, byteBudget: settings.assistantContextBytes || 48000,availableSources,memoryResult,
-          memoryIndex:[...index.items,...index.episodes],retrievedSources,sourceTurnIds,selectedOption,replyMessageIds:[...this.replyMessageIds],imageMessageIds:images.map(image=>image.messageId),
+          materialIds, coverage, requestId, settings, images:liveImages,mediaContext:liveMediaContext, byteBudget: settings.assistantContextBytes || 48000,availableSources,memoryResult,
+          memoryIndex:[...index.items,...index.episodes],retrievedSources,sourceTurnIds,selectedOption,replyMessageIds:[...this.replyMessageIds],imageMessageIds:liveImages.map(image=>image.messageId),
           actionReceipts:receipts,lookupHistory,reviewRange,
           relationshipContext:this.store.relationshipView?.(scope,{query,limit:16}),
           experienceContext,allowExperienceProposals:purpose==='review'||explicitFeedbackIds.length>0,topicContext,intentSourceId,
@@ -410,7 +433,11 @@ class Controller extends EventEmitter {
       };
       const attachImages=input=>{
         const availableSources=this.store.memorySources(scope);
-        input.images=images.filter(image=>availableSources.some(s=>s.id===`qq:${image.messageId}`));input.manifest.images=input.images.map(({url,...metadata})=>metadata);return input;
+        input.images=images.filter(image=>availableSources.some(s=>s.id===`qq:${image.messageId}`));
+        const delivered=new Set(input.payload.sources.map(source=>source.id));
+        input.mediaContext={mode:vision.mode,omitted:vision.omitted.filter(item=>availableSources.some(source=>source.id===item.sourceId)&&delivered.has(item.sourceId))};
+        input.payload.imageContext=imageContextFor(input.payload,input.images,input.mediaContext);
+        input.manifest.images=input.images.map(({url,...metadata})=>metadata);input.manifest.imageCount=input.images.length;input.manifest.imageContext=input.payload.imageContext;return input;
       };
       const assemble=async()=>{
         let options=assemblyOptions();
@@ -544,7 +571,7 @@ class Controller extends EventEmitter {
       if(result.draftPlan?.clarification) result={...result,kind:'question',text:result.kind==='question'&&typeof result.text==='string'&&result.text.trim()?result.text:result.draftPlan.clarification};
       else if(result.draftPlan){
         const allowedImages=context.images;
-        context=buildDraftContext(context,result.draftPlan,{scope,requestId,companion,coverage,settings});context.images=allowedImages;
+        context=buildDraftContext(context,result.draftPlan,{scope,requestId,companion,coverage,settings});context.images=allowedImages;context.payload.imageContext=imageContextFor(context.payload,allowedImages,vision);context.manifest.imageContext=context.payload.imageContext;
         result=await invoke(context);if(!current())return;reviewed=null;
       } else if(purpose==='draft'&&!['question','discussion'].includes(result.kind))throw new Error('模型尚未明确拟表达内容，请继续说明或选择一个方向');
       if(!current())return;

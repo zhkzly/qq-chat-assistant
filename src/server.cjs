@@ -55,7 +55,7 @@ function createServer({ controller, token, uiDir, saveSettings, fillDraft, inspe
 
       if (request.method === 'GET' && url.pathname === '/api/model-profiles') return json(response, 200, publicProfiles(controller.settings));
       if(request.method==='GET' && url.pathname==='/api/media') {
-        if(!controller.scope || url.searchParams.get('accountUid')!==controller.scope.accountUid || url.searchParams.get('peerUid')!==controller.scope.peerUid)throw new Error('会话已改变，请重新查看图片');
+        if(!controller.scope || ['accountUid','accountUin','peerUid','peerUin'].some(field=>url.searchParams.get(field)!==controller.scope[field]))throw new Error('会话已改变，请重新查看图片');
         const message=controller.store.messages(controller.scope).find(m=>m.messageId===url.searchParams.get('messageId'));
         if(!message)throw new Error('图片不属于当前会话');const image=readImage(message,url.searchParams.get('index'));
         response.writeHead(200,{'Content-Type':image.type,'Cache-Control':'no-store'});return response.end(image.data);
@@ -136,13 +136,17 @@ function createServer({ controller, token, uiDir, saveSettings, fillDraft, inspe
             if(Object.keys(args).some(key=>!['accountUid','accountUin','peerUid','peerUin','refreshRestore','images','replyMessageIds'].includes(key)))throw new Error('恢复只能设置原会话的消息和图片选择');
             controller.configure({images:args.images,replyMessageIds:args.replyMessageIds});break;
           }
+          if((args.images!==undefined||args.autoImages!==undefined)&&(!controller.scope||['accountUid','accountUin','peerUid','peerUin'].some(field=>args[field]!==controller.scope[field])))throw new Error('会话已改变，请重新设置图片参考');
           if (args.replyMessageIds !== undefined && (args.accountUid !== controller.scope?.accountUid || args.peerUid !== controller.scope?.peerUid)) throw new Error('会话已改变，请重新选择回复重点');
           controller.configure(args);if(saveSettings)saveSettings(controller.settings);break;
         case '/api/older': await controller.loadOlder(200); break;
         case '/api/consent': {
           if(args.allow!==true || !controller.scope || !saveSettings)throw new Error('请明确允许当前会话使用当前模型');
           if(args.accountUid!==controller.scope.accountUid || args.peerUin!==controller.scope.peerUin || args.baseUrl!==controller.settings.baseUrl || args.model!==controller.settings.model)throw new Error('会话或模型已改变，请重新确认授权');
-          controller.settings.realChatConsent={accountUid:controller.scope.accountUid,peerUin:controller.scope.peerUin,baseUrl:controller.settings.baseUrl,model:controller.settings.model,allowImages:args.allowImages===true,grantedAt:new Date().toISOString()};
+          if((args.allowImages===true||args.allowAutomaticImages===true)&&['accountUid','accountUin','peerUid','peerUin'].some(field=>args[field]!==controller.scope[field]))throw new Error('图片授权的会话已改变，请重新确认');
+          if(args.allowAutomaticImages===true&&args.allowImages!==true)throw new Error('自动图片参考需要明确允许图片发送');
+          controller.invalidateAssistant();controller.abort?.abort();controller.advice=null;
+          controller.settings.realChatConsent={...controller.scope,baseUrl:controller.settings.baseUrl,model:controller.settings.model,allowImages:args.allowImages===true,allowAutomaticImages:args.allowImages===true&&args.allowAutomaticImages===true,grantedAt:new Date().toISOString()};
           saveSettings(controller.settings);controller.error='';controller.changed();controller.scheduleMemory();break;
         }
         case '/api/settings': {

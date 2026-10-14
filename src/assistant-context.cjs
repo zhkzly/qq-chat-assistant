@@ -1,14 +1,14 @@
 'use strict';
 const crypto = require('node:crypto');
 const { redact } = require('./model.cjs');
-const { prepareAssistantRequest, parseDraftGuidance } = require('./assistant-model.cjs');
+const { prepareAssistantRequest, imageContextFor, parseDraftGuidance } = require('./assistant-model.cjs');
 const { selectMethods, runtimeCard } = require('./help-methods.cjs');
 const { validatedCompaction, candidatesForCompaction } = require('./discussion-compaction.cjs');
 const { eligibleDiscussionTurns } = require('./discussion-compaction-store.cjs');
 const {qqSourceMetadata}=require('./messages.cjs');
 const {requiredQuoteSources,taskContext}=require('./context-task.cjs');
 const {sourceRevision}=require('./store.cjs');
-const PROMPT_VERSION = 'relationship-context-2026-10-13.8';
+const PROMPT_VERSION = 'relationship-context-2026-10-14.1';
 const METHODS = {
   discussion: '围绕用户真正希望的恋爱发展选择当前帮助，可接续、邀请、表达好感或讨论。意思明确就直接帮助，只问会改变建议的必要问题。允许暂缓或不用助手，不强制每次制定目的。',
   review: '按实际覆盖回顾相处、共同经历、用户体验与双方明确的浪漫方向，分别说普通友好、活动意愿和恋爱意图。兼顾反证与未知，不计算好感分，不把回复归因为某条建议。',
@@ -146,7 +146,7 @@ function finish(payload, sources, info, allSources, byteBudget, budget) {
 function buildContext(options) {
   const { scope, records, companion, turn, purpose = 'discussion', coverage, requestId,
   materialIds = [], byteBudget = 48000, availableSources, memoryResult, memoryIndex = [], retrievedSources = [],
-  sourceTurnIds = [], selectedOption, replyMessageIds = [], imageMessageIds = [], actionReceipts = [], lookupHistory = [], reviewRange,
+  sourceTurnIds = [], selectedOption, replyMessageIds = [], imageMessageIds = [], images, mediaContext, actionReceipts = [], lookupHistory = [], reviewRange,
   relationshipContext = null, experienceContext = null, topicContext = null, intentSourceId = null,
   generationOrigin = 'private_discussion', currentObservationSourceId = null,
   discussionCompaction = null, sourceLookupIds = [], retrievedDiscussion = [],
@@ -180,6 +180,7 @@ function buildContext(options) {
   const selected = new Map([[current.id, current]]);
   for (const id of protectedPendingIds) selected.set(id, byId.get(id));
   const validQQ = records.filter(m => eligibleQQ(m) && byId.has(`qq:${m.messageId}`));
+  const protectedImageIds=[...new Set([...imageMessageIds,...(images||[]).map(image=>image.messageId)])];
   // Protect both complete sides of the latest exchange, including after the
   // user has already replied in several bubbles. Never lose her boundary then.
   let start = validQQ.length;
@@ -188,10 +189,10 @@ function buildContext(options) {
     do { start--; } while (start > 0 && validQQ[start - 1].direction === direction);
   }
   for (const message of validQQ.slice(start)) selected.set(`qq:${message.messageId}`, byId.get(`qq:${message.messageId}`));
-  for(const id of requiredQuoteSources(records,byId,[...replyMessageIds,...imageMessageIds]))selected.set(id,byId.get(id));
+  for(const id of requiredQuoteSources(records,byId,[...replyMessageIds,...protectedImageIds]))selected.set(id,byId.get(id));
   for (const id of materialIds) selected.set(`note:${id}`, byId.get(`note:${id}`));
   for (const id of replyMessageIds) if (byId.has(`qq:${id}`)) selected.set(`qq:${id}`, byId.get(`qq:${id}`));
-  for (const id of imageMessageIds) if (byId.has(`qq:${id}`)) selected.set(`qq:${id}`, byId.get(`qq:${id}`));
+  for (const id of protectedImageIds) if (byId.has(`qq:${id}`)) selected.set(`qq:${id}`, byId.get(`qq:${id}`));
   const selectedProposal = selectedOption && companion.turns.find(t => t.id === selectedOption.turnId && t.role === 'assistant')?.expressionOptions?.[selectedOption.index];
   if (selectedOption && !selectedProposal) throw new Error('选中的表达方向已变化，请重新选择');
   const proposals = companion.turns.filter(t => t.role === 'assistant' && t.expressionOptions?.length).slice(-4)
@@ -264,6 +265,7 @@ function buildContext(options) {
   let taskTextReferences=false;
   const refresh = () => {
     payload.sources = [...selected.values()]; payload.allowedMaterialIds=payload.sources.filter(s=>s.type==='note'&&s.use==='draft').map(s=>s.id);
+    if(mediaContext || images?.length)payload.imageContext=imageContextFor(payload,images||[],mediaContext);
     payload.methodSelection.candidates=[...new Set([...(payload.methodCatalog||[]).map(m=>m.id),...payload.methodCards.map(m=>m.id)])];
     payload.taskContext=taskContext({records,sources:payload.sources,scope,coverage,generationOrigin,currentSourceId:current.id,responsePreference});
     if(taskTextReferences){
@@ -583,6 +585,8 @@ function buildContext(options) {
   const currentRequest=payload.userRequest,position=payload.taskContext;delete payload.userRequest;delete payload.taskContext;
   payload.taskContext=position;payload.userRequest=currentRequest;
   const context=finish(payload, payload.sources, { scope, requestId, companion, coverage }, all, byteBudget, budget);
+  if(images)context.images=structuredClone(images);
+  if(payload.imageContext)context.mediaContext={mode:payload.imageContext.mode,omitted:structuredClone(payload.imageContext.omitted)};
   if (compacted) context.manifest.discussionCompaction = { cacheId: compacted.id, identity: compacted.identity, reused: true,
     coveredTurns: compacted.sourceTurnIds.length, coveredTurnIds: [...compacted.sourceTurnIds], sourceRevisions: { ...compacted.sourceRevisions }, turnFingerprints: { ...compacted.turnFingerprints },
     foldedSourceIds: [...foldedPrivateIds], authority: 'derived_private_discussion_needs_sources' };
@@ -636,12 +640,15 @@ function buildDraftContext(prepared, plan, info) {
       recentExchange:recent,selfMessagesAfterLastContact:task.selfMessagesAfterLastContact.filter(id=>ids.has(id)),contactMessagesAfterLastSelf:task.contactMessagesAfterLastSelf.filter(id=>ids.has(id)),observationCoverage:task.observationCoverage,factsRule:task.factsRule};
     if(draftTaskTextReferences){payload.taskContext.sourceTextLocation='sources';for(const item of recent){delete item.text;if(item.quote)delete item.quote.text;}}
   };
+  const refreshDraftImages=()=>{if(prepared.payload.imageContext||prepared.mediaContext||prepared.images?.length)
+    payload.imageContext=imageContextFor(payload,prepared.images,prepared.mediaContext||prepared.payload.imageContext);};
   refreshDraftTask();
+  refreshDraftImages();
   if (guidance && Object.keys(guidance).length) payload.draftingGuidance = { ...guidance,
     authority: 'expression_control_not_message_content',
     instruction: '这些短控制只约束表达任务与用法，不是可发送原文。不要写出控制说明、私下理由或来源标识；保持outboundQuotes授权的意思，askFollowup:false不排除本来要表达的问题。' };
   const controlIds = guidance ? [...new Set([guidance.objective,guidance.allowedApproach,...(guidance.avoidances || []),guidance.currentStep].filter(Boolean).flatMap(item => item.sourceIds))] : [];
-  const essentialIds=new Set([...(prepared.essentialSourceIds||qq.map(source=>source.id)),...quotes.map(q=>q.sourceId),...controlIds,...payload.replyFocus.map(id=>`qq:${id}`)]);
+  const essentialIds=new Set([...(prepared.essentialSourceIds||qq.map(source=>source.id)),...quotes.map(q=>q.sourceId),...controlIds,...payload.replyFocus.map(id=>`qq:${id}`),...(payload.imageContext?.attached||[]).map(image=>image.sourceId)]);
   for (;;) {
     const kept=new Set(payload.sources.map(source=>source.id));let laterComplete=true;
     for(const source of [...qq].reverse()){
@@ -649,6 +656,7 @@ function buildDraftContext(prepared, plan, info) {
       if(!laterComplete)payload.sources=payload.sources.map(item=>item.id===source.id?{...item,historicalOnly:true,continuationCoverage:'later_messages_omitted'}:item);
     }
     refreshDraftTask();
+    refreshDraftImages();
     if(budget.fits(payload))break;
     if(payload.taskContext&&!draftTaskTextReferences){draftTaskTextReferences=true;continue;}
     const removable=payload.sources.findIndex(source=>!essentialIds.has(source.id));
@@ -660,6 +668,8 @@ function buildDraftContext(prepared, plan, info) {
   const uniqueSources = entries => [...new Map(entries.map(source => [source.id, source])).values()];
   const safeSources=uniqueSources([...payload.sources,...referencedSources]),allSafeSources=uniqueSources([...qq,...referencedSources]);
   const context=finish(payload,safeSources,info,allSafeSources,prepared.manifest.byteBudget,budget);
+  if(prepared.images)context.images=structuredClone(prepared.images);
+  if(prepared.mediaContext||prepared.payload.imageContext)context.mediaContext={mode:payload.imageContext.mode,omitted:structuredClone(payload.imageContext.omitted)};
   context.essentialSourceIds=[...essentialIds];
   Object.defineProperty(context,'rebuildForRequest',{value:measure=>buildDraftContext(prepared,plan,{...info,requestMeasure:measure})});
   return context;

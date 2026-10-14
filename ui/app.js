@@ -9,6 +9,7 @@ let nextPurpose='discussion',composerEditVersion=0;
 let assistantPending=false,assistantLocalError='',assistantThreadKey='',assistantNotesKey='',assistantStateKey='',goalVersion='',goalDirty=false,assistantContextVersion=0,draftMaterialIds=new Set(),draftOrigin=null;
 let actionPanelKey='',memorySearchVersion=0,memoryResultsRevision=null,selectedDiscussion=null;
 let memoryRetryPending=false;
+let visionPending=false;
 let topicActionPending=null;
 let helpingMethods=new Map();
 let draftArtifactRefs=[],draftRevision=0,draftDirty=false,draftSyncBusy=false,draftSyncBlocked=false,draftRetryAt=0,draftEditTimer=null,draftEditPending=false,legacyDraftCandidate=null;
@@ -108,6 +109,7 @@ function adopt(text,origin=null,artifactRefs=[]){artifactRefs=resolveDraftArtifa
 async function copyText(text,artifactRefs=text===$('draft').value?draftArtifactRefs:[]){if(!text?.trim())return;const originState=draftOriginState(state,text===$('draft').value?draftOrigin:null,artifactRefs);if(!['active','reviewed'].includes(originState)){syncDraftSafety();return;}const scope=state?.scope,refs=structuredClone(artifactRefs);try{await navigator.clipboard.writeText(text);queueDraftEvent('clipboard_write',{text,artifactRefs:refs,scope});$('draft-status').textContent='已复制，回 QQ 按 Ctrl+V 粘贴';}catch{queueDraftEvent('clipboard_write',{text,artifactRefs:refs,scope,outcome:'failed'});if(text===$('draft').value)openDraft();else adopt(text,null,refs);$('draft').select();queueDraftEvent('manual_copy_offered',{text,artifactRefs:refs,scope,outcome:'unknown'});$('draft-status').textContent='请按 Ctrl+C 复制'}}
 function renderHistory(keepAnchor=false) {
  if(!state?.scope)return;
+ const expected=scopeKey,epoch=historyEpoch,recordScope=structuredClone(state.scope);
  const current=`${scopeKey}:${historyKey}:${visibleCount}:${state.revision}:${replySelection.join(',')}:${JSON.stringify(imageSelection)}`;
  if(current===historyVersion)return;historyVersion=current;
  const pane=$('history'),previousHeight=pane.scrollHeight,previousTop=pane.scrollTop,atEnd=previousHeight-previousTop-pane.clientHeight<40;
@@ -120,8 +122,14 @@ function renderHistory(keepAnchor=false) {
   for(const media of message.media||[]){
     const id=`${message.messageId}:${media.index}`,row=document.createElement('div');row.className='media-row';
     const image=document.createElement('img');image.className='chat-image';image.alt=media.name||'QQ 图片';image.hidden=!imageBlobs.has(id);if(imageBlobs.has(id))image.src=imageBlobs.get(id);
-    const preview=document.createElement('button');preview.className='text-button';preview.textContent='查看图片';preview.onclick=async()=>{try{const response=await api(`/api/media?accountUid=${encodeURIComponent(state.scope.accountUid)}&peerUid=${encodeURIComponent(state.scope.peerUid)}&messageId=${message.messageId}&index=${media.index}`);const url=URL.createObjectURL(await response.blob());imageBlobs.set(id,url);image.src=url;image.hidden=false;preview.hidden=true;}catch(e){error(e.message)}};
-    const label=document.createElement('label');label.className='toggle';const check=document.createElement('input');check.type='checkbox';check.checked=imageSelection.some(v=>v.messageId===message.messageId&&v.index===media.index);check.onchange=()=>{imageSelection=imageSelection.filter(v=>!(v.messageId===message.messageId&&v.index===media.index));if(check.checked){if(imageSelection.length>=3){check.checked=false;error('最多选三张图片');return}imageSelection.push({messageId:message.messageId,index:media.index})}saveOptions()};label.append(check,document.createTextNode('本次让 AI 看此图'));
+    const preview=document.createElement('button');preview.className='text-button';preview.textContent='查看图片';preview.onclick=async()=>{if(expected!==scopeKey||epoch!==historyEpoch)return;preview.disabled=true;try{
+     const query=new URLSearchParams({...recordScope,messageId:message.messageId,index:media.index}),response=await api(`/api/media?${query}`);
+     if(expected!==scopeKey||epoch!==historyEpoch)return;
+     const url=URL.createObjectURL(await response.blob());
+     if(expected!==scopeKey||epoch!==historyEpoch||!image.isConnected){URL.revokeObjectURL(url);return;}
+     const old=imageBlobs.get(id);if(old)URL.revokeObjectURL(old);imageBlobs.set(id,url);image.src=url;image.hidden=false;preview.hidden=true;
+    }catch(e){if(expected===scopeKey&&epoch===historyEpoch)error(e.message)}finally{if(expected===scopeKey&&epoch===historyEpoch)preview.disabled=false}};
+    const label=document.createElement('label');label.className='toggle';const check=document.createElement('input');check.type='checkbox';check.checked=imageSelection.some(v=>v.messageId===message.messageId&&v.index===media.index);check.onchange=()=>{if(expected!==scopeKey||epoch!==historyEpoch)return;imageSelection=imageSelection.filter(v=>!(v.messageId===message.messageId&&v.index===media.index));if(check.checked){if(imageSelection.length>=3){check.checked=false;error('最多选三张图片');return}imageSelection.push({messageId:message.messageId,index:media.index})}saveOptions()};label.append(check,document.createTextNode('本次让 AI 看此图'));
     row.append(preview,label,image);bubble.append(row);
   }
   const focusLabel=document.createElement('label');focusLabel.className='toggle focus-choice';const focusCheck=document.createElement('input');focusCheck.type='checkbox';focusCheck.checked=replySelection.includes(message.messageId);focusCheck.setAttribute('aria-label',`重点回复 ${message.messageId}`);
@@ -163,10 +171,10 @@ function render(next) {
   $('draft').value=key?(localStorage.getItem(`draft:${key}`)??(verifiedLegacy?legacyBody:null)??(['active','stale'].includes(serverDraft?.availability)?serverDraft.text:'')??''):'';draftOrigin=key?(localStorage.getItem(`draft-origin:${key}`)||(verifiedLegacy?legacyOrigin:null)):null;
   draftArtifactRefs=localJSON(`draft-artifacts:${key}`,draftOrigin?[]:serverDraft?.artifactRefs||[]);draftRevision=serverDraft?.revision||0;draftDirty=false;draftEditPending=false;draftSyncBlocked=false;draftRetryAt=0;clearTimeout(draftEditTimer);
   if(key)saveDraft();if(verifiedLegacy){localStorage.removeItem(`draft:${legacy}`);localStorage.removeItem(`draft-origin:${legacy}`);sessionStorage.removeItem(`draft:${legacy}`)}$('draft-status').textContent='可自由修改';$('draft-sync-status').textContent='';$('draft-keep-mine').hidden=true;$('draft-recover-legacy').hidden=!legacyDraftCandidate;lastAdvice=null;resetCompanion();workspace='';discussionScroll={top:0,follow:true};qqScroll={top:0,follow:true};showWorkspace('discussion');for(const id of ['draft-dialog','contact-dialog'])if($(id).open)$(id).close();syncDraftIndicator();}
- if(state&&(state.model!==next.model||state.modelBaseUrl!==next.modelBaseUrl||state.activeModelProfileId!==next.activeModelProfileId)){imageSelection=[];historyVersion=''}
+ if(state&&(state.model!==next.model||state.modelBaseUrl!==next.modelBaseUrl||state.activeModelProfileId!==next.activeModelProfileId)){imageSelection=[];historyVersion='';visionPending=false;$('vision-context').open=false;}
  replySelection=next.replyFocus?.mode==='selected'?[...next.replyFocus.messageIds]:[];
  imageSelection=[...(next.imageSelection||[])];
- state=next;bridgeLegacyDraftOrigin();syncModelPicker();renderReplyFocus();renderCompanion();renderTopicDirection();renderRelationship();renderExperiences();renderUsage();flushDraftEvents();if(document.activeElement!==$('auto'))$('auto').checked=next.auto;const ready=next.status.phase==='ready',readUnavailable=ready&&next.status.nativeReadReady===false;
+ state=next;bridgeLegacyDraftOrigin();syncModelPicker();renderReplyFocus();renderCompanion();renderTopicDirection();renderRelationship();renderExperiences();renderUsage();renderVisionContext();flushDraftEvents();if(document.activeElement!==$('auto'))$('auto').checked=next.auto;const ready=next.status.phase==='ready',readUnavailable=ready&&next.status.nativeReadReady===false;
  $('connection-dot').classList.toggle('ready',ready&&!readUnavailable);$('workspace-dot').classList.toggle('ready',ready&&!readUnavailable);$('workspace-status').textContent=ready?(readUnavailable?'QQ 读取待恢复':'QQ 已连接'):'QQ 未连接';$('workspace-contact').textContent=next.scope?`好友 ${next.scope.peerUin}`:'选择 QQ 好友';$('draft-recipient').textContent=next.scope?`给好友 ${next.scope.peerUin} · 尚未发送`:'请先选择讨论对象';$('draft-button').disabled=!next.scope;
  $('connection-label').textContent=ready?(readUnavailable?`已登录 QQ ${next.status.account.uin} · 读取暂未就绪`:`已连接 QQ ${next.status.account.uin} · 只读监听`):({waiting_qq:'等待 QQ 客户端启动',waiting_login:'请在 QQ 窗口完成登录',initializing:'正在读取 QQ 账号…',offline:'QQ 已离线，请重新登录',integration_error:'QQ 接入未就绪，请查看诊断'}[next.status.phase]||next.status.phase);
  $('native-read-status').hidden=!readUnavailable;
@@ -194,6 +202,7 @@ function render(next) {
   if(next.advice&&next.advice.revision!==next.revision)$('analysis').textContent=next.auto?'有新消息，正在更新建议。你的草稿会保留。':'有新消息，点生成可更新建议。你的草稿会保留。';error();
 }
 function resetCompanion(){
+ visionPending=false;$('vision-context').open=false;
  topicActionPending=null;syncTopicActionButtons();
  feedbackPending=false;feedbackTaskId=null;feedbackRetryReady=false;feedbackSubmittedText=null;feedbackSavedId=null;$('feedback-text').readOnly=false;topicViewKey='';$('topic-direction').hidden=true;$('topic-direction').open=false;feedbackTargetRef=null;feedbackClientId=null;experienceViewKey='';relationshipViewKey='';guidanceEditVersion=null;experienceReviewTarget=null;experienceReviewClientId=null;$('experience-review-form').hidden=true;$('experience-guidance-form').hidden=true;$('relationship-view').replaceChildren();$('experiences-list').replaceChildren();$('experience-guidance').replaceChildren();
  nextPurpose='discussion';composerEditVersion++;if(scopeKey){const savedPurpose=sessionStorage.getItem(`assistant-purpose:${scopeKey}`);if(['discussion','draft','review'].includes(savedPurpose))nextPurpose=savedPurpose;}syncAssistantPurpose();
@@ -205,6 +214,34 @@ function resetCompanion(){
  if($('assistant-context-dialog').open)$('assistant-context-dialog').close();
 }
 function scopeArgs(){return {...state?.scope}}
+function visionKey(){return `${scopeKey}:${state?.model}:${state?.modelBaseUrl}:${state?.activeModelProfileId}`}
+function renderVisionContext(){
+ const panel=$('vision-context');panel.hidden=!state?.scope;if(!state?.scope)return;
+ const context=state.imageContext||{},mode=context.mode||(imageSelection.length?'manual':state.autoImages?'automatic':'off'),count=Number.isSafeInteger(context.imageCount)?context.imageCount:0;
+ const ready=context.ready===true,automaticAllowed=state.modelConsent&&state.imageConsent&&state.automaticImageConsent;
+ $('vision-status').textContent=`图片参考 · ${ready?`${mode==='manual'?'手动选图':'自动'}，将附 ${count} 张`:mode==='off'?'自动未开启':mode==='manual'?'手动选图待启用':'自动参考待启用'}`;
+ $('vision-destination').textContent=`仅好友 ${state.scope.peerUin} · ${state.model} · ${state.modelBaseUrl}`;
+ if(!visionPending||document.activeElement!==$('auto-images'))$('auto-images').checked=!!state.autoImages;
+ $('auto-images').disabled=visionPending;
+ $('vision-readiness').textContent=context.reason||(!state.modelVisionEnabled?'此模型尚未确认支持图片输入':!automaticAllowed?'尚未允许当前好友的近期图片提供给此模型':'自动图片参考已关闭');
+ const omissions=context.omitted||[];$('vision-omissions').hidden=!omissions.length;
+ $('vision-omissions').textContent=omissions.length?`${omissions.length} 张图片未附带：${omissions.some(item=>item.reason==='cache_unavailable')?'QQ 尚未缓存可读取的图片，请先在 QQ 打开原图。':'暂不可读取。'}`:'';
+ $('allow-automatic-images').hidden=!!automaticAllowed||!state.modelVisionEnabled;$('allow-automatic-images').disabled=visionPending;$('allow-model').disabled=visionPending;
+ $('clear-image-selection').hidden=!imageSelection.length;$('clear-image-selection').disabled=visionPending;
+ $('vision-settings').hidden=!!state.modelVisionEnabled;
+}
+async function visionAction(path,args){
+ const scope=scopeArgs(),expected=visionKey(),epoch=historyEpoch;if(!scopeKey||visionPending)return null;
+ visionPending=true;companionError();renderVisionContext();
+ try{const next=await(await api(path,{...args,...scope})).json();if(epoch!==historyEpoch||expected!==visionKey()||next.scope&&keyOf(next.scope)!==scopeKey)return null;render(next);return next;
+ }catch(e){if(epoch===historyEpoch&&expected===visionKey())companionError(e.message);return null;
+ }finally{if(epoch===historyEpoch&&expected===visionKey()){visionPending=false;renderVisionContext()}}
+}
+$('auto-images').onchange=()=>visionAction('/api/options',{autoImages:$('auto-images').checked});
+$('allow-automatic-images').onclick=()=>{if(!state?.modelVisionEnabled)return;visionAction('/api/consent',{allow:true,baseUrl:state.modelBaseUrl,model:state.model,allowImages:true,allowAutomaticImages:true})};
+$('clear-image-selection').onclick=()=>visionAction('/api/options',{images:[]});
+$('vision-history').onclick=()=>{$('vision-context').open=false;showWorkspace('history')};
+$('vision-settings').onclick=()=>{$('vision-context').open=false;$('settings-button').onclick()};
 function companionError(message=''){assistantLocalError=message;const shown=state?.assistantError||assistantLocalError;$('assistant-error').textContent=shown||'';$('assistant-error').hidden=!shown}
 async function companionAction(path,args){
  const scope=scopeArgs(),expected=scopeKey,epoch=historyEpoch;if(!expected){companionError('先选择要讨论的好友。');return null}
@@ -559,7 +596,7 @@ $('generate').onclick=async()=>{
  try{if(await saveOptions()&&epoch===historyEpoch&&expected===scopeKey)await companionAction('/api/suggest',{});}
  finally{if(epoch===historyEpoch&&expected===scopeKey){assistantPending=false;renderCompanion();}}
 };
-$('allow-model').onclick=()=>action('/api/consent',{allow:true,accountUid:state.scope?.accountUid,peerUin:state.scope?.peerUin,baseUrl:state.modelBaseUrl,model:state.model,allowImages:$('allow-images').checked});
+$('allow-model').onclick=()=>visionAction('/api/consent',{allow:true,baseUrl:state.modelBaseUrl,model:state.model,allowImages:$('allow-images').checked,allowAutomaticImages:!!state.automaticImageConsent&&$('allow-images').checked});
 $('older').onclick=()=>action('/api/older',{});$('retry-history').onclick=()=>action('/api/bind',{uin:state.scope.peerUin});$('view-older').onclick=showEarlier;
 function renderReplyFocus(){
  const focus=state.replyFocus||{mode:'recent',messageIds:[]},selected=focus.mode==='selected';
