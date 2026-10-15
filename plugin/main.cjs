@@ -2,7 +2,7 @@
 const path = require('node:path');
 const fs = require('node:fs');
 const { spawn } = require('node:child_process');
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const { NativeDriver } = require('./native-driver.cjs');
 const { QQTransport, createReadAdapter } = require('./ipc-transport.cjs');
 const {fillQQDraft,inspectQQDraft}=require('./draft.cjs');
@@ -97,7 +97,12 @@ async function openHelper(sender, uin) {
     if (!endpoint || new URL(url).origin !== new URL(endpoint).origin) event.preventDefault();
   });
   helper.on('closed', () => { helper = null; worker?.send({ type: 'visibility', visible: false }); recordStatus(driver.status()); });
-  await helper.loadURL(endpoint);
+  const opening = helper;
+  try { await opening.loadURL(endpoint); }
+  catch (error) {
+    if (!opening.isDestroyed()) opening.destroy();
+    throw error;
+  }
   recordStatus(driver.status());
 }
 ipcMain.handle('qq-chat-assistant:open', (event, uin) => openHelper(event.sender, uin));
@@ -150,7 +155,14 @@ exports.onBrowserWindowCreated = window => {
 };
 app.on('browser-window-created', (_event, window) => exports.onBrowserWindowCreated(window));
 app.on('before-quit', () => worker?.kill('SIGTERM'));
-app.whenReady().then(startWorker).catch(recordError);
+app.whenReady().then(async () => {
+  await startWorker();
+  if (process.env.CHAT_ASSISTANT_OPEN_ON_START === '1') await openHelper();
+}).catch(error => {
+  recordError(error);
+  if (process.env.CHAT_ASSISTANT_OPEN_ON_START === '1') dialog.showErrorBox('QQ 聊天助手无法启动',
+    '助手服务或窗口启动失败。请先保存未发送的文字，从菜单退出 QQ，再重新打开「QQ 聊天助手」。原来的 QQ 安装无需修改。');
+});
 recordStatus(driver.status());
 // Bounded integration probes run only when explicitly enabled by a developer.
 if (process.env.CHAT_ASSISTANT_PROBE === '1') require('./probe.cjs');

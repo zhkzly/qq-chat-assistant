@@ -6,8 +6,11 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { EventEmitter } = require('node:events');
 const tick = () => new Promise(resolve => setImmediate(resolve));
-function harness() {
-  const app = new EventEmitter(); app.getVersion = () => 'synthetic-QQ'; app.whenReady = () => new Promise(() => {});
+function harness({ openOnStart = false, workerError = false, failFirstLoad = false, holdWorkerReady = false } = {}) {
+  let resolveReady, releaseWorker;
+  const app = new EventEmitter(); app.getVersion = () => 'synthetic-QQ';
+  app.whenReady = () => new Promise(resolve => { resolveReady = resolve; });
+  const opened = [], errors = [];
   const ipc = new EventEmitter(), handlers = new Map(); ipc.handle = (name, handler) => handlers.set(name, handler);
   const contents = id => ({ id, getURL: () => 'app://./renderer/index.html', isDestroyed: () => false });
   const a = { webContents: contents(4), isVisible: () => true }, b = { webContents: contents(6), isVisible: () => true };
@@ -20,21 +23,31 @@ function harness() {
   }
   class Transport extends EventEmitter { constructor() { super(); transport = this; } observe() {} }
   class Window extends EventEmitter {
-    constructor() { super(); this.webContents = new EventEmitter(); Object.assign(this.webContents, {
+    constructor() { super(); opened.push(this); this.webContents = new EventEmitter(); Object.assign(this.webContents, {
       id: 9, session: { registerPreloadScript() {} }, send() {}, getURL: () => '', setWindowOpenHandler() {} }); }
-    isDestroyed() { return false; } show() {} focus() {} async loadURL() {}
+    isDestroyed() { return this.destroyed === true; } show() {} focus() {}
+    destroy() { this.destroyed = true; this.emit('closed'); }
+    async loadURL(url) {
+      if (failFirstLoad && opened.length === 1) throw new Error('synthetic load failure');
+      this.loadedURL = url;
+    }
     static getAllWindows() { return single ? [a] : [a, b]; }
     static getFocusedWindow() { return focused; }
   }
   const exports = {}, context = { exports, module: { exports }, __dirname: path.resolve(__dirname, '../plugin'),
-    process: { env: { HOME: '/synthetic', CHAT_ASSISTANT_NODE: '/synthetic/node' } }, console, Buffer, setTimeout, clearTimeout,
+    process: { env: { HOME: '/synthetic', CHAT_ASSISTANT_NODE: '/synthetic/node',
+      ...(openOnStart ? { CHAT_ASSISTANT_OPEN_ON_START: '1' } : {}) } }, console, Buffer, setTimeout, clearTimeout,
     require(name) {
       if (name === 'node:path') return path;
       if (name === 'node:fs') return { mkdirSync() {}, writeFileSync() {}, appendFileSync() {}, openSync: () => 1, closeSync() {} };
-      if (name === 'electron') return { app, ipcMain: ipc, BrowserWindow: Window };
+      if (name === 'electron') return { app, ipcMain: ipc, BrowserWindow: Window,
+        dialog: { showErrorBox: (title, message) => errors.push({ title, message }) } };
       if (name === 'node:child_process') return { spawn() { child = new EventEmitter(); child.sent = [];
         child.send = value => child.sent.push(value); child.kill = () => {};
-        queueMicrotask(() => child.emit('message', { type: 'ready', url: 'http://127.0.0.1:17860/#synthetic-token' })); return child; } };
+        releaseWorker = () => workerError ? child.emit('error', new Error('synthetic private failure')) :
+          child.emit('message', { type: 'ready', url: 'http://127.0.0.1:17860/#synthetic-token' });
+        if (!holdWorkerReady) queueMicrotask(releaseWorker);
+        return child; } };
       if (name === './native-driver.cjs') return { NativeDriver: Driver };
       if (name === './ipc-transport.cjs') return { QQTransport: Transport, createReadAdapter: () => ({}) };
       if (name === './contact.cjs') return { activeContact: async () => null };
@@ -42,7 +55,10 @@ function harness() {
       throw new Error(`Unexpected import ${name}`);
     } };
   vm.runInNewContext(fs.readFileSync(path.resolve(__dirname, '../plugin/main.cjs'), 'utf8'), context);
-  return { a, b, driver, transport, lookups, setFocused(value) { focused = value; },
+  return { a, b, driver, transport, lookups, opened, errors,
+    async ready() { resolveReady(); await tick(); await tick(); },
+    async workerReady() { releaseWorker(); await tick(); await tick(); },
+    setFocused(value) { focused = value; },
     setSingleWindow(value) { single=value; },
     request(uid) { transport.emit('request', { sender: contents(3), payload: {
       cmdName: 'nodeIKernelMsgService/getAioFirstViewLatestMsgsAndAddActiveChat',
@@ -82,4 +98,41 @@ test('cached GUI identity is invalid when the current account no longer matches 
  const h=harness();h.lookups.set('u_a',Promise.resolve('3333333333'));h.request('u_a');await tick();
  h.driver.account={uid:'u_new',uin:'2222222222'};
  assert.equal(await h.open(h.a),null);
+});
+
+test('an explicit launcher request opens the assistant only after app and worker readiness', async () => {
+  const h = harness({ openOnStart: true, holdWorkerReady: true });
+  assert.equal(h.opened.length, 0);
+  await h.ready();
+  assert.equal(h.opened.length, 0);
+  await h.workerReady();
+  assert.equal(h.opened.length, 1);
+  assert.equal(h.opened[0].loadedURL, 'http://127.0.0.1:17860/#synthetic-token');
+  assert.equal(h.driver.account.uid, 'u_owner');
+});
+
+test('ordinary runtime startup keeps the assistant closed until requested', async () => {
+  const h = harness();
+  await h.ready();
+  assert.equal(h.opened.length, 0);
+  await h.open(h.a);
+  assert.equal(h.opened.length, 1);
+});
+
+test('explicit startup displays a safe visible error when the helper worker fails', async () => {
+  const h = harness({ openOnStart: true, workerError: true });
+  await h.ready();
+  assert.equal(h.opened.length, 0);
+  assert.equal(h.errors.length, 1);
+  assert.match(h.errors[0].message, /退出 QQ/);
+  assert.doesNotMatch(h.errors[0].message, /synthetic private failure|synthetic-token/);
+});
+
+test('a failed initial page load does not leave an unusable helper window for later opens', async () => {
+  const h = harness({ failFirstLoad: true });
+  await assert.rejects(h.open(h.a), /synthetic load failure/);
+  assert.equal(h.opened[0].isDestroyed(), true);
+  await h.open(h.a);
+  assert.equal(h.opened.length, 2);
+  assert.equal(h.opened[1].loadedURL, 'http://127.0.0.1:17860/#synthetic-token');
 });

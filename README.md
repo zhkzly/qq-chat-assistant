@@ -12,7 +12,7 @@ The window opens directly into a private discussion with a fixed composer. Its h
 
 ## Use
 
-Start `bash scripts/launch.sh`, log in normally if QQ asks, and open **✦ AI 建议** in a private chat or press **Ctrl+Shift+A** in QQ. The same helper window is reused. Enter a friend's QQ number if the current window cannot be identified. History loads automatically; export is optional. See [Chinese usage guide](docs/usage_CN.md).
+Start `bash scripts/launch.sh` or the **QQ 聊天助手** desktop entry. A fresh launch opens the assistant after the local QQ runtime and helper service are ready; log in normally if QQ asks. **✦ AI 建议** in a private chat or **Ctrl+Shift+A** in QQ reopens the same helper window. If ordinary QQ is already running without the assistant, save any unsent text and exit QQ from its menu before starting the assistant entry. The launcher displays an error and never closes ordinary QQ automatically. Enter a friend's QQ number if the current window cannot be identified. History loads automatically; export is optional. See [Chinese usage guide](docs/usage_CN.md).
 
 The installed QQ binaries were copied into a private reversible runtime; `/opt/QQ` was not patched. The original profile is shared with normal QQ and was backed up before integration. The installed base is 3.2.31-51102; the tested auto-updated code is 3.2.33-52892 on Electron 40. QQ updates may require rechecking its internal read contracts.
 
