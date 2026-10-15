@@ -420,9 +420,12 @@ async function assistModel(settings, context, signal, fetchImpl = fetch) {
     const retainImages=plainRecovery||planningCarrierRepair;
     let repairedInput = context, preparedRepair = prepareAssistantRequest(repairSettings, repairPayload, retainImages ? repairedInput.images : []);
     if (preparedRepair.requestBytes > byteLimit && context.rebuildForRequest) {
+      // null measures the wrapper envelope alone. It has no source records and
+      // must not be treated as an actual image-bearing model request.
       repairedInput = context.rebuildForRequest(payload => prepareAssistantRequest(repairSettings, { ...repairPayload,
-        originalInput: context.mediaContext || context.payload.imageContext ? { ...payload, mediaContext: context.mediaContext || context.payload.imageContext } : payload },
-        retainImages ? context.images || [] : []).requestBytes);
+        originalInput: payload === null ? null : context.mediaContext || context.payload.imageContext
+          ? { ...payload, mediaContext: context.mediaContext || context.payload.imageContext } : payload },
+        payload === null ? [] : retainImages ? context.images || [] : []).requestBytes);
       if(context.images?.length){
         const sourceIds=new Set(repairedInput.payload.sources.map(source=>source.id));
         if(context.images.some(image=>!sourceIds.has(`qq:${image.messageId}`)))throw new Error('所选图片的完整来源超过修复上下文预算；输入已保留，内容未被截断');

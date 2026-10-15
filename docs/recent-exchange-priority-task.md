@@ -17,3 +17,6 @@ Gold evidence: current delivered .4 runtime retained only two latest text messag
 - The fictional old/new model comparison completed six planning tasks in seven HTTP calls using the same selected model. All three new inputs retained eight current messages; old inputs retained three, three and two. Settings and source hashes remained unchanged during execution.
 - Semantic boundary: explicit sleep closure became visible and respected. Other continuations remain generic; this is not proof of final wording quality or relationship progress. Keep the original raw evidence private and outside Git.
 - Preserve the current QQ process and unsent helper inputs during activation. A source merge alone does not prove the running context changed.
+- First native .1 request retained 17 current messages but failed locally after one HTTP response. It is not accepted as a delivered answer.
+- A fictional replay reproduced imageContextFor rejecting measure(null) inside the planning-repair wrapper budget callback. Repair only that sentinel handling; full real image input remains strictly source-checked and bounded.
+- Final prompt version is relationship-context-2026-10-15.2; task shape remains relationship-task-2026-10-15.1. All 491 tests and syntax checks passed after the follow-up. No additional semantic claims are inferred from this mechanical fix.

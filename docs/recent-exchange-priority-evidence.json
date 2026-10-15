@@ -10,13 +10,13 @@
     "qqRuntimeConnected": true
   },
   "candidate": {
-    "promptVersion": "relationship-context-2026-10-15.1",
+    "promptVersion": "relationship-context-2026-10-15.2",
     "taskVersion": "relationship-task-2026-10-15.1"
   },
   "functionalTests": {
-    "passed": 490,
+    "passed": 491,
     "failed": 0,
-    "newRegressionCases": 7,
+    "newRegressionCases": 8,
     "syntaxPassed": true
   },
   "modelComparison": {
@@ -111,11 +111,49 @@
       "Pressure fixtures repeat fictional stated facts and do not establish everyday-language generalization.",
       "A and C still suggest generic relaxation questions.",
       "One new planning task needed a structured-format repair."
-    ]
+    ],
+    "candidateVersion": "relationship-context-2026-10-15.1",
+    "independentPlanningReview": {
+      "A-repair-postponed": {
+        "factsImproved": true,
+        "usabilityAccepted": false
+      },
+      "B-explicit-sleep": {
+        "closureJudgmentAccepted": true
+      },
+      "C-repair-completed": {
+        "factsImproved": true,
+        "usabilityAccepted": false
+      }
+    }
   },
   "deployment": {
-    "status": "pending_runtime_activation",
+    "status": "pending_final_runtime_activation",
+    "previousActivatedVersion": "relationship-context-2026-10-15.1",
     "qqRestarted": false,
+    "helperRestarted": false,
+    "pageReloadRequested": false,
     "qqMessagesSentByAssistant": 0
+  },
+  "nativeRequestChecks": [
+    {
+      "promptVersion": "relationship-context-2026-10-15.1",
+      "status": "failed_after_primary_response",
+      "deliveredAssistantTurns": 0,
+      "httpCalls": 1,
+      "recentExchangeCount": 17,
+      "settingsUnchanged": true,
+      "scopePreserved": true,
+      "replyFocusPreserved": true,
+      "failure": "image_source_guard_during_repair_budget_rebuild",
+      "notCountedAsSuccess": true
+    }
+  ],
+  "responseRepairBudgetFollowup": {
+    "version": "relationship-context-2026-10-15.2",
+    "syntheticRegressionPassed": true,
+    "emptyEnvelopeProbeCarriesNoImages": true,
+    "realPayloadImageSourceGuardPreserved": true,
+    "completeRepairRequestBudgetPreserved": true
   }
 }
