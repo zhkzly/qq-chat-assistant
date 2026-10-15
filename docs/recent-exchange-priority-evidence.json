@@ -1,0 +1,121 @@
+{
+  "evidenceTypes": [
+    "functional_synthetic",
+    "live_model_fictional_planning_only"
+  ],
+  "baseCommit": "070954d",
+  "runtimeReviewed": {
+    "promptVersion": "relationship-context-2026-10-14.4",
+    "model": "gpt-6-sol",
+    "qqRuntimeConnected": true
+  },
+  "candidate": {
+    "promptVersion": "relationship-context-2026-10-15.1",
+    "taskVersion": "relationship-task-2026-10-15.1"
+  },
+  "functionalTests": {
+    "passed": 490,
+    "failed": 0,
+    "newRegressionCases": 7,
+    "syntaxPassed": true
+  },
+  "modelComparison": {
+    "model": "gpt-6-sol",
+    "tasks": 6,
+    "httpCalls": 7,
+    "sourceHashesUnchanged": true,
+    "settingsUnchanged": true,
+    "settingsHashes": {
+      "before": "8a618f41f616a066b66d4798e3631eb8c933b0c3d92c4141372963d8d3928ee1",
+      "after": "8a618f41f616a066b66d4798e3631eb8c933b0c3d92c4141372963d8d3928ee1"
+    },
+    "sourceHashesAtStart": {
+      "old": {
+        "src/assistant-context.cjs": "26c9f6e97fc8021572435e9402281a97ccef75b075f82430135a1050f9856fa8",
+        "src/context-task.cjs": "89977378ef47d94b521934d3285037b26e1899a2b471558e563b716d71e7dc0f",
+        "src/help-behavior.cjs": "6c71a69f5ef21ad66f1119e95b6d85b81307000b8c29d48b63edb1e76875a998",
+        "src/assistant-model.cjs": "4b7f5d4ac219a0eda2c304f38bd2afbc5e88b345c4d704e6d2a96ce062a42982"
+      },
+      "new": {
+        "src/assistant-context.cjs": "e4b5f3aa92508d22c75154c70f851d8d7809ac3fa6e2a2a1a85e975269a60038",
+        "src/context-task.cjs": "56835eaba8fe4021ab677867dea32084bfc786e40c7239ea331bbe63637bcded",
+        "src/help-behavior.cjs": "6c71a69f5ef21ad66f1119e95b6d85b81307000b8c29d48b63edb1e76875a998",
+        "src/assistant-model.cjs": "4b7f5d4ac219a0eda2c304f38bd2afbc5e88b345c4d704e6d2a96ce062a42982"
+      }
+    },
+    "cases": [
+      {
+        "id": "A-repair-postponed",
+        "tasks": [
+          {
+            "version": "old",
+            "status": "complete",
+            "deliveredCurrentMessages": 3,
+            "httpCalls": 1,
+            "resultKind": "discussion"
+          },
+          {
+            "version": "new",
+            "status": "complete",
+            "deliveredCurrentMessages": 8,
+            "httpCalls": 2,
+            "resultKind": "discussion"
+          }
+        ]
+      },
+      {
+        "id": "B-explicit-sleep",
+        "tasks": [
+          {
+            "version": "old",
+            "status": "complete",
+            "deliveredCurrentMessages": 3,
+            "httpCalls": 1,
+            "resultKind": "discussion"
+          },
+          {
+            "version": "new",
+            "status": "complete",
+            "deliveredCurrentMessages": 8,
+            "httpCalls": 1,
+            "resultKind": "discussion"
+          }
+        ]
+      },
+      {
+        "id": "C-repair-completed",
+        "tasks": [
+          {
+            "version": "old",
+            "status": "complete",
+            "deliveredCurrentMessages": 2,
+            "httpCalls": 1,
+            "resultKind": "discussion"
+          },
+          {
+            "version": "new",
+            "status": "complete",
+            "deliveredCurrentMessages": 8,
+            "httpCalls": 1,
+            "resultKind": "discussion"
+          }
+        ]
+      }
+    ],
+    "finalDraftExecuted": false,
+    "ordinaryLanguageNaturalnessVerified": false,
+    "relationshipOutcomeVerified": false,
+    "realChatUsed": false,
+    "imagesUsed": false,
+    "limits": [
+      "Pressure fixtures repeat fictional stated facts and do not establish everyday-language generalization.",
+      "A and C still suggest generic relaxation questions.",
+      "One new planning task needed a structured-format repair."
+    ]
+  },
+  "deployment": {
+    "status": "pending_runtime_activation",
+    "qqRestarted": false,
+    "qqMessagesSentByAssistant": 0
+  }
+}

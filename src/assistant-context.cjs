@@ -5,10 +5,10 @@ const { prepareAssistantRequest, imageContextFor, parseDraftGuidance, requireDra
 const { selectMethods, runtimeCard } = require('./help-methods.cjs');
 const { validatedCompaction, candidatesForCompaction } = require('./discussion-compaction.cjs');
 const { eligibleDiscussionTurns } = require('./discussion-compaction-store.cjs');
-const {qqSourceMetadata}=require('./messages.cjs');
-const {requiredQuoteSources,taskContext}=require('./context-task.cjs');
+const {qqSourceMetadata,sameScope}=require('./messages.cjs');
+const {requiredQuoteSources,taskContext,planRecentContext,projectRecentContext,quoteTarget}=require('./context-task.cjs');
 const {sourceRevision}=require('./store.cjs');
-const PROMPT_VERSION = 'relationship-context-2026-10-14.4';
+const PROMPT_VERSION = 'relationship-context-2026-10-15.1';
 const METHODS = {
   discussion: '围绕用户真正希望的恋爱发展选择当前帮助，可接续、邀请、表达好感或讨论。意思明确就直接帮助，只问会改变建议的必要问题。允许暂缓或不用助手，不强制每次制定目的。',
   review: '按实际覆盖回顾相处、共同经历、用户体验与双方明确的浪漫方向，分别说普通友好、活动意愿和恋爱意图。兼顾反证与未知，不计算好感分，不把回复归因为某条建议。',
@@ -155,7 +155,7 @@ function buildContext(options) {
   const budget = contextBudget(settings, byteBudget, requestMeasure), fits = budget.fits;
   if (!METHODS[purpose] || purpose === 'draft') throw new Error('未知的上下文用途');
   if (!Number.isFinite(byteBudget) || byteBudget < 4000 || byteBudget > 192000) throw new Error('上下文预算不合法');
-  const actualById = new Map(records.filter(eligibleQQ).map(record => [`qq:${record.messageId}`, record]));
+  const actualById = new Map(records.filter(record=>eligibleQQ(record)&&sameScope(record,scope)).map(record => [`qq:${record.messageId}`, record]));
   const all = (availableSources || sourcesFor(records, companion)).filter(source => !source.deleted && !source.excluded && source.use !== 'disabled' && sameScopeIfPresent(source, scope))
     .filter(source => source.type !== 'qq' || actualById.has(source.id)).map(source => {
       const actual = source.type === 'qq' && actualById.get(source.id);
@@ -180,7 +180,7 @@ function buildContext(options) {
     throw new Error('草稿素材必须是当前联系人允许分享的近况');
   const selected = new Map([[current.id, current]]);
   for (const id of protectedPendingIds) selected.set(id, byId.get(id));
-  const validQQ = records.filter(m => eligibleQQ(m) && byId.has(`qq:${m.messageId}`));
+  const validQQ = records.filter(m => eligibleQQ(m) && sameScope(m,scope) && byId.has(`qq:${m.messageId}`));
   const protectedImageIds=[...new Set([...imageMessageIds,...(images||[]).map(image=>image.messageId)])];
   // Protect both complete sides of the latest exchange, including after the
   // user has already replied in several bubbles. Never lose her boundary then.
@@ -213,6 +213,9 @@ function buildContext(options) {
   const groundedTopic = activeTopic?.lifecycle === 'active' && supportedByAvailable(activeTopic, byId, scope) ? activeTopic : null;
   if (groundedTopic) for (const id of groundedTopic.sourceIds) if (!foldedPrivateIds.has(id)) selected.set(id, byId.get(id));
   const essentialIds = new Set(selected.keys());
+  const recentPlan=planRecentContext(validQQ,{replyMessageIds,imageMessageIds:protectedImageIds,byteBudget});
+  let recentContextPlan=null;
+  const recentPriorityIds=new Set(),recentAdmissions=[];
   const privatePriorityIds = new Set();
   const requiredPrivateTurnIds = new Set();
   const state = { ...companion.state, authority: companion.state.possiblyStale ? 'previous_summary_needs_review' : 'reviewed_summary_not_independent_evidence' };
@@ -269,7 +272,7 @@ function buildContext(options) {
     payload.sources = [...selected.values()]; payload.allowedMaterialIds=payload.sources.filter(s=>s.type==='note'&&s.use==='draft').map(s=>s.id);
     if(mediaContext || images?.length)payload.imageContext=imageContextFor(payload,images||[],mediaContext);
     payload.methodSelection.candidates=[...new Set([...(payload.methodCatalog||[]).map(m=>m.id),...payload.methodCards.map(m=>m.id)])];
-    payload.taskContext=taskContext({records,sources:payload.sources,scope,coverage,generationOrigin,currentSourceId:current.id,responsePreference});
+    payload.taskContext=taskContext({records,sources:payload.sources,scope,coverage,generationOrigin,currentSourceId:current.id,responsePreference,recentContextPlan,asOf:payload.asOf});
     payload.taskContext.draftControlPolicy={version:1,required:true,requiredFields:['objective','allowedApproach','avoidances'],intentSourceId:intentSource.id};
     if(taskTextReferences){
       payload.taskContext.sourceTextLocation='sources';
@@ -307,6 +310,32 @@ function buildContext(options) {
   trimStateNavigation();
   // No substring truncation: reject if the request and latest complete exchange do not fit.
   if (!fits(payload)) throw new Error('当前问题或最新完整来信超过上下文预算，请分段处理；没有静默截断');
+  // The current multi-turn interaction is considered before optional historical
+  // summaries and their evidence closures. This allowance never enlarges the
+  // mandatory floor or makes an otherwise feasible request fail.
+  const recentBaseBytes=bytes(payload);
+  recentContextPlan=recentPlan;refresh();
+  if(!fits(payload)||bytes(payload)-recentBaseBytes>recentPlan.limits.maxAdditionalBytes){recentContextPlan=null;refresh();}
+  if(recentContextPlan)for(const id of recentPlan.candidateMessageIds){
+    const source=byId.get(`qq:${id}`);if(!source||selected.has(source.id))continue;
+    const record=actualById.get(source.id),target=record&&quoteTarget(record,records,byId);
+    const sourceIds=[source.id,...(target?[`qq:${target.messageId}`]:[])],added=sourceIds.filter(sourceId=>!selected.has(sourceId));
+    for(const sourceId of added)selected.set(sourceId,byId.get(sourceId));
+    refresh();
+    if(!fits(payload)||bytes(payload)-recentBaseBytes>recentPlan.limits.maxAdditionalBytes){
+      for(const sourceId of added)selected.delete(sourceId);refresh();continue;
+    }
+    recentAdmissions.push(added);for(const sourceId of added)recentPriorityIds.add(sourceId);
+  }
+  const recentInitialAdditionalBytes=Math.max(0,bytes(payload)-recentBaseBytes);
+  const reclaimOptionalRecent=(requiredSourceIds=new Set())=>{
+    while(!fits(payload)&&recentAdmissions.length){
+      const ids=recentAdmissions.pop();
+      for(const id of ids)if(!essentialIds.has(id)&&!requiredSourceIds.has(id)){selected.delete(id);recentPriorityIds.delete(id);}
+      refresh();
+    }
+    if(!fits(payload)&&recentContextPlan){recentContextPlan=null;refresh();}
+  };
   const trySource = source => {
     if (!source || selected.has(source.id) || foldedPrivateIds.has(source.id)) return;
     selected.set(source.id, source); refresh();
@@ -321,7 +350,7 @@ function buildContext(options) {
     if (allowFolded && record.sourceIds.some(id => foldedPrivateIds.has(id))) clean.foldedSourceIds = record.sourceIds.filter(id => foldedPrivateIds.has(id));
     clean.authority ||= record.reviewComplete === false ? 'needs_review' : 'source_backed_summary_not_independent_evidence';
     target.push(clean); refresh();
-    if (priority) trimStateNavigation();
+    if (priority) {trimStateNavigation();reclaimOptionalRecent(new Set(record.sourceIds));}
     if (fits(payload)) return true;
     target.pop(); selected.clear(); for (const [id, source] of before) selected.set(id, source); refresh(); return false;
   };
@@ -385,6 +414,7 @@ function buildContext(options) {
     for (const t of group) if (t.role === 'user' && !foldedPrivateIds.has(`private:${t.id}`)) selected.set(`private:${t.id}`, byId.get(`private:${t.id}`));
     refresh();
     trimStateNavigation();
+    if(index===0)reclaimOptionalRecent();
     if (!fits(payload)) {
       if (index === 0) throw new Error('最近完整私下讨论与当前必要内容超过上下文预算，请分段处理；没有静默截断');
       selected.clear(); for (const [id, source] of previous) selected.set(id, source);
@@ -554,6 +584,7 @@ function buildContext(options) {
     const prior = new Map(selected);
     for (const m of validQQ.slice(earliest)) selected.set(`qq:${m.messageId}`, byId.get(`qq:${m.messageId}`));
     refresh();
+    trimStateNavigation();
     if (!fits(payload)) { selected.clear(); for (const [id, value] of prior) selected.set(id, value); refresh(); }
   }
   for (;;) {
@@ -576,7 +607,7 @@ function buildContext(options) {
       payload.privateCandidates[optionalCandidate] = reference; continue;
     }
     const optional = [...selected.keys()].filter(id => !essentialIds.has(id));
-    const removable = optional.find(id => !privatePriorityIds.has(id));
+    const removable = optional.find(id => !privatePriorityIds.has(id)&&!recentPriorityIds.has(id))||optional.find(id=>!recentPriorityIds.has(id));
     if (removable) { selected.delete(removable); refresh(); }
     else if (payload.methodCards.length) {
       payload.methodCards.pop();
@@ -639,6 +670,8 @@ function buildContext(options) {
     coveredTurns: compacted.sourceTurnIds.length, coveredTurnIds: [...compacted.sourceTurnIds], sourceRevisions: { ...compacted.sourceRevisions }, turnFingerprints: { ...compacted.turnFingerprints },
     foldedSourceIds: [...foldedPrivateIds], authority: 'derived_private_discussion_needs_sources' };
   context.manifest.optionalRawRetrieval={limit:optionalRawLimit,admittedCount:optionalRawIds.size,deferredCount:optionalRetrieved.filter(source=>!selected.has(source.id)).length,ordering:'retrieval_score_then_recency'};
+  context.manifest.recentQQContext={limits:recentPlan.limits,projection:recentContextPlan?'loaded':'omitted_for_budget',candidateSourceIds:recentPlan.candidateMessageIds.map(id=>`qq:${id}`),
+    admittedPrioritySourceIds:[...recentPriorityIds].filter(id=>selected.has(id)),initialAdditionalBytes:recentInitialAdditionalBytes,ordering:'current_neighborhood_before_optional_history'};
   context.essentialSourceIds=[...essentialIds];
   Object.defineProperty(context, 'fullAvailableSources', { value: all });
   Object.defineProperty(context,'rebuildForRequest',{value:measure=>buildContext({...options,requestMeasure:measure})});
@@ -685,10 +718,13 @@ function buildDraftContext(prepared, plan, info) {
     presentation: { language: typeof plan.language==='string'&&/^[a-z]{2,3}(?:-[a-zA-Z0-9]{2,8})*$/.test(plan.language) ? plan.language : 'zh',
       askFollowup: plan.askFollowup===true, useEmoji: plan.useEmoji===true } };
   let draftTaskTextReferences=prepared.payload.taskContext?.sourceTextLocation==='sources';
+  let draftRecentMetadata='full';
   const refreshDraftTask=()=>{if(!prepared.payload.taskContext)return;const task=prepared.payload.taskContext,ids=new Map(payload.sources.map(s=>[s.id,s]));
     const recent=task.recentExchange.filter(m=>ids.has(m.sourceId)).map(m=>({...m,...(ids.get(m.sourceId).historicalOnly?{historicalOnly:true}:{}),...(m.quote?{quote:m.quote.sourceId&&!ids.has(m.quote.sourceId)?{availability:'unavailable'}:{...m.quote,...(ids.get(m.quote.sourceId)?.historicalOnly?{historicalOnly:true}:{})}}:{})}));
     payload.taskContext={version:task.version,requestOrigin:'restricted_draft',latestActual:task.latestActual&&ids.has(task.latestActual.sourceId)?task.latestActual:null,
       recentExchange:recent,selfMessagesAfterLastContact:task.selfMessagesAfterLastContact.filter(id=>ids.has(id)),contactMessagesAfterLastSelf:task.contactMessagesAfterLastSelf.filter(id=>ids.has(id)),observationCoverage:task.observationCoverage,factsRule:task.factsRule};
+    if(task.recentContext&&draftRecentMetadata==='full')payload.taskContext.recentContext=projectRecentContext(task.recentContext,ids);
+    else if(task.recentContext&&draftRecentMetadata==='compact')payload.taskContext.recentContext={selection:'bounded_actual_neighborhoods',coverage:'partial_context_window_metadata_omitted_for_budget'};
     if(draftTaskTextReferences){payload.taskContext.sourceTextLocation='sources';for(const item of recent){delete item.text;if(item.quote)delete item.quote.text;}}
   };
   const refreshDraftImages=()=>{if(prepared.payload.imageContext||prepared.mediaContext||prepared.images?.length)
@@ -700,6 +736,7 @@ function buildDraftContext(prepared, plan, info) {
     instruction: '这些短控制只约束表达任务与用法，不是可发送原文。不要写出控制说明、私下理由或来源标识；保持outboundQuotes授权的意思，askFollowup:false不排除本来要表达的问题。' };
   const controlIds = guidance ? [...new Set([guidance.objective,guidance.allowedApproach,...(guidance.avoidances || []),guidance.currentStep].filter(Boolean).flatMap(item => item.sourceIds))] : [];
   const essentialIds=new Set([...(prepared.essentialSourceIds||qq.map(source=>source.id)),...quotes.map(q=>q.sourceId),...controlIds,...payload.replyFocus.map(id=>`qq:${id}`),...(payload.imageContext?.attached||[]).map(image=>image.sourceId)]);
+  const recentPriorityIds=new Set(prepared.manifest.recentQQContext?.admittedPrioritySourceIds||[]);
   for (;;) {
     const kept=new Set(payload.sources.map(source=>source.id));let laterComplete=true;
     for(const source of [...qq].reverse()){
@@ -715,7 +752,10 @@ function buildDraftContext(prepared, plan, info) {
       delete payload.methodSelection.selectionRule;delete payload.methodSelection.feedbackRule;continue;
     }
     if(payload.taskContext&&!draftTaskTextReferences){draftTaskTextReferences=true;continue;}
-    const removable=payload.sources.findIndex(source=>!essentialIds.has(source.id));
+    if(payload.taskContext?.recentContext&&draftRecentMetadata==='full'){draftRecentMetadata='compact';continue;}
+    let removable=payload.sources.findIndex(source=>!essentialIds.has(source.id)&&!recentPriorityIds.has(source.id));
+    if(removable<0)removable=payload.sources.findIndex(source=>!essentialIds.has(source.id));
+    if(removable<0&&draftRecentMetadata==='compact'){draftRecentMetadata='omitted';continue;}
     if(removable<0)throw new Error('当前拟表达内容或最新完整来信超过上下文预算，请分段处理；没有静默截断');
     payload.sources.splice(removable,1);
   }
