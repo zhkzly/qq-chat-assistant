@@ -128,11 +128,19 @@
     }
   },
   "deployment": {
-    "status": "pending_final_runtime_activation",
-    "previousActivatedVersion": "relationship-context-2026-10-15.1",
+    "status": "active_native_backend_verified",
+    "promptVersion": "relationship-context-2026-10-15.2",
     "qqRestarted": false,
     "helperRestarted": false,
     "pageReloadRequested": false,
+    "domContentHashVerified": false,
+    "statePreservedDuringActivation": true,
+    "objectIdentitiesPreserved": true,
+    "onlyDeclaredModelFunctionPropertyChanged": true,
+    "defaultModelFunctionUpdated": true,
+    "settingsFileUnchanged": true,
+    "temporaryInspectorClosed": true,
+    "operatorSyntheticChecks": 12,
     "qqMessagesSentByAssistant": 0
   },
   "nativeRequestChecks": [
@@ -147,6 +155,25 @@
       "replyFocusPreserved": true,
       "failure": "image_source_guard_during_repair_budget_rebuild",
       "notCountedAsSuccess": true
+    },
+    {
+      "promptVersion": "relationship-context-2026-10-15.2",
+      "status": "complete",
+      "deliveredAssistantTurns": 1,
+      "deliveredKind": "discussion",
+      "httpCalls": 1,
+      "recentExchangeCount": 17,
+      "stagePurposes": [
+        "reply"
+      ],
+      "attachedImages": 1,
+      "settingsUnchanged": true,
+      "scopePreserved": true,
+      "replyFocusPreserved": true,
+      "errorPresent": false,
+      "budgetRepairBranchExercisedNatively": false,
+      "usabilityAccepted": false,
+      "qualityLimit": "The answer still describes a many-hours-old exchange as just-now and gives a generic stopping rationale despite restored facts."
     }
   ],
   "responseRepairBudgetFollowup": {
@@ -154,6 +181,8 @@
     "syntheticRegressionPassed": true,
     "emptyEnvelopeProbeCarriesNoImages": true,
     "realPayloadImageSourceGuardPreserved": true,
-    "completeRepairRequestBudgetPreserved": true
-  }
+    "completeRepairRequestBudgetPreserved": true,
+    "nativeSuccessfulRequestUsedUpdatedFunction": true
+  },
+  "overallAdviceQualityAccepted": false
 }
