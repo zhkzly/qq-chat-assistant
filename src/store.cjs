@@ -163,6 +163,13 @@ class Store {
         this._syncMemory(scope,record);record.feedback=this.experiences.listFeedback(scope);
       }
       if(record.topics.items.length&&pruneTopics(record,this._rawMemorySources(scope,record)))this.db.prepare('INSERT INTO companion VALUES(?,?) ON CONFLICT(scope_key) DO UPDATE SET record=excluded.record').run(scopeKey(scope),this._serializeCompanion(record));
+      // Older turns predate persisted origin metadata. Recover only an exact
+      // scoped ledger identity; missing history never licenses a text guess.
+      if(record.turns.some(turn=>turn.role==='assistant'&&turn.origin===undefined&&turn.requestId)&&
+        this.db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='assistant_tasks'").get()){
+        const automatic=new Set(this.db.prepare("SELECT id FROM assistant_tasks WHERE scope_key=? AND origin='automatic'").all(scopeKey(scope)).map(task=>task.id));
+        for(const turn of record.turns)if(turn.role==='assistant'&&turn.origin===undefined&&automatic.has(turn.requestId))turn.origin='automatic';
+      }
       return record;
     });
   }
@@ -316,6 +323,14 @@ class Store {
       if(turn.kind==='feedback_ref'){saved.feedbackId=identifier(turn.feedbackId,'feedback id');if(!record.feedback.some(f=>f.id===saved.feedbackId))throw new Error('Unknown feedback reference');}
       if(turn.kind==='feedback'){const canonical=record.feedback.filter(f=>f.requestId===turn.requestId&&turn.text===`对助手建议的反馈：${f.text}`);if(canonical.length===1){saved.kind='feedback_ref';saved.feedbackId=canonical[0].id;}}
       if (turn.requestId !== undefined) saved.requestId = identifier(turn.requestId, 'request id');
+      if(turn.origin!==undefined){
+        if(turn.role!=='assistant'||!['automatic','user'].includes(turn.origin))throw new Error('Invalid assistant origin');
+        saved.origin=turn.origin;
+      }
+      if(turn.replyDisposition!==undefined){
+        if(turn.role!=='assistant'||!['wait','clarify','unavailable'].includes(turn.replyDisposition))throw new Error('Invalid replyDisposition');
+        saved.replyDisposition=turn.replyDisposition;
+      }
       if (turn.sourceIds !== undefined) {
         saved.sourceIds = sourceList(turn.sourceIds);
         const live = this._sourceIds(scope, record);

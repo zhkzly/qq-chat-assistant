@@ -129,7 +129,7 @@ function createServer({ controller, token, uiDir, saveSettings, fillDraft, inspe
           if(!fillDraft || !controller.features.qqDraftFill)throw new Error('QQ 插件尚未启用输入框回填，请先重启 QQ；复制按钮现在即可使用');
           if(args.accountUid!==controller.scope?.accountUid || args.peerUin!==controller.scope?.peerUin || typeof args.text!=='string' || !args.text.trim() || args.text.length>5000)throw new Error('会话已改变或草稿不合法');
           return json(response,200,await fillDraft({...args,scope:controller.scope}));
-        case '/api/suggest': await controller.suggest(); break;
+        case '/api/suggest': await controller.suggest({alternative:args.alternative===true}); break;
         case '/api/options':
           if(args.refreshRestore===true){
             if(refreshIsHeld?.()!==true)throw new Error('助手没有待恢复的更新');

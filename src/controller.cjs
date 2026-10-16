@@ -17,11 +17,13 @@ const {retrievalQuery}=require('./context-task.cjs');
 const { maintainMemory: runMemoryMaintenance } = require('./memory-engine.cjs');
 const { applyUserActions, confirmUserAction, undoUserAction } = require('./assistant-actions.cjs');
 const { methodFor } = require('./help-methods.cjs');
-const { visibleResponseText } = require('./experience-store.cjs');
+const {CandidateSession}=require('./candidate-session.cjs');
 class Controller extends EventEmitter {
   constructor({ store, read, settings, model = generate, assistantModel = assistModel, memoryModel = null, compactionModel = assistDiscussionCompaction,
     now = Date.now, viewerTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone }) {
     super(); Object.assign(this, { store, read, settings, model, assistantModel, memoryModel, compactionModel, now, viewerTimeZone });
+    this.candidateSession=new CandidateSession({now:()=>this.candidateNow(),sourceValidity:candidate=>!candidate.artifactRef||
+      this.store.experiences.artifactStates(candidate.scope,[candidate.artifactRef])[0]?.availability==='active'});
     this.status = { phase: 'waiting_qq', account: null };
     this.selectedImages=[];this.replyMessageIds=[];this.visionCache=null;this.features={qqDraftFill:false};
     this.scope = null; this.epoch = 0; this.revision = 0; this.advice = null;
@@ -30,10 +32,18 @@ class Controller extends EventEmitter {
     this.assistantAbort = null; this.assistantBusy = false; this.assistantError = '';
     this.memoryAbort = null; this.memoryTimer = null; this.memoryBusy = false; this.memoryRetryAfter = 0; this.memoryFailures=0;
     this.activeAssist=null;this.pendingAssist=null;this.assistantRetryTimer=null;
-    this.usage=new TaskLedger(store);this.memoryLastActivityAt=0;this.memoryDraining=false;this.lastAutomaticFingerprint='';
+    this.usage=new TaskLedger(store);this.memoryLastActivityAt=0;this.memoryDraining=false;
     this.feedbackContinuations=new Map();
     this.discussionCompaction=null;
   }
+  // Compatibility for existing local API consumers; CandidateSession owns all
+  // current output, validity, input sequencing and automatic reuse state.
+  get advice(){return this.candidateSession.candidate;}
+  set advice(value){if(value!==null)throw new Error('Publish candidates through CandidateSession');this.candidateSession.invalidate();}
+  get lastAutomaticFingerprint(){return this.candidateSession.lastAutomaticFingerprint;}
+  set lastAutomaticFingerprint(value){this.candidateSession.lastAutomaticFingerprint=value;}
+  get candidateReason(){return this.candidateSession.reason;}
+  set candidateReason(value){this.candidateSession.reason=value;}
   updateStatus(status) {
     if (status.account?.uid !== this.status.account?.uid || status.phase !== 'ready') {
       this.invalidateAssistant();
@@ -69,12 +79,14 @@ class Controller extends EventEmitter {
   }
   snapshot() {
     const messages = this.store.messages(this.scope);
+    const companion=this.scope?this.store.getCompanion(this.scope):null;
+    const automaticRuns=new Set((companion?.runs||[]).filter(run=>run.payload?.taskContext?.invocation?.origin==='automatic').map(run=>run.id));
     return { status: this.status, scope: this.scope, revision: this.revision,
       messages: messages.slice(-100).map(publicRecord), total: messages.length,
       coverage: this.scope ? this.store.coverage(this.scope) : null,
-      advice: this.advice, busy: this.busy, historyBusy: this.historyBusy, error: this.error,
-      companion: this.scope ? this.store.getCompanion(this.scope) : null,
-      assistantBusy: this.assistantBusy, assistantError: this.assistantError,
+      advice: this.currentAdvice(), candidateStatus:this.candidateStatus(), busy: this.busy, historyBusy: this.historyBusy, error: this.error,
+      companion: companion?{...companion,turns:companion.turns.filter(turn=>turn.origin!=='automatic'&&!automaticRuns.has(turn.requestId))}:null,
+      assistantBusy: this.assistantBusy, assistantOrigin:(this.activeAssist||this.pendingAssist)?.args?.origin||null, assistantError: this.assistantError,
       memoryStatus: this.scope && this.store.memoryStatus ? { ...this.store.memoryStatus(this.scope), busy: this.memoryBusy } : null,
       relationship:this.scope&&this.store.relationshipView?this.store.relationshipView(this.scope,{limit:24}):null,
       experience:this.scope&&this.store.experiences?this.store.experiences.list(this.scope,{limit:8}):null,
@@ -106,15 +118,16 @@ class Controller extends EventEmitter {
     const normalized = raw.map(m => normalize(m, scope)).filter(Boolean);
     const count = this.store.add(scope, normalized);
     if (count) {
-      const pending=this.activeAssist||this.pendingAssist;
-      this.memoryLastActivityAt=Date.now();this.invalidateAssistant({preserveTask:!!pending}); this.revision++; this.changed(); this.scheduleMemory(15000);
-      if(pending&&pending.resumes<2&&sameScope(pending.scope,this.scope)){
+      const pending=this.activeAssist||this.pendingAssist,automatic=pending?.args?.origin==='automatic';
+      const resume=pending&&(!automatic||this.auto&&this.automaticEligible());
+      this.memoryLastActivityAt=Date.now();this.invalidateAssistant({preserveTask:!!resume});if(automatic&&!resume)this.busy=false;this.advice=null;this.candidateReason=this.automaticEligible()?'qq_changed':'answered';clearTimeout(this.timer);this.revision++; this.changed(); this.scheduleMemory(15000);
+      if(resume&&pending.resumes<2&&sameScope(pending.scope,this.scope)){
         this.pendingAssist=pending;
         this.assistantRetryTimer=setTimeout(()=>{
           const retry=this.pendingAssist;this.pendingAssist=null;
-          if(retry&&sameScope(retry.scope,this.scope)&&this.visible)this.assist({...retry.args,taskId:retry.taskId,resumeTurnId:retry.turnId,resumes:retry.resumes+1}).catch(()=>{});
+          if(retry&&sameScope(retry.scope,this.scope)&&this.visible&&(retry.args.origin!=='automatic'||this.auto&&this.automaticEligible()))this.assist({...retry.args,taskId:retry.taskId,resumeTurnId:retry.turnId,resumes:retry.resumes+1}).catch(()=>{});
         },1800);this.assistantRetryTimer.unref?.();
-      } else if(pending) {
+      } else if(resume) {
         this.assistantError='新消息持续到达，这次思考已停止。你的问题已保留，可等对话稳定后继续。';
         this.usage.finish(scope,pending.taskId,'failed','conversation_keeps_changing');this.changed();
       }
@@ -197,8 +210,10 @@ class Controller extends EventEmitter {
       if(JSON.stringify(selected)!==JSON.stringify(this.selectedImages)){this.invalidateAssistant();this.selectedImages=selected;this.abort?.abort();this.advice=null;}
     }
     if(typeof autoImages==='boolean'&&autoImages!==this.autoImages){this.invalidateAssistant();this.autoImages=autoImages;this.settings.autoImages=autoImages;this.visionCache=null;this.abort?.abort();this.advice=null;}
+    const enabling=auto===true&&!this.auto;
     if (typeof auto === 'boolean') {this.auto = auto;this.settings.auto=auto;}
-    if (!this.auto) clearTimeout(this.timer);
+    if (!this.auto) {clearTimeout(this.timer);this.cancelAutomaticAssist();}
+    if(enabling)this.schedule();
     this.changed();
   }
   modelChanged() {
@@ -210,20 +225,32 @@ class Controller extends EventEmitter {
     this.changed();
   }
   setVisible(visible) { this.visible=visible;if(!visible){this.invalidateAssistant();clearTimeout(this.timer);this.abort?.abort();}else { if(this.auto && this.scope)this.schedule(); this.scheduleMemory(); } }
-  schedule() { if(!this.visible||this.assistantBusy||this.pendingAssist)return;if(!this.hasModelConsent())return; clearTimeout(this.timer); this.timer = setTimeout(() => this.suggest({automatic:true}).catch(() => {}), 1800); this.timer.unref?.(); }
-  automaticFingerprint(){return fingerprint({promptVersion:PROMPT_VERSION,scope:this.scope,revision:this.revision,generation:this.store.contextGeneration?.(this.scope),model:this.settings.model,baseUrl:this.settings.baseUrl,instruction:this.instruction,images:this.selectedImages,autoImages:this.autoImages,automaticImageConsent:this.hasImageConsent({automatic:true}),focus:this.replyMessageIds});}
-  async suggest({automatic=false}={}) {
+  automaticEligible() { const last=this.store.messages(this.scope).filter(message=>message.kind==='actual'&&!message.recalled).at(-1);return !!this.scope&&last?.direction==='incoming'; }
+  cancelAutomaticAssist() { const task=this.activeAssist||this.pendingAssist;if(task?.args?.origin==='automatic'){this.invalidateAssistant();this.busy=false;} }
+  candidateNow() { return typeof this.now==='function'?this.now():Date.now(); }
+  currentAdvice() { return this.candidateSession.current({scope:this.scope,revision:this.revision}); }
+  currentCandidateReference(){
+    const candidate=this.currentAdvice();if(!candidate?.turnId)return undefined;const primary=candidate.suggestions?.[0];
+    return {turnId:candidate.turnId,...(primary?{suggestionIndex:0}:{}),artifactRef:primary?.artifactRef||candidate.artifactRef,origin:candidate.origin};
+  }
+  candidateStatus() {
+    const messageIds=replyFocusFor(this.store.messages(this.scope),this.replyMessageIds).messageIds;
+    return this.candidateSession.status({scope:this.scope,revision:this.revision,auto:this.auto,messageIds});
+  }
+  schedule() { if(!this.auto||!this.visible||this.assistantBusy||this.pendingAssist||!this.automaticEligible())return;if(!this.hasModelConsent())return; clearTimeout(this.timer); this.timer = setTimeout(() => {if(this.auto&&this.visible&&this.automaticEligible())this.suggest({automatic:true}).catch(() => {});}, 1800); this.timer.unref?.(); }
+  automaticFingerprint(){return fingerprint({promptVersion:PROMPT_VERSION,scope:this.scope,revision:this.revision,privateInputSeq:this.candidateSession.privateInputSeq,model:this.settings.model,baseUrl:this.settings.baseUrl,instruction:this.instruction,images:this.selectedImages,autoImages:this.autoImages,automaticImageConsent:this.hasImageConsent({automatic:true}),focus:this.replyMessageIds});}
+  async suggest({automatic=false,alternative=false}={}) {
     const scope = this.requireScope(), epoch = this.epoch;
-    if(automatic&&this.lastAutomaticFingerprint===this.automaticFingerprint())return this.advice;
+    if(automatic&&this.candidateSession.canReuseAutomatic(this.automaticFingerprint(),{scope,revision:this.revision}))return this.advice;
+    const currentCandidateRef=!automatic&&alternative===true&&this.currentAdvice()?.suggestions?.length?this.currentCandidateReference():undefined;
+    const candidateAlternative=!!currentCandidateRef;
     this.busy = true; this.changed();
     try {
       const reply = await this.assist({ text: automatic ? '根据真实 QQ 更新当前交流的帮助；结合此刻时间和已有方向，判断现在有什么值得回应或处理。'
-        : '结合此刻时间、实际 QQ 和我们仍有效的商量，帮我选择现在怎样相处或表达更合适；需要具体表达时给完整参考。',responsePreference:this.instruction,
-        purpose: 'reply', transient: true, origin:automatic?'automatic':'user' });
+        : candidateAlternative?'我想换一个与当前候选有实质区别的具体切口或交流方向，不只是换词或换语气。参考提供的那一条生成候选，结合实际QQ、可用真实素材和仍适用的商量，给另一种可展开的内容及完整参考表达。不要重复原候选的核心话题动作，也不要为了求不同编造经历或忽略她刚提出的问题；若眼下没有更合适的新切口，诚实说明，不把原句改几个词当作新方向。'
+        : '我现在想和她聊。结合此刻时间、实际QQ和仍有效的商量，找一个具体、自然、可展开的切口，并给完整参考表达。没有新来信或我没有新鲜近况时，也可从她分享过的生活、共同话题或值得了解的一点开始；核对已经问过、说过的内容。',responsePreference:this.instruction,
+        purpose: 'reply', transient: true, origin:automatic?'automatic':'user',currentCandidateRef,candidateAlternative });
       if (!reply || epoch !== this.epoch || !sameScope(scope,this.scope)) return;
-      this.advice = { analysis: visibleResponseText(reply), suggestions: reply.suggestions || [], scope,
-        revision: this.revision, createdAt: new Date().toISOString(), requestId: reply.requestId };
-      if(automatic)this.lastAutomaticFingerprint=this.automaticFingerprint();
     } catch (error) { if(epoch===this.epoch){this.assistantError=error.message;this.changed();} throw error; }
     finally { if(epoch===this.epoch){this.busy=false;this.changed();} }
   }
@@ -231,10 +258,11 @@ class Controller extends EventEmitter {
   invalidateAssistant({preserveTask=false}={}) {
     this.visionCache=null;
     this.discussionCompaction=null;
-    const old=this.activeAssist||this.pendingAssist;if(!preserveTask&&old?.taskId){try{this.usage.finish(old.scope,old.taskId,'cancelled')}catch{}}
+    const old=this.activeAssist||this.pendingAssist;if(old?.args?.origin==='automatic')this.busy=false;if(!preserveTask&&old?.taskId){try{this.usage.finish(old.scope,old.taskId,'cancelled')}catch{}}
     clearTimeout(this.assistantRetryTimer);this.activeAssist=null;this.pendingAssist=null;
     this.memoryAbort?.abort(); this.memoryAbort = null; this.memoryBusy = false; clearTimeout(this.memoryTimer);
     this.assistantAbort?.abort(); this.assistantAbort = null;
+    this.candidateSession.cancel();
     this.assistantBusy = false; this.assistantError = '';
   }
   changedContext() {
@@ -373,10 +401,10 @@ class Controller extends EventEmitter {
       if(this.memoryAbort===abort){this.memoryBusy=false;this.memoryAbort=null;this.changed();if(this.store.memoryStatus(scope).pending)this.scheduleMemory(2500);}
     }
   }
-  async assist({ text, purpose = 'discussion', materialIds = [], sourceTurnIds = [], selectedOption, transient = false, resumeTurnId, resumes=0, taskId, origin='user',feedbackIntentId,privateKind,responsePreference } = {}) {
+  async assist({ text, purpose = 'discussion', materialIds = [], sourceTurnIds = [], selectedOption, transient = false, resumeTurnId, resumes=0, taskId, origin='user',feedbackIntentId,privateKind,responsePreference,candidateInputSeq,currentCandidateRef,candidateAlternative=false } = {}) {
     const scope = this.requireScope();
     // Freeze one observation across lookups, compaction and format repair.
-    // Existing running instances can receive this method without reconstruction.
+    // Reconstruct this controller and its CandidateSession together on service refresh.
     const asOf = new Date(typeof this.now === 'function' ? this.now() : Date.now()).toISOString();
     const viewerTimeZone = this.viewerTimeZone || Intl.DateTimeFormat().resolvedOptions().timeZone;
     const invocation = { origin: origin === 'automatic' ? 'automatic' : 'user',
@@ -395,20 +423,28 @@ class Controller extends EventEmitter {
       if(previous.status==='complete')return this.store.getCompanion(scope).turns.find(turn=>turn.role==='assistant'&&turn.requestId===budget.id)||null;
       const error=new Error(previous.status==='running'?'这次请求仍在进行，请等待结果。':'这次请求已经结束；如需重新尝试，请重新提交。');error.code='task_already_exists';throw error;
     }
+    // The user's new words can refer to the visible current wording even as
+    // the new-intent fence withdraws it. This is one generated reference, not
+    // an explicit historical selection or permission to reload its sources.
+    if(sourceTurnIds.length||selectedOption)currentCandidateRef=undefined;
+    else if(!currentCandidateRef&&invocation.origin==='user'&&!transient&&resumes===0)currentCandidateRef=this.currentCandidateReference();
     if(this.error===this.assistantError)this.error='';
     this.invalidateAssistant({preserveTask:resumes>0});
+    const candidateTicket=this.candidateSession.begin({scope,revision:this.revision,requestId:budget.id,origin:invocation.origin,
+      advancePrivateInput:invocation.origin==='user'&&resumes===0,expectedPrivateInputSeq:resumes>0?candidateInputSeq:undefined});
+    if(!candidateTicket){this.usage.finish(scope,budget.id,'cancelled','private_input_changed');return;}
     this.memoryLastActivityAt=Date.now();this.store.maintainLocal?.(scope);
     const abort = this.assistantAbort = new AbortController(), requestId = budget.id;
     clearTimeout(this.timer);
     const prior=resumeTurnId&&this.store.getCompanion(scope).turns.find(t=>t.id===resumeTurnId&&t.role==='user'&&t.text===text);
     if(resumeTurnId&&!prior&&!transient)throw new Error('原来的问题已变化，请使用当前问题');
     let turn = transient ? {id:requestId,role:'user',kind:purpose,text,transient:true} : prior||this.store.appendTurn(scope, { role: 'user', kind: privateKind||purpose, text, requestId });
-    this.activeAssist={scope,turnId:turn.id,taskId:budget.id,resumes,args:{text,purpose,materialIds,sourceTurnIds,selectedOption,transient,origin,feedbackIntentId,privateKind,responsePreference}};
+    this.activeAssist={scope,turnId:turn.id,taskId:budget.id,resumes,args:{text,purpose,materialIds,sourceTurnIds,selectedOption,transient,origin,feedbackIntentId,privateKind,responsePreference,candidateInputSeq:candidateTicket.privateInputSeq,currentCandidateRef,candidateAlternative}};
     let companion = this.store.getCompanion(scope), baseRevision = companion.revision,baseGeneration=this.store.contextGeneration?.(scope);
     const epoch = this.epoch, revision = this.revision, settings = { ...this.settings };
     const binding = `${settings.baseUrl}\n${settings.model}\n${settings.activeModelProfileId || ''}`;
     const current = () => this.assistantAbort === abort && !abort.signal.aborted && epoch === this.epoch && revision === this.revision &&
-      sameScope(scope, this.scope) && this.hasModelConsent() &&
+      sameScope(scope, this.scope) && this.hasModelConsent() &&this.candidateSession.isCurrent(candidateTicket,{scope:this.scope,revision:this.revision})&&
       binding === `${this.settings.baseUrl}\n${this.settings.model}\n${this.settings.activeModelProfileId || ''}` &&
       this.store.getCompanion(scope).revision === baseRevision && (!this.store.contextGeneration||this.store.contextGeneration(scope)===baseGeneration);
     this.assistantBusy = true; this.assistantError = ''; this.changed();
@@ -417,7 +453,7 @@ class Controller extends EventEmitter {
     let activeCompaction=null,compactionAttempted=false,sourceLookupIds=[],retrievedDiscussion=[];
     try {
       const records = this.store.messages(scope), coverage = this.store.coverage(scope);
-      query=retrievalQuery({text,records,companion,transient});
+      query=retrievalQuery({text,records,companion,transient,asOf,settings});
       const vision=this.visionContext({refresh:true}),images=vision.images;
       const assemblyOptions=()=>{
         companion=this.store.getCompanion(scope);
@@ -434,7 +470,7 @@ class Controller extends EventEmitter {
         if(intentSourceId&&!explicitFeedbackIds.includes(feedbackIntentId))throw new Error('本次反馈意图未绑定选中的反馈对象');
         return { scope, records, companion, turn, purpose: purpose === 'draft' ? 'draft_prepare' : purpose, asOf, viewerTimeZone, invocation,
           materialIds, coverage, requestId, settings, images:liveImages,mediaContext:liveMediaContext, byteBudget: settings.assistantContextBytes || 48000,availableSources,memoryResult,
-          memoryIndex:[...index.items,...index.episodes],retrievedSources,sourceTurnIds,selectedOption,replyMessageIds:[...this.replyMessageIds],imageMessageIds:liveImages.map(image=>image.messageId),
+          memoryIndex:[...index.items,...index.episodes],retrievedSources,sourceTurnIds,selectedOption,currentCandidateRef,candidateAlternative:candidateAlternative===true&&invocation.origin==='user',replyMessageIds:[...this.replyMessageIds],imageMessageIds:liveImages.map(image=>image.messageId),
           actionReceipts:receipts,lookupHistory,reviewRange,
           relationshipContext:this.store.relationshipView?.(scope,{query,limit:16}),
           experienceContext,allowExperienceProposals:purpose==='review'||explicitFeedbackIds.length>0,topicContext,intentSourceId,
@@ -492,6 +528,7 @@ class Controller extends EventEmitter {
       };
       const invoke=async(input)=>{
         const stage=budget.forStage(input.payload.purpose);settings.requestBudget=stage;input.manifest.stageId=stage.stageId;
+        input.manifest.candidateSession={qqRevision:revision,privateInputSeq:candidateTicket.privateInputSeq};
         this.store.saveRun(scope,{id:requestId,baseRevision,purpose:input.payload.purpose,status:'pending',payload:input.payload,manifest:input.manifest});
         try{
           const output=await this.assistantModel(settings,input,abort.signal),resultInput=input.resultContext||input;
@@ -511,7 +548,7 @@ class Controller extends EventEmitter {
             // A private text fallback cannot commit an earlier queued proposal.
             // Already applied user actions and their real receipts remain intact.
             relationshipProposals.length=0;experienceProposals.length=0;topicProposals.length=0;stagedReview=null;
-            result={kind:['discussion','review','question'].includes(result.kind)?result.kind:'discussion',text:result.text};
+            result={kind:['discussion','review','question'].includes(result.kind)?result.kind:'discussion',text:result.text,...(result.replyDisposition?{replyDisposition:result.replyDisposition}:{})};
           }
           input.manifest.methodTrace ||= {delivered:(input.payload.methodCards||[]).map(method=>({id:method.id,version:method.version})),reported:null};
           if(!input.extraRequests?.length)input.manifest.methodTrace.reported=Object.hasOwn(result,'methodIds')?[...result.methodIds]:null;
@@ -580,7 +617,7 @@ class Controller extends EventEmitter {
       let reviewed=context,discussionExplanation;stagedReview={context,result};
       if(result.draftPlan?.clarification) {
         if(result.kind!=='question'&&typeof result.text==='string'&&result.text.trim())discussionExplanation={kind:result.kind,text:result.text};
-        result={...result,kind:'question',text:result.kind==='question'&&typeof result.text==='string'&&result.text.trim()?result.text:result.draftPlan.clarification};
+        result={...result,kind:'question',text:result.kind==='question'&&typeof result.text==='string'&&result.text.trim()?result.text:result.draftPlan.clarification,...(purpose==='reply'?{replyDisposition:'clarify'}:{})};
       }
       else if(result.draftPlan){
         if(typeof result.text==='string'&&result.text.trim())discussionExplanation={kind:result.kind,text:result.text};
@@ -596,6 +633,11 @@ class Controller extends EventEmitter {
         deliveredMethodRefs:[...new Map([...(request.manifest.methodTrace?.catalog||[]).map(method=>({...method,guidanceLevel:'catalog'})),...(request.manifest.methodTrace?.delivered||[]).map(method=>({...method,guidanceLevel:'full_card'}))].map(method=>[method.id,method])).values()].map(method=>({methodId:method.id,version:method.version,guidanceLevel:method.guidanceLevel})),reportedUsedMethodRefs:request.manifest.methodTrace?.reported?.map(id=>({methodId:id,version:methodFor(id)?.version}))??null}));
       let patchReceipt=null,relationshipReceipt=null,topicReceipt=null;
       const recoveryValue=context.manifest?.responseRecovery,responseRecovery=recoveryValue&&normalizeResponseRecovery(recoveryValue);
+      const validatedPlanDigest=fingerprint({purpose:context.payload.purpose,outboundQuotes:context.payload.outboundQuotes,
+        draftingGuidance:context.payload.draftingGuidance,wordingControls:context.payload.wordingControls,replyFocus:context.payload.replyFocus,
+        sourceRevisions:context.manifest.sourceRevisions,replyDisposition:result.replyDisposition});
+      if(!this.candidateSession.bindPlan(candidateTicket,validatedPlanDigest))return;
+      context.manifest.candidateSession={qqRevision:revision,privateInputSeq:candidateTicket.privateInputSeq,validatedPlanDigest};
       const reply=this.store._atomic(()=>{
         if(!current())return null;
         const rejectedAux=capturedRequests.flatMap(r=>r.manifest?.auxiliaryErrors||[]);
@@ -642,7 +684,7 @@ class Controller extends EventEmitter {
         const metadataReviewPending=rejectedAux.length&&intent?.role==='user'&&intentId?.startsWith('private:')
           ?{reasonCode:'auxiliary_metadata_rejected',sourceIds:[intentId],sourceRevisions:{[intentId]:intent.revision}}:undefined;
         const privateReviewReceipt=!metadataReviewPending&&responseRecovery?.kind!=='private_help'&&privateReviewed.length?{applied:true,sourceIds:privateReviewed}:undefined;
-        const saved=this.store.appendTurn(scope,{role:'assistant',kind:result.kind,text:result.text,discussionExplanation,requestId,suggestions:result.suggestions,
+        const saved=this.store.appendTurn(scope,{role:'assistant',kind:result.kind,text:result.text,discussionExplanation,requestId,suggestions:result.suggestions,origin:invocation.origin,replyDisposition:result.replyDisposition||(purpose==='reply'&&!result.suggestions?.length?'unavailable':undefined),
           sourceIds:[...new Set([...context.manifest.sourceIds,...capturedRequests.flatMap(r=>r.manifest?.sourceIds||[])])],expressionOptions,methodIds,actionReceipts:receipts,generationStages,responseRecovery,privateReviewReceipt,metadataReviewPending,
           artifactMetadata:{generationStages,goalVersion:companion.goal.version,inputSourceRefs:
             [...new Map(capturedRequests.flatMap(request=>Object.entries({...request.manifest?.discussionCompaction?.sourceRevisions,...request.manifest?.sourceRevisions}))).entries()].filter(([sourceId])=>/^(qq|private|note):/.test(sourceId)).map(([sourceId,revision])=>({sourceId,revision})),
@@ -653,7 +695,9 @@ class Controller extends EventEmitter {
         this.usage.finish(scope,budget.id,'complete');return saved;
       });
       if(!reply)return;
-      if(purpose==='reply')this.advice={analysis:visibleResponseText(reply),suggestions:reply.suggestions||[],scope,revision:this.revision,createdAt:new Date().toISOString(),requestId};
+      if(purpose==='reply'||reply.kind==='draft'&&reply.suggestions?.length)this.candidateSession.publish(candidateTicket,{scope:this.scope,revision:this.revision,
+        reply,planDigest:validatedPlanDigest,messageIds:replyFocusFor(this.store.messages(scope),this.replyMessageIds).messageIds,automaticFingerprint:this.automaticFingerprint()});
+      else this.candidateSession.finish(candidateTicket,'private_consultation');
       return reply;
     } catch(error) {
       if(!current()){
@@ -663,6 +707,7 @@ class Controller extends EventEmitter {
         return;
       }
       this.usage.finish(scope,budget.id,'failed',error.code||'assistant_failed');
+      this.candidateSession.finish(candidateTicket,'generation_failed');
       this.assistantError=error.message;
       if(context)this.store.saveRun(scope,{id:requestId,baseRevision,purpose:context.payload.purpose,status:'failed',payload:context.payload,manifest:context.manifest,requests:capturedRequests,error:error.message,maintenance:'failed'});
       throw error;

@@ -1,0 +1,38 @@
+{
+  "sample-1-1": {
+    "A": "baseline",
+    "B": "refactor"
+  },
+  "sample-2-1": {
+    "A": "refactor",
+    "B": "baseline"
+  },
+  "sample-3-1": {
+    "A": "baseline",
+    "B": "refactor"
+  },
+  "sample-3-3": {
+    "A": "baseline",
+    "B": "refactor"
+  },
+  "sample-4-1": {
+    "A": "refactor",
+    "B": "baseline"
+  },
+  "sample-4-2": {
+    "A": "baseline",
+    "B": "refactor"
+  },
+  "sample-5-1": {
+    "A": "baseline",
+    "B": "refactor"
+  },
+  "sample-6-1": {
+    "A": "refactor",
+    "B": "baseline"
+  },
+  "sample-7-1": {
+    "A": "baseline",
+    "B": "refactor"
+  }
+}

@@ -32,10 +32,10 @@ const memoryItem=object({id:string,kind:choice(['fact','preference','commitment'
 const episode=object({id:string,text:string,sourceIds:strings,topicKeys:strings},['text','sourceIds']);
 const memoryRetirement=object({id:string,sourceIds:strings,status:choice(['resolved','cancelled','superseded'])},['id','sourceIds','status']);
 const schemas={
- assistant_result:object({kind:choice(['discussion','question','options','review','acknowledgment']),text:string,methodIds:strings,draftPlan,
+ assistant_result:object({kind:choice(['discussion','question','options','review','acknowledgment']),text:string,methodIds:strings,draftPlan,replyDisposition:choice(['wait','clarify','unavailable']),
  lookup:object({query:string,discussionTurnIds:strings,before:string,after:string,types:array(choice(['qq','private','note','feedback']))}),
     actions:array(action),stateReview:choice(['no_change']),statePatch,topicPatch,relationshipPatch,experienceProposals:array(experienceProposal),expressionOptions:array(expressionOption)},['kind','text']),
- draft_result:object({kind:choice(['draft','discussion','question']),text:string,suggestions:array(object({style:string,text:string},['style','text'])),methodIds:strings},['kind','text']),
+ draft_result:object({kind:choice(['draft','discussion','question']),text:string,suggestions:array(object({style:string,text:string},['style','text'])),methodIds:strings,replyDisposition:choice(['wait','clarify','unavailable'])},['kind','text']),
  discussion_compaction_result:object({summary:string,reviewedTurnIds:strings,quoteRefs:array(quoteRef)},['summary','reviewedTurnIds','quoteRefs']),
  memory_result:object({batchId:string,reviewedAll:boolean,items:array(memoryItem),episodes:array(episode),retire:array(memoryRetirement),relationshipPatch},['batchId','reviewedAll','items','episodes','retire'])
 };

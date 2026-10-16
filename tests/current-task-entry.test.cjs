@@ -29,3 +29,10 @@ test('manual QQ shortcut validates the complete captured scope before suggestion
  const accepted=await post({...controller.scope});assert.equal(accepted.status,200);
  assert.deepEqual(calls,[controller.scope]);
 });
+test('the scoped suggestion API forwards only an explicit boolean alternative action',async t=>{
+ const store=new Store(':memory:'),calls=[];const controller=new Controller({store,settings:{},read:async()=>{throw Error('No QQ reads');}});controller.scope={...scope};controller.suggest=async options=>{calls.push(options)};
+ const server=createServer({controller,token:'synthetic-alternative',uiDir:path.resolve(__dirname,'../ui')});await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+ t.after(async()=>{controller.close();await new Promise(resolve=>server.close(resolve));store.close();});const base=`http://127.0.0.1:${server.address().port}`;
+ for(const alternative of [true,false,'true']){const response=await fetch(`${base}/api/suggest`,{method:'POST',headers:{Authorization:'Bearer synthetic-alternative','Content-Type':'application/json'},body:JSON.stringify({...scope,alternative})});assert.equal(response.status,200);}
+ assert.deepEqual(calls,[{alternative:true},{alternative:false},{alternative:false}]);
+});

@@ -87,14 +87,15 @@ test('new user input keeps source-backed prior state as reviewable navigation an
   assert.equal(companion.state.openThreads[0].status, 'open', 'projection must not rewrite the persisted source state');
 });
 
-test('retrieved old invitation includes later cancellation when the chronology fits', t => {
+test('retrieved old invitation remains historical until its omitted later chronology is looked up', t => {
   const records = Array.from({ length: 100 }, (_, index) => message(600 + index, index % 2 === 1,
     index === 0 ? '周末一起去看电影吧' : index === 20 ? '取消吧，后来我改主意了。' : `普通消息编号 ${index}`));
   const { args } = contextFixture(t, { records, text: '周末看电影的事还能接着聊吗？' });
   const context = buildContext(args);
   assert.ok(context.payload.sources.some(source => source.id === 'qq:600'), 'the old invitation must actually be retrieved');
-  assert.equal(context.payload.sources.find(source => source.id === 'qq:620').text, records[20].text);
-  assert.equal(context.payload.sources.find(source => source.id === 'qq:600').historicalOnly, undefined);
+  assert.equal(context.payload.sources.some(source => source.id === 'qq:620'), false, 'a past match does not load the entire later conversation');
+  assert.equal(context.payload.sources.find(source => source.id === 'qq:600').historicalOnly, true);
+  assert.ok(context.payload.deferredContext.qqSourceCount>0);
 });
 
 test('old invitation cannot silently appear current when a later cancellation does not fit', t => {
@@ -113,7 +114,7 @@ test('old invitation cannot silently appear current when a later cancellation do
 
 test('draft preparation rejects unauthorized private sources and respects already granted note permission', t => {
   const fixture = contextFixture(t, { purpose: 'draft_prepare', text: '想告诉她实验终于成功了。',
-    notes: [{ text: 'PRIVATE_NOTE_暂时不想分享的烦恼', use: 'discussion' }, { text: 'UNSELECTED_NOTE_周末旅行', use: 'draft' }],
+    notes: [{ text: 'PRIVATE_NOTE_实验期间暂时不想分享的烦恼', use: 'discussion' }, { text: 'UNSELECTED_NOTE_实验成功后准备周末旅行', use: 'draft' }],
     prior: [{ role: 'user', kind: 'discussion', text: 'OLDER_PRIVATE_我对她有好感' }] });
   const prepared = buildContext(fixture.args);
   const forbidden = prepared.payload.sources.filter(source => source.id !== prepared.payload.userRequest.sourceId && source.type !== 'qq' && source.use !== 'draft');

@@ -16,7 +16,7 @@ function app(t,assistantModel,overrides={}) {
 
 test('recent incoming burst is grouped and selected old targets remain in the unified bounded context',async t=>{
  assert.deepEqual(replyFocusFor(records,[]).messageIds,records.slice(-3).map(r=>r.messageId));
- let context;const {controller}=app(t,async(_,input)=>{context=input;return {kind:'discussion',text:'先接住之前提到的两个话题。'};});
+ let context;const {controller}=app(t,async(_,input)=>{context=input;return {kind:'discussion',text:'合成场景暂不提供新句子。',replyDisposition:'wait'};});
  const ids=[records[0].messageId,records[1].messageId];controller.configure({instruction:'自然一点',replyMessageIds:ids});
  await controller.suggest();assert.equal(context.payload.purpose,'reply');assert.deepEqual(context.payload.replyFocus,ids);
  assert.ok(ids.every(id=>context.payload.sources.some(s=>s.id===`qq:${id}`)));assert.ok(context.manifest.inputBytes<=context.manifest.byteBudget);

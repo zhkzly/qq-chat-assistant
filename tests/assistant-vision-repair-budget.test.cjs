@@ -25,13 +25,16 @@ test('vision planning repair rebudgets the full wrapper without attaching pixels
   const context = buildContext({ scope, records: store.messages(scope), companion: store.getCompanion(scope), turn, settings,
     requestId: 'synthetic-vision-repair', purpose: 'reply', coverage: { status: 'partial' }, images, mediaContext: { mode: 'automatic', omitted: [] }, relationshipContext });
   const beforeSourceCount = context.payload.sources.length, calls = [];
-  assert.ok(context.manifest.serializedTextRequestBytes > 60000 && context.manifest.serializedTextRequestBytes <= 64000, 'the ordinary request fits while its repair wrapper must be rebuilt');
+  // Preserve real wrapper pressure without relying on unrelated history to
+  // fill every available byte of the ordinary request.
+  settings.assistantRequestBytes=context.manifest.serializedTextRequestBytes+200;
+  assert.ok(context.manifest.serializedTextRequestBytes<=settings.assistantRequestBytes);
   const result = await assistModel(settings, context, undefined, async (_url, request) => {
     const wire = JSON.parse(request.body), content = wire.messages[1].content;
     const input = JSON.parse(Array.isArray(content) ? content[0].text : content);
     calls.push({ wire, input });
     const response = calls.length === 1
-      ? { kind: 'discussion', text: '虚构修复载荷'.repeat(700), draftPlan: { intent: 'reply', quotes: [] } }
+      ? { kind: 'discussion', text: '虚构修复载荷'.repeat(340), draftPlan: { intent: 'reply', quotes: [] } }
       : { kind: 'discussion', text: 'Synthetic repaired plan.', draftPlan: withCurrentDraftControls({ intent: 'reply', quotes: [] }, input.originalInput) };
     return { ok: true, json: async () => ({ choices: [{ message: { content: JSON.stringify(response) } }] }) };
   });

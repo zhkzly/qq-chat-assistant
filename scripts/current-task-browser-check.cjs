@@ -6,6 +6,7 @@ const {Store}=require('../src/store.cjs');
 const {Controller}=require('../src/controller.cjs');
 const {createServer}=require('../src/server.cjs');
 const {scope,raw}=require('../tests/fixtures/native.cjs');
+const {withCurrentDraftControls}=require('../tests/fixtures/draft-controls.cjs');
 const {CDP}=require('./cdp.cjs');
 const {actions}=require('./browser-actions.cjs');
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
@@ -20,9 +21,9 @@ async function until(check,label){for(let n=0;n<120;n++){if(await check())return
  const settings={anonymous:true,baseUrl:'http://fixture.invalid/v1',model:'synthetic-entry',auto:false,realChatConsent:{...scope,baseUrl:'http://fixture.invalid/v1',model:'synthetic-entry'}};
  const controller=new Controller({store,settings,read:async(command,args)=>command==='bind'?(args.uin===scope.peerUin?scope:{...scope,peerUid:'other-peer',peerUin:args.uin}):{messages:command==='latest'?fictionalQQ:[],source:'synthetic'},assistantModel:async(_settings,input)=>{
   const p=input.payload;calls.push(structuredClone(p));callScopes.push(structuredClone(input.manifest.scope));
-  if(p.purpose==='draft_prepare')return {draftPlan:{quotes:[{sourceId:p.userRequest.sourceId,text:p.userRequest.text}],style:'natural'}};
+  if(p.purpose==='draft_prepare')return {draftPlan:withCurrentDraftControls({quotes:[{sourceId:p.userRequest.sourceId,text:p.userRequest.text}],style:'natural'},p)};
   if(p.purpose==='draft')return {kind:'draft',text:'参考表达',suggestions:[{style:'自然',text:'今天实习培训学到了一个新技巧。'}]};
-  return {kind:p.purpose==='review'?'review':'question',text:p.purpose==='review'?'只回顾已经发生的交流。':'你愿意先说说这次想表达哪件真实小事吗？'};
+  return {kind:p.purpose==='review'?'review':'question',text:p.purpose==='review'?'只回顾已经发生的交流。':'你愿意先说说这次想表达哪件真实小事吗？',...(p.purpose==='reply'?{replyDisposition:'clarify'}:{})};
  }});
  // Exercise the inspector's new projection with the agreed task contract,
  // deriving its QQ entries from the real source-shaped fixture and saved run.
@@ -63,12 +64,12 @@ async function until(check,label){for(let n=0;n<120;n++){if(await check())return
    const variants=[['discussion','我想主动补充一句今天的实习趣事，帮我先商量怎么接。','discussion'],['review','帮我回顾这些互动，先别写给她。','review'],['draft','我想告诉她今天实习培训学到了一个新技巧。','draft_prepare']];
    for(const [mode,text,firstPurpose]of variants){
     await ui.openDetails('#assistant-tools');await ui.click(`#assistant-${mode}`);await ui.fill('#assistant-input',text);
-    const before=calls.length;await ui.click('#generate');await until(()=>calls.length>before&&!controller.assistantBusy,'typed quick help');
-    assert.equal(calls[before].purpose,firstPurpose,'a typed shortcut preserves the selected help mode');
+    const before=calls.length;await ui.click('#assistant-send');await until(()=>calls.length>before&&!controller.assistantBusy,'typed private help');
+    assert.equal(calls[before].purpose,firstPurpose,'explicit private submit preserves the selected help mode');
     assert.equal(calls[before].userRequest.text,text,'the natural private intent is the current request');
     assert.equal(await cdp.evaluate('nextPurpose'),mode,'the chosen mode is not silently reset');
     assert.equal(await cdp.evaluate("document.querySelector('#assistant-input').value"),'','completed matching input is cleared like normal submit');
-   checks.push(`Typed QQ shortcut preserves ${mode} intent and dispatch`);
+   checks.push(`Explicit private submit preserves ${mode} intent and dispatch`);
    }
    await ui.click('#draft-button');await ui.fill('#draft','这份未发送草稿要保留。');await ui.click('#draft-close');
    await ui.workspace('background');await ui.openDetails('#goal-editor');await ui.fill('#goal-input','这个目标还没有保存，先保留。');await ui.workspace('discussion');

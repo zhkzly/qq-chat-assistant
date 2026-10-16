@@ -56,7 +56,7 @@ test('a late rejected old attempt cannot overwrite the completed resumed task le
  assert.equal(app.controller.usage.get(scope,pending.taskId).status,'complete');
 });
 test('automatic requests deduplicate unchanged context but an explicit regeneration remains available',async t=>{
- let calls=0;const app=setup(t,async()=>{calls++;return {kind:'discussion',text:'可以先接住她的意思。',stateReview:'no_change'}});await app.controller.bind(scope.peerUin);
+ let calls=0;const app=setup(t,async()=>{calls++;return {kind:'discussion',text:'合成场景暂不需要新回复。',replyDisposition:'wait',stateReview:'no_change'}});await app.controller.bind(scope.peerUin);
  await app.controller.suggest({automatic:true});await app.controller.suggest({automatic:true});assert.equal(calls,1);
  await app.controller.suggest();assert.equal(calls,2);
 });

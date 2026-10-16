@@ -11,7 +11,7 @@ function setup(t,{text='怎么接着聊？',records=[]}={}){
 }
 test('QQ shortcut retrieves available self context for her current question rather than only a style phrase',async t=>{
  const store=new Store(':memory:'),inputs=[];const settings={auto:false,anonymous:true,model:'synthetic-current-task',baseUrl:'http://fixture.invalid/v1',realChatConsent:{accountUid:scope.accountUid,peerUin:scope.peerUin,model:'synthetic-current-task',baseUrl:'http://fixture.invalid/v1'}};
- const controller=new Controller({store,settings,read:async()=>{throw Error('no native reading in this fixture');},assistantModel:async(_settings,input)=>{inputs.push(input.payload);return {kind:'discussion',text:'可以按实际距离回应她，再接住她的想法。'};}});t.after(()=>{controller.close();store.close();});
+ const controller=new Controller({store,settings,read:async()=>{throw Error('no native reading in this fixture');},assistantModel:async(_settings,input)=>{inputs.push(input.payload);return {kind:'discussion',text:'合成检索夹具：本轮已处理，不生成候选。',replyDisposition:'wait'};}});t.after(()=>{controller.close();store.close();});
  controller.updateStatus({phase:'ready',account:{uid:scope.accountUid,uin:scope.accountUin}});controller.scope={...scope};store.setGoal(scope,'希望和她发展双方愿意的恋爱关系');
  store.add(scope,[msg(7001,true,'我在合成乙城找到工作。'),msg(7002,false,'工作地点离你常住地多远？',{msgTime:String(Number(raw().msgTime)+1)})]);
  const note=store.saveNote(scope,{text:'我常住在合成甲城，合成乙城的工作地点在两百公里外。',use:'discussion'});
@@ -110,7 +110,7 @@ test('budget pressure uses task text references while preserving complete quoted
 });
 test('restricted draft propagates late omitted-chronology authority to quoted task views without mutating preparation',t=>{
  const at=Number(raw().msgTime),target=msg(9800,false,'An old synthetic invitation.',{msgTime:String(at)});
- const between=Array.from({length:20},(_,i)=>msg(9801+i,i%2===0,'Ordinary intermediate synthetic text. '.repeat(8),{msgTime:String(at+i+1)}));
+ const between=Array.from({length:20},(_,i)=>msg(9801+i,i%2===0,'Ordinary intermediate synthetic text. '.repeat(2),{msgTime:String(at+i+1)}));
  const incoming=msg(9821,false,'The newest actual incoming.',{msgTime:String(at+21)});
  const reply=msg(9822,true,'Synthetic quoted reaction.',{msgTime:String(at+22),elements:[{replyElement:{replayMsgId:'9800',replayMsgSeq:'9800',senderUidStr:scope.peerUid,senderUin:scope.peerUin}},{textElement:{content:'Synthetic quoted reaction.'}}]});
  const f=setup(t,{text:'Synthetic current request',records:[target,...between,incoming,reply]}),prepared=buildContext({...f.args,availableSources:f.store.memorySources(scope)});
@@ -147,7 +147,9 @@ test('method catalog preserves all help families while only a small full guidanc
  assert.ok(context.manifest.methodTrace.catalog.length===8);assert.equal(context.manifest.methodTrace.delivered.length,p.methodCards.length);
 });
 test('old active topic inherits omitted private chronology without cancelling user purpose',t=>{
- const f=setup(t);const old=f.store.appendTurn(scope,{role:'user',kind:'discussion',text:'想了解她的游戏，不直接邀约'});for(let i=0;i<30;i++)f.store.appendTurn(scope,{role:'user',kind:'discussion',text:`后来私下想法${i}`});const current=f.store.appendTurn(scope,{role:'user',kind:'discussion',text:'先看看现在怎么接话'});
+ // The 72-hour layer now admits all short recent turns. Use genuine raw-text
+ // pressure to exercise omission instead of relying on a six-group quota.
+ const f=setup(t);const old=f.store.appendTurn(scope,{role:'user',kind:'discussion',text:'想了解她的游戏，不直接邀约'});for(let i=0;i<30;i++)f.store.appendTurn(scope,{role:'user',kind:'discussion',text:`后来私下想法${i}。`.repeat(120)});const current=f.store.appendTurn(scope,{role:'user',kind:'discussion',text:'先看看现在怎么接话'});
  const topic={id:'synthetic-old-topic',version:1,lifecycle:'active',objective:'了解游戏',direction:'先接话',constraints:[],sourceIds:[`private:${old.id}`],purposeSourceIds:[`private:${old.id}`]};
  const p=buildContext({...f.args,turn:current,companion:f.store.getCompanion(scope),topicContext:{active:topic,version:1,retained:[]}}).payload;
  assert.equal(p.topicContext.active.lifecycle,'active');assert.equal(p.topicContext.active.reviewPending,true);assert.equal(p.topicContext.active.authority,'needs_review');

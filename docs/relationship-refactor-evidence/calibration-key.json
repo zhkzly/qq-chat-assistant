@@ -1,0 +1,22 @@
+[
+  {
+    "id": "calibration-1",
+    "A": "calibrated",
+    "B": "before_calibration"
+  },
+  {
+    "id": "calibration-2",
+    "A": "before_calibration",
+    "B": "calibrated"
+  },
+  {
+    "id": "calibration-3",
+    "A": "calibrated",
+    "B": "before_calibration"
+  },
+  {
+    "id": "calibration-4",
+    "A": "before_calibration",
+    "B": "calibrated"
+  }
+]

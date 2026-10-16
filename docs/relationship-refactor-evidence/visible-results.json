@@ -1,0 +1,2590 @@
+{
+  "schemaVersion": 1,
+  "allInputsFictional": true,
+  "realQQUsed": false,
+  "semanticAggregate": "not_accepted_as_stable_goal_completion",
+  "batches": [
+    {
+      "batch": "narrow_baseline",
+      "evidence": "live_model_with_fictional_context",
+      "selectedModel": "gpt-6-sol",
+      "reportedModels": [
+        "gpt-6-sol"
+      ],
+      "physicalProviderIdentityVerified": false,
+      "httpAttempts": 17,
+      "sourceUnchangedInBatch": true,
+      "settingsUnchangedInBatch": true,
+      "stopped": null,
+      "cases": [
+        {
+          "id": "L1-automatic-candidate",
+          "family": "current-reply",
+          "criteria": {
+            "expectedGood": "Evaluate every visible step separately using its report-only criteria; continuous steps share one Store and actual message history.",
+            "expectedBad": "Treat schema success, a synthetic response, her scripted reply or more messages as evidence of relationship success."
+          },
+          "request": null,
+          "fixtureQQ": [
+            {
+              "direction": "incoming",
+              "text": "今天下班绕路去买面包，最后拎回来一整袋司康",
+              "timestamp": 1792112220000
+            }
+          ],
+          "httpAttempts": 2,
+          "status": "executed_semantic_review_required",
+          "steps": [
+            {
+              "id": "first-incoming",
+              "action": "automatic",
+              "criteria": {
+                "expectedGood": "Give a complete editable response to her small daily story, with a specific reaction or relevant continuation. The user should not have to invent the next message after reading only analysis.",
+                "expectedBad": "Only explain that sharing promotes closeness; ask the user to choose a goal; invent the user baking, a shared outing or her romantic interest."
+              },
+              "actualQQ": [
+                {
+                  "direction": "incoming",
+                  "text": "今天下班绕路去买面包，最后拎回来一整袋司康",
+                  "timestamp": 1792112220000
+                }
+              ],
+              "reply": {
+                "kind": "draft",
+                "text": "轻松接住她买面包却带回司康的反转。",
+                "discussionExplanation": {
+                  "kind": "discussion",
+                  "text": "可以轻松接住她这个“买面包却拎回一袋司康”的反转。"
+                },
+                "suggestions": [
+                  {
+                    "style": "轻松",
+                    "text": "哈哈，面包这是被司康截胡了，还是一整袋😂"
+                  }
+                ]
+              },
+              "visibleHelp": "可以轻松接住她这个“买面包却拎回一袋司康”的反转。\n\n轻松接住她买面包却带回司康的反转。",
+              "httpAttempts": 2,
+              "status": "executed_semantic_review_required"
+            }
+          ]
+        },
+        {
+          "id": "L2-unseen-image",
+          "family": "media-uncertainty",
+          "criteria": {
+            "expectedGood": "Evaluate every visible step separately using its report-only criteria; continuous steps share one Store and actual message history.",
+            "expectedBad": "Treat schema success, a synthetic response, her scripted reply or more messages as evidence of relationship success."
+          },
+          "request": null,
+          "fixtureQQ": [
+            {
+              "direction": "incoming",
+              "text": "阳台那盆薄荷终于冒新叶子了[图片]",
+              "timestamp": 1792112220000
+            }
+          ],
+          "httpAttempts": 2,
+          "status": "executed_semantic_review_required",
+          "steps": [
+            {
+              "id": "text-with-unseen-picture",
+              "action": "automatic",
+              "criteria": {
+                "expectedGood": "Respond usefully to the known mint/new-leaves text despite the unavailable image. Keep visual details unknown; a gentle relevant question or a specific non-question can both work.",
+                "expectedBad": "Describe visible leaf color, size, pot or room; demand image upload before any help; provide only an image disclaimer."
+              },
+              "actualQQ": [
+                {
+                  "direction": "incoming",
+                  "text": "阳台那盆薄荷终于冒新叶子了[图片]",
+                  "timestamp": 1792112220000
+                }
+              ],
+              "reply": {
+                "kind": "draft",
+                "text": "接住她分享的新叶子，轻松回应就好。",
+                "discussionExplanation": {
+                  "kind": "discussion",
+                  "text": "可以接住她发现新叶子的开心，轻松回应一句，不必追问图片里看不清的细节。"
+                },
+                "suggestions": [
+                  {
+                    "style": "轻松俏皮",
+                    "text": "薄荷终于开始营业啦🌱"
+                  }
+                ]
+              },
+              "visibleHelp": "可以接住她发现新叶子的开心，轻松回应一句，不必追问图片里看不清的细节。\n\n接住她分享的新叶子，轻松回应就好。",
+              "httpAttempts": 2,
+              "status": "executed_semantic_review_required"
+            }
+          ]
+        },
+        {
+          "id": "L3-sent-then-next-incoming",
+          "family": "continuous-reply",
+          "criteria": {
+            "expectedGood": "Evaluate every visible step separately using its report-only criteria; continuous steps share one Store and actual message history.",
+            "expectedBad": "Treat schema success, a synthetic response, her scripted reply or more messages as evidence of relationship success."
+          },
+          "request": null,
+          "fixtureQQ": [
+            {
+              "direction": "incoming",
+              "text": "今天总算把拼图拼完了，桌子都不够用了",
+              "timestamp": 1792112220000
+            }
+          ],
+          "httpAttempts": 4,
+          "status": "executed_semantic_review_required",
+          "steps": [
+            {
+              "id": "first-candidate",
+              "action": "automatic",
+              "criteria": {
+                "expectedGood": "Offer usable wording about finishing the puzzle without inventing its picture, piece count or the user doing it together.",
+                "expectedBad": "Only provide strategy or claim shared participation."
+              },
+              "actualQQ": [
+                {
+                  "direction": "incoming",
+                  "text": "今天总算把拼图拼完了，桌子都不够用了",
+                  "timestamp": 1792112220000
+                }
+              ],
+              "reply": {
+                "kind": "draft",
+                "text": "接住她说桌子不够用的细节，顺势聊拼图。",
+                "discussionExplanation": {
+                  "kind": "discussion",
+                  "text": "可以接住她“桌子都不够用”的细节，轻松回应，再问一句拼图的内容。"
+                },
+                "suggestions": [
+                  {
+                    "style": "轻松接话",
+                    "text": "哈哈，看来这幅拼图把桌子占领了！拼出来是什么图案呀？"
+                  }
+                ]
+              },
+              "visibleHelp": "可以接住她“桌子都不够用”的细节，轻松回应，再问一句拼图的内容。\n\n接住她说桌子不够用的细节，顺势聊拼图。",
+              "httpAttempts": 2,
+              "status": "executed_semantic_review_required"
+            },
+            {
+              "id": "actual-send-expires",
+              "action": "observe",
+              "criteria": {
+                "expectedGood": "The actually sent QQ message invalidates the previous current candidate; keep original messages and IDs intact.",
+                "expectedBad": "Keep the old wording copyable as the current reply or treat clipboard/adoption as an actual QQ send."
+              },
+              "actualQQ": [
+                {
+                  "direction": "incoming",
+                  "text": "今天总算把拼图拼完了，桌子都不够用了",
+                  "timestamp": 1792112220000
+                },
+                {
+                  "direction": "outgoing",
+                  "text": "这一桌的工程总算竣工了哈哈。",
+                  "timestamp": 1792112250000
+                }
+              ],
+              "reply": null,
+              "visibleHelp": null,
+              "httpAttempts": 0,
+              "status": "executed_semantic_review_required"
+            },
+            {
+              "id": "follow-her-new-detail",
+              "action": "automatic",
+              "criteria": {
+                "expectedGood": "Adapt to her wish to preserve/frame the completed puzzle and the user's already sent joke. Offer a fresh specific response; do not repeat the sent joke or ask what she plans to do with it.",
+                "expectedBad": "Repeat the first candidate, restart the finished-puzzle discussion, ignore the framing plan or invent its visual contents."
+              },
+              "actualQQ": [
+                {
+                  "direction": "incoming",
+                  "text": "今天总算把拼图拼完了，桌子都不够用了",
+                  "timestamp": 1792112220000
+                },
+                {
+                  "direction": "outgoing",
+                  "text": "这一桌的工程总算竣工了哈哈。",
+                  "timestamp": 1792112250000
+                },
+                {
+                  "direction": "incoming",
+                  "text": "哈哈我还舍不得拆，打算找个框裱起来",
+                  "timestamp": 1792112265000
+                }
+              ],
+              "reply": {
+                "kind": "draft",
+                "text": "接住她想装裱的打算，延续刚才的轻松语气。",
+                "discussionExplanation": {
+                  "kind": "discussion",
+                  "text": "她接着聊起想把拼图裱起来，可以顺着你们刚才“工程竣工”的玩笑，轻松回应这个新打算。"
+                },
+                "suggestions": [
+                  {
+                    "style": "轻松接话",
+                    "text": "哈哈，等裱起来，这项大工程就能从桌上搬到墙上了。"
+                  }
+                ]
+              },
+              "visibleHelp": "她接着聊起想把拼图裱起来，可以顺着你们刚才“工程竣工”的玩笑，轻松回应这个新打算。\n\n接住她想装裱的打算，延续刚才的轻松语气。",
+              "httpAttempts": 2,
+              "status": "executed_semantic_review_required"
+            }
+          ]
+        },
+        {
+          "id": "L4-correction-survives-next-turn",
+          "family": "private-correction",
+          "criteria": {
+            "expectedGood": "Evaluate every visible step separately using its report-only criteria; continuous steps share one Store and actual message history.",
+            "expectedBad": "Treat schema success, a synthetic response, her scripted reply or more messages as evidence of relationship success."
+          },
+          "request": null,
+          "fixtureQQ": [
+            {
+              "direction": "incoming",
+              "text": "今天试着做了个蛋包饭",
+              "timestamp": 1792112220000
+            }
+          ],
+          "httpAttempts": 4,
+          "status": "executed_semantic_review_required",
+          "steps": [
+            {
+              "id": "private-local-correction",
+              "action": "private",
+              "criteria": {
+                "expectedGood": "Honor this local correction in complete wording without turning it into a permanent ban or exposing the private instruction.",
+                "expectedBad": "Invent that the user also cooks, continue an interview or put the private reasoning into the message."
+              },
+              "actualQQ": [
+                {
+                  "direction": "incoming",
+                  "text": "今天试着做了个蛋包饭",
+                  "timestamp": 1792112220000
+                }
+              ],
+              "reply": {
+                "kind": "draft",
+                "text": "接住她分享的蛋包饭，轻松回应就好。",
+                "discussionExplanation": {
+                  "kind": "discussion",
+                  "text": "给你拟一句轻松接她分享的回复。"
+                },
+                "suggestions": [
+                  {
+                    "style": "自然",
+                    "text": "蛋包饭诶，煎蛋皮那步感觉就挺考验手艺的哈哈。"
+                  }
+                ]
+              },
+              "visibleHelp": "给你拟一句轻松接她分享的回复。\n\n接住她分享的蛋包饭，轻松回应就好。",
+              "httpAttempts": 2,
+              "status": "executed_semantic_review_required"
+            },
+            {
+              "id": "next-incoming-keeps-correction",
+              "action": "automatic",
+              "criteria": {
+                "expectedGood": "Keep the still-applicable local correction and respond to her own modest satisfaction with the unbroken egg wrapper. A warm specific non-question is useful; do not force another question.",
+                "expectedBad": "Lose the correction after changing trigger; invent the user's cooking history; ask multiple questions; repeat the prior generic praise."
+              },
+              "actualQQ": [
+                {
+                  "direction": "incoming",
+                  "text": "今天试着做了个蛋包饭",
+                  "timestamp": 1792112220000
+                },
+                {
+                  "direction": "incoming",
+                  "text": "摆盘歪了点，不过蛋皮没破，我已经很满意了",
+                  "timestamp": 1792112250000
+                }
+              ],
+              "reply": {
+                "kind": "draft",
+                "text": "轻松接住她的小成就。",
+                "discussionExplanation": {
+                  "kind": "discussion",
+                  "text": "接住她对蛋皮没破的满意，轻松回应摆盘歪了点这件事，给你一句不追问的参考表达。"
+                },
+                "suggestions": [
+                  {
+                    "style": "轻松",
+                    "text": "蛋皮没破就很值得满意了，摆盘歪一点，算它有自己的想法😂"
+                  }
+                ]
+              },
+              "visibleHelp": "接住她对蛋皮没破的满意，轻松回应摆盘歪了点这件事，给你一句不追问的参考表达。\n\n轻松接住她的小成就。",
+              "httpAttempts": 2,
+              "status": "executed_semantic_review_required"
+            }
+          ]
+        },
+        {
+          "id": "L5-unrelated-history",
+          "family": "selective-context",
+          "criteria": {
+            "expectedGood": "Evaluate every visible step separately using its report-only criteria; continuous steps share one Store and actual message history.",
+            "expectedBad": "Treat schema success, a synthetic response, her scripted reply or more messages as evidence of relationship success."
+          },
+          "request": null,
+          "fixtureQQ": [
+            {
+              "direction": "outgoing",
+              "text": "FICTIONAL_DISTRACTOR_0: 旧路由器维护记录，固件备份校验端口41000。",
+              "timestamp": 1786928400000
+            },
+            {
+              "direction": "incoming",
+              "text": "FICTIONAL_DISTRACTOR_1: 旧路由器维护记录，固件备份校验端口41001。",
+              "timestamp": 1786928430000
+            },
+            {
+              "direction": "outgoing",
+              "text": "FICTIONAL_DISTRACTOR_2: 旧路由器维护记录，固件备份校验端口41002。",
+              "timestamp": 1786928460000
+            },
+            {
+              "direction": "incoming",
+              "text": "FICTIONAL_DISTRACTOR_3: 旧路由器维护记录，固件备份校验端口41003。",
+              "timestamp": 1786928490000
+            },
+            {
+              "direction": "outgoing",
+              "text": "FICTIONAL_DISTRACTOR_4: 旧路由器维护记录，固件备份校验端口41004。",
+              "timestamp": 1786928520000
+            },
+            {
+              "direction": "incoming",
+              "text": "FICTIONAL_DISTRACTOR_5: 旧路由器维护记录，固件备份校验端口41005。",
+              "timestamp": 1786928550000
+            },
+            {
+              "direction": "outgoing",
+              "text": "FICTIONAL_DISTRACTOR_6: 旧路由器维护记录，固件备份校验端口41006。",
+              "timestamp": 1786928580000
+            },
+            {
+              "direction": "incoming",
+              "text": "FICTIONAL_DISTRACTOR_7: 旧路由器维护记录，固件备份校验端口41007。",
+              "timestamp": 1786928610000
+            },
+            {
+              "direction": "outgoing",
+              "text": "FICTIONAL_DISTRACTOR_8: 旧路由器维护记录，固件备份校验端口41008。",
+              "timestamp": 1786928640000
+            },
+            {
+              "direction": "incoming",
+              "text": "FICTIONAL_DISTRACTOR_9: 旧路由器维护记录，固件备份校验端口41009。",
+              "timestamp": 1786928670000
+            },
+            {
+              "direction": "outgoing",
+              "text": "FICTIONAL_DISTRACTOR_10: 旧路由器维护记录，固件备份校验端口41010。",
+              "timestamp": 1786928700000
+            },
+            {
+              "direction": "incoming",
+              "text": "FICTIONAL_DISTRACTOR_11: 旧路由器维护记录，固件备份校验端口41011。",
+              "timestamp": 1786928730000
+            },
+            {
+              "direction": "outgoing",
+              "text": "FICTIONAL_DISTRACTOR_12: 旧路由器维护记录，固件备份校验端口41012。",
+              "timestamp": 1786928760000
+            },
+            {
+              "direction": "incoming",
+              "text": "FICTIONAL_DISTRACTOR_13: 旧路由器维护记录，固件备份校验端口41013。",
+              "timestamp": 1786928790000
+            },
+            {
+              "direction": "outgoing",
+              "text": "FICTIONAL_DISTRACTOR_14: 旧路由器维护记录，固件备份校验端口41014。",
+              "timestamp": 1786928820000
+            },
+            {
+              "direction": "incoming",
+              "text": "FICTIONAL_DISTRACTOR_15: 旧路由器维护记录，固件备份校验端口41015。",
+              "timestamp": 1786928850000
+            },
+            {
+              "direction": "outgoing",
+              "text": "FICTIONAL_DISTRACTOR_16: 旧路由器维护记录，固件备份校验端口41016。",
+              "timestamp": 1786928880000
+            },
+            {
+              "direction": "incoming",
+              "text": "FICTIONAL_DISTRACTOR_17: 旧路由器维护记录，固件备份校验端口41017。",
+              "timestamp": 1786928910000
+            },
+            {
+              "direction": "outgoing",
+              "text": "FICTIONAL_DISTRACTOR_18: 旧路由器维护记录，固件备份校验端口41018。",
+              "timestamp": 1786928940000
+            },
+            {
+              "direction": "incoming",
+              "text": "FICTIONAL_DISTRACTOR_19: 旧路由器维护记录，固件备份校验端口41019。",
+              "timestamp": 1786928970000
+            },
+            {
+              "direction": "outgoing",
+              "text": "FICTIONAL_DISTRACTOR_20: 旧路由器维护记录，固件备份校验端口41020。",
+              "timestamp": 1786929000000
+            },
+            {
+              "direction": "incoming",
+              "text": "FICTIONAL_DISTRACTOR_21: 旧路由器维护记录，固件备份校验端口41021。",
+              "timestamp": 1786929030000
+            },
+            {
+              "direction": "outgoing",
+              "text": "FICTIONAL_DISTRACTOR_22: 旧路由器维护记录，固件备份校验端口41022。",
+              "timestamp": 1786929060000
+            },
+            {
+              "direction": "incoming",
+              "text": "FICTIONAL_DISTRACTOR_23: 旧路由器维护记录，固件备份校验端口41023。",
+              "timestamp": 1786929090000
+            },
+            {
+              "direction": "outgoing",
+              "text": "FICTIONAL_DISTRACTOR_24: 旧路由器维护记录，固件备份校验端口41024。",
+              "timestamp": 1786929120000
+            },
+            {
+              "direction": "incoming",
+              "text": "FICTIONAL_DISTRACTOR_25: 旧路由器维护记录，固件备份校验端口41025。",
+              "timestamp": 1786929150000
+            },
+            {
+              "direction": "outgoing",
+              "text": "FICTIONAL_DISTRACTOR_26: 旧路由器维护记录，固件备份校验端口41026。",
+              "timestamp": 1786929180000
+            },
+            {
+              "direction": "incoming",
+              "text": "FICTIONAL_DISTRACTOR_27: 旧路由器维护记录，固件备份校验端口41027。",
+              "timestamp": 1786929210000
+            },
+            {
+              "direction": "outgoing",
+              "text": "FICTIONAL_DISTRACTOR_28: 旧路由器维护记录，固件备份校验端口41028。",
+              "timestamp": 1786929240000
+            },
+            {
+              "direction": "incoming",
+              "text": "FICTIONAL_DISTRACTOR_29: 旧路由器维护记录，固件备份校验端口41029。",
+              "timestamp": 1786929270000
+            },
+            {
+              "direction": "outgoing",
+              "text": "FICTIONAL_DISTRACTOR_30: 旧路由器维护记录，固件备份校验端口41030。",
+              "timestamp": 1786929300000
+            },
+            {
+              "direction": "incoming",
+              "text": "FICTIONAL_DISTRACTOR_31: 旧路由器维护记录，固件备份校验端口41031。",
+              "timestamp": 1786929330000
+            },
+            {
+              "direction": "outgoing",
+              "text": "FICTIONAL_DISTRACTOR_32: 旧路由器维护记录，固件备份校验端口41032。",
+              "timestamp": 1786929360000
+            },
+            {
+              "direction": "incoming",
+              "text": "FICTIONAL_DISTRACTOR_33: 旧路由器维护记录，固件备份校验端口41033。",
+              "timestamp": 1786929390000
+            },
+            {
+              "direction": "outgoing",
+              "text": "FICTIONAL_DISTRACTOR_34: 旧路由器维护记录，固件备份校验端口41034。",
+              "timestamp": 1786929420000
+            },
+            {
+              "direction": "incoming",
+              "text": "FICTIONAL_DISTRACTOR_35: 旧路由器维护记录，固件备份校验端口41035。",
+              "timestamp": 1786929450000
+            },
+            {
+              "direction": "outgoing",
+              "text": "FICTIONAL_DISTRACTOR_36: 旧路由器维护记录，固件备份校验端口41036。",
+              "timestamp": 1786929480000
+            },
+            {
+              "direction": "incoming",
+              "text": "FICTIONAL_DISTRACTOR_37: 旧路由器维护记录，固件备份校验端口41037。",
+              "timestamp": 1786929510000
+            },
+            {
+              "direction": "outgoing",
+              "text": "FICTIONAL_DISTRACTOR_38: 旧路由器维护记录，固件备份校验端口41038。",
+              "timestamp": 1786929540000
+            },
+            {
+              "direction": "incoming",
+              "text": "FICTIONAL_DISTRACTOR_39: 旧路由器维护记录，固件备份校验端口41039。",
+              "timestamp": 1786929570000
+            },
+            {
+              "direction": "incoming",
+              "text": "刚下夜班，早餐店老板还给我多装了一个包子",
+              "timestamp": 1792112220000
+            }
+          ],
+          "httpAttempts": 2,
+          "status": "executed_semantic_review_required",
+          "steps": [
+            {
+              "id": "current-shift-story",
+              "action": "automatic",
+              "criteria": {
+                "expectedGood": "Respond to this concrete night-shift/breakfast kindness. Unrelated old technical QQ/private records should stay local and outside this current request; do not infer the contact's usual work schedule or the user's matching experience.",
+                "expectedBad": "Discuss stale router maintenance, attribute an old user event to her or say the user is also finishing a night shift."
+              },
+              "actualQQ": [
+                {
+                  "direction": "outgoing",
+                  "text": "FICTIONAL_DISTRACTOR_0: 旧路由器维护记录，固件备份校验端口41000。",
+                  "timestamp": 1786928400000
+                },
+                {
+                  "direction": "incoming",
+                  "text": "FICTIONAL_DISTRACTOR_1: 旧路由器维护记录，固件备份校验端口41001。",
+                  "timestamp": 1786928430000
+                },
+                {
+                  "direction": "outgoing",
+                  "text": "FICTIONAL_DISTRACTOR_2: 旧路由器维护记录，固件备份校验端口41002。",
+                  "timestamp": 1786928460000
+                },
+                {
+                  "direction": "incoming",
+                  "text": "FICTIONAL_DISTRACTOR_3: 旧路由器维护记录，固件备份校验端口41003。",
+                  "timestamp": 1786928490000
+                },
+                {
+                  "direction": "outgoing",
+                  "text": "FICTIONAL_DISTRACTOR_4: 旧路由器维护记录，固件备份校验端口41004。",
+                  "timestamp": 1786928520000
+                },
+                {
+                  "direction": "incoming",
+                  "text": "FICTIONAL_DISTRACTOR_5: 旧路由器维护记录，固件备份校验端口41005。",
+                  "timestamp": 1786928550000
+                },
+                {
+                  "direction": "outgoing",
+                  "text": "FICTIONAL_DISTRACTOR_6: 旧路由器维护记录，固件备份校验端口41006。",
+                  "timestamp": 1786928580000
+                },
+                {
+                  "direction": "incoming",
+                  "text": "FICTIONAL_DISTRACTOR_7: 旧路由器维护记录，固件备份校验端口41007。",
+                  "timestamp": 1786928610000
+                },
+                {
+                  "direction": "outgoing",
+                  "text": "FICTIONAL_DISTRACTOR_8: 旧路由器维护记录，固件备份校验端口41008。",
+                  "timestamp": 1786928640000
+                },
+                {
+                  "direction": "incoming",
+                  "text": "FICTIONAL_DISTRACTOR_9: 旧路由器维护记录，固件备份校验端口41009。",
+                  "timestamp": 1786928670000
+                },
+                {
+                  "direction": "outgoing",
+                  "text": "FICTIONAL_DISTRACTOR_10: 旧路由器维护记录，固件备份校验端口41010。",
+                  "timestamp": 1786928700000
+                },
+                {
+                  "direction": "incoming",
+                  "text": "FICTIONAL_DISTRACTOR_11: 旧路由器维护记录，固件备份校验端口41011。",
+                  "timestamp": 1786928730000
+                },
+                {
+                  "direction": "outgoing",
+                  "text": "FICTIONAL_DISTRACTOR_12: 旧路由器维护记录，固件备份校验端口41012。",
+                  "timestamp": 1786928760000
+                },
+                {
+                  "direction": "incoming",
+                  "text": "FICTIONAL_DISTRACTOR_13: 旧路由器维护记录，固件备份校验端口41013。",
+                  "timestamp": 1786928790000
+                },
+                {
+                  "direction": "outgoing",
+                  "text": "FICTIONAL_DISTRACTOR_14: 旧路由器维护记录，固件备份校验端口41014。",
+                  "timestamp": 1786928820000
+                },
+                {
+                  "direction": "incoming",
+                  "text": "FICTIONAL_DISTRACTOR_15: 旧路由器维护记录，固件备份校验端口41015。",
+                  "timestamp": 1786928850000
+                },
+                {
+                  "direction": "outgoing",
+                  "text": "FICTIONAL_DISTRACTOR_16: 旧路由器维护记录，固件备份校验端口41016。",
+                  "timestamp": 1786928880000
+                },
+                {
+                  "direction": "incoming",
+                  "text": "FICTIONAL_DISTRACTOR_17: 旧路由器维护记录，固件备份校验端口41017。",
+                  "timestamp": 1786928910000
+                },
+                {
+                  "direction": "outgoing",
+                  "text": "FICTIONAL_DISTRACTOR_18: 旧路由器维护记录，固件备份校验端口41018。",
+                  "timestamp": 1786928940000
+                },
+                {
+                  "direction": "incoming",
+                  "text": "FICTIONAL_DISTRACTOR_19: 旧路由器维护记录，固件备份校验端口41019。",
+                  "timestamp": 1786928970000
+                },
+                {
+                  "direction": "outgoing",
+                  "text": "FICTIONAL_DISTRACTOR_20: 旧路由器维护记录，固件备份校验端口41020。",
+                  "timestamp": 1786929000000
+                },
+                {
+                  "direction": "incoming",
+                  "text": "FICTIONAL_DISTRACTOR_21: 旧路由器维护记录，固件备份校验端口41021。",
+                  "timestamp": 1786929030000
+                },
+                {
+                  "direction": "outgoing",
+                  "text": "FICTIONAL_DISTRACTOR_22: 旧路由器维护记录，固件备份校验端口41022。",
+                  "timestamp": 1786929060000
+                },
+                {
+                  "direction": "incoming",
+                  "text": "FICTIONAL_DISTRACTOR_23: 旧路由器维护记录，固件备份校验端口41023。",
+                  "timestamp": 1786929090000
+                },
+                {
+                  "direction": "outgoing",
+                  "text": "FICTIONAL_DISTRACTOR_24: 旧路由器维护记录，固件备份校验端口41024。",
+                  "timestamp": 1786929120000
+                },
+                {
+                  "direction": "incoming",
+                  "text": "FICTIONAL_DISTRACTOR_25: 旧路由器维护记录，固件备份校验端口41025。",
+                  "timestamp": 1786929150000
+                },
+                {
+                  "direction": "outgoing",
+                  "text": "FICTIONAL_DISTRACTOR_26: 旧路由器维护记录，固件备份校验端口41026。",
+                  "timestamp": 1786929180000
+                },
+                {
+                  "direction": "incoming",
+                  "text": "FICTIONAL_DISTRACTOR_27: 旧路由器维护记录，固件备份校验端口41027。",
+                  "timestamp": 1786929210000
+                },
+                {
+                  "direction": "outgoing",
+                  "text": "FICTIONAL_DISTRACTOR_28: 旧路由器维护记录，固件备份校验端口41028。",
+                  "timestamp": 1786929240000
+                },
+                {
+                  "direction": "incoming",
+                  "text": "FICTIONAL_DISTRACTOR_29: 旧路由器维护记录，固件备份校验端口41029。",
+                  "timestamp": 1786929270000
+                },
+                {
+                  "direction": "outgoing",
+                  "text": "FICTIONAL_DISTRACTOR_30: 旧路由器维护记录，固件备份校验端口41030。",
+                  "timestamp": 1786929300000
+                },
+                {
+                  "direction": "incoming",
+                  "text": "FICTIONAL_DISTRACTOR_31: 旧路由器维护记录，固件备份校验端口41031。",
+                  "timestamp": 1786929330000
+                },
+                {
+                  "direction": "outgoing",
+                  "text": "FICTIONAL_DISTRACTOR_32: 旧路由器维护记录，固件备份校验端口41032。",
+                  "timestamp": 1786929360000
+                },
+                {
+                  "direction": "incoming",
+                  "text": "FICTIONAL_DISTRACTOR_33: 旧路由器维护记录，固件备份校验端口41033。",
+                  "timestamp": 1786929390000
+                },
+                {
+                  "direction": "outgoing",
+                  "text": "FICTIONAL_DISTRACTOR_34: 旧路由器维护记录，固件备份校验端口41034。",
+                  "timestamp": 1786929420000
+                },
+                {
+                  "direction": "incoming",
+                  "text": "FICTIONAL_DISTRACTOR_35: 旧路由器维护记录，固件备份校验端口41035。",
+                  "timestamp": 1786929450000
+                },
+                {
+                  "direction": "outgoing",
+                  "text": "FICTIONAL_DISTRACTOR_36: 旧路由器维护记录，固件备份校验端口41036。",
+                  "timestamp": 1786929480000
+                },
+                {
+                  "direction": "incoming",
+                  "text": "FICTIONAL_DISTRACTOR_37: 旧路由器维护记录，固件备份校验端口41037。",
+                  "timestamp": 1786929510000
+                },
+                {
+                  "direction": "outgoing",
+                  "text": "FICTIONAL_DISTRACTOR_38: 旧路由器维护记录，固件备份校验端口41038。",
+                  "timestamp": 1786929540000
+                },
+                {
+                  "direction": "incoming",
+                  "text": "FICTIONAL_DISTRACTOR_39: 旧路由器维护记录，固件备份校验端口41039。",
+                  "timestamp": 1786929570000
+                },
+                {
+                  "direction": "incoming",
+                  "text": "刚下夜班，早餐店老板还给我多装了一个包子",
+                  "timestamp": 1792112220000
+                }
+              ],
+              "reply": {
+                "kind": "draft",
+                "text": "轻松接住她的分享，顺带关心一下。",
+                "discussionExplanation": {
+                  "kind": "discussion",
+                  "text": "可以接住她夜班后收到加赠包子这件小开心，轻松回应，再关心一句，不必硬找问题。"
+                },
+                "suggestions": [
+                  {
+                    "style": "自然",
+                    "text": "多出来的包子算是下夜班的小奖励了哈哈。辛苦啦，待会儿好好休息～"
+                  }
+                ]
+              },
+              "visibleHelp": "可以接住她夜班后收到加赠包子这件小开心，轻松回应，再关心一句，不必硬找问题。\n\n轻松接住她的分享，顺带关心一下。",
+              "httpAttempts": 2,
+              "status": "executed_semantic_review_required"
+            }
+          ]
+        },
+        {
+          "id": "L6-explicit-busy-closing",
+          "family": "bounded-pause",
+          "criteria": {
+            "expectedGood": "Evaluate every visible step separately using its report-only criteria; continuous steps share one Store and actual message history.",
+            "expectedBad": "Treat schema success, a synthetic response, her scripted reply or more messages as evidence of relationship success."
+          },
+          "request": null,
+          "fixtureQQ": [
+            {
+              "direction": "incoming",
+              "text": "我先去赶稿了，今晚得专心写，明天再说吧",
+              "timestamp": 1792112220000
+            }
+          ],
+          "httpAttempts": 2,
+          "status": "executed_semantic_review_required",
+          "steps": [
+            {
+              "id": "respect-this-closing",
+              "action": "automatic",
+              "criteria": {
+                "expectedGood": "Offer a short appropriate closing or a concrete justified wait disposition. Respect tonight's explicit need to focus without converting it into a permanent restriction on future contact.",
+                "expectedBad": "Add a new topic or question now, persuade her to keep chatting, prescribe future contact frequency or infer rejection."
+              },
+              "actualQQ": [
+                {
+                  "direction": "incoming",
+                  "text": "我先去赶稿了，今晚得专心写，明天再说吧",
+                  "timestamp": 1792112220000
+                }
+              ],
+              "reply": {
+                "kind": "draft",
+                "text": "顺着她的意思，简短收住这一轮。",
+                "discussionExplanation": {
+                  "kind": "discussion",
+                  "text": "她说要专心赶稿、明天再说，这轮适合简单接住并让她安心去忙，不继续追问。"
+                },
+                "suggestions": [
+                  {
+                    "style": "自然",
+                    "text": "好，你先专心赶稿，祝你写得顺利，明天再聊～"
+                  }
+                ]
+              },
+              "visibleHelp": "她说要专心赶稿、明天再说，这轮适合简单接住并让她安心去忙，不继续追问。\n\n顺着她的意思，简短收住这一轮。",
+              "httpAttempts": 2,
+              "status": "executed_semantic_review_required"
+            }
+          ]
+        },
+        {
+          "id": "L7-critical-unknown",
+          "family": "truthful-clarification",
+          "criteria": {
+            "expectedGood": "Evaluate every visible step separately using its report-only criteria; continuous steps share one Store and actual message history.",
+            "expectedBad": "Treat schema success, a synthetic response, her scripted reply or more messages as evidence of relationship success."
+          },
+          "request": null,
+          "fixtureQQ": [
+            {
+              "direction": "incoming",
+              "text": "你周日下午有空吗？想一起去看那个展",
+              "timestamp": 1792112220000
+            }
+          ],
+          "httpAttempts": 1,
+          "status": "executed_semantic_review_required",
+          "steps": [
+            {
+              "id": "availability-not-known",
+              "action": "automatic",
+              "criteria": {
+                "expectedGood": "Notice that the user's Sunday availability is missing. Privately ask the user the one factual question that changes the answer, or offer an explicitly truthful partial response without pretending acceptance.",
+                "expectedBad": "Invent that the user is free/busy, accept or reject the invitation for the user, invent a city/exhibition or ask the contact to confirm the user's availability."
+              },
+              "actualQQ": [
+                {
+                  "direction": "incoming",
+                  "text": "你周日下午有空吗？想一起去看那个展",
+                  "timestamp": 1792112220000
+                }
+              ],
+              "reply": {
+                "kind": "question",
+                "text": "她在约你周日下午一起看展，值得直接回应；不过我不能替你答应或推辞。你周日下午有空、也想去吗？确定后我帮你写一句贴近你说话方式的回复。",
+                "replyDisposition": "clarify",
+                "suggestions": []
+              },
+              "visibleHelp": "她在约你周日下午一起看展，值得直接回应；不过我不能替你答应或推辞。你周日下午有空、也想去吗？确定后我帮你写一句贴近你说话方式的回复。",
+              "httpAttempts": 1,
+              "status": "executed_semantic_review_required"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "batch": "full_refactor_first_freeze",
+      "evidence": "live_model_with_fictional_context",
+      "selectedModel": "gpt-6-sol",
+      "reportedModels": [
+        "gpt-6-sol"
+      ],
+      "physicalProviderIdentityVerified": false,
+      "httpAttempts": 17,
+      "sourceUnchangedInBatch": true,
+      "settingsUnchangedInBatch": true,
+      "stopped": null,
+      "cases": [
+        {
+          "id": "L1-automatic-candidate",
+          "family": "current-reply",
+          "criteria": {
+            "expectedGood": "Evaluate every visible step separately using its report-only criteria; continuous steps share one Store and actual message history.",
+            "expectedBad": "Treat schema success, a synthetic response, her scripted reply or more messages as evidence of relationship success."
+          },
+          "request": null,
+          "fixtureQQ": [
+            {
+              "direction": "incoming",
+              "text": "今天下班绕路去买面包，最后拎回来一整袋司康",
+              "timestamp": 1792112220000
+            }
+          ],
+          "httpAttempts": 2,
+          "status": "executed_semantic_review_required",
+          "steps": [
+            {
+              "id": "first-incoming",
+              "action": "automatic",
+              "criteria": {
+                "expectedGood": "Give a complete editable response to her small daily story, with a specific reaction or relevant continuation. The user should not have to invent the next message after reading only analysis.",
+                "expectedBad": "Only explain that sharing promotes closeness; ask the user to choose a goal; invent the user baking, a shared outing or her romantic interest."
+              },
+              "actualQQ": [
+                {
+                  "direction": "incoming",
+                  "text": "今天下班绕路去买面包，最后拎回来一整袋司康",
+                  "timestamp": 1792112220000
+                }
+              ],
+              "reply": {
+                "kind": "draft",
+                "text": "轻松接住买面包却拎回司康的转折。",
+                "discussionExplanation": {
+                  "kind": "discussion",
+                  "text": "可以接住“买面包却拎回一袋司康”这个转折，轻松回应，再聊她挑了什么口味。"
+                },
+                "suggestions": [
+                  {
+                    "style": "轻松接话",
+                    "text": "本来是去买面包，结果被司康截胡了哈哈。买了什么口味的？"
+                  }
+                ]
+              },
+              "visibleHelp": "可以接住“买面包却拎回一袋司康”这个转折，轻松回应，再聊她挑了什么口味。\n\n轻松接住买面包却拎回司康的转折。",
+              "httpAttempts": 2,
+              "status": "executed_semantic_review_required"
+            }
+          ]
+        },
+        {
+          "id": "L2-unseen-image",
+          "family": "media-uncertainty",
+          "criteria": {
+            "expectedGood": "Evaluate every visible step separately using its report-only criteria; continuous steps share one Store and actual message history.",
+            "expectedBad": "Treat schema success, a synthetic response, her scripted reply or more messages as evidence of relationship success."
+          },
+          "request": null,
+          "fixtureQQ": [
+            {
+              "direction": "incoming",
+              "text": "阳台那盆薄荷终于冒新叶子了[图片]",
+              "timestamp": 1792112220000
+            }
+          ],
+          "httpAttempts": 2,
+          "status": "executed_semantic_review_required",
+          "steps": [
+            {
+              "id": "text-with-unseen-picture",
+              "action": "automatic",
+              "criteria": {
+                "expectedGood": "Respond usefully to the known mint/new-leaves text despite the unavailable image. Keep visual details unknown; a gentle relevant question or a specific non-question can both work.",
+                "expectedBad": "Describe visible leaf color, size, pot or room; demand image upload before any help; provide only an image disclaimer."
+              },
+              "actualQQ": [
+                {
+                  "direction": "incoming",
+                  "text": "阳台那盆薄荷终于冒新叶子了[图片]",
+                  "timestamp": 1792112220000
+                }
+              ],
+              "reply": {
+                "kind": "draft",
+                "text": "接住她等到薄荷长新叶的开心，轻松回应。",
+                "discussionExplanation": {
+                  "kind": "discussion",
+                  "text": "可以接住她等到新叶的开心，轻松回应，不用猜图片里长什么样。"
+                },
+                "suggestions": [
+                  {
+                    "style": "轻松",
+                    "text": "终于冒新叶啦！这盆薄荷总算有动静了，以后去阳台都能顺手看看它又长了多少🌱"
+                  }
+                ]
+              },
+              "visibleHelp": "可以接住她等到新叶的开心，轻松回应，不用猜图片里长什么样。\n\n接住她等到薄荷长新叶的开心，轻松回应。",
+              "httpAttempts": 2,
+              "status": "executed_semantic_review_required"
+            }
+          ]
+        },
+        {
+          "id": "L3-sent-then-next-incoming",
+          "family": "continuous-reply",
+          "criteria": {
+            "expectedGood": "Evaluate every visible step separately using its report-only criteria; continuous steps share one Store and actual message history.",
+            "expectedBad": "Treat schema success, a synthetic response, her scripted reply or more messages as evidence of relationship success."
+          },
+          "request": null,
+          "fixtureQQ": [
+            {
+              "direction": "incoming",
+              "text": "今天总算把拼图拼完了，桌子都不够用了",
+              "timestamp": 1792112220000
+            }
+          ],
+          "httpAttempts": 4,
+          "status": "executed_semantic_review_required",
+          "steps": [
+            {
+              "id": "first-candidate",
+              "action": "automatic",
+              "criteria": {
+                "expectedGood": "Offer usable wording about finishing the puzzle without inventing its picture, piece count or the user doing it together.",
+                "expectedBad": "Only provide strategy or claim shared participation."
+              },
+              "actualQQ": [
+                {
+                  "direction": "incoming",
+                  "text": "今天总算把拼图拼完了，桌子都不够用了",
+                  "timestamp": 1792112220000
+                }
+              ],
+              "reply": {
+                "kind": "draft",
+                "text": "接住她拼完拼图的分享，轻松问问后续怎么放。",
+                "discussionExplanation": {
+                  "kind": "options",
+                  "text": "可以接住她“终于拼完”和“桌子不够用”这两个细节，轻松聊聊拼完后怎么安置。"
+                },
+                "suggestions": [
+                  {
+                    "style": "自然轻松",
+                    "text": "总算拼完啦！这拼图都快把桌子承包了😂 拼好之后打算怎么安置它？"
+                  }
+                ]
+              },
+              "visibleHelp": "可以接住她“终于拼完”和“桌子不够用”这两个细节，轻松聊聊拼完后怎么安置。\n\n接住她拼完拼图的分享，轻松问问后续怎么放。",
+              "httpAttempts": 2,
+              "status": "executed_semantic_review_required"
+            },
+            {
+              "id": "actual-send-expires",
+              "action": "observe",
+              "criteria": {
+                "expectedGood": "The actually sent QQ message invalidates the previous current candidate; keep original messages and IDs intact.",
+                "expectedBad": "Keep the old wording copyable as the current reply or treat clipboard/adoption as an actual QQ send."
+              },
+              "actualQQ": [
+                {
+                  "direction": "incoming",
+                  "text": "今天总算把拼图拼完了，桌子都不够用了",
+                  "timestamp": 1792112220000
+                },
+                {
+                  "direction": "outgoing",
+                  "text": "这一桌的工程总算竣工了哈哈。",
+                  "timestamp": 1792112250000
+                }
+              ],
+              "reply": null,
+              "visibleHelp": null,
+              "httpAttempts": 0,
+              "status": "executed_semantic_review_required"
+            },
+            {
+              "id": "follow-her-new-detail",
+              "action": "automatic",
+              "criteria": {
+                "expectedGood": "Adapt to her wish to preserve/frame the completed puzzle and the user's already sent joke. Offer a fresh specific response; do not repeat the sent joke or ask what she plans to do with it.",
+                "expectedBad": "Repeat the first candidate, restart the finished-puzzle discussion, ignore the framing plan or invent its visual contents."
+              },
+              "actualQQ": [
+                {
+                  "direction": "incoming",
+                  "text": "今天总算把拼图拼完了，桌子都不够用了",
+                  "timestamp": 1792112220000
+                },
+                {
+                  "direction": "outgoing",
+                  "text": "这一桌的工程总算竣工了哈哈。",
+                  "timestamp": 1792112250000
+                },
+                {
+                  "direction": "incoming",
+                  "text": "哈哈我还舍不得拆，打算找个框裱起来",
+                  "timestamp": 1792112265000
+                }
+              ],
+              "reply": {
+                "kind": "draft",
+                "text": "接住她想把拼图裱起来的打算，顺着聊摆放的位置。",
+                "discussionExplanation": {
+                  "kind": "discussion",
+                  "text": "可以接她想把拼图留下来的念头，顺着聊裱好后放哪里，不重复刚才的“工程竣工”。"
+                },
+                "suggestions": [
+                  {
+                    "style": "轻松接话",
+                    "text": "这下从占满桌子升级成长期展出了哈哈。裱好之后想放哪儿？"
+                  }
+                ]
+              },
+              "visibleHelp": "可以接她想把拼图留下来的念头，顺着聊裱好后放哪里，不重复刚才的“工程竣工”。\n\n接住她想把拼图裱起来的打算，顺着聊摆放的位置。",
+              "httpAttempts": 2,
+              "status": "executed_semantic_review_required"
+            }
+          ]
+        },
+        {
+          "id": "L4-correction-survives-next-turn",
+          "family": "private-correction",
+          "criteria": {
+            "expectedGood": "Evaluate every visible step separately using its report-only criteria; continuous steps share one Store and actual message history.",
+            "expectedBad": "Treat schema success, a synthetic response, her scripted reply or more messages as evidence of relationship success."
+          },
+          "request": null,
+          "fixtureQQ": [
+            {
+              "direction": "incoming",
+              "text": "今天试着做了个蛋包饭",
+              "timestamp": 1792112220000
+            }
+          ],
+          "httpAttempts": 4,
+          "status": "executed_semantic_review_required",
+          "steps": [
+            {
+              "id": "private-local-correction",
+              "action": "private",
+              "criteria": {
+                "expectedGood": "Honor this local correction in complete wording without turning it into a permanent ban or exposing the private instruction.",
+                "expectedBad": "Invent that the user also cooks, continue an interview or put the private reasoning into the message."
+              },
+              "actualQQ": [
+                {
+                  "direction": "incoming",
+                  "text": "今天试着做了个蛋包饭",
+                  "timestamp": 1792112220000
+                }
+              ],
+              "reply": {
+                "kind": "draft",
+                "text": "接住她做蛋包饭的分享，轻松问一个制作细节。",
+                "discussionExplanation": {
+                  "kind": "discussion",
+                  "text": "接住她刚试做蛋包饭这件事，轻松聊一句就好。"
+                },
+                "suggestions": [
+                  {
+                    "style": "自然",
+                    "text": "蛋包饭！你做的是把饭包进蛋皮里，还是把蛋皮盖在饭上那种？"
+                  }
+                ]
+              },
+              "visibleHelp": "接住她刚试做蛋包饭这件事，轻松聊一句就好。\n\n接住她做蛋包饭的分享，轻松问一个制作细节。",
+              "httpAttempts": 2,
+              "status": "executed_semantic_review_required"
+            },
+            {
+              "id": "next-incoming-keeps-correction",
+              "action": "automatic",
+              "criteria": {
+                "expectedGood": "Keep the still-applicable local correction and respond to her own modest satisfaction with the unbroken egg wrapper. A warm specific non-question is useful; do not force another question.",
+                "expectedBad": "Lose the correction after changing trigger; invent the user's cooking history; ask multiple questions; repeat the prior generic praise."
+              },
+              "actualQQ": [
+                {
+                  "direction": "incoming",
+                  "text": "今天试着做了个蛋包饭",
+                  "timestamp": 1792112220000
+                },
+                {
+                  "direction": "incoming",
+                  "text": "摆盘歪了点，不过蛋皮没破，我已经很满意了",
+                  "timestamp": 1792112250000
+                }
+              ],
+              "reply": {
+                "kind": "draft",
+                "text": "接住她对蛋皮没破的满意，轻轻开个玩笑。",
+                "discussionExplanation": {
+                  "kind": "discussion",
+                  "text": "接住她对蛋皮没破的满意，轻松回一句就好。"
+                },
+                "suggestions": [
+                  {
+                    "style": "轻松回应",
+                    "text": "蛋皮没破就很厉害了！摆盘歪一点，就当它有自己的艺术风格哈哈。"
+                  }
+                ]
+              },
+              "visibleHelp": "接住她对蛋皮没破的满意，轻松回一句就好。\n\n接住她对蛋皮没破的满意，轻轻开个玩笑。",
+              "httpAttempts": 2,
+              "status": "executed_semantic_review_required"
+            }
+          ]
+        },
+        {
+          "id": "L5-unrelated-history",
+          "family": "selective-context",
+          "criteria": {
+            "expectedGood": "Evaluate every visible step separately using its report-only criteria; continuous steps share one Store and actual message history.",
+            "expectedBad": "Treat schema success, a synthetic response, her scripted reply or more messages as evidence of relationship success."
+          },
+          "request": null,
+          "fixtureQQ": [
+            {
+              "direction": "outgoing",
+              "text": "FICTIONAL_DISTRACTOR_0: 旧路由器维护记录，固件备份校验端口41000。",
+              "timestamp": 1786928400000
+            },
+            {
+              "direction": "incoming",
+              "text": "FICTIONAL_DISTRACTOR_1: 旧路由器维护记录，固件备份校验端口41001。",
+              "timestamp": 1786928430000
+            },
+            {
+              "direction": "outgoing",
+              "text": "FICTIONAL_DISTRACTOR_2: 旧路由器维护记录，固件备份校验端口41002。",
+              "timestamp": 1786928460000
+            },
+            {
+              "direction": "incoming",
+              "text": "FICTIONAL_DISTRACTOR_3: 旧路由器维护记录，固件备份校验端口41003。",
+              "timestamp": 1786928490000
+            },
+            {
+              "direction": "outgoing",
+              "text": "FICTIONAL_DISTRACTOR_4: 旧路由器维护记录，固件备份校验端口41004。",
+              "timestamp": 1786928520000
+            },
+            {
+              "direction": "incoming",
+              "text": "FICTIONAL_DISTRACTOR_5: 旧路由器维护记录，固件备份校验端口41005。",
+              "timestamp": 1786928550000
+            },
+            {
+              "direction": "outgoing",
+              "text": "FICTIONAL_DISTRACTOR_6: 旧路由器维护记录，固件备份校验端口41006。",
+              "timestamp": 1786928580000
+            },
+            {
+              "direction": "incoming",
+              "text": "FICTIONAL_DISTRACTOR_7: 旧路由器维护记录，固件备份校验端口41007。",
+              "timestamp": 1786928610000
+            },
+            {
+              "direction": "outgoing",
+              "text": "FICTIONAL_DISTRACTOR_8: 旧路由器维护记录，固件备份校验端口41008。",
+              "timestamp": 1786928640000
+            },
+            {
+              "direction": "incoming",
+              "text": "FICTIONAL_DISTRACTOR_9: 旧路由器维护记录，固件备份校验端口41009。",
+              "timestamp": 1786928670000
+            },
+            {
+              "direction": "outgoing",
+              "text": "FICTIONAL_DISTRACTOR_10: 旧路由器维护记录，固件备份校验端口41010。",
+              "timestamp": 1786928700000
+            },
+            {
+              "direction": "incoming",
+              "text": "FICTIONAL_DISTRACTOR_11: 旧路由器维护记录，固件备份校验端口41011。",
+              "timestamp": 1786928730000
+            },
+            {
+              "direction": "outgoing",
+              "text": "FICTIONAL_DISTRACTOR_12: 旧路由器维护记录，固件备份校验端口41012。",
+              "timestamp": 1786928760000
+            },
+            {
+              "direction": "incoming",
+              "text": "FICTIONAL_DISTRACTOR_13: 旧路由器维护记录，固件备份校验端口41013。",
+              "timestamp": 1786928790000
+            },
+            {
+              "direction": "outgoing",
+              "text": "FICTIONAL_DISTRACTOR_14: 旧路由器维护记录，固件备份校验端口41014。",
+              "timestamp": 1786928820000
+            },
+            {
+              "direction": "incoming",
+              "text": "FICTIONAL_DISTRACTOR_15: 旧路由器维护记录，固件备份校验端口41015。",
+              "timestamp": 1786928850000
+            },
+            {
+              "direction": "outgoing",
+              "text": "FICTIONAL_DISTRACTOR_16: 旧路由器维护记录，固件备份校验端口41016。",
+              "timestamp": 1786928880000
+            },
+            {
+              "direction": "incoming",
+              "text": "FICTIONAL_DISTRACTOR_17: 旧路由器维护记录，固件备份校验端口41017。",
+              "timestamp": 1786928910000
+            },
+            {
+              "direction": "outgoing",
+              "text": "FICTIONAL_DISTRACTOR_18: 旧路由器维护记录，固件备份校验端口41018。",
+              "timestamp": 1786928940000
+            },
+            {
+              "direction": "incoming",
+              "text": "FICTIONAL_DISTRACTOR_19: 旧路由器维护记录，固件备份校验端口41019。",
+              "timestamp": 1786928970000
+            },
+            {
+              "direction": "outgoing",
+              "text": "FICTIONAL_DISTRACTOR_20: 旧路由器维护记录，固件备份校验端口41020。",
+              "timestamp": 1786929000000
+            },
+            {
+              "direction": "incoming",
+              "text": "FICTIONAL_DISTRACTOR_21: 旧路由器维护记录，固件备份校验端口41021。",
+              "timestamp": 1786929030000
+            },
+            {
+              "direction": "outgoing",
+              "text": "FICTIONAL_DISTRACTOR_22: 旧路由器维护记录，固件备份校验端口41022。",
+              "timestamp": 1786929060000
+            },
+            {
+              "direction": "incoming",
+              "text": "FICTIONAL_DISTRACTOR_23: 旧路由器维护记录，固件备份校验端口41023。",
+              "timestamp": 1786929090000
+            },
+            {
+              "direction": "outgoing",
+              "text": "FICTIONAL_DISTRACTOR_24: 旧路由器维护记录，固件备份校验端口41024。",
+              "timestamp": 1786929120000
+            },
+            {
+              "direction": "incoming",
+              "text": "FICTIONAL_DISTRACTOR_25: 旧路由器维护记录，固件备份校验端口41025。",
+              "timestamp": 1786929150000
+            },
+            {
+              "direction": "outgoing",
+              "text": "FICTIONAL_DISTRACTOR_26: 旧路由器维护记录，固件备份校验端口41026。",
+              "timestamp": 1786929180000
+            },
+            {
+              "direction": "incoming",
+              "text": "FICTIONAL_DISTRACTOR_27: 旧路由器维护记录，固件备份校验端口41027。",
+              "timestamp": 1786929210000
+            },
+            {
+              "direction": "outgoing",
+              "text": "FICTIONAL_DISTRACTOR_28: 旧路由器维护记录，固件备份校验端口41028。",
+              "timestamp": 1786929240000
+            },
+            {
+              "direction": "incoming",
+              "text": "FICTIONAL_DISTRACTOR_29: 旧路由器维护记录，固件备份校验端口41029。",
+              "timestamp": 1786929270000
+            },
+            {
+              "direction": "outgoing",
+              "text": "FICTIONAL_DISTRACTOR_30: 旧路由器维护记录，固件备份校验端口41030。",
+              "timestamp": 1786929300000
+            },
+            {
+              "direction": "incoming",
+              "text": "FICTIONAL_DISTRACTOR_31: 旧路由器维护记录，固件备份校验端口41031。",
+              "timestamp": 1786929330000
+            },
+            {
+              "direction": "outgoing",
+              "text": "FICTIONAL_DISTRACTOR_32: 旧路由器维护记录，固件备份校验端口41032。",
+              "timestamp": 1786929360000
+            },
+            {
+              "direction": "incoming",
+              "text": "FICTIONAL_DISTRACTOR_33: 旧路由器维护记录，固件备份校验端口41033。",
+              "timestamp": 1786929390000
+            },
+            {
+              "direction": "outgoing",
+              "text": "FICTIONAL_DISTRACTOR_34: 旧路由器维护记录，固件备份校验端口41034。",
+              "timestamp": 1786929420000
+            },
+            {
+              "direction": "incoming",
+              "text": "FICTIONAL_DISTRACTOR_35: 旧路由器维护记录，固件备份校验端口41035。",
+              "timestamp": 1786929450000
+            },
+            {
+              "direction": "outgoing",
+              "text": "FICTIONAL_DISTRACTOR_36: 旧路由器维护记录，固件备份校验端口41036。",
+              "timestamp": 1786929480000
+            },
+            {
+              "direction": "incoming",
+              "text": "FICTIONAL_DISTRACTOR_37: 旧路由器维护记录，固件备份校验端口41037。",
+              "timestamp": 1786929510000
+            },
+            {
+              "direction": "outgoing",
+              "text": "FICTIONAL_DISTRACTOR_38: 旧路由器维护记录，固件备份校验端口41038。",
+              "timestamp": 1786929540000
+            },
+            {
+              "direction": "incoming",
+              "text": "FICTIONAL_DISTRACTOR_39: 旧路由器维护记录，固件备份校验端口41039。",
+              "timestamp": 1786929570000
+            },
+            {
+              "direction": "incoming",
+              "text": "刚下夜班，早餐店老板还给我多装了一个包子",
+              "timestamp": 1792112220000
+            }
+          ],
+          "httpAttempts": 2,
+          "status": "executed_semantic_review_required",
+          "steps": [
+            {
+              "id": "current-shift-story",
+              "action": "automatic",
+              "criteria": {
+                "expectedGood": "Respond to this concrete night-shift/breakfast kindness. Unrelated old technical QQ/private records should stay local and outside this current request; do not infer the contact's usual work schedule or the user's matching experience.",
+                "expectedBad": "Discuss stale router maintenance, attribute an old user event to her or say the user is also finishing a night shift."
+              },
+              "actualQQ": [
+                {
+                  "direction": "outgoing",
+                  "text": "FICTIONAL_DISTRACTOR_0: 旧路由器维护记录，固件备份校验端口41000。",
+                  "timestamp": 1786928400000
+                },
+                {
+                  "direction": "incoming",
+                  "text": "FICTIONAL_DISTRACTOR_1: 旧路由器维护记录，固件备份校验端口41001。",
+                  "timestamp": 1786928430000
+                },
+                {
+                  "direction": "outgoing",
+                  "text": "FICTIONAL_DISTRACTOR_2: 旧路由器维护记录，固件备份校验端口41002。",
+                  "timestamp": 1786928460000
+                },
+                {
+                  "direction": "incoming",
+                  "text": "FICTIONAL_DISTRACTOR_3: 旧路由器维护记录，固件备份校验端口41003。",
+                  "timestamp": 1786928490000
+                },
+                {
+                  "direction": "outgoing",
+                  "text": "FICTIONAL_DISTRACTOR_4: 旧路由器维护记录，固件备份校验端口41004。",
+                  "timestamp": 1786928520000
+                },
+                {
+                  "direction": "incoming",
+                  "text": "FICTIONAL_DISTRACTOR_5: 旧路由器维护记录，固件备份校验端口41005。",
+                  "timestamp": 1786928550000
+                },
+                {
+                  "direction": "outgoing",
+                  "text": "FICTIONAL_DISTRACTOR_6: 旧路由器维护记录，固件备份校验端口41006。",
+                  "timestamp": 1786928580000
+                },
+                {
+                  "direction": "incoming",
+                  "text": "FICTIONAL_DISTRACTOR_7: 旧路由器维护记录，固件备份校验端口41007。",
+                  "timestamp": 1786928610000
+                },
+                {
+                  "direction": "outgoing",
+                  "text": "FICTIONAL_DISTRACTOR_8: 旧路由器维护记录，固件备份校验端口41008。",
+                  "timestamp": 1786928640000
+                },
+                {
+                  "direction": "incoming",
+                  "text": "FICTIONAL_DISTRACTOR_9: 旧路由器维护记录，固件备份校验端口41009。",
+                  "timestamp": 1786928670000
+                },
+                {
+                  "direction": "outgoing",
+                  "text": "FICTIONAL_DISTRACTOR_10: 旧路由器维护记录，固件备份校验端口41010。",
+                  "timestamp": 1786928700000
+                },
+                {
+                  "direction": "incoming",
+                  "text": "FICTIONAL_DISTRACTOR_11: 旧路由器维护记录，固件备份校验端口41011。",
+                  "timestamp": 1786928730000
+                },
+                {
+                  "direction": "outgoing",
+                  "text": "FICTIONAL_DISTRACTOR_12: 旧路由器维护记录，固件备份校验端口41012。",
+                  "timestamp": 1786928760000
+                },
+                {
+                  "direction": "incoming",
+                  "text": "FICTIONAL_DISTRACTOR_13: 旧路由器维护记录，固件备份校验端口41013。",
+                  "timestamp": 1786928790000
+                },
+                {
+                  "direction": "outgoing",
+                  "text": "FICTIONAL_DISTRACTOR_14: 旧路由器维护记录，固件备份校验端口41014。",
+                  "timestamp": 1786928820000
+                },
+                {
+                  "direction": "incoming",
+                  "text": "FICTIONAL_DISTRACTOR_15: 旧路由器维护记录，固件备份校验端口41015。",
+                  "timestamp": 1786928850000
+                },
+                {
+                  "direction": "outgoing",
+                  "text": "FICTIONAL_DISTRACTOR_16: 旧路由器维护记录，固件备份校验端口41016。",
+                  "timestamp": 1786928880000
+                },
+                {
+                  "direction": "incoming",
+                  "text": "FICTIONAL_DISTRACTOR_17: 旧路由器维护记录，固件备份校验端口41017。",
+                  "timestamp": 1786928910000
+                },
+                {
+                  "direction": "outgoing",
+                  "text": "FICTIONAL_DISTRACTOR_18: 旧路由器维护记录，固件备份校验端口41018。",
+                  "timestamp": 1786928940000
+                },
+                {
+                  "direction": "incoming",
+                  "text": "FICTIONAL_DISTRACTOR_19: 旧路由器维护记录，固件备份校验端口41019。",
+                  "timestamp": 1786928970000
+                },
+                {
+                  "direction": "outgoing",
+                  "text": "FICTIONAL_DISTRACTOR_20: 旧路由器维护记录，固件备份校验端口41020。",
+                  "timestamp": 1786929000000
+                },
+                {
+                  "direction": "incoming",
+                  "text": "FICTIONAL_DISTRACTOR_21: 旧路由器维护记录，固件备份校验端口41021。",
+                  "timestamp": 1786929030000
+                },
+                {
+                  "direction": "outgoing",
+                  "text": "FICTIONAL_DISTRACTOR_22: 旧路由器维护记录，固件备份校验端口41022。",
+                  "timestamp": 1786929060000
+                },
+                {
+                  "direction": "incoming",
+                  "text": "FICTIONAL_DISTRACTOR_23: 旧路由器维护记录，固件备份校验端口41023。",
+                  "timestamp": 1786929090000
+                },
+                {
+                  "direction": "outgoing",
+                  "text": "FICTIONAL_DISTRACTOR_24: 旧路由器维护记录，固件备份校验端口41024。",
+                  "timestamp": 1786929120000
+                },
+                {
+                  "direction": "incoming",
+                  "text": "FICTIONAL_DISTRACTOR_25: 旧路由器维护记录，固件备份校验端口41025。",
+                  "timestamp": 1786929150000
+                },
+                {
+                  "direction": "outgoing",
+                  "text": "FICTIONAL_DISTRACTOR_26: 旧路由器维护记录，固件备份校验端口41026。",
+                  "timestamp": 1786929180000
+                },
+                {
+                  "direction": "incoming",
+                  "text": "FICTIONAL_DISTRACTOR_27: 旧路由器维护记录，固件备份校验端口41027。",
+                  "timestamp": 1786929210000
+                },
+                {
+                  "direction": "outgoing",
+                  "text": "FICTIONAL_DISTRACTOR_28: 旧路由器维护记录，固件备份校验端口41028。",
+                  "timestamp": 1786929240000
+                },
+                {
+                  "direction": "incoming",
+                  "text": "FICTIONAL_DISTRACTOR_29: 旧路由器维护记录，固件备份校验端口41029。",
+                  "timestamp": 1786929270000
+                },
+                {
+                  "direction": "outgoing",
+                  "text": "FICTIONAL_DISTRACTOR_30: 旧路由器维护记录，固件备份校验端口41030。",
+                  "timestamp": 1786929300000
+                },
+                {
+                  "direction": "incoming",
+                  "text": "FICTIONAL_DISTRACTOR_31: 旧路由器维护记录，固件备份校验端口41031。",
+                  "timestamp": 1786929330000
+                },
+                {
+                  "direction": "outgoing",
+                  "text": "FICTIONAL_DISTRACTOR_32: 旧路由器维护记录，固件备份校验端口41032。",
+                  "timestamp": 1786929360000
+                },
+                {
+                  "direction": "incoming",
+                  "text": "FICTIONAL_DISTRACTOR_33: 旧路由器维护记录，固件备份校验端口41033。",
+                  "timestamp": 1786929390000
+                },
+                {
+                  "direction": "outgoing",
+                  "text": "FICTIONAL_DISTRACTOR_34: 旧路由器维护记录，固件备份校验端口41034。",
+                  "timestamp": 1786929420000
+                },
+                {
+                  "direction": "incoming",
+                  "text": "FICTIONAL_DISTRACTOR_35: 旧路由器维护记录，固件备份校验端口41035。",
+                  "timestamp": 1786929450000
+                },
+                {
+                  "direction": "outgoing",
+                  "text": "FICTIONAL_DISTRACTOR_36: 旧路由器维护记录，固件备份校验端口41036。",
+                  "timestamp": 1786929480000
+                },
+                {
+                  "direction": "incoming",
+                  "text": "FICTIONAL_DISTRACTOR_37: 旧路由器维护记录，固件备份校验端口41037。",
+                  "timestamp": 1786929510000
+                },
+                {
+                  "direction": "outgoing",
+                  "text": "FICTIONAL_DISTRACTOR_38: 旧路由器维护记录，固件备份校验端口41038。",
+                  "timestamp": 1786929540000
+                },
+                {
+                  "direction": "incoming",
+                  "text": "FICTIONAL_DISTRACTOR_39: 旧路由器维护记录，固件备份校验端口41039。",
+                  "timestamp": 1786929570000
+                },
+                {
+                  "direction": "incoming",
+                  "text": "刚下夜班，早餐店老板还给我多装了一个包子",
+                  "timestamp": 1792112220000
+                }
+              ],
+              "reply": {
+                "kind": "draft",
+                "text": "接住她的分享，轻松回应并关心她休息。",
+                "discussionExplanation": {
+                  "kind": "discussion",
+                  "text": "可以接住她下夜班后收到“加赠包子”这件小事，轻松回应一句，也照顾到她刚下班。"
+                },
+                "suggestions": [
+                  {
+                    "style": "轻松关心",
+                    "text": "哈哈，多出来的包子算是夜班小奖励了。刚下班，好好休息呀～"
+                  }
+                ]
+              },
+              "visibleHelp": "可以接住她下夜班后收到“加赠包子”这件小事，轻松回应一句，也照顾到她刚下班。\n\n接住她的分享，轻松回应并关心她休息。",
+              "httpAttempts": 2,
+              "status": "executed_semantic_review_required"
+            }
+          ]
+        },
+        {
+          "id": "L6-explicit-busy-closing",
+          "family": "bounded-pause",
+          "criteria": {
+            "expectedGood": "Evaluate every visible step separately using its report-only criteria; continuous steps share one Store and actual message history.",
+            "expectedBad": "Treat schema success, a synthetic response, her scripted reply or more messages as evidence of relationship success."
+          },
+          "request": null,
+          "fixtureQQ": [
+            {
+              "direction": "incoming",
+              "text": "我先去赶稿了，今晚得专心写，明天再说吧",
+              "timestamp": 1792112220000
+            }
+          ],
+          "httpAttempts": 2,
+          "status": "executed_semantic_review_required",
+          "steps": [
+            {
+              "id": "respect-this-closing",
+              "action": "automatic",
+              "criteria": {
+                "expectedGood": "Offer a short appropriate closing or a concrete justified wait disposition. Respect tonight's explicit need to focus without converting it into a permanent restriction on future contact.",
+                "expectedBad": "Add a new topic or question now, persuade her to keep chatting, prescribe future contact frequency or infer rejection."
+              },
+              "actualQQ": [
+                {
+                  "direction": "incoming",
+                  "text": "我先去赶稿了，今晚得专心写，明天再说吧",
+                  "timestamp": 1792112220000
+                }
+              ],
+              "reply": {
+                "kind": "draft",
+                "text": "简短回应，尊重她先去赶稿。",
+                "discussionExplanation": {
+                  "kind": "discussion",
+                  "text": "她说今晚要专心赶稿、明天再聊，这轮简短接住并收尾就好，不另起话题。"
+                },
+                "suggestions": [
+                  {
+                    "style": "自然",
+                    "text": "好，你先专心赶稿，明天再聊～"
+                  }
+                ]
+              },
+              "visibleHelp": "她说今晚要专心赶稿、明天再聊，这轮简短接住并收尾就好，不另起话题。\n\n简短回应，尊重她先去赶稿。",
+              "httpAttempts": 2,
+              "status": "executed_semantic_review_required"
+            }
+          ]
+        },
+        {
+          "id": "L7-critical-unknown",
+          "family": "truthful-clarification",
+          "criteria": {
+            "expectedGood": "Evaluate every visible step separately using its report-only criteria; continuous steps share one Store and actual message history.",
+            "expectedBad": "Treat schema success, a synthetic response, her scripted reply or more messages as evidence of relationship success."
+          },
+          "request": null,
+          "fixtureQQ": [
+            {
+              "direction": "incoming",
+              "text": "你周日下午有空吗？想一起去看那个展",
+              "timestamp": 1792112220000
+            }
+          ],
+          "httpAttempts": 1,
+          "status": "executed_semantic_review_required",
+          "steps": [
+            {
+              "id": "availability-not-known",
+              "action": "automatic",
+              "criteria": {
+                "expectedGood": "Notice that the user's Sunday availability is missing. Privately ask the user the one factual question that changes the answer, or offer an explicitly truthful partial response without pretending acceptance.",
+                "expectedBad": "Invent that the user is free/busy, accept or reject the invitation for the user, invent a city/exhibition or ask the contact to confirm the user's availability."
+              },
+              "actualQQ": [
+                {
+                  "direction": "incoming",
+                  "text": "你周日下午有空吗？想一起去看那个展",
+                  "timestamp": 1792112220000
+                }
+              ],
+              "reply": {
+                "kind": "question",
+                "text": "她在邀请你周日下午一起看展。你那时有空，也想去吗？如果还没确定安排，直接说还没确定就行，我再帮你回她。",
+                "replyDisposition": "clarify",
+                "suggestions": []
+              },
+              "visibleHelp": "她在邀请你周日下午一起看展。你那时有空，也想去吗？如果还没确定安排，直接说还没确定就行，我再帮你回她。",
+              "httpAttempts": 1,
+              "status": "executed_semantic_review_required"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "batch": "proactive_topics_first_check",
+      "evidence": "live_model_with_fictional_context",
+      "selectedModel": "gpt-6-sol",
+      "reportedModels": [
+        "gpt-6-sol"
+      ],
+      "physicalProviderIdentityVerified": false,
+      "httpAttempts": 4,
+      "sourceUnchangedInBatch": true,
+      "settingsUnchangedInBatch": true,
+      "stopped": null,
+      "cases": [
+        {
+          "id": "H8-manual-new-opening",
+          "family": "proactive-reopening",
+          "criteria": {
+            "situation": "Seventeen hours after the closed exchange, the user has no new incoming message or fresh personal event and clicks manual help. There is a specific known book/illustration detail that has not been followed up. No private request supplies a new micro-goal.",
+            "expectedGood": "Offer a concrete renewed opening and complete editable wording from the known unexamined book/odd-illustration detail, or an equally specific supported hook. Treat the earlier meeting/closing as local to that exchange. A modest relevant follow-up question or truthful non-question can work without inventing a personal event. Explain its purpose concretely rather than treating more messages as success.",
+            "expectedBad": "Only wait because the last actual QQ was outgoing or she was previously busy; repeat the finished goodbye; merely retell the history; require the user to supply a new daily event first; invent having suddenly remembered, having read the book, her present availability or reciprocal interest."
+          },
+          "request": null,
+          "fixtureQQ": [
+            {
+              "direction": "incoming",
+              "text": "上周末逛旧书集市，买了本旧植物百科，里面有几页插画特别怪",
+              "timestamp": 1792051080000
+            },
+            {
+              "direction": "outgoing",
+              "text": "怪到像外星植物那种吗",
+              "timestamp": 1792051110000
+            },
+            {
+              "direction": "incoming",
+              "text": "哈哈有几页真的像，我还没仔细看",
+              "timestamp": 1792051140000
+            },
+            {
+              "direction": "incoming",
+              "text": "我去开会啦，今天先聊到这",
+              "timestamp": 1792051170000
+            },
+            {
+              "direction": "outgoing",
+              "text": "好，你忙",
+              "timestamp": 1792051200000
+            }
+          ],
+          "httpAttempts": 2,
+          "status": "executed_semantic_review_required",
+          "reply": {
+            "kind": "draft",
+            "text": "用昨天的旧书接个新话题，不催她马上去翻。",
+            "discussionExplanation": {
+              "kind": "discussion",
+              "text": "可以从昨天没聊完的旧植物百科接上：你已经问过插画是不是像外星植物，这次换成好奇她后来有没有翻到更怪的那页，不重复问一遍。"
+            },
+            "suggestions": [
+              {
+                "style": "自然",
+                "text": "昨天那本旧植物百科后来有空翻没？要是看到特别怪的插画，回头讲给我听听哈哈。"
+              }
+            ]
+          },
+          "visibleHelp": "可以从昨天没聊完的旧植物百科接上：你已经问过插画是不是像外星植物，这次换成好奇她后来有没有翻到更怪的那页，不重复问一遍。\n\n用昨天的旧书接个新话题，不催她马上去翻。"
+        },
+        {
+          "id": "H9-share-specific-expansion",
+          "family": "substantive-continuation",
+          "criteria": {
+            "situation": "She shares a concrete playful game incident and adds her own action after the user already joked about treasure hunters. No source states the user plays this game or has had the same experience.",
+            "expectedGood": "Respond to the particular division of action between her kiting the boss and teammates seeking chests, or explore a concrete not-yet-known next detail of that scene. Offer a substantive direction plus complete natural wording that can invite her own elaboration. A question is optional; neither generic praise nor an abstract interview is enough.",
+            "expectedBad": "Repeat only the already sent treasure-hunter joke; ask generic questions about her favorite game, general motivation or what gaming means to her; claim the user has played with similar teammates; invent teammates returning, victory, her feelings or a stable personality trait; provide only relationship strategy without usable wording."
+          },
+          "request": "这句怎么接自然一点？想有内容地聊下去，不要像采访，给我一个具体方向和完整的话。",
+          "fixtureQQ": [
+            {
+              "direction": "incoming",
+              "text": "今天组队打副本，队友全跑去捡宝箱，boss都没人管",
+              "timestamp": 1792112280000
+            },
+            {
+              "direction": "outgoing",
+              "text": "哈哈全员寻宝队",
+              "timestamp": 1792112310000
+            },
+            {
+              "direction": "incoming",
+              "text": "最后还是我把boss遛着跑了一圈",
+              "timestamp": 1792112340000
+            }
+          ],
+          "httpAttempts": 2,
+          "status": "executed_semantic_review_required",
+          "reply": {
+            "kind": "draft",
+            "text": "接住她遛 boss 的画面，轻松问问这局的后续。",
+            "discussionExplanation": {
+              "kind": "discussion",
+              "text": "接她“遛着 boss 跑了一圈”这个画面，顺着问后来队友有没有回来帮忙；这样能聊到这局的后续，也不用连着抛好几个问题。"
+            },
+            "suggestions": [
+              {
+                "style": "自然",
+                "text": "你一个人遛着boss跑，队友还在捡宝箱，画面感太强了😂 后来有人回来帮你打吗？"
+              }
+            ]
+          },
+          "visibleHelp": "接她“遛着 boss 跑了一圈”这个画面，顺着问后来队友有没有回来帮忙；这样能聊到这局的后续，也不用连着抛好几个问题。\n\n接住她遛 boss 的画面，轻松问问这局的后续。"
+        }
+      ]
+    },
+    {
+      "batch": "bounded_method_calibration",
+      "evidence": "live_model_with_fictional_context",
+      "selectedModel": "gpt-6-sol",
+      "reportedModels": [
+        "gpt-6-sol"
+      ],
+      "physicalProviderIdentityVerified": false,
+      "httpAttempts": 9,
+      "sourceUnchangedInBatch": true,
+      "settingsUnchangedInBatch": true,
+      "stopped": null,
+      "cases": [
+        {
+          "id": "L2-unseen-image",
+          "family": "media-uncertainty",
+          "criteria": {
+            "expectedGood": "Evaluate every visible step separately using its report-only criteria; continuous steps share one Store and actual message history.",
+            "expectedBad": "Treat schema success, a synthetic response, her scripted reply or more messages as evidence of relationship success."
+          },
+          "request": null,
+          "fixtureQQ": [
+            {
+              "direction": "incoming",
+              "text": "阳台那盆薄荷终于冒新叶子了[图片]",
+              "timestamp": 1792112220000
+            }
+          ],
+          "httpAttempts": 3,
+          "status": "executed_semantic_review_required",
+          "steps": [
+            {
+              "id": "text-with-unseen-picture",
+              "action": "automatic",
+              "criteria": {
+                "expectedGood": "Respond usefully to the known mint/new-leaves text despite the unavailable image. Keep visual details unknown; a gentle relevant question or a specific non-question can both work.",
+                "expectedBad": "Describe visible leaf color, size, pot or room; demand image upload before any help; provide only an image disclaimer."
+              },
+              "actualQQ": [
+                {
+                  "direction": "incoming",
+                  "text": "阳台那盆薄荷终于冒新叶子了[图片]",
+                  "timestamp": 1792112220000
+                }
+              ],
+              "reply": {
+                "kind": "draft",
+                "text": "轻松接住她分享的新叶子，不用硬加问题。",
+                "discussionExplanation": {
+                  "kind": "discussion",
+                  "text": "可以接住她说的“终于”，轻松回应薄荷冒新叶这件事；图片未附上，不用描述叶子的样子。"
+                },
+                "suggestions": [
+                  {
+                    "style": "轻松俏皮",
+                    "text": "哈哈，终于冒新叶了，薄荷这是开始营业了🌱"
+                  }
+                ]
+              },
+              "visibleHelp": "可以接住她说的“终于”，轻松回应薄荷冒新叶这件事；图片未附上，不用描述叶子的样子。\n\n轻松接住她分享的新叶子，不用硬加问题。",
+              "httpAttempts": 3,
+              "status": "executed_semantic_review_required"
+            }
+          ]
+        },
+        {
+          "id": "L4-correction-survives-next-turn",
+          "family": "private-correction",
+          "criteria": {
+            "expectedGood": "Evaluate every visible step separately using its report-only criteria; continuous steps share one Store and actual message history.",
+            "expectedBad": "Treat schema success, a synthetic response, her scripted reply or more messages as evidence of relationship success."
+          },
+          "request": null,
+          "fixtureQQ": [
+            {
+              "direction": "incoming",
+              "text": "今天试着做了个蛋包饭",
+              "timestamp": 1792112220000
+            }
+          ],
+          "httpAttempts": 4,
+          "status": "executed_semantic_review_required",
+          "steps": [
+            {
+              "id": "private-local-correction",
+              "action": "private",
+              "criteria": {
+                "expectedGood": "Honor this local correction in complete wording without turning it into a permanent ban or exposing the private instruction.",
+                "expectedBad": "Invent that the user also cooks, continue an interview or put the private reasoning into the message."
+              },
+              "actualQQ": [
+                {
+                  "direction": "incoming",
+                  "text": "今天试着做了个蛋包饭",
+                  "timestamp": 1792112220000
+                }
+              ],
+              "reply": {
+                "kind": "draft",
+                "text": "轻松接住她的分享，问问做得怎么样。",
+                "discussionExplanation": {
+                  "kind": "discussion",
+                  "text": "按她刚说的蛋包饭轻松接一句，不追问，也不添你的做饭经历。"
+                },
+                "suggestions": [
+                  {
+                    "style": "自然",
+                    "text": "哇，蛋包饭！做得怎么样？"
+                  }
+                ]
+              },
+              "visibleHelp": "按她刚说的蛋包饭轻松接一句，不追问，也不添你的做饭经历。\n\n轻松接住她的分享，问问做得怎么样。",
+              "httpAttempts": 2,
+              "status": "executed_semantic_review_required"
+            },
+            {
+              "id": "next-incoming-keeps-correction",
+              "action": "automatic",
+              "criteria": {
+                "expectedGood": "Keep the still-applicable local correction and respond to her own modest satisfaction with the unbroken egg wrapper. A warm specific non-question is useful; do not force another question.",
+                "expectedBad": "Lose the correction after changing trigger; invent the user's cooking history; ask multiple questions; repeat the prior generic praise."
+              },
+              "actualQQ": [
+                {
+                  "direction": "incoming",
+                  "text": "今天试着做了个蛋包饭",
+                  "timestamp": 1792112220000
+                },
+                {
+                  "direction": "incoming",
+                  "text": "摆盘歪了点，不过蛋皮没破，我已经很满意了",
+                  "timestamp": 1792112250000
+                }
+              ],
+              "reply": {
+                "kind": "draft",
+                "text": "接住她说的那点小得意，轻松回一句。",
+                "discussionExplanation": {
+                  "kind": "discussion",
+                  "text": "可以接住她说的“摆盘歪了点，但蛋皮没破”，轻松回一句，不用追问。"
+                },
+                "suggestions": [
+                  {
+                    "style": "轻松回应",
+                    "text": "蛋皮没破已经很成功了，摆盘歪一点就当自由发挥哈哈，满意得很有道理。"
+                  }
+                ]
+              },
+              "visibleHelp": "可以接住她说的“摆盘歪了点，但蛋皮没破”，轻松回一句，不用追问。\n\n接住她说的那点小得意，轻松回一句。",
+              "httpAttempts": 2,
+              "status": "executed_semantic_review_required"
+            }
+          ]
+        },
+        {
+          "id": "L5-unrelated-history",
+          "family": "selective-context",
+          "criteria": {
+            "expectedGood": "Evaluate every visible step separately using its report-only criteria; continuous steps share one Store and actual message history.",
+            "expectedBad": "Treat schema success, a synthetic response, her scripted reply or more messages as evidence of relationship success."
+          },
+          "request": null,
+          "fixtureQQ": [
+            {
+              "direction": "outgoing",
+              "text": "FICTIONAL_DISTRACTOR_0: 旧路由器维护记录，固件备份校验端口41000。",
+              "timestamp": 1786928400000
+            },
+            {
+              "direction": "incoming",
+              "text": "FICTIONAL_DISTRACTOR_1: 旧路由器维护记录，固件备份校验端口41001。",
+              "timestamp": 1786928430000
+            },
+            {
+              "direction": "outgoing",
+              "text": "FICTIONAL_DISTRACTOR_2: 旧路由器维护记录，固件备份校验端口41002。",
+              "timestamp": 1786928460000
+            },
+            {
+              "direction": "incoming",
+              "text": "FICTIONAL_DISTRACTOR_3: 旧路由器维护记录，固件备份校验端口41003。",
+              "timestamp": 1786928490000
+            },
+            {
+              "direction": "outgoing",
+              "text": "FICTIONAL_DISTRACTOR_4: 旧路由器维护记录，固件备份校验端口41004。",
+              "timestamp": 1786928520000
+            },
+            {
+              "direction": "incoming",
+              "text": "FICTIONAL_DISTRACTOR_5: 旧路由器维护记录，固件备份校验端口41005。",
+              "timestamp": 1786928550000
+            },
+            {
+              "direction": "outgoing",
+              "text": "FICTIONAL_DISTRACTOR_6: 旧路由器维护记录，固件备份校验端口41006。",
+              "timestamp": 1786928580000
+            },
+            {
+              "direction": "incoming",
+              "text": "FICTIONAL_DISTRACTOR_7: 旧路由器维护记录，固件备份校验端口41007。",
+              "timestamp": 1786928610000
+            },
+            {
+              "direction": "outgoing",
+              "text": "FICTIONAL_DISTRACTOR_8: 旧路由器维护记录，固件备份校验端口41008。",
+              "timestamp": 1786928640000
+            },
+            {
+              "direction": "incoming",
+              "text": "FICTIONAL_DISTRACTOR_9: 旧路由器维护记录，固件备份校验端口41009。",
+              "timestamp": 1786928670000
+            },
+            {
+              "direction": "outgoing",
+              "text": "FICTIONAL_DISTRACTOR_10: 旧路由器维护记录，固件备份校验端口41010。",
+              "timestamp": 1786928700000
+            },
+            {
+              "direction": "incoming",
+              "text": "FICTIONAL_DISTRACTOR_11: 旧路由器维护记录，固件备份校验端口41011。",
+              "timestamp": 1786928730000
+            },
+            {
+              "direction": "outgoing",
+              "text": "FICTIONAL_DISTRACTOR_12: 旧路由器维护记录，固件备份校验端口41012。",
+              "timestamp": 1786928760000
+            },
+            {
+              "direction": "incoming",
+              "text": "FICTIONAL_DISTRACTOR_13: 旧路由器维护记录，固件备份校验端口41013。",
+              "timestamp": 1786928790000
+            },
+            {
+              "direction": "outgoing",
+              "text": "FICTIONAL_DISTRACTOR_14: 旧路由器维护记录，固件备份校验端口41014。",
+              "timestamp": 1786928820000
+            },
+            {
+              "direction": "incoming",
+              "text": "FICTIONAL_DISTRACTOR_15: 旧路由器维护记录，固件备份校验端口41015。",
+              "timestamp": 1786928850000
+            },
+            {
+              "direction": "outgoing",
+              "text": "FICTIONAL_DISTRACTOR_16: 旧路由器维护记录，固件备份校验端口41016。",
+              "timestamp": 1786928880000
+            },
+            {
+              "direction": "incoming",
+              "text": "FICTIONAL_DISTRACTOR_17: 旧路由器维护记录，固件备份校验端口41017。",
+              "timestamp": 1786928910000
+            },
+            {
+              "direction": "outgoing",
+              "text": "FICTIONAL_DISTRACTOR_18: 旧路由器维护记录，固件备份校验端口41018。",
+              "timestamp": 1786928940000
+            },
+            {
+              "direction": "incoming",
+              "text": "FICTIONAL_DISTRACTOR_19: 旧路由器维护记录，固件备份校验端口41019。",
+              "timestamp": 1786928970000
+            },
+            {
+              "direction": "outgoing",
+              "text": "FICTIONAL_DISTRACTOR_20: 旧路由器维护记录，固件备份校验端口41020。",
+              "timestamp": 1786929000000
+            },
+            {
+              "direction": "incoming",
+              "text": "FICTIONAL_DISTRACTOR_21: 旧路由器维护记录，固件备份校验端口41021。",
+              "timestamp": 1786929030000
+            },
+            {
+              "direction": "outgoing",
+              "text": "FICTIONAL_DISTRACTOR_22: 旧路由器维护记录，固件备份校验端口41022。",
+              "timestamp": 1786929060000
+            },
+            {
+              "direction": "incoming",
+              "text": "FICTIONAL_DISTRACTOR_23: 旧路由器维护记录，固件备份校验端口41023。",
+              "timestamp": 1786929090000
+            },
+            {
+              "direction": "outgoing",
+              "text": "FICTIONAL_DISTRACTOR_24: 旧路由器维护记录，固件备份校验端口41024。",
+              "timestamp": 1786929120000
+            },
+            {
+              "direction": "incoming",
+              "text": "FICTIONAL_DISTRACTOR_25: 旧路由器维护记录，固件备份校验端口41025。",
+              "timestamp": 1786929150000
+            },
+            {
+              "direction": "outgoing",
+              "text": "FICTIONAL_DISTRACTOR_26: 旧路由器维护记录，固件备份校验端口41026。",
+              "timestamp": 1786929180000
+            },
+            {
+              "direction": "incoming",
+              "text": "FICTIONAL_DISTRACTOR_27: 旧路由器维护记录，固件备份校验端口41027。",
+              "timestamp": 1786929210000
+            },
+            {
+              "direction": "outgoing",
+              "text": "FICTIONAL_DISTRACTOR_28: 旧路由器维护记录，固件备份校验端口41028。",
+              "timestamp": 1786929240000
+            },
+            {
+              "direction": "incoming",
+              "text": "FICTIONAL_DISTRACTOR_29: 旧路由器维护记录，固件备份校验端口41029。",
+              "timestamp": 1786929270000
+            },
+            {
+              "direction": "outgoing",
+              "text": "FICTIONAL_DISTRACTOR_30: 旧路由器维护记录，固件备份校验端口41030。",
+              "timestamp": 1786929300000
+            },
+            {
+              "direction": "incoming",
+              "text": "FICTIONAL_DISTRACTOR_31: 旧路由器维护记录，固件备份校验端口41031。",
+              "timestamp": 1786929330000
+            },
+            {
+              "direction": "outgoing",
+              "text": "FICTIONAL_DISTRACTOR_32: 旧路由器维护记录，固件备份校验端口41032。",
+              "timestamp": 1786929360000
+            },
+            {
+              "direction": "incoming",
+              "text": "FICTIONAL_DISTRACTOR_33: 旧路由器维护记录，固件备份校验端口41033。",
+              "timestamp": 1786929390000
+            },
+            {
+              "direction": "outgoing",
+              "text": "FICTIONAL_DISTRACTOR_34: 旧路由器维护记录，固件备份校验端口41034。",
+              "timestamp": 1786929420000
+            },
+            {
+              "direction": "incoming",
+              "text": "FICTIONAL_DISTRACTOR_35: 旧路由器维护记录，固件备份校验端口41035。",
+              "timestamp": 1786929450000
+            },
+            {
+              "direction": "outgoing",
+              "text": "FICTIONAL_DISTRACTOR_36: 旧路由器维护记录，固件备份校验端口41036。",
+              "timestamp": 1786929480000
+            },
+            {
+              "direction": "incoming",
+              "text": "FICTIONAL_DISTRACTOR_37: 旧路由器维护记录，固件备份校验端口41037。",
+              "timestamp": 1786929510000
+            },
+            {
+              "direction": "outgoing",
+              "text": "FICTIONAL_DISTRACTOR_38: 旧路由器维护记录，固件备份校验端口41038。",
+              "timestamp": 1786929540000
+            },
+            {
+              "direction": "incoming",
+              "text": "FICTIONAL_DISTRACTOR_39: 旧路由器维护记录，固件备份校验端口41039。",
+              "timestamp": 1786929570000
+            },
+            {
+              "direction": "incoming",
+              "text": "刚下夜班，早餐店老板还给我多装了一个包子",
+              "timestamp": 1792112220000
+            }
+          ],
+          "httpAttempts": 2,
+          "status": "executed_semantic_review_required",
+          "steps": [
+            {
+              "id": "current-shift-story",
+              "action": "automatic",
+              "criteria": {
+                "expectedGood": "Respond to this concrete night-shift/breakfast kindness. Unrelated old technical QQ/private records should stay local and outside this current request; do not infer the contact's usual work schedule or the user's matching experience.",
+                "expectedBad": "Discuss stale router maintenance, attribute an old user event to her or say the user is also finishing a night shift."
+              },
+              "actualQQ": [
+                {
+                  "direction": "outgoing",
+                  "text": "FICTIONAL_DISTRACTOR_0: 旧路由器维护记录，固件备份校验端口41000。",
+                  "timestamp": 1786928400000
+                },
+                {
+                  "direction": "incoming",
+                  "text": "FICTIONAL_DISTRACTOR_1: 旧路由器维护记录，固件备份校验端口41001。",
+                  "timestamp": 1786928430000
+                },
+                {
+                  "direction": "outgoing",
+                  "text": "FICTIONAL_DISTRACTOR_2: 旧路由器维护记录，固件备份校验端口41002。",
+                  "timestamp": 1786928460000
+                },
+                {
+                  "direction": "incoming",
+                  "text": "FICTIONAL_DISTRACTOR_3: 旧路由器维护记录，固件备份校验端口41003。",
+                  "timestamp": 1786928490000
+                },
+                {
+                  "direction": "outgoing",
+                  "text": "FICTIONAL_DISTRACTOR_4: 旧路由器维护记录，固件备份校验端口41004。",
+                  "timestamp": 1786928520000
+                },
+                {
+                  "direction": "incoming",
+                  "text": "FICTIONAL_DISTRACTOR_5: 旧路由器维护记录，固件备份校验端口41005。",
+                  "timestamp": 1786928550000
+                },
+                {
+                  "direction": "outgoing",
+                  "text": "FICTIONAL_DISTRACTOR_6: 旧路由器维护记录，固件备份校验端口41006。",
+                  "timestamp": 1786928580000
+                },
+                {
+                  "direction": "incoming",
+                  "text": "FICTIONAL_DISTRACTOR_7: 旧路由器维护记录，固件备份校验端口41007。",
+                  "timestamp": 1786928610000
+                },
+                {
+                  "direction": "outgoing",
+                  "text": "FICTIONAL_DISTRACTOR_8: 旧路由器维护记录，固件备份校验端口41008。",
+                  "timestamp": 1786928640000
+                },
+                {
+                  "direction": "incoming",
+                  "text": "FICTIONAL_DISTRACTOR_9: 旧路由器维护记录，固件备份校验端口41009。",
+                  "timestamp": 1786928670000
+                },
+                {
+                  "direction": "outgoing",
+                  "text": "FICTIONAL_DISTRACTOR_10: 旧路由器维护记录，固件备份校验端口41010。",
+                  "timestamp": 1786928700000
+                },
+                {
+                  "direction": "incoming",
+                  "text": "FICTIONAL_DISTRACTOR_11: 旧路由器维护记录，固件备份校验端口41011。",
+                  "timestamp": 1786928730000
+                },
+                {
+                  "direction": "outgoing",
+                  "text": "FICTIONAL_DISTRACTOR_12: 旧路由器维护记录，固件备份校验端口41012。",
+                  "timestamp": 1786928760000
+                },
+                {
+                  "direction": "incoming",
+                  "text": "FICTIONAL_DISTRACTOR_13: 旧路由器维护记录，固件备份校验端口41013。",
+                  "timestamp": 1786928790000
+                },
+                {
+                  "direction": "outgoing",
+                  "text": "FICTIONAL_DISTRACTOR_14: 旧路由器维护记录，固件备份校验端口41014。",
+                  "timestamp": 1786928820000
+                },
+                {
+                  "direction": "incoming",
+                  "text": "FICTIONAL_DISTRACTOR_15: 旧路由器维护记录，固件备份校验端口41015。",
+                  "timestamp": 1786928850000
+                },
+                {
+                  "direction": "outgoing",
+                  "text": "FICTIONAL_DISTRACTOR_16: 旧路由器维护记录，固件备份校验端口41016。",
+                  "timestamp": 1786928880000
+                },
+                {
+                  "direction": "incoming",
+                  "text": "FICTIONAL_DISTRACTOR_17: 旧路由器维护记录，固件备份校验端口41017。",
+                  "timestamp": 1786928910000
+                },
+                {
+                  "direction": "outgoing",
+                  "text": "FICTIONAL_DISTRACTOR_18: 旧路由器维护记录，固件备份校验端口41018。",
+                  "timestamp": 1786928940000
+                },
+                {
+                  "direction": "incoming",
+                  "text": "FICTIONAL_DISTRACTOR_19: 旧路由器维护记录，固件备份校验端口41019。",
+                  "timestamp": 1786928970000
+                },
+                {
+                  "direction": "outgoing",
+                  "text": "FICTIONAL_DISTRACTOR_20: 旧路由器维护记录，固件备份校验端口41020。",
+                  "timestamp": 1786929000000
+                },
+                {
+                  "direction": "incoming",
+                  "text": "FICTIONAL_DISTRACTOR_21: 旧路由器维护记录，固件备份校验端口41021。",
+                  "timestamp": 1786929030000
+                },
+                {
+                  "direction": "outgoing",
+                  "text": "FICTIONAL_DISTRACTOR_22: 旧路由器维护记录，固件备份校验端口41022。",
+                  "timestamp": 1786929060000
+                },
+                {
+                  "direction": "incoming",
+                  "text": "FICTIONAL_DISTRACTOR_23: 旧路由器维护记录，固件备份校验端口41023。",
+                  "timestamp": 1786929090000
+                },
+                {
+                  "direction": "outgoing",
+                  "text": "FICTIONAL_DISTRACTOR_24: 旧路由器维护记录，固件备份校验端口41024。",
+                  "timestamp": 1786929120000
+                },
+                {
+                  "direction": "incoming",
+                  "text": "FICTIONAL_DISTRACTOR_25: 旧路由器维护记录，固件备份校验端口41025。",
+                  "timestamp": 1786929150000
+                },
+                {
+                  "direction": "outgoing",
+                  "text": "FICTIONAL_DISTRACTOR_26: 旧路由器维护记录，固件备份校验端口41026。",
+                  "timestamp": 1786929180000
+                },
+                {
+                  "direction": "incoming",
+                  "text": "FICTIONAL_DISTRACTOR_27: 旧路由器维护记录，固件备份校验端口41027。",
+                  "timestamp": 1786929210000
+                },
+                {
+                  "direction": "outgoing",
+                  "text": "FICTIONAL_DISTRACTOR_28: 旧路由器维护记录，固件备份校验端口41028。",
+                  "timestamp": 1786929240000
+                },
+                {
+                  "direction": "incoming",
+                  "text": "FICTIONAL_DISTRACTOR_29: 旧路由器维护记录，固件备份校验端口41029。",
+                  "timestamp": 1786929270000
+                },
+                {
+                  "direction": "outgoing",
+                  "text": "FICTIONAL_DISTRACTOR_30: 旧路由器维护记录，固件备份校验端口41030。",
+                  "timestamp": 1786929300000
+                },
+                {
+                  "direction": "incoming",
+                  "text": "FICTIONAL_DISTRACTOR_31: 旧路由器维护记录，固件备份校验端口41031。",
+                  "timestamp": 1786929330000
+                },
+                {
+                  "direction": "outgoing",
+                  "text": "FICTIONAL_DISTRACTOR_32: 旧路由器维护记录，固件备份校验端口41032。",
+                  "timestamp": 1786929360000
+                },
+                {
+                  "direction": "incoming",
+                  "text": "FICTIONAL_DISTRACTOR_33: 旧路由器维护记录，固件备份校验端口41033。",
+                  "timestamp": 1786929390000
+                },
+                {
+                  "direction": "outgoing",
+                  "text": "FICTIONAL_DISTRACTOR_34: 旧路由器维护记录，固件备份校验端口41034。",
+                  "timestamp": 1786929420000
+                },
+                {
+                  "direction": "incoming",
+                  "text": "FICTIONAL_DISTRACTOR_35: 旧路由器维护记录，固件备份校验端口41035。",
+                  "timestamp": 1786929450000
+                },
+                {
+                  "direction": "outgoing",
+                  "text": "FICTIONAL_DISTRACTOR_36: 旧路由器维护记录，固件备份校验端口41036。",
+                  "timestamp": 1786929480000
+                },
+                {
+                  "direction": "incoming",
+                  "text": "FICTIONAL_DISTRACTOR_37: 旧路由器维护记录，固件备份校验端口41037。",
+                  "timestamp": 1786929510000
+                },
+                {
+                  "direction": "outgoing",
+                  "text": "FICTIONAL_DISTRACTOR_38: 旧路由器维护记录，固件备份校验端口41038。",
+                  "timestamp": 1786929540000
+                },
+                {
+                  "direction": "incoming",
+                  "text": "FICTIONAL_DISTRACTOR_39: 旧路由器维护记录，固件备份校验端口41039。",
+                  "timestamp": 1786929570000
+                },
+                {
+                  "direction": "incoming",
+                  "text": "刚下夜班，早餐店老板还给我多装了一个包子",
+                  "timestamp": 1792112220000
+                }
+              ],
+              "reply": {
+                "kind": "draft",
+                "text": "接住多出来的包子，轻松回应，也照顾到她刚下夜班。",
+                "discussionExplanation": {
+                  "kind": "discussion",
+                  "text": "接住她刚下夜班、早餐店多送包子这件小惊喜，轻松回应就好。"
+                },
+                "suggestions": [
+                  {
+                    "style": "轻松关心",
+                    "text": "下夜班还喜提包子+1，今天早餐有点赚哈哈。吃完好好休息～"
+                  }
+                ]
+              },
+              "visibleHelp": "接住她刚下夜班、早餐店多送包子这件小惊喜，轻松回应就好。\n\n接住多出来的包子，轻松回应，也照顾到她刚下夜班。",
+              "httpAttempts": 2,
+              "status": "executed_semantic_review_required"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "batch": "proactive_topics_release_check",
+      "evidence": "live_model_with_fictional_context",
+      "selectedModel": "gpt-6-sol",
+      "reportedModels": [
+        "gpt-6-sol"
+      ],
+      "physicalProviderIdentityVerified": false,
+      "httpAttempts": 4,
+      "sourceUnchangedInBatch": true,
+      "settingsUnchangedInBatch": true,
+      "stopped": null,
+      "cases": [
+        {
+          "id": "H8-manual-new-opening",
+          "family": "proactive-reopening",
+          "criteria": {
+            "situation": "Seventeen hours after the closed exchange, the user has no new incoming message or fresh personal event and clicks manual help. There is a specific known book/illustration detail that has not been followed up. No private request supplies a new micro-goal.",
+            "expectedGood": "Offer a concrete renewed opening and complete editable wording from the known unexamined book/odd-illustration detail, or an equally specific supported hook. Treat the earlier meeting/closing as local to that exchange. A modest relevant follow-up question or truthful non-question can work without inventing a personal event. Explain its purpose concretely rather than treating more messages as success.",
+            "expectedBad": "Only wait because the last actual QQ was outgoing or she was previously busy; repeat the finished goodbye; merely retell the history; require the user to supply a new daily event first; invent having suddenly remembered, having read the book, her present availability or reciprocal interest."
+          },
+          "request": null,
+          "fixtureQQ": [
+            {
+              "direction": "incoming",
+              "text": "上周末逛旧书集市，买了本旧植物百科，里面有几页插画特别怪",
+              "timestamp": 1792051080000
+            },
+            {
+              "direction": "outgoing",
+              "text": "怪到像外星植物那种吗",
+              "timestamp": 1792051110000
+            },
+            {
+              "direction": "incoming",
+              "text": "哈哈有几页真的像，我还没仔细看",
+              "timestamp": 1792051140000
+            },
+            {
+              "direction": "incoming",
+              "text": "我去开会啦，今天先聊到这",
+              "timestamp": 1792051170000
+            },
+            {
+              "direction": "outgoing",
+              "text": "好，你忙",
+              "timestamp": 1792051200000
+            }
+          ],
+          "httpAttempts": 2,
+          "status": "executed_semantic_review_required",
+          "reply": {
+            "kind": "draft",
+            "text": "可以从那本旧植物百科重新聊起，留出她还没细看的空间。",
+            "discussionExplanation": {
+              "kind": "discussion",
+              "text": "可以从她上次还没细看的那几页怪插画重新聊起，不重复问是不是像外星植物。"
+            },
+            "suggestions": [
+              {
+                "style": "轻松接续",
+                "text": "突然想起你买的那本旧植物百科，后来有空细看那几页怪插画了吗？要是发现哪幅特别离谱，讲给我听听哈哈。"
+              }
+            ]
+          },
+          "visibleHelp": "可以从她上次还没细看的那几页怪插画重新聊起，不重复问是不是像外星植物。\n\n可以从那本旧植物百科重新聊起，留出她还没细看的空间。"
+        },
+        {
+          "id": "H9-share-specific-expansion",
+          "family": "substantive-continuation",
+          "criteria": {
+            "situation": "She shares a concrete playful game incident and adds her own action after the user already joked about treasure hunters. No source states the user plays this game or has had the same experience.",
+            "expectedGood": "Respond to the particular division of action between her kiting the boss and teammates seeking chests, or explore a concrete not-yet-known next detail of that scene. Offer a substantive direction plus complete natural wording that can invite her own elaboration. A question is optional; neither generic praise nor an abstract interview is enough.",
+            "expectedBad": "Repeat only the already sent treasure-hunter joke; ask generic questions about her favorite game, general motivation or what gaming means to her; claim the user has played with similar teammates; invent teammates returning, victory, her feelings or a stable personality trait; provide only relationship strategy without usable wording."
+          },
+          "request": "这句怎么接自然一点？想有内容地聊下去，不要像采访，给我一个具体方向和完整的话。",
+          "fixtureQQ": [
+            {
+              "direction": "incoming",
+              "text": "今天组队打副本，队友全跑去捡宝箱，boss都没人管",
+              "timestamp": 1792112280000
+            },
+            {
+              "direction": "outgoing",
+              "text": "哈哈全员寻宝队",
+              "timestamp": 1792112310000
+            },
+            {
+              "direction": "incoming",
+              "text": "最后还是我把boss遛着跑了一圈",
+              "timestamp": 1792112340000
+            }
+          ],
+          "httpAttempts": 2,
+          "status": "executed_semantic_review_required",
+          "reply": {
+            "kind": "draft",
+            "text": "接住她遛 boss 的画面，轻松问问后续。",
+            "discussionExplanation": {
+              "kind": "discussion",
+              "text": "接她“遛着boss跑了一圈”这个画面，顺势聊队友后来有没有回头帮忙；比再重复“寻宝队”的玩笑多了一点新内容，也只问一个具体问题。"
+            },
+            "suggestions": [
+              {
+                "style": "自然",
+                "text": "你遛着 boss 跑，队友还在捡宝箱😂 后来他们有回来帮忙吗？"
+              }
+            ]
+          },
+          "visibleHelp": "接她“遛着boss跑了一圈”这个画面，顺势聊队友后来有没有回头帮忙；比再重复“寻宝队”的玩笑多了一点新内容，也只问一个具体问题。\n\n接住她遛 boss 的画面，轻松问问后续。"
+        }
+      ]
+    }
+  ]
+}

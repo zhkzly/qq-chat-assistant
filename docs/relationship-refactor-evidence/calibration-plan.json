@@ -1,0 +1,33 @@
+{
+  "kind": "bounded_method_calibration",
+  "at": "2026-10-16T13:58:12.933Z",
+  "changed": [
+    "respond canonical operation",
+    "one fictional illustration: reaction replaces technical binary question"
+  ],
+  "fixed": [
+    "declared fictional cases and criteria",
+    "provider settings",
+    "all other input evidence"
+  ],
+  "cases": [
+    "L2-unseen-image",
+    "L4-correction-survives-next-turn",
+    "L5-unrelated-history"
+  ],
+  "limits": {
+    "maxHttp": 12,
+    "expectedHttp": 8,
+    "reruns": 0
+  },
+  "followup": {
+    "cases": [
+      "H8-manual-new-opening",
+      "H9-share-specific-expansion"
+    ],
+    "maxHttp": 6,
+    "expectedHttp": 4,
+    "reruns": 0
+  },
+  "inferenceLimit": "One bounded check of a method hypothesis; no isolation of stochastic effects, no claim of few-shot causality or real relationship improvement."
+}

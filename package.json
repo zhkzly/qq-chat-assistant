@@ -25,6 +25,7 @@
     "test:current-task-ui": "node scripts/current-task-browser-check.cjs",
     "test:current-task-goal": "node scripts/current-task-goal-check.cjs",
     "test:refresh-ui": "node scripts/refresh-preservation-browser-check.cjs",
+    "test:candidates-ui": "node scripts/candidate-browser-check.cjs",
     "test:topic-lifecycle-ui": "node scripts/topic-lifecycle-browser-check.cjs",
     "test:model-error-ui": "node scripts/model-error-browser-check.cjs",
     "test:vision-ui": "node scripts/vision-browser-check.cjs",

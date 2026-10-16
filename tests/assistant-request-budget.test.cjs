@@ -3,7 +3,7 @@ const test=require('node:test'),assert=require('node:assert/strict');
 const {Store}=require('../src/store.cjs');
 const {normalize}=require('../src/messages.cjs');
 const {buildContext,buildDraftContext}=require('../src/assistant-context.cjs');
-const {assistModel}=require('../src/assistant-model.cjs');
+const {assistModel,prepareAssistantRequest}=require('../src/assistant-model.cjs');
 const {scope,raw}=require('./fixtures/native.cjs');
 const settings={baseUrl:'http://synthetic.invalid/v1',model:'synthetic-relationship-context',anonymous:true};
 const ok=content=>({ok:true,json:async()=>({choices:[{message:{content}}]})});
@@ -31,7 +31,10 @@ for(const requestLimit of [64000,32000])test(`native-shaped long context fits th
 });
 for(const purpose of ['discussion','draft_prepare','draft'])test(`${purpose} recovery or structural repair respects its actual envelope and complete evidence`,async t=>{
  const {args}=fixture(t),prepared=buildContext({...args,purpose:purpose==='draft_prepare'?'draft_prepare':'discussion'}),context=purpose==='draft'?buildDraftContext(prepared,{quotes:[{sourceId:prepared.payload.userRequest.sourceId,text:args.turn.text}],guidance:currentControls(prepared.payload)},args):prepared;
- const invalid='INVALID_RESPONSE_'+('"\\\\\n原本的输出仍需完整修复。'.repeat(purpose==='draft'?700:350)),calls=[];
+ // Lazy context no longer fills the 64KB window. Tighten the fixture around
+ // its actual ordinary request so the repair wrapper still exercises eviction.
+ if(purpose==='draft_prepare')args.settings.assistantRequestBytes=prepareAssistantRequest(args.settings,context.payload).requestBytes+200;
+ const invalid='INVALID_RESPONSE_'+('"\\\\\n原本的输出仍需完整修复。'.repeat(purpose==='draft'?700:purpose==='draft_prepare'?140:350)),calls=[];
  const repaired=purpose==='draft_prepare'?JSON.stringify({draftPlan:{quotes:[{sourceId:prepared.payload.userRequest.sourceId,text:args.turn.text}],guidance:currentControls(prepared.payload)}}):purpose==='draft'?'我想多认识你一点。':'先自然回应她实际提到的安排。';
  await assistModel(args.settings,context,undefined,async(_,request)=>{calls.push(request.body);return ok(calls.length===1?invalid:repaired);});
  assert.equal(calls.length,2);for(const body of calls)assert.ok(Buffer.byteLength(body)<=64000);
@@ -78,8 +81,9 @@ test('a repaired preparation retains selected image evidence for the final restr
  const {args}=fixture(t),imageMessageId=args.records[0].messageId;
  const images=[{url:'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAAB',messageId:imageMessageId,index:0,bytes:24}];
  const prepared=buildContext({...args,purpose:'draft_prepare',imageMessageIds:[imageMessageId],images,mediaContext:{mode:'manual',omitted:[]}}),calls=[];
+ args.settings.assistantRequestBytes=prepareAssistantRequest(args.settings,prepared.payload,images).requestBytes+200;
  prepared.images=images;prepared.manifest.images=images.map(({url,...metadata})=>metadata);
- const invalid='INVALID_'+('"\\\n原本的输出仍需完整修复。'.repeat(350));
+ const invalid='INVALID_'+('"\\\n原本的输出仍需完整修复。'.repeat(140));
  const plan=await assistModel(args.settings,prepared,undefined,async(_,request)=>{
   calls.push(JSON.parse(request.body));return ok(calls.length===1?invalid:JSON.stringify({draftPlan:{quotes:[{sourceId:prepared.payload.userRequest.sourceId,text:args.turn.text}],guidance:currentControls(prepared.payload)}}));
  });
