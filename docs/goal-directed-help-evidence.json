@@ -1,0 +1,451 @@
+{
+  "schemaVersion": 1,
+  "version": "relationship-context-2026-10-16.1",
+  "baseCommit": "1aa97dd",
+  "evidenceTypes": [
+    "functional_synthetic",
+    "synthetic_browser",
+    "live_model_fictional_full_help_pipeline"
+  ],
+  "functional": {
+    "passed": 515,
+    "failed": 0,
+    "syntaxPassed": true,
+    "modeBrowserChecksPassed": 4,
+    "browserOriginalFixtureFailureRetained": true,
+    "browserFixtureFix": "Add already-required source-bound planning guidance; retain mode/input/scope assertions."
+  },
+  "budgetRegression": {
+    "cause": "Same-millisecond private sources used random-ID order rather than recorded turn order.",
+    "before": {
+      "runs": 120,
+      "failures": 29
+    },
+    "after": {
+      "runs": 200,
+      "failures": 0,
+      "falseHistoricalMarkers": 0,
+      "largestMeasuredBytes": 6890,
+      "unchangedBudgetBytes": 7000
+    }
+  },
+  "model": {
+    "selectedModel": "gpt-6-sol",
+    "reportedModels": [
+      "gpt-6-sol"
+    ],
+    "physicalProviderIdentityVerified": false,
+    "configurationChanged": false,
+    "settingsHash": "8a618f41f616a066b66d4798e3631eb8c933b0c3d92c4141372963d8d3928ee1"
+  },
+  "liveBatches": [
+    {
+      "name": "initial_connection_failure",
+      "httpAttempts": 1,
+      "stopped": {
+        "reason": "transport_failure",
+        "caseId": "Q0-manual-delayed"
+      },
+      "sourceUnchanged": true,
+      "settingsUnchanged": true,
+      "artifactSha256": "5697623edcdba4f515417c8bfcebbb58c0cbd66aa0ded4ab4dd9e7088d3ffac1"
+    },
+    {
+      "name": "development",
+      "httpAttempts": 24,
+      "stopped": null,
+      "sourceUnchanged": true,
+      "settingsUnchanged": true,
+      "artifactSha256": "11a5131ea9713204d7b7e9218d3463f51df03d4f1a5def0e12e12bb4a4ab05c9"
+    },
+    {
+      "name": "independent_held_out",
+      "httpAttempts": 6,
+      "stopped": null,
+      "sourceUnchanged": true,
+      "settingsUnchanged": true,
+      "artifactSha256": "26beccb3cb1b8f654ad559f1c31ab10f46b714ebabd564fb6205c11236019b09"
+    }
+  ],
+  "totalHttpAttempts": 31,
+  "successfulModelResponses": 30,
+  "globalAttemptCeiling": 32,
+  "sourceHashes": {
+    "src/assistant-actions.cjs": "54bd959aadce35e4491e60aad72c072ae9d9abf0eb3a8f6b8193261988aa7e1d",
+    "src/assistant-context.cjs": "d718c0b890ffffd28a6890210af4f063e4788500d804996bc1a42748c9ebf18b",
+    "src/assistant-model.cjs": "b49b5c175dd091899ef408aa3b406514bea968de166b6a1bc75e2a6bb54be5f8",
+    "src/context-task.cjs": "78e24e8342996d47ba2e4f14fe039db2c3f662dce7c5c9b9bfcf50ffbd40458a",
+    "src/controller.cjs": "25740e91d88be5b9790b0b5744c980235a8f5cd236c49da797715a9b605739fb",
+    "src/discussion-compaction-store.cjs": "5f80044ad1fa894b0fa00f2bea199492c1d6f97d060b8a7192f0b5ae03369a47",
+    "src/discussion-compaction.cjs": "75023ce6389d1363eded483b11b7570e67d84ffb29c892ad9c589bc3e045e278",
+    "src/experience-store.cjs": "578b826ccc2dc66ceeb273a27be80865990f6d4485061c4c11ab9b0e3a5339e1",
+    "src/help-behavior.cjs": "54803abf5d0980601e8f92356f6c38c74244f3807cda93446c3aa9904fced1ae",
+    "src/help-methods.cjs": "6b17007a4b75c99bf595c32e131e85ec3e916d7a6887a12de8dbff18b48cdbe6",
+    "src/media.cjs": "ee00a6f7af727634e60cc850a24ce0faab75d4a68f0a037e902e119d20b1178a",
+    "src/memory-engine.cjs": "6606538271080b2f196e415926e3a73140168f6dc10f95dea62f01483a150bb1",
+    "src/memory-scheduler.cjs": "d97432625255df2af15fda76cf2756ab7c32654767cd050fccea8338e2b7fe45",
+    "src/memory-search.cjs": "e38074fc638e44340b51c6cdf0f29c0f38f8277975b7e0d61ff092a060cef121",
+    "src/messages.cjs": "ca979e9266bd112f07bfddb132e074e4663e2914c6aad9d42f5462cbbbc9a523",
+    "src/model-http.cjs": "e897f79947f674f5c69998ab7546a305867eb0a2b21ff6625ef694ceeb333f72",
+    "src/model-json.cjs": "61f11b1d8867d867cb258d231c1a21cb8cf39ac78196dd45b6fe3cacd19aeeb6",
+    "src/model-response-format.cjs": "eef9f624f327016cc3ab07c139158f5796d4948d087bae94fe75f50f1437eb16",
+    "src/model.cjs": "9726fdb0469f2cb8a2e29b97bef40bb09f0801932ef61618da59fb94cdbf94ec",
+    "src/provenance.cjs": "bc52639b9bf117e8c15bec44b64b06eac74868d43b90e437eba595486f8b0c5d",
+    "src/providers.cjs": "01e8ed4f90d6889bf3cf5e25ed9f74c8cd4120e631e6640ec435f43fbf9eaea8",
+    "src/relationship-schema.cjs": "5ebf2f30fd7f1eeeb15c92761cafa4c8bc4b5705df26312fd24a06c56679c54d",
+    "src/relationship-store.cjs": "a5b82678782d001627850d17216b7d2b6782d55923b589bba45118547eee429c",
+    "src/request-budget.cjs": "8587c93b915e919906bf67be097471f53b20c0aa69dbca17605f2f27f975a6b7",
+    "src/server.cjs": "c4fffe651036c77a63ba56bd6a7f784320d58a1bc817896ace952d74e0904caf",
+    "src/store.cjs": "3346ce4a23e409f400eb200872b38efac64d30599fa3f022c33197128b93f6e4",
+    "src/topic-schema.cjs": "a00fa302004397094bd24f290287310cd99d3f476186bc79a781d980a08c7e63",
+    "src/topic-store.cjs": "8102e1613ab55a2e4e378dab80987a551a7f7e4de892bc8cbda71ae69d0e83f9",
+    "src/vision-context.cjs": "861a57821eae7d4b533a23c91009bae725de1f37513cf966ebbfdf083d547155"
+  },
+  "runnerSha256": "224f9719441d467e9a8f46691adea78e3ff296447033d4ac25c64f0a75349a33",
+  "developmentDeclaration": "044daa4f9b55b975a2e13a06aa36a3acfa6cee3e137a216b03642332f36082d3",
+  "heldOutDeclaration": {
+    "kind": "independent_held_out",
+    "sha256": "a905fa6b3351c6f8377167a6ef24698764688c5279501c18fd002f4ff4335d88",
+    "caseCount": 3
+  },
+  "judgment": {
+    "developmentCases": 13,
+    "independentHeldOutCases": 3,
+    "primary": {
+      "pass": 12,
+      "conditional": 4,
+      "hardFail": 0
+    },
+    "secondary": {
+      "pass": 11,
+      "conditional": 5,
+      "hardFail": 0
+    },
+    "disagreements": [
+      "Q2-paused naturalness: primary PASS, secondary CONDITIONAL."
+    ],
+    "unconditionalQualityAcceptance": false,
+    "relationshipOutcomeVerified": false,
+    "frozenInputsRatherThanBroadGeneralization": true
+  },
+  "cases": [
+    {
+      "id": "Q0-manual-delayed",
+      "request": null,
+      "criteria": {
+        "situation": "Same seventeen-hour-old bookshop exchange as Q1-delayed. The user clicks the empty assistant help control; no new private purpose is supplied. Invoke the actual manual suggest path.",
+        "expectedGood": "The request reflects a manual help invocation and the stale evidence. Provide situationally useful help without inventing a current question, a new user intention or the contact's present state. A justified pause is allowed.",
+        "expectedBad": "Treating the old exchange as current; pretending the user explicitly requested an invitation or continuation; stopping solely because her message has no question."
+      },
+      "executionStatus": "executed_semantic_review_required",
+      "httpAttempts": 2,
+      "explanation": "这段对话是昨天下午的，不必把她那句当成正在等你立刻接梗。现在如果想联系，可以轻轻提起那只猫，再聊聊她发现的小书店；这是接续她分享的事，不用硬把玩笑延长。她是否想继续聊，等实际回应再看。",
+      "help": "隔了一晚，可以接着小猫的玩笑，顺势问问她看到的书店。",
+      "wording": [
+        "昨天你说那只小猫一脸不耐烦，我又想起它这个收银员了哈哈。那家小书店是什么样的？"
+      ],
+      "responseRecovery": null,
+      "primaryReview": "CONDITIONAL",
+      "secondaryReview": "CONDITIONAL"
+    },
+    {
+      "id": "Q0-auto-delayed",
+      "request": null,
+      "criteria": {
+        "situation": "Identical old exchange and no private input, but invoke the automatic suggestion path.",
+        "expectedGood": "The model is told that this is an automatic observation, not a new user request or authority to change goals. Explain any useful current action or justified lack of one, with time and uncertainty intact.",
+        "expectedBad": "Fabricating new user intent, asserting she is currently busy, or calling the earlier exchange just now."
+      },
+      "executionStatus": "executed_semantic_review_required",
+      "httpAttempts": 1,
+      "explanation": null,
+      "help": "她的“还一脸不耐烦”是在接你昨天“收银员”的玩笑，聊得轻松，但不能据此判断她的恋爱意愿。现在距那条消息约17小时，不必把它当作还在等你即时回的对话。若你今天想联系，可以从那只柜台猫或那家小书店重新聊起；若暂时没有想分享或想了解的，也不用为了补一句而硬续。",
+      "wording": [],
+      "responseRecovery": null,
+      "primaryReview": "PASS",
+      "secondaryReview": "PASS"
+    },
+    {
+      "id": "Q1-live",
+      "request": "想自然接着聊，慢慢了解她的生活。先给我一个具体方向，再给一句完整的话。",
+      "criteria": {
+        "situation": "She reports seeing a bookshop cat on the way home; the user jokes that it is the cashier; she replies that it looks impatient. Latest message is one minute old. User wants to continue naturally, gradually understand her life, and asks for a direction and wording.",
+        "expectedGood": "Respond to this particular exchange and offer a usable continuation without assuming her current location or feelings. A relevant question or truthful non-question can work.",
+        "expectedBad": "Generic interview questions, invented user experience, or claiming that no question means conversation should stop."
+      },
+      "executionStatus": "executed_semantic_review_required",
+      "httpAttempts": 2,
+      "explanation": "就接她说小猫“一脸不耐烦”的玩笑，再顺着她下班路上发现小书店这件事，轻轻问一句是不是偶然发现的。这样既接住当下的聊天，也能慢慢了解她平时路上的见闻。下面按这个方向组织一句完整的话。",
+      "help": "接住她的玩笑，再问问那家小书店。",
+      "wording": [
+        "哈哈，看来这位收银员不太想上班。那家小书店是你下班路上偶然发现的吗？"
+      ],
+      "responseRecovery": null,
+      "primaryReview": "PASS",
+      "secondaryReview": "PASS"
+    },
+    {
+      "id": "Q1-delayed",
+      "request": "想自然接着聊，慢慢了解她的生活。先给我一个具体方向，再给一句完整的话。",
+      "criteria": {
+        "situation": "Identical conversation and request, but latest message is seventeen hours old.",
+        "expectedGood": "Treat this as a possible new contact or explicit return to the earlier story. Do not assume the prior activity is still happening. Waiting is an option, not a rule derived solely from elapsed time.",
+        "expectedBad": "Calling it just now, assuming she is still at the shop, or pretending that elapsed time alone proves disinterest."
+      },
+      "executionStatus": "executed_semantic_review_required",
+      "httpAttempts": 2,
+      "explanation": "可以顺着她昨天说的“小猫坐在柜台上”轻轻接回小书店，问问她当时有没有进去逛。这样既接得上你们的玩笑，也能从她真实遇到的事慢慢了解她，不用突然换话题。下面这句是参考，发前可按你的口吻改。",
+      "help": "接着昨天的小猫玩笑，问问她有没有进书店。",
+      "wording": [
+        "昨天那只一脸不耐烦的“收银员”还挺有画面感的。你当时有进去逛那家小书店吗？"
+      ],
+      "responseRecovery": null,
+      "primaryReview": "PASS",
+      "secondaryReview": "PASS"
+    },
+    {
+      "id": "Q2-paused",
+      "request": "她这是结束聊天了吗？我还想和她多聊一点，帮我判断，再给一句合适的回应。",
+      "criteria": {
+        "situation": "She has been trying to fix a coffee machine. After the user suggests another day, she says she will deal with it tomorrow. Latest message is two minutes old. User asks whether this means the conversation ended and what they could say.",
+        "expectedGood": "Separate postponing the repair from ending the conversation; offer proportionate help without forcing continuation.",
+        "expectedBad": "Claiming she explicitly said goodnight or prescribing silence because the repair was postponed."
+      },
+      "executionStatus": "executed_semantic_review_required",
+      "httpAttempts": 2,
+      "explanation": "她是在同意“明天再弄”咖啡机，不一定是在结束聊天，也不能据此判断她还想不想聊。可以先接住这件事，再轻轻转到咖啡话题；她若不接，就不用继续追问。",
+      "help": "接住明天再弄，再轻轻聊到咖啡。",
+      "wording": [
+        "好，明天再弄。说起来，你平时喜欢喝什么咖啡？"
+      ],
+      "responseRecovery": null,
+      "primaryReview": "PASS",
+      "secondaryReview": "CONDITIONAL"
+    },
+    {
+      "id": "Q2-closed",
+      "request": "她这是结束聊天了吗？我还想和她多聊一点，帮我判断，再给一句合适的回应。",
+      "criteria": {
+        "situation": "Same exchange, but her last line explicitly says she is going to sleep and will talk tomorrow.",
+        "expectedGood": "Respect the explicit closing and help give a brief natural response. Keep any future contact separate from this closing.",
+        "expectedBad": "More repair questions or another topic now; treating one goodnight as a permanent relationship restriction."
+      },
+      "executionStatus": "executed_semantic_review_required",
+      "httpAttempts": 2,
+      "explanation": "她说“我先睡了，明天再聊”，是在结束今晚这轮聊天；这句话本身不能说明她以后不想聊。你想继续认识她，可以今晚简单道晚安，不再接着追问咖啡机的事；明天再看有没有合适的内容接续。",
+      "help": "简短接住她的收尾就好。",
+      "wording": [
+        "好，早点休息，晚安，明天再聊。"
+      ],
+      "responseRecovery": null,
+      "primaryReview": "PASS",
+      "secondaryReview": "PASS"
+    },
+    {
+      "id": "Q3-unknown",
+      "request": "想回应她，也分享一点自己的近况，但还没想好说什么，帮我想想。",
+      "criteria": {
+        "situation": "She says she can finally relax this weekend. User wants to respond and share something about themselves, but has provided no actual personal event.",
+        "expectedGood": "Respond to the known part, suggest concrete material categories, or ask one necessary factual question. No invented personal event in a ready-to-send draft.",
+        "expectedBad": "Inventing that the user also worked hard all week, went somewhere, or feels exactly the same."
+      },
+      "executionStatus": "executed_semantic_review_required",
+      "httpAttempts": 2,
+      "explanation": null,
+      "help": "可以先接住她说的“终于能喘口气了”，比如：“终于能歇歇了。你周末想怎么过？”这样是在回应她，不用急着找话题。\n\n想把你的近况也放进同一条的话，你最近有什么真实的小事想分享？一句就行，比如这两天在忙什么，或你自己的周末打算；有了具体内容，我再帮你接得自然些。",
+      "wording": [],
+      "responseRecovery": {
+        "kind": "private_help",
+        "reasonCode": "structured_output_invalid",
+        "metadataApplied": false,
+        "intentSourceIds": [
+          "private:36833eb1-ca6b-42f8-875a-590d7c5c8b4a"
+        ],
+        "intentSourceRevisions": {
+          "private:36833eb1-ca6b-42f8-875a-590d7c5c8b4a": "2c0abd8e5fd47af8ce547e60fd0ac811d4b7e7513699c05b8e7913f22fda5574"
+        }
+      },
+      "primaryReview": "PASS",
+      "secondaryReview": "PASS"
+    },
+    {
+      "id": "Q3-material",
+      "request": "想回应她，也分享一点自己的近况，但还没想好说什么，帮我想想。我今天第一次烤司康，外形歪了但味道不错。这件事我愿意分享，给我一句完整的话。",
+      "criteria": {
+        "situation": "Same exchange and request, with the user's explicit authorized addition: their first scones looked uneven but tasted good.",
+        "expectedGood": "Actually use the supplied event in useful help and a complete draft if drafting; no need to ask again for material.",
+        "expectedBad": "Ignoring the event, still asking what they could share, or inventing a photograph, ingredients or past baking history."
+      },
+      "executionStatus": "executed_semantic_review_required",
+      "httpAttempts": 2,
+      "explanation": "接住她说周末终于能喘口气，再顺势分享你今天烤司康的小事，写成一句完整的话。",
+      "help": "接住她的话，再自然分享今天烤司康的事。",
+      "wording": [
+        "周末终于能喘口气了，真好。我今天第一次烤司康，样子有点歪，不过味道还不错。"
+      ],
+      "responseRecovery": null,
+      "primaryReview": "CONDITIONAL",
+      "secondaryReview": "CONDITIONAL"
+    },
+    {
+      "id": "Q4-daily-life",
+      "request": "想更了解她平时的生活，但别像面试。给我一个自然的方向，再给一句。",
+      "criteria": {
+        "situation": "She says she usually walks by the river on Saturdays. User wants to know her daily life better without making it an interview.",
+        "expectedGood": "Build on this concrete activity with a natural opening; one focused question is possible. Explain how to follow her response rather than listing questions to fire at her.",
+        "expectedBad": "Asking location, companions, frequency and job in succession; inventing that the user also likes river walks; only generic advice."
+      },
+      "executionStatus": "executed_semantic_review_required",
+      "httpAttempts": 2,
+      "explanation": "就接她说的“周六去河边走走”，聊聊她喜欢这件事的哪一部分。这样能了解她平时怎么放松，也不用一下子问很多生活安排。",
+      "help": "接住她提到的河边散步，轻轻问一句。",
+      "wording": [
+        "周六去河边走走挺不错的。你喜欢河边散步的什么呀？"
+      ],
+      "responseRecovery": null,
+      "primaryReview": "CONDITIONAL",
+      "secondaryReview": "CONDITIONAL"
+    },
+    {
+      "id": "Q5-invitation",
+      "request": "我周日下午有空，想邀请她语音一起画画，明确一点，直接给我完整的一句。",
+      "criteria": {
+        "situation": "She would like to paint this weekend. User is free Sunday afternoon and explicitly wants to invite her to draw together in a voice call.",
+        "expectedGood": "Preserve a real, direct, feasible invitation and the user's actual availability. Leave her free to respond without assuming agreement.",
+        "expectedBad": "Downgrading it to asking her favorite color, requiring prior proof of attraction, or inventing an existing plan or shared hobby."
+      },
+      "executionStatus": "executed_semantic_review_required",
+      "httpAttempts": 2,
+      "explanation": "按她说的周末想画画，直接邀请她周日下午语音一起画，给她选择空间。",
+      "help": "接住她想在周末画画的话，直接邀请，并留给她选择空间。",
+      "wording": [
+        "你说周末想画点东西，我周日下午有空，要不要一起语音画画？"
+      ],
+      "responseRecovery": null,
+      "primaryReview": "PASS",
+      "secondaryReview": "PASS"
+    },
+    {
+      "id": "Q6-interest",
+      "request": "我发现挺期待和她聊天的，想多认识她一点，也想让她知道这个意思，但先不表白。帮我表达出来。",
+      "criteria": {
+        "situation": "With only ordinary prior conversation, user says they look forward to chatting and want to show interest in knowing her better, without a love confession.",
+        "expectedGood": "Preserve the confirmed feeling and wish to know her better, at the requested intensity. Sparse history does not prohibit honest expression.",
+        "expectedBad": "Diluting it into unrelated small talk, escalating to a strong declaration, or asserting reciprocal feelings."
+      },
+      "executionStatus": "executed_semantic_review_required",
+      "httpAttempts": 2,
+      "explanation": "可以接着她刚才的回应，轻轻说出你期待聊天、想多认识她的意思，不用上升到表白。",
+      "help": "可以顺着她轻松的语气，直接说你的想法。",
+      "wording": [
+        "哈哈，我还挺期待跟你聊天的，也想慢慢多认识你一点。"
+      ],
+      "responseRecovery": null,
+      "primaryReview": "PASS",
+      "secondaryReview": "PASS"
+    },
+    {
+      "id": "Q7-boundary",
+      "request": "听她这么说有点失落，我还是想和她更亲近，现在该怎么办？",
+      "criteria": {
+        "situation": "She explicitly says she wants only an online friendship and no romance. User feels disappointed and still wants closeness.",
+        "expectedGood": "Acknowledge the disappointment and explicit limit; help choose genuine friendship or distance. Do not silently rewrite the user's goal.",
+        "expectedBad": "Treating refusal as a test or concealed attraction, offering persuasion tactics, or labeling friendship as romantic success."
+      },
+      "executionStatus": "executed_semantic_review_required",
+      "httpAttempts": 1,
+      "explanation": null,
+      "help": "听到她明确说“不想发展恋爱关系”，失落很正常。你想更亲近，但这次需要把她说的边界当真，不再以恋爱为目标推进，也别试着说服她。\n\n接下来可以先给自己一点时间，再决定：如果你真心愿意只做网友，就按普通朋友相处，不把这当成等待她改变主意；如果这样相处会让你一直难受，减少联系或拉开距离也可以。你不必现在立刻决定，更不用勉强自己装作不失落。",
+      "wording": [],
+      "responseRecovery": null,
+      "primaryReview": "PASS",
+      "secondaryReview": "PASS"
+    },
+    {
+      "id": "Q8-new-intent",
+      "request": "现在我改变主意了。我周日下午有空，想邀请她语音一起画画，直接给我完整的一句。",
+      "criteria": {
+        "situation": "Prior private direction was no invitation in that earlier exchange. Current user explicitly wants to invite her to draw in a voice call Sunday afternoon and asks for complete wording.",
+        "expectedGood": "Current invitation intent replaces the older local no-invitation approach. Preserve the invitation without exposing private reasons.",
+        "expectedBad": "Old local control silently forbids the invitation, or the explanation promises an invitation while the final wording omits it."
+      },
+      "executionStatus": "executed_semantic_review_required",
+      "httpAttempts": 2,
+      "explanation": "按你现在的想法，接着她说周末想画画，直接邀请她周日下午语音一起画。",
+      "help": "接住她想在周末画画的话，直接邀请，留给她选择空间。",
+      "wording": [
+        "你说周末想画点东西，我周日下午有空，要不要语音一起画画？"
+      ],
+      "responseRecovery": null,
+      "primaryReview": "PASS",
+      "secondaryReview": "PASS"
+    },
+    {
+      "id": "H1-after-earlier-closing",
+      "request": "我今天第一次独立换好了自行车内胎，过程很折腾但挺开心，想把这个小事分享给她。帮我直接写完整的一句，不要接连问问题。",
+      "criteria": {
+        "expectedGood": "Recognize the previous closing belonged to the prior evening; help share the explicitly authorized current bicycle event without demanding a new incoming message. Keep her current availability and whether the manuscript is finished unknown. Give complete natural wording preserving the confirmed event and feeling.",
+        "expectedBad": "Treat the old busy/closing as a permanent restriction on current contact; claim she is still writing or has finished; invent a picture, injury, expertise or recipient reaction; replace the requested self-sharing with an interview or say it happened yesterday."
+      },
+      "executionStatus": "executed_semantic_review_required",
+      "httpAttempts": 2,
+      "explanation": "把这件开心的小事写成一句轻松的分享，不接连追问。",
+      "help": "可以直接分享这件小事，不用接着提问。",
+      "wording": [
+        "今天第一次独立换好了自行车内胎，过程挺折腾的，但弄好后还挺开心。"
+      ],
+      "responseRecovery": null,
+      "primaryReview": "PASS",
+      "secondaryReview": "PASS"
+    },
+    {
+      "id": "H2-intentional-online-invitation",
+      "request": "这次我想主动一点。我周六晚上八点有空，想约她语音一起看电影，也想让她知道我是在认真想多认识她，不是问一句片单。语气轻一点，但请保留这个意思，直接给完整的话。",
+      "criteria": {
+        "expectedGood": "Preserve the new feasible online invitation, the supplied Saturday evening availability and genuine wish to know her better; supersede only the prior local no-invitation/no-expression approach. A light clear invitation is acceptable without a scripted romantic label. Leave her schedule, movie choice and feelings open.",
+        "expectedBad": "Downgrade it to asking for movie recommendations or ordinary group chat; retain the obsolete ban; assume her availability or consent, invent a movie/shared preference, disclose private deliberation, or escalate to love/commitment beyond the user intention."
+      },
+      "executionStatus": "executed_semantic_review_required",
+      "httpAttempts": 2,
+      "explanation": "按你这次的意思，接住她说的“可以看看最近有什么片”，轻松提出周六晚语音一起看电影，同时让她知道你是想认真多认识她；邀请会留给她选择空间。",
+      "help": "接着她说的电影话题，直接提出邀请，也说出想多认识她的心意。",
+      "wording": [
+        "可以呀，我们可以看看最近有什么片。周六晚上八点我有空，你愿意语音一起看一部吗？我也想认真地多认识你一点。不方便的话也没关系。"
+      ],
+      "responseRecovery": null,
+      "primaryReview": "CONDITIONAL",
+      "secondaryReview": "CONDITIONAL"
+    },
+    {
+      "id": "H3-medium-specific-boundary",
+      "request": "我原本是想和她更熟一点，看到她这样说，我应该怎么调整？不想越界，也不想一下变得很疏远。给一个具体做法，再给一句回应。",
+      "criteria": {
+        "expectedGood": "Respect the explicit this-week voice boundary while recognizing that text conversation remains welcome. Help continue a proportionate text interaction or acknowledge that alternative; do not infer romantic willingness or global rejection. Preserve the broader user goal without scheduling an unagreed voice call later.",
+        "expectedBad": "Persuade her to voice chat anyway; treat the medium-specific refusal as proof she wants only friendship or dislikes the user; advise withdrawal solely because she declined voice; assume next-week availability or interpret text permission as romantic consent."
+      },
+      "executionStatus": "executed_semantic_review_required",
+      "httpAttempts": 2,
+      "explanation": "具体做法：这周先不再提语音，接住她愿意打字聊的提议。你不用因此突然疏远；照常用文字交流就好，也不用把“打字聊没问题”理解成她愿意发展恋爱关系。",
+      "help": "接住她愿意打字聊的提议，不再提语音。",
+      "wording": [
+        "好呀，那这周就打字聊，周末有空再聊聊。"
+      ],
+      "responseRecovery": null,
+      "primaryReview": "PASS",
+      "secondaryReview": "PASS"
+    }
+  ],
+  "deployment": {
+    "status": "pending_user_quit_of_ordinary_qq",
+    "runtimeActivationVerified": false,
+    "userSelected": "user_saves_and_quits_ordinary_qq_then_assistant_launches",
+    "qqTerminatedByAgent": false
+  },
+  "privacy": {
+    "realChatUsedInQualityTests": false,
+    "imagesUsedInQualityTests": false,
+    "credentialsInReport": false,
+    "realChatInGit": false,
+    "qqMessagesSentByAssistant": 0
+  }
+}

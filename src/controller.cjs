@@ -19,8 +19,9 @@ const { applyUserActions, confirmUserAction, undoUserAction } = require('./assis
 const { methodFor } = require('./help-methods.cjs');
 const { visibleResponseText } = require('./experience-store.cjs');
 class Controller extends EventEmitter {
-  constructor({ store, read, settings, model = generate, assistantModel = assistModel, memoryModel = null, compactionModel = assistDiscussionCompaction }) {
-    super(); Object.assign(this, { store, read, settings, model, assistantModel, memoryModel, compactionModel });
+  constructor({ store, read, settings, model = generate, assistantModel = assistModel, memoryModel = null, compactionModel = assistDiscussionCompaction,
+    now = Date.now, viewerTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone }) {
+    super(); Object.assign(this, { store, read, settings, model, assistantModel, memoryModel, compactionModel, now, viewerTimeZone });
     this.status = { phase: 'waiting_qq', account: null };
     this.selectedImages=[];this.replyMessageIds=[];this.visionCache=null;this.features={qqDraftFill:false};
     this.scope = null; this.epoch = 0; this.revision = 0; this.advice = null;
@@ -210,13 +211,14 @@ class Controller extends EventEmitter {
   }
   setVisible(visible) { this.visible=visible;if(!visible){this.invalidateAssistant();clearTimeout(this.timer);this.abort?.abort();}else { if(this.auto && this.scope)this.schedule(); this.scheduleMemory(); } }
   schedule() { if(!this.visible||this.assistantBusy||this.pendingAssist)return;if(!this.hasModelConsent())return; clearTimeout(this.timer); this.timer = setTimeout(() => this.suggest({automatic:true}).catch(() => {}), 1800); this.timer.unref?.(); }
-  automaticFingerprint(){return fingerprint({scope:this.scope,revision:this.revision,generation:this.store.contextGeneration?.(this.scope),model:this.settings.model,baseUrl:this.settings.baseUrl,instruction:this.instruction,images:this.selectedImages,autoImages:this.autoImages,automaticImageConsent:this.hasImageConsent({automatic:true}),focus:this.replyMessageIds});}
+  automaticFingerprint(){return fingerprint({promptVersion:PROMPT_VERSION,scope:this.scope,revision:this.revision,generation:this.store.contextGeneration?.(this.scope),model:this.settings.model,baseUrl:this.settings.baseUrl,instruction:this.instruction,images:this.selectedImages,autoImages:this.autoImages,automaticImageConsent:this.hasImageConsent({automatic:true}),focus:this.replyMessageIds});}
   async suggest({automatic=false}={}) {
     const scope = this.requireScope(), epoch = this.epoch;
     if(automatic&&this.lastAutomaticFingerprint===this.automaticFingerprint())return this.advice;
     this.busy = true; this.changed();
     try {
-      const reply = await this.assist({ text: '结合当前 QQ 的真实交流，帮我判断怎样回应或继续。',responsePreference:this.instruction,
+      const reply = await this.assist({ text: automatic ? '根据真实 QQ 更新当前交流的帮助；结合此刻时间和已有方向，判断现在有什么值得回应或处理。'
+        : '结合此刻时间、实际 QQ 和我们仍有效的商量，帮我选择现在怎样相处或表达更合适；需要具体表达时给完整参考。',responsePreference:this.instruction,
         purpose: 'reply', transient: true, origin:automatic?'automatic':'user' });
       if (!reply || epoch !== this.epoch || !sameScope(scope,this.scope)) return;
       this.advice = { analysis: visibleResponseText(reply), suggestions: reply.suggestions || [], scope,
@@ -373,6 +375,13 @@ class Controller extends EventEmitter {
   }
   async assist({ text, purpose = 'discussion', materialIds = [], sourceTurnIds = [], selectedOption, transient = false, resumeTurnId, resumes=0, taskId, origin='user',feedbackIntentId,privateKind,responsePreference } = {}) {
     const scope = this.requireScope();
+    // Freeze one observation across lookups, compaction and format repair.
+    // Existing running instances can receive this method without reconstruction.
+    const asOf = new Date(typeof this.now === 'function' ? this.now() : Date.now()).toISOString();
+    const viewerTimeZone = this.viewerTimeZone || Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const invocation = { origin: origin === 'automatic' ? 'automatic' : 'user',
+      trigger: feedbackIntentId ? 'feedback_followup' : transient ? origin === 'automatic' ? 'automatic_observation' : 'manual_suggestion' : 'private_request',
+      requestedPurpose: purpose };
     if (!this.hasModelConsent()) throw new Error('请先允许当前会话使用配置的模型；私下资料与聊天记录目前仅在本机');
     if (typeof text !== 'string' || !text.trim() || text.length > 16000) throw new Error('请输入这次想商量或表达的内容（最多 16000 字）');
     if (!['discussion', 'draft', 'review','reply'].includes(purpose)) throw new Error('未知的帮助用途');
@@ -423,7 +432,7 @@ class Controller extends EventEmitter {
         const topicContext=this.store.topicView?.(scope);
         const intentSourceId=feedbackIntentId?`private:feedback-${feedbackIntentId}`:undefined;
         if(intentSourceId&&!explicitFeedbackIds.includes(feedbackIntentId))throw new Error('本次反馈意图未绑定选中的反馈对象');
-        return { scope, records, companion, turn, purpose: purpose === 'draft' ? 'draft_prepare' : purpose,
+        return { scope, records, companion, turn, purpose: purpose === 'draft' ? 'draft_prepare' : purpose, asOf, viewerTimeZone, invocation,
           materialIds, coverage, requestId, settings, images:liveImages,mediaContext:liveMediaContext, byteBudget: settings.assistantContextBytes || 48000,availableSources,memoryResult,
           memoryIndex:[...index.items,...index.episodes],retrievedSources,sourceTurnIds,selectedOption,replyMessageIds:[...this.replyMessageIds],imageMessageIds:liveImages.map(image=>image.messageId),
           actionReceipts:receipts,lookupHistory,reviewRange,

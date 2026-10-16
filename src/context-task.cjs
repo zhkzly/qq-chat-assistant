@@ -1,7 +1,7 @@
 'use strict';
 const {compare,qqSourceMetadata,sameScope}=require('./messages.cjs');
 const {redact}=require('./model.cjs');
-const TASK_VERSION='relationship-task-2026-10-15.1';
+const TASK_VERSION='relationship-task-2026-10-16.1';
 const RECENT_CONTEXT_LIMITS=Object.freeze({maxMessages:24,maxGapMs:30*60*1000,maxSpanMs:2*60*60*1000,maxAdditionalBytes:12000});
 function orderedActual(records){return records.filter(m=>m.kind==='actual'&&!m.recalled&&m.text!=='[已撤回]').sort(compare);}
 function recentExchange(records){
@@ -94,26 +94,46 @@ function retrievalQuery({text,records,companion,transient=false}){
  // the actual current request or the protected latest exchange in the model.
  return [...new Set(parts.filter(p=>typeof p==='string'&&p.trim()).map(redact))].join('\n').slice(0,4000)||redact(text);
 }
-function taskContext({records,sources,scope,coverage,generationOrigin,currentSourceId,responsePreference,recentContextPlan,asOf}){
+function invocationFor(value,purpose){
+ const result={};
+ if(['user','automatic'].includes(value?.origin))result.origin=value.origin;
+ if(['automatic_observation','manual_suggestion','feedback_followup','private_request'].includes(value?.trigger))result.trigger=value.trigger;
+ result.requestedPurpose=['discussion','reply','review','draft','draft_prepare'].includes(value?.requestedPurpose)?value.requestedPurpose:purpose;
+ return result;
+}
+function taskContext({records,sources,scope,coverage,generationOrigin,currentSourceId,responsePreference,recentContextPlan,asOf,viewerTimeZone,invocation,purpose,replyMessageIds=[]}){
  const byId=new Map(sources.map(s=>[s.id,s]));
  const scoped=records.filter(m=>sameScope(m,scope)),available=orderedActual(scoped).filter(m=>byId.has(`qq:${m.messageId}`));
  const recentIds=recentContextPlan&&new Set([...recentContextPlan.candidateMessageIds,...recentExchange(scoped).map(m=>m.messageId)]);
- const recent=recentIds?available.filter(m=>recentIds.has(m.messageId)):recentExchange(available),latest=available.at(-1)||null;
- const view=m=>{const source=byId.get(`qq:${m.messageId}`),meta=qqSourceMetadata(m),result={sourceId:source.id,text:source.text,speaker:source.speaker|| (m.direction==='outgoing'?'我':'对方'),direction:m.direction,at:source.at,...(meta.sequence?{sequence:meta.sequence}:{})};
+ const recent=recentIds?available.filter(m=>recentIds.has(m.messageId)):recentExchange(available),latest=available.at(-1)||null,explicitFocus=new Set(replyMessageIds);
+ const formatter=new Intl.DateTimeFormat('en-CA',{timeZone:viewerTimeZone,year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'});
+ const localAt=at=>{const timestamp=typeof at==='number'?at:Date.parse(at);if(!Number.isFinite(timestamp))return null;const parts=Object.fromEntries(formatter.formatToParts(new Date(timestamp)).map(item=>[item.type,item.value]));return `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute}`;};
+ const elapsed=at=>{const timestamp=Date.parse(at),delta=Date.parse(asOf)-timestamp;return Number.isFinite(delta)?{elapsedMinutes:Math.trunc(delta/60000),...(delta<0?{clockAnomaly:'future_timestamp'}:{})}:{};};
+ // Local display times are useful at the actual latest/selected anchors. The
+ // other rows retain canonical UTC times without duplicating every timestamp.
+ const view=m=>{const source=byId.get(`qq:${m.messageId}`),meta=qqSourceMetadata(m),result={sourceId:source.id,text:source.text,speaker:source.speaker|| (m.direction==='outgoing'?'我':'对方'),direction:m.direction,at:source.at,...(m===latest||explicitFocus.has(m.messageId)?{localAt:localAt(source.at)}:{}),...(meta.sequence?{sequence:meta.sequence}:{})};
   if(source.historicalOnly)result.historicalOnly=true;
-  if(m.replyTo){const target=quoteTarget(m,records,byId),s=target&&byId.get(`qq:${target.messageId}`);result.quote=s?{sourceId:s.id,availability:'available',speaker:s.speaker,text:s.text,at:s.at,...(s.historicalOnly?{historicalOnly:true}:{})}:{availability:'unavailable'};}
+  if(m.replyTo){const target=quoteTarget(m,records,byId),s=target&&byId.get(`qq:${target.messageId}`);result.quote=s?{sourceId:s.id,availability:'available',speaker:s.speaker,text:s.text,at:s.at,localAt:localAt(s.at),...(s.historicalOnly?{historicalOnly:true}:{})}:{availability:'unavailable'};}
   return result;
  };
  const lastIncoming=available.findLastIndex(m=>m.direction==='incoming'),lastOutgoing=available.findLastIndex(m=>m.direction==='outgoing');
+ const call=invocationFor(invocation,purpose);
+ const focused=replyMessageIds.length?available.filter(m=>explicitFocus.has(m.messageId)):latest?[latest]:[];
  return {version:TASK_VERSION,requestOrigin:generationOrigin,currentRequestSourceId:currentSourceId,
+  // The canonical UTC clock and viewer zone already live at the payload root.
+  ...(invocation?{invocation:call}:{}),timeContext:{localNow:localAt(asOf)},
+  consultationTask:{purpose:call.requestedPurpose,focusOrigin:replyMessageIds.length?'explicit_selection':latest?'latest_available':'none',
+   // An implicit latest focus uses latestActual's clock instead of duplicating it.
+   focus:focused.map(m=>({sourceId:`qq:${m.messageId}`,...(replyMessageIds.length?{localAt:localAt(m.timestamp),...elapsed(new Date(m.timestamp).toISOString())}:{}),laterAvailableMessageCount:available.length-available.indexOf(m)-1}))},
   ...(typeof responsePreference==='string'&&responsePreference.trim()?{responsePreference:redact(responsePreference)}:{}),
   latestActual:latest?{sourceId:`qq:${latest.messageId}`,direction:latest.direction,speaker:latest.direction==='outgoing'?'我':'对方',at:new Date(latest.timestamp).toISOString(),sequence:latest.sequence,
+   localAt:localAt(latest.timestamp),...elapsed(new Date(latest.timestamp).toISOString()),
    ...(Number.isFinite(Date.parse(asOf))?{ageMs:Date.parse(asOf)-latest.timestamp}:{})}:null,
   recentExchange:recent.map(view),selfMessagesAfterLastContact:available.slice(lastIncoming+1).filter(m=>m.direction==='outgoing').map(m=>`qq:${m.messageId}`),
   ...(recentContextPlan?{recentContext:recentContextView(recentContextPlan,scoped,byId)}:{}),
   contactMessagesAfterLastSelf:available.slice(lastOutgoing+1).filter(m=>m.direction==='incoming').map(m=>`qq:${m.messageId}`),
   observationCoverage:{status:coverage?.status||'unknown',checkedAt:coverage?.checkedAt||null},
   selfEvidenceSourceIds:sources.filter(s=>s.type==='qq'&&s.direction==='outgoing'||s.type==='private'&&s.role==='user'||s.type==='note'&&s.kind!=='preference').map(s=>s.id),
-  auxiliaryPolicy:'best_effort',factsRule:'这里只是当前可用的本人原话与实际交流，不是完整个人资料或披露许可。未提供的住址、距离、动机、收入、感受和打算保持未知；引用目标缺失不能猜内容。最后发言者是事实，不是必须等待或必须补话的规则。'};
+  auxiliaryPolicy:'best_effort',factsRule:'仅限已提供原话，不补未知事实或分享授权。'};
 }
 module.exports={TASK_VERSION,RECENT_CONTEXT_LIMITS,recentExchange,planRecentContext,projectRecentContext,requiredQuoteSources,quoteTarget,retrievalQuery,taskContext};

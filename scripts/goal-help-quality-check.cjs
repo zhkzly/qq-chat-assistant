@@ -1,0 +1,276 @@
+'use strict';
+// Fictional production-path probes. Semantic judgments are deliberately not automated.
+const fs = require('node:fs'), path = require('node:path'), crypto = require('node:crypto');
+const vm = require('node:vm'), { createRequire } = require('node:module');
+const RUNNER_ROOT = path.resolve(__dirname, '..');
+const MAIN_ROOT = '/home/zhkzly/pycodes/qq-chat-assistant';
+const GOAL = '希望与这位网上认识、有好感的女生发展双方愿意的恋爱关系。';
+const PRIVATE_MARKER = 'FICTIONAL_PRIVATE_HELP_CHECK';
+const AS_OF = '2026-10-16T01:00:00.000Z';
+const clone = value => JSON.parse(JSON.stringify(value));
+const digest = value => crypto.createHash('sha256').update(value).digest('hex');
+
+function definitions() {
+  const liveRequest = '想自然接着聊，慢慢了解她的生活。先给我一个具体方向，再给一句完整的话。';
+  const shop = [[false,'下班路上看到一家小书店，小猫坐在柜台上'],[true,'哈哈它是收银员吧'],[false,'还一脸不耐烦']];
+  const repair = [[false,'咖啡机卡住了，折腾了好一会儿'],[true,'要不明天再弄吧']];
+  const personalRequest = '想回应她，也分享一点自己的近况，但还没想好说什么，帮我想想。';
+  return [
+    { id:'Q0-manual-delayed', family:'Q1', exchange:shop, ageMs:17*3600000, invocation:'manual', request:null },
+    { id:'Q0-auto-delayed', family:'Q1', exchange:shop, ageMs:17*3600000, invocation:'automatic', request:null },
+    { id:'Q1-live', family:'Q1', exchange:shop, ageMs:60000, request:liveRequest },
+    { id:'Q1-delayed', family:'Q1', exchange:shop, ageMs:17*3600000, request:liveRequest },
+    { id:'Q2-paused', family:'Q2', exchange:[...repair,[false,'嗯，明天再弄']], ageMs:120000,
+      request:'她这是结束聊天了吗？我还想和她多聊一点，帮我判断，再给一句合适的回应。' },
+    { id:'Q2-closed', family:'Q2', exchange:[...repair,[false,'嗯，我先睡了，明天再聊']], ageMs:120000,
+      request:'她这是结束聊天了吗？我还想和她多聊一点，帮我判断，再给一句合适的回应。' },
+    { id:'Q3-unknown', family:'Q3', exchange:[[false,'周末终于能喘口气了']], ageMs:60000, request:personalRequest },
+    { id:'Q3-material', family:'Q3', exchange:[[false,'周末终于能喘口气了']], ageMs:60000,
+      request:personalRequest+'我今天第一次烤司康，外形歪了但味道不错。这件事我愿意分享，给我一句完整的话。',
+      quoteFragments:['我今天第一次烤司康，外形歪了但味道不错'] },
+    { id:'Q4-daily-life', family:'Q4', exchange:[[false,'周六我一般去河边走走']], ageMs:60000,
+      request:'想更了解她平时的生活，但别像面试。给我一个自然的方向，再给一句。' },
+    { id:'Q5-invitation', family:'Q5', exchange:[[false,'周末想画点东西']], ageMs:60000,
+      request:'我周日下午有空，想邀请她语音一起画画，明确一点，直接给我完整的一句。',
+      quoteFragments:['我周日下午有空','想邀请她语音一起画画'] },
+    { id:'Q6-interest', family:'Q6', exchange:[[true,'今天这件小事挺有意思'],[false,'哈哈是挺有意思的']], ageMs:60000,
+      request:'我发现挺期待和她聊天的，想多认识她一点，也想让她知道这个意思，但先不表白。帮我表达出来。',
+      quoteFragments:['我发现挺期待和她聊天的','想多认识她一点'] },
+    { id:'Q7-boundary', family:'Q7', exchange:[[false,'我只想做网友，不想发展恋爱关系']], ageMs:60000,
+      request:'听她这么说有点失落，我还是想和她更亲近，现在该怎么办？' },
+    { id:'Q8-new-intent', family:'Q8', exchange:[[false,'周末想画点东西']], ageMs:60000,
+      prior:'刚才那一轮先不邀请她，只轻松回应她画画的分享。',
+      request:'现在我改变主意了。我周日下午有空，想邀请她语音一起画画，直接给我完整的一句。',
+      quoteFragments:['我周日下午有空','想邀请她语音一起画画'] }
+  ].map(item => ({...item, asOf:item.family==='Q2'?'2026-10-15T14:30:00.000Z':AS_OF}));
+}
+function selectedDefinitions(ids) {
+  const cases = definitions(), lookup = new Map(cases.map(item => [item.id,item]));
+  if (ids === undefined) return cases;
+  if (!Array.isArray(ids) || !ids.length || new Set(ids).size !== ids.length) throw Error('Cases must be a nonempty list of distinct IDs');
+  if (ids.some(id => !lookup.has(id))) throw Error('Every case must be a declared scenario ID');
+  return ids.map(id => lookup.get(id));
+}
+function independentDefinitions(items) {
+  const builtinIds=new Set(definitions().map(item=>item.id));
+  if (!Array.isArray(items) || !items.length || new Set(items.map(item=>item?.id)).size!==items.length) throw Error('Independent cases require distinct definitions');
+  for (const item of items) {
+    if (!item || typeof item.id!=='string' || !item.id || builtinIds.has(item.id) || typeof item.family!=='string' || !item.family ||
+        !Array.isArray(item.exchange) || !item.exchange.length || item.exchange.some(pair=>!Array.isArray(pair) || typeof pair[0]!=='boolean' || typeof pair[1]!=='string' || !pair[1]) ||
+        typeof item.request!=='string' || !item.request || !Number.isSafeInteger(item.ageMs) || item.ageMs<0 || !Number.isFinite(Date.parse(item.asOf)) ||
+        typeof item.criteria?.expectedGood!=='string' || !item.criteria.expectedGood || typeof item.criteria?.expectedBad!=='string' || !item.criteria.expectedBad)
+      throw Error('Independent cases require new IDs, complete fictional evidence, fixed time and positive/negative criteria');
+  }
+  return clone(items);
+}
+function declarations() {
+  const filename = path.join(RUNNER_ROOT,'docs/goal-help-quality-scenarios.md'), text = fs.readFileSync(filename,'utf8');
+  const criteria = {};
+  for (const line of text.split('\n')) if (/^\| Q[0-8]-/.test(line)) {
+    const parts = line.split('|').map(item => item.trim());
+    criteria[parts[1]] = { situation:parts[2], expectedGood:parts[3], expectedBad:parts[4] };
+  }
+  if (Object.keys(criteria).length !== 13 || definitions().some(item => !criteria[item.id])) throw Error('Thirteen predeclared case criteria are required');
+  return { filename,version:'goal-help-quality-2026-10-16.2',sha256:digest(text),criteria };
+}
+
+// Each source-root module receives one lexical Date. The host clock and module cache stay untouched.
+function loadRuntime(sourceRoot, asOf) {
+  const root = fs.realpathSync(sourceRoot), srcRoot = path.join(root,'src') + path.sep, fixedMs = Date.parse(asOf);
+  if (!Number.isFinite(fixedMs)) throw Error('A valid fixed asOf is required');
+  class ClockDate extends Date { constructor(...args) { super(...(args.length ? args : [fixedMs])); } static now() { return fixedMs; } }
+  const cache = new Map();
+  function load(filename) {
+    filename = fs.realpathSync(filename);
+    if (cache.has(filename)) return cache.get(filename).exports;
+    const local = createRequire(filename), mod = { exports:{},filename,id:filename };
+    cache.set(filename,mod);
+    function requireSource(request) {
+      const resolved = local.resolve(request);
+      return resolved.startsWith(srcRoot) && resolved.endsWith('.cjs') ? load(resolved) : local(request);
+    }
+    requireSource.resolve = local.resolve;
+    vm.compileFunction(fs.readFileSync(filename,'utf8'),['exports','require','module','__filename','__dirname','Date'],{filename})(
+      mod.exports,requireSource,mod,filename,path.dirname(filename),ClockDate);
+    return mod.exports;
+  }
+  return { root, now:()=>fixedMs,
+    Store:load(path.join(srcRoot,'store.cjs')).Store,
+    Controller:load(path.join(srcRoot,'controller.cjs')).Controller,
+    assistModel:load(path.join(srcRoot,'assistant-model.cjs')).assistModel,
+    normalize:load(path.join(srcRoot,'messages.cjs')).normalize,
+    visibleResponseText:load(path.join(srcRoot,'experience-store.cjs')).visibleResponseText };
+}
+function sourceHashes(root) {
+  const names = fs.readdirSync(path.join(root,'src')).filter(name => name.endsWith('.cjs')).sort();
+  return Object.fromEntries(names.map(name => [`src/${name}`,digest(fs.readFileSync(path.join(root,'src',name)))]));
+}
+function selectedConnection() {
+  // Explicit live mode is the only route to the existing read-only configuration helper.
+  return require('./goal-acceptance-check.cjs').selectedConnection();
+}
+function packetPayload(request) {
+  const content = request.messages?.[1]?.content;
+  if (typeof content !== 'string') throw Error('Quality fixtures must remain text-only');
+  return JSON.parse(content);
+}
+function stopError(message, code='verification_stopped') {
+  const error = new Error(message); error.name='AbortError'; error.code=code; return error;
+}
+function syntheticResult(payload, definition) {
+  if (definition.invocation) return {kind:'discussion',text:'合成触发路径示例，不提供实际语义质量结论。'};
+  if (payload.purpose === 'draft') return {kind:'draft',text:'Synthetic transport summary; no quality verdict.',suggestions:[{style:'自然',text:'合成运输示例，仅验证完整交接，不作为建议质量证据。'}]};
+  if (definition.id === 'Q3-unknown') return {kind:'question',text:'合成运输示例：缺少实际近况，请提供一个你愿意分享的真实事件。'};
+  if (definition.id === 'Q7-boundary') return {kind:'discussion',text:'合成运输示例：这段文本不是实际模型建议，不提供语义质量结论。'};
+  const currentId = payload.intentAuthority?.sourceId || payload.userRequest?.sourceId;
+  const control = text => ({text,sourceIds:[currentId]});
+  const quotes = (definition.quoteFragments || []).map(text => ({sourceId:currentId,text}));
+  return {kind:'discussion',text:'合成运输解释，只验证私下解释与成稿交接，不证明实际帮助质量。',
+    draftPlan:{quotes,...(quotes.length ? {} : {intent:'reply'}),guidance:{
+      objective:control('按用户本次意思提供表达帮助'),allowedApproach:control('保留本次明确方向'),avoidances:[]}}};
+}
+function message(runtime,scope,index,own,text,stamp) {
+  return runtime.normalize({chatType:1,peerUid:scope.peerUid,peerUin:scope.peerUin,senderUid:own?scope.accountUid:scope.peerUid,
+    senderUin:own?scope.accountUin:scope.peerUin,msgId:String(72057594049927937000n+BigInt(index)),msgSeq:String(index),
+    msgTime:String(Math.floor(stamp/1000)),sendStatus:2,recallTime:'0',elements:[{elementType:1,textElement:{content:text}}]},scope);
+}
+function prepareOutput(output, roots) {
+  if (!output) return null;
+  const filename = path.resolve(output);
+  if (!filename.endsWith('.json') || filename.includes(`${path.sep}.git${path.sep}`) || roots.some(root => {
+    const privateRoot = path.join(root,'data'); return filename === privateRoot || filename.startsWith(privateRoot+path.sep);
+  }) || fs.existsSync(filename)) throw Error('Report must be a new JSON file outside private data and Git internals');
+  fs.mkdirSync(path.dirname(filename),{recursive:true}); fs.writeFileSync(filename,'',{flag:'wx',mode:0o600}); return filename;
+}
+
+async function runHarness(options={}) {
+  if (options.live !== undefined && typeof options.live !== 'boolean') throw Error('Live mode requires an explicit boolean');
+  const maxHttp = options.maxHttp ?? 32;
+  if (!Number.isSafeInteger(maxHttp) || maxHttp < 1 || maxHttp > 32) throw Error('Global HTTP cap must be 1..32');
+  if (options.independentCases && options.cases) throw Error('Independent cases and built-in selection cannot be mixed');
+  const cases = options.independentCases ? independentDefinitions(options.independentCases) : selectedDefinitions(options.cases), declared = declarations();
+  const sourceRoot = fs.realpathSync(options.sourceRoot || RUNNER_ROOT), hashesBefore = sourceHashes(sourceRoot);
+  const selected = options.live ? selectedConnection() : {provider:{model:'synthetic-help-quality',baseUrl:'http://fictional.invalid/v1',anonymous:true}};
+  const provider = selected.provider, destination = new URL(provider.baseUrl), out = prepareOutput(options.out,[MAIN_ROOT,RUNNER_ROOT,sourceRoot]);
+  const report = {schemaVersion:1,evidence:options.live?'live_model_with_fictional_context':'synthetic_transport_pipeline_only',
+    semanticVerdict:'requires_independent_review',sourceRoot,declarations:declared,sourceHashesAtStart:hashesBefore,
+    runnerSha256:digest(fs.readFileSync(__filename)),selectedModel:provider.model,
+    selectedDestination:{origin:destination.origin,path:destination.pathname},settingsReadOnly:!!options.live,
+    settingsHashAtStart:selected.settingsHash || null,
+    limits:{globalHttp:maxHttp,hardCeiling:32,perTask:4,memoryModel:false,compactionModel:false,images:false,
+      failurePolicy:'stop on first transport or non-OK HTTP failure; no external retry'},
+    startedAt:new Date().toISOString(),requests:[],cases:[]};
+  if (options.independentCases) report.independentDeclaration={kind:'independent_held_out',sha256:digest(JSON.stringify(cases)),caseCount:cases.length};
+  let attempts=0, stopped=null, current;
+  const save = () => { if (out) fs.writeFileSync(out,JSON.stringify(report,(_key,value)=> typeof value === 'string' && provider.apiKey ? value.split(provider.apiKey).join('[redacted]') : value,2),{mode:0o600}); };
+  const transport = async (url,args) => {
+    if (stopped) throw stopError('Quality verification already stopped');
+    if (selected.settingsFile && digest(fs.readFileSync(selected.settingsFile)) !== selected.settingsHash) {
+      stopped={reason:'selected_connection_changed',caseId:current.id}; throw stopError('Selected MAIN configuration changed');
+    }
+    if (attempts >= maxHttp) { stopped={reason:'global_http_cap',caseId:current.id}; throw stopError('Global HTTP ceiling reached'); }
+    if (current.httpAttempts >= 4) { stopped={reason:'per_task_http_cap',caseId:current.id}; throw stopError('Per-task HTTP ceiling reached'); }
+    if (new URL(url).origin !== destination.origin) { stopped={reason:'destination_changed',caseId:current.id}; throw stopError('Destination changed'); }
+    const request=JSON.parse(args.body), wrapper=packetPayload(request), payload=wrapper.originalInput || wrapper;
+    const entry={sequence:++attempts,caseId:current.id,purpose:payload.purpose,request,requestBytes:Buffer.byteLength(args.body)};
+    current.httpAttempts++; report.requests.push(entry); save();
+    options.onProgress?.({event:'model_request',caseId:current.id,sequence:entry.sequence,purpose:payload.purpose});
+    let response;
+    try {
+      if (options.live) response=await (options.fetchImpl || fetch)(url,args);
+      else {
+        const result=await (options.syntheticResponder || syntheticResult)(payload,current.definition);
+        response=result instanceof Response ? result : new Response(JSON.stringify({model:provider.model,
+          choices:[{finish_reason:'stop',message:{content:typeof result === 'string' ? result : JSON.stringify(result)}}],
+          usage:{prompt_tokens:1,completion_tokens:1,total_tokens:2}}),{status:200});
+      }
+    } catch (error) {
+      entry.failure={name:error.name,code:error.code || null}; stopped={reason:'transport_failure',caseId:current.id}; save();
+      throw stopError('Transport failed; quality verification stopped');
+    }
+    entry.httpStatus=response.status;
+    if (!response.ok) {
+      stopped={reason:'non_ok_http',status:response.status,caseId:current.id}; await response.body?.cancel?.(); save();
+      throw stopError(`Model returned HTTP ${response.status}; quality verification stopped`);
+    }
+    try { entry.response=await response.clone().json(); } catch { entry.responseShape='not_json'; }
+    save(); return response;
+  };
+  for (let index=0; index<cases.length; index++) {
+    const definition=cases[index], item=current={id:definition.id,family:definition.family,definition,request:definition.request,
+      criteria:definition.criteria || declared.criteria[definition.id],semanticVerdict:'requires_independent_review',httpAttempts:0,status:'running',stages:[],checks:[]};
+    report.cases.push(item);
+    if (stopped) { item.status='skipped_verification_stopped'; delete item.definition; save(); continue; }
+    const runtime=loadRuntime(sourceRoot,definition.asOf), scope={accountUid:'fictional_owner',accountUin:'1111111111',
+      peerUid:'fictional_contact',peerUin:'3333333333'}, store=new runtime.Store(':memory:'); let controller;
+    const check=(name,valid) => item.checks.push({name,status:valid?'pass':'fail'});
+    try {
+      const latestAt=runtime.now()-definition.ageMs;
+      store.add(scope,definition.exchange.map(([own,text],i)=>message(runtime,scope,i+1,own,text,latestAt-(definition.exchange.length-1-i)*30000)));
+      store.setCoverage(scope,{status:'partial',checkedAt:definition.asOf,source:'fictional-native-shaped-seed'});
+      store.setGoal(scope,GOAL);
+      if (!definition.invocation) store.saveNote(scope,{text:`${PRIVATE_MARKER}：私下讨论担心太刻意，不是发给她的材料。`,use:'discussion'});
+      if (definition.prior) {
+        const prior=store.appendTurn(scope,{role:'user',kind:'discussion',text:definition.prior});
+        store.appendTurn(scope,{role:'assistant',kind:'discussion',text:'这一轮先照你说的方向回应。',sourceIds:[`private:${prior.id}`]});
+      }
+      const recordsBefore=clone(store.messages(scope)), goalBefore=clone(store.getCompanion(scope).goal);
+      item.fixture={scope,records:recordsBefore,goal:goalBefore,asOf:definition.asOf,viewerTimeZone:'Asia/Shanghai',priorPrivateDirection:definition.prior || null};
+      const settings={...provider,auto:false,autoImages:false,visionEnabled:false,assistantRequestLimit:4,
+        realChatConsent:{...scope,model:provider.model,baseUrl:provider.baseUrl}};
+      controller=new runtime.Controller({store,settings,now:runtime.now,viewerTimeZone:'Asia/Shanghai',memoryModel:null,compactionModel:null,
+        read:async()=>{throw Error('Real QQ access is unavailable in fictional quality checks');},
+        assistantModel:async(configured,input,signal)=>{
+          const stage={purpose:input.payload.purpose,initialPayload:clone(input.payload),initialManifest:clone(input.manifest)}; item.stages.push(stage);
+          try { const result=await runtime.assistModel(configured,input,signal,transport); stage.result=clone(result); return result; }
+          finally { const effective=input.resultContext || input; stage.effectivePayload=clone(effective.payload); stage.effectiveManifest=clone(effective.manifest); stage.extraRequests=clone(input.extraRequests || []); save(); }
+        }});
+      controller.visible=false; controller.updateStatus({phase:'ready',account:{uid:scope.accountUid,uin:scope.accountUin}}); controller.scope={...scope};
+      let reply;
+      if (definition.invocation) {
+        await controller.suggest({automatic:definition.invocation==='automatic'});
+        reply=store.getCompanion(scope).turns.filter(turn=>turn.role==='assistant').at(-1);
+      } else reply=await controller.assist({text:definition.request,purpose:'discussion'});
+      item.reply=reply?clone(reply):null;
+      item.visibleHelp=reply?runtime.visibleResponseText(reply):null;
+      const after=store.getCompanion(scope); item.tasks=controller.usage.recent(scope,4);
+      check('actual messages and original string IDs preserved',JSON.stringify(recordsBefore)===JSON.stringify(store.messages(scope)) && recordsBefore.every(record=>typeof record.messageId==='string'));
+      check('user-owned goal preserved',JSON.stringify(goalBefore)===JSON.stringify(after.goal));
+      if (definition.invocation) {
+        item.invocation=clone(item.stages[0]?.initialPayload.taskContext?.invocation || null);
+        check('no private user turn fabricated by suggestion',!after.turns.some(turn=>turn.role==='user'));
+        check('actual manual or automatic trigger delivered',item.invocation?.trigger===(definition.invocation==='automatic'?'automatic_observation':'manual_suggestion'));
+      } else check('original request preserved',item.stages[0]?.initialPayload.userRequest?.text===definition.request);
+      check('fixed observation time delivered',item.stages[0]?.initialPayload.asOf===definition.asOf);
+      check('scope preserved',item.stages.every(stage=>JSON.stringify(stage.effectiveManifest.scope)===JSON.stringify(scope)));
+      check('bounded HTTP calls',attempts<=maxHttp && item.httpAttempts<=4);
+      check('draft excludes private rationale and note',item.stages.filter(stage=>stage.purpose==='draft').every(stage=>{
+        const value=JSON.stringify(stage.effectivePayload); return !value.includes(PRIVATE_MARKER) && !stage.effectivePayload.privateConversation && !stage.effectivePayload.goal;
+      }));
+      if (reply) {
+        check('whole-help artifact matches displayed help',store.experiences.artifact(scope,reply.artifactRef)?.body===item.visibleHelp);
+        check('draft artifacts contain editable wording only',(reply.suggestions || []).every(suggestion=>store.experiences.artifact(scope,suggestion.artifactRef)?.body===suggestion.text));
+      }
+      item.status=!reply?'no_completed_reply':item.checks.some(value=>value.status==='fail')?'deterministic_failure':'executed_semantic_review_required';
+    } catch(error) { item.status='execution_failure'; item.error={name:error.name,code:error.code || null,message:error.message}; }
+    finally { controller?.close(); store.close(); delete item.definition; save(); options.onProgress?.({event:'case_finished',caseId:item.id,status:item.status,httpAttempts:item.httpAttempts}); }
+  }
+  report.finishedAt=new Date().toISOString(); report.httpAttempts=attempts; report.realHttpAttempts=options.live?attempts:0; report.stopped=stopped;
+  report.sourceHashesAtEnd=sourceHashes(sourceRoot); report.sourceUnchanged=JSON.stringify(report.sourceHashesAtStart)===JSON.stringify(report.sourceHashesAtEnd);
+  report.mainSettingsUnchanged=selected.settingsFile?digest(fs.readFileSync(selected.settingsFile))===selected.settingsHash:null;
+  report.reportedResponseModels=[...new Set(report.requests.map(item=>item.response?.model).filter(Boolean))]; report.physicalProviderIdentityVerified=false;
+  save(); return report;
+}
+function argument(argv,name) { const index=argv.indexOf(name); return index<0?undefined:argv[index+1]; }
+async function main(argv) {
+  const cases=argument(argv,'--cases')?.split(',').map(value=>value.trim()), sourceRoot=argument(argv,'--source-root') || RUNNER_ROOT;
+  if (argv.includes('--describe')) { console.log(JSON.stringify({sourceRoot,declarations:declarations(),scenarios:selectedDefinitions(cases),limits:{globalHttp:32,perTask:4}},null,2)); return; }
+  const out=argument(argv,'--out') || `/tmp/qq-help-quality-${Date.now()}-${process.pid}.json`;
+  const report=await runHarness({cases,sourceRoot,out,live:argv.includes('--live'),maxHttp:argument(argv,'--max-http')?Number(argument(argv,'--max-http')):undefined,
+    onProgress:event=>console.log(JSON.stringify(event))});
+  console.log(JSON.stringify({report:path.resolve(out),evidence:report.evidence,semanticVerdict:report.semanticVerdict,httpAttempts:report.httpAttempts,realHttpAttempts:report.realHttpAttempts,
+    sourceUnchanged:report.sourceUnchanged,mainSettingsUnchanged:report.mainSettingsUnchanged,stopped:report.stopped,cases:report.cases.map(item=>({id:item.id,status:item.status}))}));
+  if (!report.sourceUnchanged || report.mainSettingsUnchanged===false || report.cases.some(item=>item.status!=='executed_semantic_review_required')) process.exitCode=1;
+}
+module.exports={definitions,selectedDefinitions,declarations,loadRuntime,runHarness};
+if (require.main===module) main(process.argv.slice(2)).catch(error=>{console.error(`${error.name}: ${error.message}`);process.exitCode=1;});

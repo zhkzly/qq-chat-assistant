@@ -8,7 +8,7 @@ const { eligibleDiscussionTurns } = require('./discussion-compaction-store.cjs')
 const {qqSourceMetadata,sameScope}=require('./messages.cjs');
 const {requiredQuoteSources,taskContext,planRecentContext,projectRecentContext,quoteTarget}=require('./context-task.cjs');
 const {sourceRevision}=require('./store.cjs');
-const PROMPT_VERSION = 'relationship-context-2026-10-15.2';
+const PROMPT_VERSION = 'relationship-context-2026-10-16.1';
 const METHODS = {
   discussion: '围绕用户真正希望的恋爱发展选择当前帮助，可接续、邀请、表达好感或讨论。意思明确就直接帮助，只问会改变建议的必要问题。允许暂缓或不用助手，不强制每次制定目的。',
   review: '按实际覆盖回顾相处、共同经历、用户体验与双方明确的浪漫方向，分别说普通友好、活动意愿和恋爱意图。兼顾反证与未知，不计算好感分，不把回复归因为某条建议。',
@@ -150,8 +150,13 @@ function buildContext(options) {
   sourceTurnIds = [], selectedOption, replyMessageIds = [], imageMessageIds = [], images, mediaContext, actionReceipts = [], lookupHistory = [], reviewRange,
   relationshipContext = null, experienceContext = null, topicContext = null, intentSourceId = null,
   generationOrigin = 'private_discussion', currentObservationSourceId = null,
+  asOf:providedAsOf = new Date().toISOString(), viewerTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone, invocation,
   discussionCompaction = null, sourceLookupIds = [], retrievedDiscussion = [],
   feedbackTargets = [], allowExperienceProposals = purpose === 'review', responsePreference, settings = {}, requestMeasure } = options;
+  if(typeof providedAsOf!=='string'||!Number.isFinite(Date.parse(providedAsOf)))throw new Error('上下文观察时间不合法');
+  const asOf=new Date(providedAsOf).toISOString();
+  if(typeof viewerTimeZone!=='string'||!viewerTimeZone.trim())throw new Error('上下文查看时区不合法');
+  try{new Intl.DateTimeFormat('en-CA',{timeZone:viewerTimeZone});}catch{throw new Error('上下文查看时区不合法');}
   const budget = contextBudget(settings, byteBudget, requestMeasure), fits = budget.fits;
   if (!METHODS[purpose] || purpose === 'draft') throw new Error('未知的上下文用途');
   if (!Number.isFinite(byteBudget) || byteBudget < 4000 || byteBudget > 192000) throw new Error('上下文预算不合法');
@@ -162,7 +167,16 @@ function buildContext(options) {
       return { ...source, text: redact(source.text), ...(actual ? { direction: actual.direction, speaker: actual.direction === 'outgoing' ? '我' : '对方',...qqSourceMetadata(actual) } : {}) };
     });
   const actualOrder=new Map(records.map((m,i)=>[`qq:${m.messageId}`,i]));
-  all.sort((a,b)=>Date.parse(a.at||0)-Date.parse(b.at||0)||(a.type==='qq'&&b.type==='qq'?actualOrder.get(a.id)-actualOrder.get(b.id):a.id.localeCompare(b.id)));
+  const privateOrder=new Map(),feedbackById=new Map((companion.feedback||[]).map(item=>[item.id,item]));
+  for(const [index,item] of companion.turns.entries())if(item.role==='user'){
+    privateOrder.set(`private:${item.id}`,index);
+    // A canonical feedback source has a real position when its reference turn
+    // exists. This is recorded chronology, not a guessed order between types.
+    const feedback=item.feedbackId&&feedbackById.get(item.feedbackId);
+    if(feedback)privateOrder.set(feedback.sourceId||`private:feedback-${feedback.id}`,index);
+  }
+  all.sort((a,b)=>Date.parse(a.at||0)-Date.parse(b.at||0)||(a.type==='qq'&&b.type==='qq'?actualOrder.get(a.id)-actualOrder.get(b.id)
+    :privateOrder.has(a.id)&&privateOrder.has(b.id)?privateOrder.get(a.id)-privateOrder.get(b.id):a.id.localeCompare(b.id)));
   const byId = new Map(all.map(s => [s.id, s]));
   const currentId = `private:${turn.id}`;
   const current = byId.get(currentId) || (turn.transient || turn.memoryExcluded ? { id: `request:${turn.id}`, type: 'request', text: redact(turn.text), revision: digest(turn), role: 'user' } : null);
@@ -225,8 +239,7 @@ function buildContext(options) {
   const restrictions = companion.notes.filter(n => n.use === 'discussion' && n.kind !== 'preference').map(n => ({ sourceId: `note:${n.id}`, text: redact(n.text), evidenceSourceIds: n.evidenceSourceIds || [] }));
   const payload = { promptVersion: PROMPT_VERSION, purpose, method: METHODS[purpose], methodCards: [],methodCatalog:methodSelection.catalog, methodSelection: {
     version: methodSelection.version, selection: methodSelection.selection, candidates: [],
-    maxApplied: methodSelection.maxApplied, selectionRule: methodSelection.selectionRule, feedbackRule: methodSelection.feedbackRule }, asOf: new Date().toISOString(),
-    viewerTimeZone:Intl.DateTimeFormat().resolvedOptions().timeZone,
+    maxApplied: methodSelection.maxApplied, selectionRule: methodSelection.selectionRule, feedbackRule: methodSelection.feedbackRule }, asOf,viewerTimeZone,
     userRequest: { sourceId: current.id, text: current.text }, goal: redact(companion.goal.text || ''),
     intentAuthority: { sourceId: intentSource.id },
     generationOrigin,
@@ -272,7 +285,8 @@ function buildContext(options) {
     payload.sources = [...selected.values()]; payload.allowedMaterialIds=payload.sources.filter(s=>s.type==='note'&&s.use==='draft').map(s=>s.id);
     if(mediaContext || images?.length)payload.imageContext=imageContextFor(payload,images||[],mediaContext);
     payload.methodSelection.candidates=[...new Set([...(payload.methodCatalog||[]).map(m=>m.id),...payload.methodCards.map(m=>m.id)])];
-    payload.taskContext=taskContext({records,sources:payload.sources,scope,coverage,generationOrigin,currentSourceId:current.id,responsePreference,recentContextPlan,asOf:payload.asOf});
+    payload.replyFocus=replyMessageIds.filter(id=>selected.has(`qq:${id}`));
+    payload.taskContext=taskContext({records,sources:payload.sources,scope,coverage,generationOrigin,currentSourceId:current.id,responsePreference,recentContextPlan,asOf:payload.asOf,viewerTimeZone,invocation,purpose,replyMessageIds});
     payload.taskContext.draftControlPolicy={version:1,required:true,requiredFields:['objective','allowedApproach','avoidances'],intentSourceId:intentSource.id};
     if(taskTextReferences){
       payload.taskContext.sourceTextLocation='sources';
@@ -674,7 +688,7 @@ function buildContext(options) {
     admittedPrioritySourceIds:[...recentPriorityIds].filter(id=>selected.has(id)),initialAdditionalBytes:recentInitialAdditionalBytes,ordering:'current_neighborhood_before_optional_history'};
   context.essentialSourceIds=[...essentialIds];
   Object.defineProperty(context, 'fullAvailableSources', { value: all });
-  Object.defineProperty(context,'rebuildForRequest',{value:measure=>buildContext({...options,requestMeasure:measure})});
+  Object.defineProperty(context,'rebuildForRequest',{value:measure=>buildContext({...options,asOf,viewerTimeZone,invocation,requestMeasure:measure})});
   context.restrictions=restrictions;
   return context;
 }
@@ -721,7 +735,9 @@ function buildDraftContext(prepared, plan, info) {
   let draftRecentMetadata='full';
   const refreshDraftTask=()=>{if(!prepared.payload.taskContext)return;const task=prepared.payload.taskContext,ids=new Map(payload.sources.map(s=>[s.id,s]));
     const recent=task.recentExchange.filter(m=>ids.has(m.sourceId)).map(m=>({...m,...(ids.get(m.sourceId).historicalOnly?{historicalOnly:true}:{}),...(m.quote?{quote:m.quote.sourceId&&!ids.has(m.quote.sourceId)?{availability:'unavailable'}:{...m.quote,...(ids.get(m.quote.sourceId)?.historicalOnly?{historicalOnly:true}:{})}}:{})}));
-    payload.taskContext={version:task.version,requestOrigin:'restricted_draft',latestActual:task.latestActual&&ids.has(task.latestActual.sourceId)?task.latestActual:null,
+    const deliveredQQ=payload.sources.filter(source=>source.type==='qq');
+    const safeConsultation=task.consultationTask?{focusOrigin:task.consultationTask.focusOrigin,focus:task.consultationTask.focus.filter(item=>ids.has(item.sourceId)).map(item=>({...item,laterAvailableMessageCount:deliveredQQ.length-deliveredQQ.findIndex(source=>source.id===item.sourceId)-1}))}:undefined;
+    payload.taskContext={version:task.version,requestOrigin:'restricted_draft',...(task.invocation?{invocation:structuredClone(task.invocation)}:{}),...(task.timeContext?{timeContext:structuredClone(task.timeContext)}:{}),...(safeConsultation?{consultationTask:safeConsultation}:{}),latestActual:task.latestActual&&ids.has(task.latestActual.sourceId)?task.latestActual:null,
       recentExchange:recent,selfMessagesAfterLastContact:task.selfMessagesAfterLastContact.filter(id=>ids.has(id)),contactMessagesAfterLastSelf:task.contactMessagesAfterLastSelf.filter(id=>ids.has(id)),observationCoverage:task.observationCoverage,factsRule:task.factsRule};
     if(task.recentContext&&draftRecentMetadata==='full')payload.taskContext.recentContext=projectRecentContext(task.recentContext,ids);
     else if(task.recentContext&&draftRecentMetadata==='compact')payload.taskContext.recentContext={selection:'bounded_actual_neighborhoods',coverage:'partial_context_window_metadata_omitted_for_budget'};

@@ -185,7 +185,7 @@ function render(next) {
  const nextConsentKey=`${scopeKey}:${next.model}:${next.modelBaseUrl}`;if(nextConsentKey!==consentKey){consentKey=nextConsentKey;$('allow-images').checked=!!next.imageConsent;}else if(next.imageConsent)$('allow-images').checked=true;
  syncDraftSafety();
  $('fill-qq').title=next.qqDraftFillAvailable?'只填入，不发送':'需要重启 QQ 加载新版插件；复制按钮可直接使用';$('consent-destination').textContent=`所选好友：${next.scope?.peerUin||''} · 模型：${next.model} · API：${next.modelBaseUrl}`;
- $('generate').textContent=next.busy?'正在想回复…':'接着 QQ 聊';$('older').disabled=next.historyBusy;$('older').textContent=next.historyBusy?'正在读取…':'从 QQ 读取更早记录';
+ $('generate').textContent=next.busy?'正在思考…':'结合 QQ 给建议';$('older').disabled=next.historyBusy;$('older').textContent=next.historyBusy?'正在读取…':'从 QQ 读取更早记录';
  $('context-button').disabled=!next.scope;
  if(next.scope){
   if(document.activeElement!==$('qq-number'))$('qq-number').value=next.scope.peerUin;

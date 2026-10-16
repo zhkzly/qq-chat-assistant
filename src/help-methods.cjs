@@ -2,7 +2,7 @@
 
 // These are fallible assistance methods, not inferred facts or relationship stages.
 // Research references were checked in the local context-memory research package.
-const METHOD_VERSION = 'relationship-methods-2026-10-14.1';
+const METHOD_VERSION = 'relationship-methods-2026-10-16.1';
 const sources = {
   listening: { kind: 'human-study', source: 'https://doi.org/10.1177/0146167217747874',
     limit: '倾听与态度清晰度的实验，未检验 AI 恋爱咨询；清楚不等于正确。' },
@@ -36,13 +36,13 @@ const definitions = [
     applicability: '想联系但不知道聊什么、何时继续，或有多个可行方向。',
     avoid: '固定关系阶段、每天联系配额、将沉默当作拒绝或好感、强推任何一种行动。',
     requiredContext: ['currentRequest', 'goal', 'currentState', 'recentActualExchange', 'availableMaterial'],
-    instruction: '结合真实近况和对方已表达的内容，通常给一至三个实质不同的可行选择及依据；可包含分享、邀请、共同活动、表达好感或暂缓。用户想推进恋爱时不能一直只推荐普通闲聊；稀少历史也允许真实而可选择的认识邀请。意图明确就直接帮助，不必先提问。',
+    instruction: '按当前请求、真实近况与交流时间，分清回应当轮还是重新联系；通常给一个最适合的方向，有实质差别再比较备选及依据。可组合了解、真实分享、邀请、共同活动、表达好感或暂缓；历史少也允许认识邀请。意图明确就直接帮助，不必先提问。',
     evidence: [sources.userGoal, sources.disclosure, sources.familiarity], output: { kinds: ['discussion', 'options'], maxItems: 3 } },
   { id: 'respond', name: '理解并回应她的话', goalContribution: '让对方所说的事情得到具体回应，并保留交流的自然延续。',
     applicability: '有实际来信，需要理解、回应分享或接续她提出的话题。',
     avoid: '读心、审讯式连问、模板夸奖、立刻转移到自己或无限延长聊天。',
     requiredContext: ['currentRequest', 'latestCompleteExchange', 'relevantEarlierEvidence', 'applicablePreferences'],
-    instruction: '优先理解她明确说了什么及其语境，再回应具体内容。歧义保留多个解释；可自然分享一点自己或跟进相关问题，不强制问句。她明确要忙或结束时尊重原话。需要成稿时遵循独立分享授权。',
+    instruction: '结合前后语境和时间理解她实际在分享、询问或回应什么，再选择有内容的反应、了解或真实自我分享。问题连接这段交流中值得了解的具体事情，不用泛问填空；没有问句也能有交流价值。她明确要忙或结束时尊重当轮原话。需要成稿时遵循独立分享授权。',
     evidence: [sources.responsiveness, sources.positive, sources.ambiguity], output: { kinds: ['discussion', 'options'], maxItems: 3 } },
   { id: 'compose', name: '组织参考表达', goalContribution: '帮助把用户愿意表达的真实意思写成自己的话。',
     applicability: '用户明确要草稿、改写，或采用已讨论且明确可分享的内容。',
@@ -80,8 +80,8 @@ const definitions = [
 // These program-owned instructions never interpolate private user input.
 const compactInstructions={
  clarify:'用户困惑或想先讨论时，区分事情、感受与此次希望，给可修正理解；只问答案会改变帮助的具体问题，不替用户定动机或反复做目的问卷。',
- choose_next_step:'用户不知如何继续时，按真实近况比较一至三个不同方向及依据：分享、认识邀请、活动、表意或暂缓；不把少历史、沉默或最后自己发言变成固定等待规则。',
- respond:'面对实际来信，先回应她具体的问题、分享或感受，再考虑真实自我分享或紧贴内容的跟进；已说清的不重复问，忙或收尾时尊重，不用夸奖或连问硬续聊。',
+ choose_next_step:'按当前请求、时间与真实近况，分清接续还是重新联系，给一个适合的方向，必要时比较不同备选：了解、真实分享、活动、表意或暂缓；末条自己发言不等于必须等待。',
+ respond:'按前后语境和时间理解她在分享、询问或回应什么，再选择具体反应、了解或真实自我分享；没有问句也有交流价值，问题紧贴可聊内容，忙或告别尊重当轮原话。',
  compose:'用户要具体表达时，选此次获准原文并保留小目的、方式与局部纠正，再写完整可编辑句子；私下理由不外发，不编经历，指代明确不让用户重抄。',
  review:'用户回顾时，按时间核对原话、修正、实际发送和体验，区分友好、活动意愿与恋爱意图；兼顾反证未知，再建议继续、表意、修复或收束，不算好感分。',
  shared_activity:'用户想一起做事时，按真实兴趣和条件提出具体活动及可拒绝的邀请，未知偏好可开放确认；提议、已邀请、接受和发生分开，不编共同点或恢复已取消安排。',
@@ -116,20 +116,22 @@ function selectMethods({ purpose = 'discussion', text = '', focus = '', hasReply
   // Arbitrary user text stays in the data channel. No keyword detector assigns
   // a psychological state, sharing permission, or durable preference here.
   void text; void focus; void memory;
-  const aliases = { draft: 'compose', draft_prepare: 'compose', recall: 'review', respond: 'respond', reply: 'respond', suggest: 'respond',
+  const transportHint = ['reply','suggest'].includes(purpose) ? 'respond' : null;
+  const aliases = { draft: 'compose', draft_prepare: 'compose', recall: 'review', respond: 'respond',
     clarify: 'clarify', choose_next_step: 'choose_next_step', shared_activity: 'shared_activity', correction: 'correction', review: 'review', compose: 'compose', express_interest: 'express_interest' };
   const explicit = aliases[purpose];
+  const preferred = explicit || transportHint;
   const order = hasReply ? ['respond', 'choose_next_step', 'express_interest', 'shared_activity', 'clarify', 'compose', 'review', 'correction']
     : ['choose_next_step', 'express_interest', 'shared_activity', 'clarify', 'respond', 'compose', 'review', 'correction'];
   // Transport purposes prioritize help; only the restricted drafting stage
   // limits available methods. A reply can still express interest or invite.
-  const ids = purpose === 'draft' ? ['compose'] : explicit ? [explicit, ...order.filter(id => id !== explicit)] : order;
-  const fullIds=purpose==='draft'?['compose']:explicit?[explicit,...(explicit==='compose'?['clarify']:explicit==='review'?['correction']:['choose_next_step'])]
+  const ids = purpose === 'draft' ? ['compose'] : preferred ? [preferred, ...order.filter(id => id !== preferred)] : order;
+  const fullIds=purpose==='draft'?['compose']:preferred?[preferred,...(preferred==='compose'?['clarify']:preferred==='review'?['correction']:['choose_next_step'])]
     : hasReply?['respond','choose_next_step']:['choose_next_step', 'clarify'];
   const methods = [...new Set(fullIds)].slice(0,purpose==='draft'?1:2).map(methodFor);
   const compactCards=compactOperationalCards();
   const catalog=ids.map(id=>compactCards.find(item=>item.id===id));
-  return { version: METHOD_VERSION, selection: explicit ? 'explicit' : 'candidates',
+  return { version: METHOD_VERSION, selection: explicit ? 'explicit' : transportHint ? 'transport_hint' : 'candidates',
     methods, catalog, maxApplied: purpose === 'draft' ? 1 : 2,
     instruction: methods.map(method => `${method.id}: ${method.instruction}`).join('\n'),
     selectionRule: '用户此次明确意图优先于旧 topic、focus、purpose和候选顺序；模糊续问承接仍有效的商量方向与局部纠正，明确改方向立即替换。候选不是必走步骤，可选择零至两个已载入方法或直接回答，不必先提问。缺方法卡不等于缺用户信息，不要求用户选择方法或固定关系阶段。',
