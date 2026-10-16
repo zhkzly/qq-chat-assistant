@@ -446,7 +446,16 @@
     "assistantLaunchedByAgent": false,
     "modelProxyRestoredLoopbackOnly": true,
     "originalModelProxyConfigChanged": false,
-    "assistantModelConfigChanged": false
+    "assistantModelConfigChanged": false,
+    "oneShotConditionalLaunch": {
+      "scheduled": true,
+      "lastObservedState": "waiting_for_user_quit",
+      "waitSeconds": 900,
+      "expiresAt": "2026-10-16T02:26:11.286711+00:00",
+      "doesNotTerminateQQ": true,
+      "cancelsIfSourceChangesOrAnotherQQIsStarted": true,
+      "localReceipt": "data/goal-help-launch-once-20261016.json"
+    }
   },
   "privacy": {
     "realChatUsedInQualityTests": false,
