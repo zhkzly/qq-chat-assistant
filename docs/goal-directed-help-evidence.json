@@ -439,13 +439,20 @@
     "status": "pending_user_quit_of_ordinary_qq",
     "runtimeActivationVerified": false,
     "userSelected": "user_saves_and_quits_ordinary_qq_then_assistant_launches",
-    "qqTerminatedByAgent": false
+    "qqTerminatedByAgent": false,
+    "mainCommit": "9c91bae",
+    "localMainIntegrated": true,
+    "ordinaryQQStillRunningAtLastCheck": true,
+    "assistantLaunchedByAgent": false,
+    "modelProxyRestoredLoopbackOnly": true,
+    "originalModelProxyConfigChanged": false,
+    "assistantModelConfigChanged": false
   },
   "privacy": {
     "realChatUsedInQualityTests": false,
     "imagesUsedInQualityTests": false,
     "credentialsInReport": false,
-    "realChatInGit": false,
-    "qqMessagesSentByAssistant": 0
+    "qqMessagesSentByAssistant": 0,
+    "realChatAddedToGitByThisChange": false
   }
 }
