@@ -53,7 +53,7 @@
     "reviewerHadSourceAccess": false
   },
   "integration": {
-    "source": "verified_isolated_worktree",
+    "source": "fast_forwarded_main_to_d9e380d",
     "native": {
       "status": 200,
       "promptVersion": "relationship-context-2026-10-17.1",
@@ -61,6 +61,10 @@
       "selected": true,
       "noRestartAttempted": true,
       "checkedAt": "2026-10-17T10:55:24.894Z"
+    },
+    "sourceParity": {
+      "files": 45,
+      "differences": 0
     }
   },
   "knownLimits": [

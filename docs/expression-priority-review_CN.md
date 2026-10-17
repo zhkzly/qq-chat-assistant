@@ -30,3 +30,7 @@
 为单独验证本次代码修复，在保留原结果后，追加一次明确分开的合成Store播种检查：直接保存已知旧偏好，再使用同一冻结源码和同样本轮要求进入实际模型成稿。只用2次HTTP，旧偏好确实进入规划、本轮成稿不再携带冲突默认、原偏好正文未变，独立文案评审可用。它不证明模型完成保存，也不替代原批次未覆盖的恢复环节。两部分合计17次实际HTTP，没有重采样挑选句子。
 
 全部[模型输入、短指导、成稿输入和输出](expression-priority-evidence/model-four-artifacts.json)、[独立评审](expression-priority-evidence/independent-review_CN.md)和[验证记录](expression-priority-evidence/verification.json)保存在本地。真实QQ消息、截图、密钥与用户未跟踪笔记不进入这些证据；没有QQ发送动作。源码合入与实际运行worker启用分别记录。
+
+## 本地集成
+
+测试提交`d9e380d`已本地快进合入main，45个源码/UI文件与实际模型冻结批次逐字节一致；未推送远端。当前健康接口仍报告旧worker `relationship-context-2026-10-17.1`，未将源码合入冒充启用；新源码为`relationship-context-2026-10-17.3`。现有QQ进程与未发送输入未被关闭或改写。
