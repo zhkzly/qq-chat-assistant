@@ -48,13 +48,17 @@
     "automaticQQSend": false
   },
   "integration": {
-    "source": "verified_isolated_worktree",
+    "source": "fast_forwarded_main_to_0140db0",
     "native": {
       "status": 200,
       "promptVersion": "relationship-context-2026-10-17.1",
       "checkedAt": "2026-10-17T04:08:33.288Z",
       "restarted": false,
       "noRealContentExported": true
+    },
+    "sourceParity": {
+      "comparedSourceAndUiFiles": 45,
+      "differences": 0
     }
   },
   "knownLimits": [
