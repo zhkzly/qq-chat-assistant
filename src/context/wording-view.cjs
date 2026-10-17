@@ -33,13 +33,13 @@ function buildDraftContext(prepared, plan, info) {
       throw new Error('这段内容仍标记为仅供私下讨论，请先明确更改它的分享范围');
     return { sourceId: q.sourceId, text: q.text };
   });
-  const style = ['natural', 'short', 'casual'].includes(plan.style) ? plan.style : 'natural';
   const originalOrder=new Map((prepared.fullAvailableSources||prepared.payload.sources).map((source,index)=>[source.id,index]));
   const qq = prepared.payload.sources.filter(s => s.type === 'qq').sort((a,b)=>Date.parse(a.at)-Date.parse(b.at)||(originalOrder.get(a.id)??0)-(originalOrder.get(b.id)??0));
   const selection = selectMethods({ purpose: 'draft' });
   const guidance = parseDraftGuidance(plan.guidance, prepared.payload);
   requireDraftControlGuidance(guidance,prepared.payload);
-  const projectedControls=wordingControlsForContext(prepared,info),safeWordingControls=projectedControls.controls;
+  const projectedControls=wordingControlsForContext(prepared,{...info,expressionPlan:plan}),safeWordingControls=projectedControls.controls;
+  const style=['natural','short','casual'].includes(projectedControls.style)?projectedControls.style:'natural';
   const payload = { promptVersion: PROMPT_VERSION, purpose: 'draft', method: METHODS.draft, methodCards: selection.methods.map(runtimeCard),
     methodSelection: { version: selection.version, candidates: ['compose'], maxApplied: 1 }, style, asOf: prepared.payload.asOf,
     viewerTimeZone:prepared.payload.viewerTimeZone||Intl.DateTimeFormat().resolvedOptions().timeZone,
@@ -47,7 +47,7 @@ function buildDraftContext(prepared, plan, info) {
     ...(safeWordingControls.items.length?{wordingControls:safeWordingControls}:{}),
     replyFocus: prepared.payload.replyFocus || [],
     presentation: { language: typeof plan.language==='string'&&/^[a-z]{2,3}(?:-[a-zA-Z0-9]{2,8})*$/.test(plan.language) ? plan.language : 'zh',
-      ...(typeof plan.askFollowup==='boolean'?{askFollowup:plan.askFollowup}:{}),...(typeof plan.useEmoji==='boolean'?{useEmoji:plan.useEmoji}:{}) } };
+      ...projectedControls.presentation } };
   let draftTaskTextReferences=prepared.payload.taskContext?.sourceTextLocation==='sources';
   let draftRecentMetadata='full';
   const refreshDraftTask=()=>{if(!prepared.payload.taskContext)return;const task=prepared.payload.taskContext,ids=new Map(payload.sources.map(s=>[s.id,s]));

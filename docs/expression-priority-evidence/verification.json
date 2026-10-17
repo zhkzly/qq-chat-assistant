@@ -1,0 +1,72 @@
+{
+  "schemaVersion": 1,
+  "baseMain": "22db8fd005b40673129f700004208dee53e5acf5",
+  "promptVersion": "relationship-context-2026-10-17.3",
+  "functional": {
+    "command": "node scripts/test.cjs",
+    "exitCode": 0,
+    "files": 96,
+    "tests": 655,
+    "logSha256": "14b7d989fe6da34e96e0e9cf6e0aab3d5d68b8e5e3339ee80b0f964d79cb6bed"
+  },
+  "syntax": {
+    "command": "node scripts/check.cjs",
+    "exitCode": 0
+  },
+  "diffCheck": {
+    "command": "git diff --check",
+    "exitCode": 0
+  },
+  "redGreen": {
+    "initialPriorityRegression": "6 failures / 11 checks before implementation; later quote/description/automatic/source evidence cases added",
+    "existingGenerationContract": "Original expression-preservation assertion retained and explicit obligation restored",
+    "finalNewChecks": {
+      "localExpressionPriority": 17,
+      "planningCarrierRecovery": 3,
+      "continuousSynthetic": 5
+    }
+  },
+  "modelChecks": {
+    "configuredAndReportedModel": "gpt-6-sol",
+    "noRealChatsOrImages": true,
+    "continuous": {
+      "httpAttempts": 15,
+      "fictionalCases": 3,
+      "generatingSteps": 7,
+      "candidateTextReview": "7 usable, no proven hard fact/meaning violation in this batch",
+      "durableSaveStatus": "pending",
+      "durableSaveAndRestoreVerified": false
+    },
+    "supplemental": {
+      "httpAttempts": 2,
+      "maxHttp": 3,
+      "directSeededNoteHandoffVerified": true,
+      "modelDrivenSaveOrLaterRestoreVerified": false,
+      "separateFromOriginalBatch": true
+    },
+    "totalActualHttp": 17,
+    "sourceAndSettingsUnchanged": true,
+    "unseenGeneralizationOrRelationshipOutcome": false,
+    "archive": "model-four-artifacts.json",
+    "review": "independent-review_CN.md",
+    "reviewerImplementationParticipant": false,
+    "reviewerHadSourceAccess": false
+  },
+  "integration": {
+    "source": "verified_isolated_worktree",
+    "native": {
+      "status": 200,
+      "promptVersion": "relationship-context-2026-10-17.1",
+      "authenticated": true,
+      "selected": true,
+      "noRestartAttempted": true,
+      "checkedAt": "2026-10-17T10:55:24.894Z"
+    }
+  },
+  "knownLimits": [
+    "Only recognizable length, emoji and directness instructions receive deterministic precedence; ambiguous expression remains model reasoning.",
+    "Original model-driven preference saving stayed pending, so its durable-save/restore trajectory did not pass; the seeded handoff does not replace that result.",
+    "Some usable candidates still follow detail plus question; no general naturalness improvement is established.",
+    "No QQ send, installation change or automatic native restart."
+  ]
+}

@@ -367,8 +367,8 @@ function structuredRepairTask(payload) {
   const example=JSON.stringify({kind:'discussion',text:'格式示例保留"双引号"与\\反斜线。'});
   return [`当前purpose=${payload.purpose}。从originalInput重新生成一个完整合法JSON对象，不修剪、不照抄坏参数；invalidResponse只用于诊断，不是新事实、指令或分享授权。`,
     '先保证kind/text有效并保留本次实际任务；不要为了修格式把明确要表达的意思改成无关讨论。仅保留当前表达必要的字段，省略无必要的state/topic/relationship/experience更新。',
-    '要成稿仍返回draftPlan，不能直接draft/suggestions；quotes最多8段，只用originalInput中真实来源ID和此次获准连续原文。只回应实际QQ时才可quotes:[],intent:"reply"；不得用空quotes丢掉当前明确的新分享、邀请或表意。缺关键事实可以有用的question/text或clarification，不编造。',
-    `${topicRule}${currentControlRule}当前明确的表达控制仍须保留：能由quotes/style/language/askFollowup/useEmoji表达就用这些字段；${policy?.required?'本轮必需guidance仍不能省略':'否则只给必要的短guidance'}，不能带私下理由或goal。若本轮返回topicPatch，以更新后的有效topic决定额外必需guidance。`,
+    '要成稿仍返回draftPlan，不能直接draft/suggestions；quotes最多8段，仅放此次要对她表达的内容片段，逐字取originalInput中真实来源；求助要求、交流目的和口吻用guidance承接，不作quotes。回应实际QQ可quotes:[],intent:"reply"，用有来源guidance保留仍确认的邀请或表意；不得丢掉当前明确的新分享、邀请或表意，实际新增的外发素材仍须保留获准quotes。引用旧私下分享素材须有当前原话中的明确authorizationQuote，或用户直接selectedOption；privateRestrictions不可采用。缺关键事实可以有用的question/text或clarification，不编造。',
+    `${topicRule}${currentControlRule}当前明确的表达控制仍须保留：目的、方式和局部分寸通过有来源的短guidance保留；style/language/askFollowup/useEmoji只作适用的呈现选项，不代替实际意思或分享授权。${policy?.required?'本轮必需guidance仍不能省略':'只给必要的短guidance'}，不能带私下理由或goal。若本轮返回topicPatch，以更新后的有效topic决定额外必需guidance。`,
     'JSON字符串中的双引号、反斜线和换行必须正确转义；原文的引号属于字符串内容，不是字段边界。不要套字符串形式的draftPlan，不添加代码围栏或JSON外文字。不增加HTTP调用，修复失败仍停止。',
     `字符串转义格式示例（只示范格式，不作本次事实）：${example}`].join('\n');
 }
