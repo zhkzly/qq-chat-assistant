@@ -1,0 +1,66 @@
+{
+  "schemaVersion": 1,
+  "scope": "Configured reply preference handoff and invitation/tone separation",
+  "promptVersion": "relationship-context-2026-10-17.2",
+  "methodVersion": "relationship-methods-2026-10-17.2",
+  "functional": {
+    "command": "node scripts/test.cjs",
+    "exitCode": 0,
+    "testFiles": 93,
+    "tests": 630,
+    "testLogSha256": "c1c7b77f7ddb49a6d0ba12bb7e1095700ead7c07e11889b8408fc3896aa6b79b"
+  },
+  "syntax": {
+    "command": "node scripts/check.cjs",
+    "exitCode": 0
+  },
+  "diffCheck": {
+    "command": "git diff --check",
+    "exitCode": 0
+  },
+  "modelEvidence": {
+    "file": "four-artifacts.json",
+    "fictionalOnly": true,
+    "baselineCompleted": 4,
+    "initialCandidateCompleted": 3,
+    "initialFailureRetained": true,
+    "finalCandidateCompleted": 4,
+    "httpAttempts": [
+      8,
+      7,
+      8
+    ],
+    "finalSourceAndSettingsUnchanged": true,
+    "wordingSuperiorityEstablished": false,
+    "unseenGeneralization": false
+  },
+  "review": {
+    "readOnlyCrossReview": true,
+    "blind": false,
+    "priorProjectParticipant": true,
+    "newModelCallsByReviewer": 0
+  },
+  "behavior": {
+    "newTonePresetUi": false,
+    "existingFreeTextPreference": true,
+    "extraCallForPreferenceHandoff": false,
+    "authorizationGuardRelaxed": false,
+    "automaticQQSend": false
+  },
+  "integration": {
+    "source": "verified_isolated_worktree",
+    "native": {
+      "status": 200,
+      "promptVersion": "relationship-context-2026-10-17.1",
+      "checkedAt": "2026-10-17T04:08:33.288Z",
+      "restarted": false,
+      "noRealContentExported": true
+    }
+  },
+  "knownLimits": [
+    "Natural wording remains user-reviewed; final I1 is wordier and has both laughter and emoji.",
+    "Arbitrary humor, warmth or teasing labels are not guaranteed normalized composer controls.",
+    "No UI change; no new native desktop integration is claimed.",
+    "Source merge does not update a running worker."
+  ]
+}

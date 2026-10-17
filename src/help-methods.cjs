@@ -2,7 +2,7 @@
 
 // These are fallible assistance methods, not inferred facts or relationship stages.
 // Research references were checked in the local context-memory research package.
-const METHOD_VERSION = 'relationship-methods-2026-10-16.3';
+const METHOD_VERSION = 'relationship-methods-2026-10-17.2';
 const sources = {
   listening: { kind: 'human-study', source: 'https://doi.org/10.1177/0146167217747874',
     limit: '倾听与态度清晰度的实验，未检验 AI 恋爱咨询；清楚不等于正确。' },
@@ -33,8 +33,8 @@ const operations={
  respond:'先回应她实际强调的细节或意思，选贴切反应、相关后续或获准的真实分享；认可贴着具体事情，不替她打分或擅自叮嘱收尾；有内容的问题照常可问，明确忙或告别按当轮收住。',
  compose:'把选好的具体意思、事实与局部分寸写成一条能直接改用的话，保留有内容的细节、问题或邀请；短guidance只控表达，不抄私下理由，不编自己的经历。',
  review:'按时间找回实际来往与更正，指出已了解什么、还有哪个具体细节或共同事项可接；友好、活动与恋爱意愿分开，兼顾反证，不用回复数或好感分判进展。',
- shared_activity:'用户想一起做事时，从真实兴趣和已知条件提出具体活动与邀请，未知安排留给选择；提议、实际邀请、接受、发生分开，取消不复活，不编共同喜好。',
- correction:'用用户这次原话改受影响的理解、方向或表达，说明哪些旧方式不再适用并交接新意思；局部改稿先改善当前帮助，明确长期要求且回执成功才说已保存。',
+ shared_activity:'想一起做事时，按本轮意思选聊兴趣、轻松试探或具体活动与邀请；明确邀约保留对象与力度，未知安排留选择。提议、发出、接受、发生分开，取消不复活，不编共同喜好。',
+ correction:'按反馈改被否定部分，保留用户仍确认的目的、方式与轻松趣味；嫌做作不自动改成直问或取消邀请，助手旧建议不算用户确认。局部改稿不升长期偏好，保存须有回执。',
  express_interest:'用户想表意时，按真实意思表达具体欣赏、想多认识或约会邀请，保留所要的力度和选择空间；历史少不阻止表达，朋友边界或拒绝不解释成隐藏喜欢。'
 };
 // These are teaching illustrations, never candidate facts or shareable quotes.

@@ -16,7 +16,7 @@ test('reply transports remain hints rather than explicit choices of a help metho
  assert.equal(selectMethods({purpose:'review'}).selection,'explicit');
  assert.equal(selectMethods({purpose:'discussion'}).selection,'candidates');
  assert.equal(selectMethods({purpose:'draft'}).methods.length,1);
- assert.equal(METHOD_VERSION,'relationship-methods-2026-10-16.3');
+ assert.equal(METHOD_VERSION,'relationship-methods-2026-10-17.2');
 });
 
 test('production help and recovery lanes share present-task reasoning within the existing instruction budget',()=>{

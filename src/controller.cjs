@@ -401,7 +401,7 @@ class Controller extends EventEmitter {
       if(this.memoryAbort===abort){this.memoryBusy=false;this.memoryAbort=null;this.changed();if(this.store.memoryStatus(scope).pending)this.scheduleMemory(2500);}
     }
   }
-  async assist({ text, purpose = 'discussion', materialIds = [], sourceTurnIds = [], selectedOption, transient = false, resumeTurnId, resumes=0, taskId, origin='user',feedbackIntentId,privateKind,responsePreference,candidateInputSeq,currentCandidateRef,candidateAlternative=false } = {}) {
+  async assist({ text, purpose = 'discussion', materialIds = [], sourceTurnIds = [], selectedOption, transient = false, resumeTurnId, resumes=0, taskId, origin='user',feedbackIntentId,privateKind,responsePreference=this.instruction,candidateInputSeq,currentCandidateRef,candidateAlternative=false } = {}) {
     const scope = this.requireScope();
     // Freeze one observation across lookups, compaction and format repair.
     // Reconstruct this controller and its CandidateSession together on service refresh.
