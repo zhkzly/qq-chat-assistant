@@ -5,7 +5,7 @@ const {PROMPT_VERSION,METHODS}=require('./shared.cjs');
 const {sameScopeIfPresent}=require('./source-snapshot.cjs');
 const {contextBudget,finish}=require('./budget-manifest.cjs');
 const {projectRecentContext}=require('./policy.cjs');
-const {wordingControls}=require('./wording-controls.cjs');
+const {wordingControlsForContext}=require('./wording-controls.cjs');
 function buildDraftContext(prepared, plan, info) {
   if (!sameScopeIfPresent({ scope: prepared.manifest.scope }, info.scope)) throw new Error('当前联系人已变化，请重新组织草稿');
   const settings=info.settings||{model:prepared.manifest.requestModel,assistantRequestBytes:prepared.manifest.requestByteBudget};
@@ -39,7 +39,7 @@ function buildDraftContext(prepared, plan, info) {
   const selection = selectMethods({ purpose: 'draft' });
   const guidance = parseDraftGuidance(plan.guidance, prepared.payload);
   requireDraftControlGuidance(guidance,prepared.payload);
-  const safeWordingControls=wordingControls(prepared.payload.preferences,prepared.payload.taskContext?.responsePreference);
+  const projectedControls=wordingControlsForContext(prepared,info),safeWordingControls=projectedControls.controls;
   const payload = { promptVersion: PROMPT_VERSION, purpose: 'draft', method: METHODS.draft, methodCards: selection.methods.map(runtimeCard),
     methodSelection: { version: selection.version, candidates: ['compose'], maxApplied: 1 }, style, asOf: prepared.payload.asOf,
     viewerTimeZone:prepared.payload.viewerTimeZone||Intl.DateTimeFormat().resolvedOptions().timeZone,
@@ -93,10 +93,12 @@ function buildDraftContext(prepared, plan, info) {
     payload.sources.splice(removable,1);
   }
   // Do not serialize the private request, goal, assistant summary or excluded-source negatives.
-  const referencedSources=[...new Set([...quotes.map(q => q.sourceId), ...controlIds])].map(id=>({id,revision:byId.get(id).revision}));
+  const referencedSources=[...new Set([...quotes.map(q => q.sourceId), ...controlIds])].map(id=>({id,revision:byId.get(id).revision}))
+    .concat(projectedControls.sourceRefs.map(ref=>({id:ref.sourceId,revision:ref.revision})));
   const uniqueSources = entries => [...new Map(entries.map(source => [source.id, source])).values()];
   const safeSources=uniqueSources([...payload.sources,...referencedSources]),allSafeSources=uniqueSources([...qq,...referencedSources]);
   const context=finish(payload,safeSources,info,allSafeSources,prepared.manifest.byteBudget,budget);
+  context.manifest.wordingControlEvidence={sourceRefs:projectedControls.sourceRefs,preferenceRefs:projectedControls.preferenceRefs};
   if(prepared.images)context.images=structuredClone(prepared.images);
   if(prepared.mediaContext||prepared.payload.imageContext)context.mediaContext={mode:payload.imageContext.mode,omitted:structuredClone(payload.imageContext.omitted)};
   context.essentialSourceIds=[...essentialIds];

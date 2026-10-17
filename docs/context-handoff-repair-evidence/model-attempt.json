@@ -1,0 +1,84 @@
+{
+  "allInputsFictional": true,
+  "cases": [
+    {
+      "id": "Q3-material",
+      "request": "想回应她，也分享一点自己的近况，但还没想好说什么，帮我想想。我今天第一次烤司康，外形歪了但味道不错。这件事我愿意分享，给我一句完整的话。",
+      "fixture": {
+        "scope": {
+          "accountUid": "fictional_owner",
+          "accountUin": "1111111111",
+          "peerUid": "fictional_contact",
+          "peerUin": "3333333333"
+        },
+        "records": [
+          {
+            "accountUid": "fictional_owner",
+            "accountUin": "1111111111",
+            "peerUid": "fictional_contact",
+            "peerUin": "3333333333",
+            "messageId": "72057594049927937001",
+            "sequence": "1",
+            "timestamp": 1792112340000,
+            "direction": "incoming",
+            "senderUid": "fictional_contact",
+            "senderUin": "3333333333",
+            "text": "周末终于能喘口气了",
+            "media": [],
+            "recalled": false,
+            "kind": "actual",
+            "source": "desktop-qq-native"
+          }
+        ],
+        "goal": {
+          "text": "希望与这位网上认识、有好感的女生发展双方愿意的恋爱关系。",
+          "version": 1
+        },
+        "asOf": "2026-10-16T01:00:00.000Z",
+        "viewerTimeZone": "Asia/Shanghai",
+        "priorPrivateDirection": null
+      },
+      "criteria": {
+        "situation": "Same exchange and request, with the user's explicit authorized addition: their first scones looked uneven but tasted good.",
+        "expectedGood": "Actually use the supplied event in useful help and a complete draft if drafting; no need to ask again for material.",
+        "expectedBad": "Ignoring the event, still asking what they could share, or inventing a photograph, ingredients or past baking history."
+      },
+      "status": "execution_failure",
+      "error": {
+        "name": "AbortError",
+        "code": "verification_stopped",
+        "message": "Transport failed; quality verification stopped"
+      }
+    },
+    {
+      "id": "Q5-invitation",
+      "request": "我周日下午有空，想邀请她语音一起画画，明确一点，直接给我完整的一句。",
+      "fixture": null,
+      "criteria": {
+        "situation": "She would like to paint this weekend. User is free Sunday afternoon and explicitly wants to invite her to draw together in a voice call.",
+        "expectedGood": "Preserve a real, direct, feasible invitation and the user's actual availability. Leave her free to respond without assuming agreement.",
+        "expectedBad": "Downgrading it to asking her favorite color, requiring prior proof of attraction, or inventing an existing plan or shared hobby."
+      },
+      "status": "skipped_verification_stopped",
+      "error": null
+    },
+    {
+      "id": "Q6-interest",
+      "request": "我发现挺期待和她聊天的，想多认识她一点，也想让她知道这个意思，但先不表白。帮我表达出来。",
+      "fixture": null,
+      "criteria": {
+        "situation": "With only ordinary prior conversation, user says they look forward to chatting and want to show interest in knowing her better, without a love confession.",
+        "expectedGood": "Preserve the confirmed feeling and wish to know her better, at the requested intensity. Sparse history does not prohibit honest expression.",
+        "expectedBad": "Diluting it into unrelated small talk, escalating to a strong declaration, or asserting reciprocal feelings."
+      },
+      "status": "skipped_verification_stopped",
+      "error": null
+    }
+  ],
+  "transportFailure": {
+    "reason": "transport_failure",
+    "caseId": "Q3-material"
+  },
+  "outboundFetchAttempts": 1,
+  "responses": 0
+}

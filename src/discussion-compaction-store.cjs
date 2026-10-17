@@ -2,7 +2,7 @@
 const {createHash}=require('node:crypto');
 const {sourceClosure}=require('./provenance.cjs');
 
-const DISCUSSION_COMPACTION_VERSION='discussion-compaction-2026-10-14.1';
+const DISCUSSION_COMPACTION_VERSION='discussion-compaction-2026-10-17.1';
 const LIMITS=Object.freeze({summaryBytes:8000,quoteBytes:6000,quotes:12,turns:128,turnDependencies:384,sources:1024,retained:3});
 const plain=value=>!!value&&typeof value==='object'&&!Array.isArray(value)&&[Object.prototype,null].includes(Object.getPrototypeOf(value));
 const canonical=value=>Array.isArray(value)?value.map(canonical):plain(value)?Object.fromEntries(Object.keys(value).sort().filter(key=>value[key]!==undefined).map(key=>[key,canonical(value[key])])):value;
@@ -12,7 +12,9 @@ function text(value,name,max=256){if(typeof value!=='string'||!value.trim()||val
 function integer(value,name){if(!Number.isSafeInteger(value)||value<0)throw new Error(`Invalid discussion compaction ${name}`);return value;}
 function fingerprint(value,name){if(typeof value!=='string'||!/^[a-f0-9]{64}$/.test(value))throw new Error(`Invalid discussion compaction ${name}`);return value;}
 function sameRef(a,b){return plain(a)&&plain(b)&&a.artifactId===b.artifactId&&a.version===b.version;}
-function eligibleDiscussionTurns(companion) {
+// Readability and compression eligibility are different authorities. A user
+// may reference an automatic artifact without making it ordinary dialogue.
+function readableDiscussionTurns(companion) {
   let allowed=true;const turns=[];
   for(const turn of companion.turns||[]){
     if(turn.role==='user')allowed=!turn.memoryExcluded&&!['feedback','feedback_ref'].includes(turn.kind);
@@ -20,13 +22,37 @@ function eligibleDiscussionTurns(companion) {
   }
   return turns;
 }
+function automaticDiscussionTurnIds(companion,{store,scope}={}) {
+  const result=new Set((companion.turns||[]).filter(turn=>turn.role==='assistant'&&turn.origin==='automatic').map(turn=>turn.id));
+  const scopeFields=['accountUid','accountUin','peerUid','peerUin'];
+  if(!scope||!scopeFields.every(field=>typeof scope[field]==='string'&&scope[field].trim()))return result;
+  const requests=new Set();
+  if(store){
+    const key=store.scopeKey(scope);
+    if(store.db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='assistant_tasks'").get())
+      for(const task of store.db.prepare("SELECT id FROM assistant_tasks WHERE scope_key=? AND origin='automatic'").all(key))requests.add(task.id);
+  }
+  // Retained runs supplement the durable ledger only when their captured scope
+  // proves the exact account/contact binding. Neither prose nor a replyId is
+  // enough to infer an old turn's origin.
+  for(const run of companion.runs||[]){
+    if(typeof run.id!=='string'||!run.id.trim()||!scopeFields.every(field=>run.manifest?.scope?.[field]===scope[field]))continue;
+    if(run.manifest?.invocation?.origin==='automatic'||run.payload?.taskContext?.invocation?.origin==='automatic')requests.add(run.id);
+  }
+  for(const turn of companion.turns||[])if(turn.role==='assistant'&&requests.has(turn.requestId))result.add(turn.id);
+  return result;
+}
+function eligibleDiscussionTurns(companion,options={}) {
+  const automatic=automaticDiscussionTurnIds(companion,options);
+  return readableDiscussionTurns(companion).filter(turn=>!automatic.has(turn.id));
+}
 function discussionTurnFingerprint(turn) {
   if(!plain(turn)||!['user','assistant'].includes(turn.role)||typeof turn.text!=='string')throw new Error('Invalid original discussion turn');
   return hash(turn);
 }
 function validateDiscussionTurnFingerprints(companion,references,{newTurnId}={}) {
   if(!plain(references)||Object.keys(references).length>LIMITS.turnDependencies)throw new Error('Invalid discussion turn fingerprint dependencies');
-  const byId=new Map(eligibleDiscussionTurns(companion).map(turn=>[turn.id,turn]));
+  const byId=new Map(readableDiscussionTurns(companion).map(turn=>[turn.id,turn]));
   for(const [id,revision]of Object.entries(references)){
     if(id===newTurnId||!byId.has(id)||discussionTurnFingerprint(byId.get(id))!==fingerprint(revision,'turn fingerprint'))throw new Error('Original discussion turn dependency changed or disappeared');
   }
@@ -41,15 +67,15 @@ function discussionTopicBinding(companion) {
   return hash({activeId:active.id,lifecycle:active.lifecycle,objective:active.objective,direction:active.direction,constraints:active.constraints,purposeBindings});
 }
 function discussionModelBinding(baseUrl,model) {return hash({baseUrl:String(baseUrl||''),model:String(model||'')});}
-function coveredTurns(companion,ids) {
+function coveredTurns(companion,ids,options={}) {
   if(!Array.isArray(ids)||!ids.length||ids.length>LIMITS.turns||ids.some(id=>typeof id!=='string'||!id||id.length>256)||new Set(ids).size!==ids.length)throw new Error('Invalid original discussion turn coverage');
-  const eligible=eligibleDiscussionTurns(companion),start=eligible.findIndex(turn=>turn.id===ids[0]);
+  const eligible=eligibleDiscussionTurns(companion,options),start=eligible.findIndex(turn=>turn.id===ids[0]);
   if(start<0||ids.some((id,index)=>eligible[start+index]?.id!==id))throw new Error('Discussion coverage must be a contiguous ordered slice of live original turns');
   return eligible.slice(start,start+ids.length);
 }
 function discussionCompactionEvidence(store,scope,sourceTurnIds,companion=store.getCompanion(scope)) {
   store.scopeKey(scope);
-  const turns=coveredTurns(companion,sourceTurnIds),sources=new Map(store._rawMemorySources(scope,companion).map(source=>[source.id,source])),ids=new Set();
+  const turns=coveredTurns(companion,sourceTurnIds,{store,scope}),sources=new Map(store._rawMemorySources(scope,companion).map(source=>[source.id,source])),ids=new Set();
   for(const turn of turns){
     if(turn.role==='user')ids.add(`private:${turn.id}`);
     for(const id of turn.sourceIds||[])ids.add(id);
@@ -159,7 +185,7 @@ class DiscussionCompactionStore {
       if(Object.entries(input.sourceRevisions).some(([id,revision])=>live.get(id)?.revision!==revision))return {applied:false,reason:'stale_sources'};
       text(input.summary,'summary',LIMITS.summaryBytes);
       if(Buffer.byteLength(input.summary,'utf8')>LIMITS.summaryBytes)throw new Error('Discussion compaction summary exceeds 8000 UTF-8 bytes');
-      const quoteRefs=checkedQuotes(input.quoteRefs,coveredTurns(companion,input.sourceTurnIds),input.sourceRevisions);
+      const quoteRefs=checkedQuotes(input.quoteRefs,coveredTurns(companion,input.sourceTurnIds,{store:this.store,scope}),input.sourceRevisions);
       const body={...meta,topicVersion:integer(input.topicVersion,'topic version'),summary:input.summary,sourceTurnIds:[...input.sourceTurnIds],...evidence,sourceRevisions:clone(input.sourceRevisions),quoteRefs,authority:'derived_discussion_checkpoint_not_factual_evidence'};
       const id=hash({scopeKey:key,...body}),old=this.db.prepare('SELECT record FROM discussion_compactions WHERE scope_key=? AND id=?').get(key,id);
       if(old)return {applied:true,id,record:JSON.parse(old.record),alreadyStored:true};
@@ -171,4 +197,4 @@ class DiscussionCompactionStore {
     });}catch(error){return {applied:false,reason:'invalid_discussion_compaction',detail:error.message};}
   }
 }
-module.exports={DiscussionCompactionStore,DISCUSSION_COMPACTION_VERSION,DISCUSSION_COMPACTION_LIMITS:LIMITS,discussionTurnFingerprint,discussionTopicBinding,discussionModelBinding,eligibleDiscussionTurns,discussionCompactionEvidence,validateDiscussionTurnFingerprints};
+module.exports={DiscussionCompactionStore,DISCUSSION_COMPACTION_VERSION,DISCUSSION_COMPACTION_LIMITS:LIMITS,discussionTurnFingerprint,discussionTopicBinding,discussionModelBinding,readableDiscussionTurns,automaticDiscussionTurnIds,eligibleDiscussionTurns,discussionCompactionEvidence,validateDiscussionTurnFingerprints};

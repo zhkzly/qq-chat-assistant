@@ -2,7 +2,6 @@
 const {redact}=require('../model.cjs');
 const {imageContextFor}=require('../assistant-model.cjs');
 const {runtimeCard}=require('../help-methods.cjs');
-const {eligibleDiscussionTurns}=require('../discussion-compaction-store.cjs');
 const {bytes,sanitize,pick,digest}=require('./shared.cjs');
 const {supportedByAvailable,sameScopeIfPresent}=require('./source-snapshot.cjs');
 const {modelTopic,relevantTo,projectActualActions,projectObservations,actionSources,coreCatalog}=require('./catalog.cjs');
@@ -19,7 +18,7 @@ function selectPlanningContext({options,snapshot,candidates,view,budget,coreInve
   const {payload,state,methodSelection,restrictions}=view;
   const fits=budget.fits;
   const asOf=payload.asOf;
-  const {selected,automaticTurn,explicitTurnIds,inRecentWindow,validQQ,foldedPrivateIds,essentialIds,recentPlan,timeSegments,timeCandidateIds,timePriorityIds,recentPrivateIds,reviewing,privateRequest,relevantRecord,queryText,protectedPendingIds,selectedProposal,proposals,intentSource,topicView,compacted,coveredTurnIds,candidatePool,preferredCandidateTurnIds}=candidates;
+  const {selected,automaticTurn,eligibleTurns,explicitTurnIds,inRecentWindow,validQQ,foldedPrivateIds,essentialIds,recentPlan,timeSegments,timeCandidateIds,timePriorityIds,recentPrivateIds,reviewing,privateRequest,relevantRecord,queryText,protectedPendingIds,selectedProposal,proposals,intentSource,topicView,compacted,coveredTurnIds,candidatePool,preferredCandidateTurnIds}=candidates;
   let recentContextPlan=null;const recentPriorityIds=new Set(),recentAdmissions=[],privatePriorityIds=new Set(),requiredPrivateTurnIds=new Set();
   let taskTextReferences=false,compactedPlanningViews=false;
   const sourceOrder=new Map(all.map((source,index)=>[source.id,index]));
@@ -27,7 +26,7 @@ function selectPlanningContext({options,snapshot,candidates,view,budget,coreInve
     payload.sources = [...selected.values()].sort((a,b)=>(sourceOrder.get(a.id)??Number.MAX_SAFE_INTEGER)-(sourceOrder.get(b.id)??Number.MAX_SAFE_INTEGER)); payload.allowedMaterialIds=payload.sources.filter(s=>s.type==='note'&&s.use==='draft').map(s=>s.id);
     reconcilePlanningViews(payload);
     payload.deferredContext.qqSourceCount=all.filter(s=>s.type==='qq'&&!selected.has(s.id)).length;
-    payload.deferredContext.privateTurnCount=eligibleDiscussionTurns(companion).filter(t=>t.id!==turn.id&&!payload.privateConversation.some(entry=>entry.id===t.id)).length;
+    payload.deferredContext.privateTurnCount=eligibleTurns.filter(t=>t.id!==turn.id&&!payload.privateConversation.some(entry=>entry.id===t.id)).length;
     payload.deferredContext.relationshipClaimCount=(relationshipContext?.claims||[]).length-(payload.relationshipContext?.claims||[]).length;
     const omittedRecentQQ=[...timeCandidateIds].filter(id=>!selected.has(id)).length,omittedRecentPrivate=[...recentPrivateIds].filter(id=>!selected.has(id)&&!foldedPrivateIds.has(id)).length;
     if(omittedRecentQQ)payload.deferredContext.recentQQSourceCount=omittedRecentQQ;else delete payload.deferredContext.recentQQSourceCount;

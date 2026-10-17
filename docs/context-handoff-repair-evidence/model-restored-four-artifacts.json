@@ -1,0 +1,2149 @@
+{
+  "allInputsFictional": true,
+  "promptVersion": "relationship-context-2026-10-17.1",
+  "model": "gpt-6-sol",
+  "reportedModels": [
+    "gpt-6-sol"
+  ],
+  "physicalProviderIdentityVerified": false,
+  "httpAttempts": 6,
+  "httpAttemptCap": 9,
+  "sourceUnchanged": true,
+  "settingsUnchanged": true,
+  "stopped": null,
+  "cases": [
+    {
+      "caseId": "Q3-material",
+      "criteria": {
+        "situation": "Same exchange and request, with the user's explicit authorized addition: their first scones looked uneven but tasted good.",
+        "expectedGood": "Actually use the supplied event in useful help and a complete draft if drafting; no need to ask again for material.",
+        "expectedBad": "Ignoring the event, still asking what they could share, or inventing a photograph, ingredients or past baking history."
+      },
+      "request": "想回应她，也分享一点自己的近况，但还没想好说什么，帮我想想。我今天第一次烤司康，外形歪了但味道不错。这件事我愿意分享，给我一句完整的话。",
+      "planningInput": {
+        "promptVersion": "relationship-context-2026-10-17.1",
+        "purpose": "discussion",
+        "method": "围绕用户真正希望的恋爱发展选择当前帮助，可接续、邀请、表达好感或讨论。意思明确就直接帮助，只问会改变建议的必要问题。允许暂缓或不用助手，不强制每次制定目的。",
+        "methodCards": [
+          {
+            "id": "respond",
+            "version": "relationship-methods-2026-10-16.3",
+            "goalContribution": "让对方所说的事情得到具体回应，并保留交流的自然延续。",
+            "applicability": "有实际来信，需要理解、回应分享或接续她提出的话题。",
+            "avoid": "读心、审讯式连问、模板夸奖、立刻转移到自己或无限延长聊天。",
+            "requiredContext": [
+              "currentRequest",
+              "latestCompleteExchange",
+              "relevantEarlierEvidence",
+              "applicablePreferences"
+            ],
+            "instruction": "先回应她实际强调的细节或意思，选贴切反应、相关后续或获准的真实分享；认可贴着具体事情，不替她打分或擅自叮嘱收尾；有内容的问题照常可问，明确忙或告别按当轮收住。",
+            "examples": [
+              {
+                "authority": "fictional_illustration_not_task_evidence",
+                "situation": "虚构来信：椅子终于装好，试坐才发现靠背装反了。",
+                "approach": "回应装好后才发现装反的反差，轻松接住分享；若她在求助，再跟进处理方式。例子展示一种反应，实际交流仍可选择贴切的问题或分享。",
+                "wording": "都到试坐这一步了，靠背还给你留了一关哈哈。"
+              }
+            ],
+            "outputKinds": [
+              "discussion",
+              "options"
+            ],
+            "evidenceLimit": "日记中的披露、回应感与心理亲近关联；不能证明一句话导致浪漫兴趣。 分享好事与回应方式主要为观察证据，含既有伴侣；不应套成夸奖模板。 受控邮件语气任务，不能概括所有现代 QQ 交流；支持检查歧义，不要求消除幽默。"
+          },
+          {
+            "id": "choose_next_step",
+            "version": "relationship-methods-2026-10-16.3",
+            "goalContribution": "在聊天之外也能选择适合当下的关系行动。",
+            "applicability": "想联系但不知道聊什么、何时继续，或有多个可行方向。",
+            "avoid": "固定关系阶段、每天联系配额、将沉默当作拒绝或好感、强推任何一种行动。",
+            "requiredContext": [
+              "currentRequest",
+              "goal",
+              "currentState",
+              "recentActualExchange",
+              "availableMaterial"
+            ],
+            "instruction": "想联系时，从她的生活细节、未跟进旧事或用户真实材料选一个具体切口，说明这句增加什么；可回应、了解、分享、活动或表意，末条自己发不等于等待。",
+            "examples": [
+              {
+                "authority": "fictional_illustration_not_task_evidence",
+                "situation": "虚构旧交流：她前天练口琴配乐，中间换气处总断，随后告别。今天用户想联系，没新鲜近况。",
+                "approach": "用未跟进的具体练习进展重新开口，旧告别留在当时，不假称用户听过或也会口琴。",
+                "wording": "你前两天练的那段配乐，换气那一下后来接顺了吗？"
+              }
+            ],
+            "outputKinds": [
+              "discussion",
+              "options"
+            ],
+            "evidenceLimit": "女性学生在同步 QQ 任务中的相互披露；不证明异性异步关系结果，样本报告存在差异。 同性交友、指定次数的实时互动；不提供联系频率、恋爱概率或共同活动的因果保证。"
+          }
+        ],
+        "methodCatalog": [
+          {
+            "id": "respond",
+            "version": "relationship-methods-2026-10-16.3",
+            "name": "理解并回应她的话",
+            "instruction": "先回应她实际强调的细节或意思，选贴切反应、相关后续或获准的真实分享；认可贴着具体事情，不替她打分或擅自叮嘱收尾；有内容的问题照常可问，明确忙或告别按当轮收住。"
+          },
+          {
+            "id": "choose_next_step",
+            "version": "relationship-methods-2026-10-16.3",
+            "name": "比较下一步",
+            "instruction": "想联系时，从她的生活细节、未跟进旧事或用户真实材料选一个具体切口，说明这句增加什么；可回应、了解、分享、活动或表意，末条自己发不等于等待。"
+          },
+          {
+            "id": "express_interest",
+            "version": "relationship-methods-2026-10-16.3",
+            "name": "表达好感与关系意图",
+            "instruction": "用户想表意时，按真实意思表达具体欣赏、想多认识或约会邀请，保留所要的力度和选择空间；历史少不阻止表达，朋友边界或拒绝不解释成隐藏喜欢。"
+          },
+          {
+            "id": "shared_activity",
+            "version": "relationship-methods-2026-10-16.3",
+            "name": "考虑一起做点什么",
+            "instruction": "用户想一起做事时，从真实兴趣和已知条件提出具体活动与邀请，未知安排留给选择；提议、实际邀请、接受、发生分开，取消不复活，不编共同喜好。"
+          },
+          {
+            "id": "clarify",
+            "version": "relationship-methods-2026-10-16.3",
+            "name": "理清这次想表达什么",
+            "instruction": "用户没想清时，先给一种可修正理解和能做的帮助；只私下核对会改变这句内容的事实，意图明确就接着做，不把求助变成目的问卷。"
+          },
+          {
+            "id": "compose",
+            "version": "relationship-methods-2026-10-16.3",
+            "name": "组织参考表达",
+            "instruction": "把选好的具体意思、事实与局部分寸写成一条能直接改用的话，保留有内容的细节、问题或邀请；短guidance只控表达，不抄私下理由，不编自己的经历。"
+          },
+          {
+            "id": "review",
+            "version": "relationship-methods-2026-10-16.3",
+            "name": "找回与回顾",
+            "instruction": "按时间找回实际来往与更正，指出已了解什么、还有哪个具体细节或共同事项可接；友好、活动与恋爱意愿分开，兼顾反证，不用回复数或好感分判进展。"
+          },
+          {
+            "id": "correction",
+            "version": "relationship-methods-2026-10-16.3",
+            "name": "纠正理解与用法",
+            "instruction": "用用户这次原话改受影响的理解、方向或表达，说明哪些旧方式不再适用并交接新意思；局部改稿先改善当前帮助，明确长期要求且回执成功才说已保存。"
+          }
+        ],
+        "methodSelection": {
+          "version": "relationship-methods-2026-10-16.3",
+          "selection": "candidates",
+          "candidates": [
+            "respond",
+            "choose_next_step",
+            "express_interest",
+            "shared_activity",
+            "clarify",
+            "compose",
+            "review",
+            "correction"
+          ],
+          "maxApplied": 2,
+          "selectionRule": "用户此次明确意图优先于旧 topic、focus、purpose和候选顺序；模糊续问承接仍有效的商量方向与局部纠正，明确改方向立即替换。候选不是必走步骤，可选择零至两个已载入方法或直接回答，不必先提问。缺方法卡不等于缺用户信息，不要求用户选择方法或固定关系阶段。",
+          "feedbackRule": "只使用来源有效且适用于当前场景的反馈；单次纠正不自动升级为长期偏好，不自动演化方法。论文提供有限机制参考，不能保证这段关系的结果。"
+        },
+        "asOf": "2026-10-16T01:00:00.000Z",
+        "viewerTimeZone": "Asia/Shanghai",
+        "goal": "希望与这位网上认识、有好感的女生发展双方愿意的恋爱关系。",
+        "intentAuthority": {
+          "sourceId": "private:03fc9a5a-d0a7-4537-bcf3-3686511d7460"
+        },
+        "generationOrigin": "private_discussion",
+        "currentObservationSourceId": null,
+        "topicContext": {
+          "version": 0,
+          "activeId": null,
+          "active": null,
+          "retained": [],
+          "authority": "private_direction_not_outbound_authorization"
+        },
+        "workingState": {
+          "version": 1,
+          "focus": "",
+          "items": [],
+          "openThreads": [],
+          "unknowns": [],
+          "possiblyStale": true,
+          "coverage": {
+            "complete": false,
+            "sourceIds": []
+          },
+          "authority": "previous_summary_needs_review"
+        },
+        "coverage": {
+          "status": "partial",
+          "checkedAt": "2026-10-16T01:00:00.000Z",
+          "source": "fictional-native-shaped-seed"
+        },
+        "selectedMaterialIds": [],
+        "allowedMaterialIds": [],
+        "expressionOptions": [],
+        "selectedOption": null,
+        "actionReceipts": [],
+        "privateRestrictions": [],
+        "preferences": [],
+        "experienceProposalPolicy": {
+          "enabled": false,
+          "maxItems": 2,
+          "feedbackSourceIds": [],
+          "caseIds": []
+        },
+        "replyFocus": [],
+        "lookupHistory": [],
+        "reviewRange": null,
+        "retrievedMemory": {
+          "items": [],
+          "episodes": [],
+          "coverage": {
+            "complete": false,
+            "sourceCount": 3,
+            "retrievedCount": 2,
+            "pending": 3,
+            "processed": 0,
+            "history": {
+              "status": "partial",
+              "checkedAt": "2026-10-16T01:00:00.000Z",
+              "source": "fictional-native-shaped-seed"
+            },
+            "retrieval": "lexical-han-bigram-bm25",
+            "semanticCertainty": false
+          }
+        },
+        "memoryIndex": [],
+        "sources": [
+          {
+            "id": "qq:72057594049927937001",
+            "type": "qq",
+            "text": "周末终于能喘口气了",
+            "at": "2026-10-16T00:59:00.000Z",
+            "role": "contact",
+            "direction": "incoming",
+            "use": "discussion",
+            "messageId": "72057594049927937001",
+            "sequence": "1",
+            "senderUid": "fictional_contact",
+            "senderUin": "3333333333",
+            "revision": "c607d9203290af17373ecd6e1687bbd2099138b9a29d6a873cb272ef34e07261",
+            "speaker": "对方"
+          },
+          {
+            "id": "private:03fc9a5a-d0a7-4537-bcf3-3686511d7460",
+            "type": "private",
+            "text": "想回应她，也分享一点自己的近况，但还没想好说什么，帮我想想。我今天第一次烤司康，外形歪了但味道不错。这件事我愿意分享，给我一句完整的话。",
+            "at": "2026-10-16T01:00:00.000Z",
+            "role": "user",
+            "use": "discussion",
+            "kind": "discussion",
+            "version": 1,
+            "revision": "c60c28d482ec1284f7753b9ae4b2a1d1d9aba498056a56af512332a77bb0ba25"
+          }
+        ],
+        "privateConversation": [],
+        "evidenceRule": "historicalOnly=true 的消息仅为历史提及，后续可能有未读的更改，不可据此断言当前约定有效。possiblyStale 的状态只作需要核查的上次理解，新原话与用户纠正优先。",
+        "contextPolicy": {
+          "recentHours": 72,
+          "since": "2026-10-13T01:00:00.000Z"
+        },
+        "deferredContext": {
+          "lookupAvailable": true,
+          "qqSourceCount": 0,
+          "privateTurnCount": 0,
+          "relationshipClaimCount": 0
+        },
+        "omittedStateEntries": 0,
+        "imageContext": {
+          "version": 1,
+          "mode": "none",
+          "attached": [],
+          "omitted": []
+        },
+        "relationshipContext": {
+          "version": 3,
+          "asOf": "2026-10-16T01:00:00.000Z",
+          "claims": [],
+          "events": [],
+          "activities": [],
+          "coverage": {
+            "pending": 3,
+            "processorVersion": "relationship-memory-2026-10-12.6",
+            "bootstrapPending": false,
+            "history": {
+              "status": "partial",
+              "checkedAt": "2026-10-16T01:00:00.000Z",
+              "source": "fictional-native-shaped-seed"
+            },
+            "semanticCertainty": false
+          }
+        },
+        "experienceContext": {
+          "cases": [],
+          "adaptations": [],
+          "constraints": [
+            "仅为局部经验；不是她的心理或方法因果效果证据。",
+            "候选适用性尚未确定，核对applicability与当前任务后再使用；本轮明确意思优先，不相关或相反的指导不采用。"
+          ]
+        },
+        "work": {
+          "version": "conversation-work-2026-10-16.1",
+          "authority": "derived_work_view_not_factual_evidence",
+          "scope": "this_relationship",
+          "request": {
+            "sourceId": "private:03fc9a5a-d0a7-4537-bcf3-3686511d7460",
+            "purpose": "discussion",
+            "origin": "user",
+            "trigger": "private_request",
+            "meaningFromSource": "private:03fc9a5a-d0a7-4537-bcf3-3686511d7460",
+            "authority": "current_user_meaning_not_outbound_authorization"
+          },
+          "goal": {
+            "available": true,
+            "meaningFrom": "goal",
+            "authority": "user_owned_long_term_direction_not_wording"
+          },
+          "current": null,
+          "focus": {
+            "sourceIds": [
+              "qq:72057594049927937001"
+            ],
+            "positionFrom": "taskContext.latestActual"
+          },
+          "pendingPrivateIntent": {
+            "sourceIds": []
+          },
+          "controlsFrom": {
+            "current": "topicContext.active",
+            "responsePreference": "taskContext.responsePreference",
+            "authority": "applicable_controls_not_shareable_facts"
+          },
+          "sourceIds": [
+            "private:03fc9a5a-d0a7-4537-bcf3-3686511d7460",
+            "qq:72057594049927937001"
+          ],
+          "outputUse": "planning_only_not_outbound_authorization"
+        },
+        "materialView": {
+          "version": "conversation-materials-2026-10-16.1",
+          "items": [
+            {
+              "kind": "current_exchange",
+              "sourceIds": [
+                "qq:72057594049927937001"
+              ],
+              "novelty": "not_determined",
+              "owner": "contact",
+              "availableAs": "actual_conversation",
+              "interpretation": "read_actual_order_and_speakers"
+            }
+          ],
+          "currentIntent": {
+            "sourceId": "private:03fc9a5a-d0a7-4537-bcf3-3686511d7460",
+            "trigger": "private_request",
+            "authority": "user_meaning_not_shareable_material"
+          },
+          "authority": "evidence_navigation_not_a_script",
+          "instruction": "从这些实际内容里选择这次可聊的一点。核对已表达内容、主体、日期、后续变更和本轮控制；未知不是必须逐项提问的槽位。原文以sources为准，材料类别不代表她的心理、从未聊过或新增分享许可。"
+        },
+        "taskContext": {
+          "version": "relationship-task-2026-10-16.2",
+          "requestOrigin": "private_discussion",
+          "currentRequestSourceId": "private:03fc9a5a-d0a7-4537-bcf3-3686511d7460",
+          "invocation": {
+            "origin": "user",
+            "trigger": "private_request",
+            "requestedPurpose": "discussion"
+          },
+          "timeContext": {
+            "localNow": "2026-10-16 09:00"
+          },
+          "consultationTask": {
+            "purpose": "discussion",
+            "focusOrigin": "latest_available",
+            "focus": [
+              {
+                "sourceId": "qq:72057594049927937001",
+                "laterAvailableMessageCount": 0
+              }
+            ]
+          },
+          "latestActual": {
+            "sourceId": "qq:72057594049927937001",
+            "direction": "incoming",
+            "speaker": "对方",
+            "at": "2026-10-16T00:59:00.000Z",
+            "sequence": "1",
+            "localAt": "2026-10-16 08:59",
+            "elapsedMinutes": 1,
+            "ageMs": 60000
+          },
+          "recentExchange": [
+            {
+              "sourceId": "qq:72057594049927937001",
+              "text": "周末终于能喘口气了",
+              "speaker": "对方",
+              "direction": "incoming",
+              "at": "2026-10-16T00:59:00.000Z",
+              "localAt": "2026-10-16 08:59",
+              "sequence": "1"
+            }
+          ],
+          "selfMessagesAfterLastContact": [],
+          "recentContext": {
+            "selection": "bounded_actual_neighborhoods",
+            "limits": {
+              "maxMessages": 24,
+              "maxGapMs": 1800000,
+              "maxSpanMs": 7200000,
+              "maxAdditionalBytes": 12000
+            },
+            "windows": [
+              {
+                "anchorSourceId": "qq:72057594049927937001",
+                "reasons": [
+                  "latest"
+                ],
+                "sourceIds": [
+                  "qq:72057594049927937001"
+                ],
+                "boundaryBefore": "accessible_end",
+                "boundaryAfter": "accessible_end",
+                "omittedMessageCount": 0
+              }
+            ],
+            "gaps": [],
+            "coverage": "accessible_messages_only_not_complete_history"
+          },
+          "contactMessagesAfterLastSelf": [
+            "qq:72057594049927937001"
+          ],
+          "observationCoverage": {
+            "status": "partial",
+            "checkedAt": "2026-10-16T01:00:00.000Z"
+          },
+          "selfEvidenceSourceIds": [
+            "private:03fc9a5a-d0a7-4537-bcf3-3686511d7460"
+          ],
+          "auxiliaryPolicy": "best_effort",
+          "factsRule": "仅限已提供原话，不补未知事实或分享授权。",
+          "draftControlPolicy": {
+            "version": 1,
+            "required": true,
+            "requiredFields": [
+              "objective",
+              "allowedApproach",
+              "avoidances"
+            ],
+            "intentSourceId": "private:03fc9a5a-d0a7-4537-bcf3-3686511d7460"
+          }
+        },
+        "userRequest": {
+          "sourceId": "private:03fc9a5a-d0a7-4537-bcf3-3686511d7460",
+          "text": "想回应她，也分享一点自己的近况，但还没想好说什么，帮我想想。我今天第一次烤司康，外形歪了但味道不错。这件事我愿意分享，给我一句完整的话。"
+        }
+      },
+      "validatedGuidance": {
+        "objective": {
+          "text": "回应她周末能喘口气的分享，也说一点自己今天的近况，写成一句完整的话。",
+          "sourceIds": [
+            "private:03fc9a5a-d0a7-4537-bcf3-3686511d7460",
+            "qq:72057594049927937001"
+          ]
+        },
+        "allowedApproach": {
+          "text": "先接住她终于能喘口气的意思，再轻松分享第一次烤司康外形歪了、味道不错。",
+          "sourceIds": [
+            "private:03fc9a5a-d0a7-4537-bcf3-3686511d7460",
+            "qq:72057594049927937001"
+          ]
+        },
+        "avoidances": [],
+        "authority": "expression_control_not_message_content",
+        "instruction": "这些短控制只约束表达任务与用法，不是可发送原文。不要写出控制说明、私下理由或来源标识；保持outboundQuotes授权的意思，askFollowup:false不排除本来要表达的问题。"
+      },
+      "restrictedWordingInput": {
+        "promptVersion": "relationship-context-2026-10-17.1",
+        "purpose": "draft",
+        "method": "根据提供的拟表达片段和真实 QQ 语境组织一条自然、可修改的表达。不补造经历、心理或共同约定；不要求延长聊天。",
+        "methodCards": [
+          {
+            "id": "compose",
+            "version": "relationship-methods-2026-10-16.3",
+            "goalContribution": "帮助把用户愿意表达的真实意思写成自己的话。",
+            "applicability": "用户明确要草稿、改写，或采用已讨论且明确可分享的内容。",
+            "avoid": "把私人动机写给她、编造经历/感情/约定、强制给三条稿、将复制当发送。",
+            "requiredContext": [
+              "authorizedOutboundMaterial",
+              "actualQQContext",
+              "applicableExpressionPreferences",
+              "currentTopicAndLocalCorrection"
+            ],
+            "instruction": "把选好的具体意思、事实与局部分寸写成一条能直接改用的话，保留有内容的细节、问题或邀请；短guidance只控表达，不抄私下理由，不编自己的经历。",
+            "outputKinds": [
+              "draft"
+            ],
+            "evidenceLimit": "受控邮件语气任务，不能概括所有现代 QQ 交流；支持检查歧义，不要求消除幽默。"
+          }
+        ],
+        "methodSelection": {
+          "version": "relationship-methods-2026-10-16.3",
+          "candidates": [
+            "compose"
+          ],
+          "maxApplied": 1
+        },
+        "style": "natural",
+        "asOf": "2026-10-16T01:00:00.000Z",
+        "viewerTimeZone": "Asia/Shanghai",
+        "outboundQuotes": [
+          {
+            "sourceId": "private:03fc9a5a-d0a7-4537-bcf3-3686511d7460",
+            "text": "我今天第一次烤司康，外形歪了但味道不错。"
+          }
+        ],
+        "sources": [
+          {
+            "id": "qq:72057594049927937001",
+            "type": "qq",
+            "text": "周末终于能喘口气了",
+            "at": "2026-10-16T00:59:00.000Z",
+            "role": "contact",
+            "direction": "incoming",
+            "use": "discussion",
+            "messageId": "72057594049927937001",
+            "sequence": "1",
+            "senderUid": "fictional_contact",
+            "senderUin": "3333333333",
+            "revision": "c607d9203290af17373ecd6e1687bbd2099138b9a29d6a873cb272ef34e07261",
+            "speaker": "对方"
+          }
+        ],
+        "coverage": {
+          "status": "partial",
+          "checkedAt": "2026-10-16T01:00:00.000Z",
+          "source": "fictional-native-shaped-seed"
+        },
+        "replyFocus": [],
+        "presentation": {
+          "language": "zh"
+        },
+        "taskContext": {
+          "version": "relationship-task-2026-10-16.2",
+          "requestOrigin": "restricted_draft",
+          "invocation": {
+            "origin": "user",
+            "trigger": "private_request",
+            "requestedPurpose": "discussion"
+          },
+          "timeContext": {
+            "localNow": "2026-10-16 09:00"
+          },
+          "consultationTask": {
+            "focusOrigin": "latest_available",
+            "focus": [
+              {
+                "sourceId": "qq:72057594049927937001",
+                "laterAvailableMessageCount": 0
+              }
+            ]
+          },
+          "latestActual": {
+            "sourceId": "qq:72057594049927937001",
+            "direction": "incoming",
+            "speaker": "对方",
+            "at": "2026-10-16T00:59:00.000Z",
+            "sequence": "1",
+            "localAt": "2026-10-16 08:59",
+            "elapsedMinutes": 1,
+            "ageMs": 60000
+          },
+          "recentExchange": [
+            {
+              "sourceId": "qq:72057594049927937001",
+              "text": "周末终于能喘口气了",
+              "speaker": "对方",
+              "direction": "incoming",
+              "at": "2026-10-16T00:59:00.000Z",
+              "localAt": "2026-10-16 08:59",
+              "sequence": "1"
+            }
+          ],
+          "selfMessagesAfterLastContact": [],
+          "contactMessagesAfterLastSelf": [
+            "qq:72057594049927937001"
+          ],
+          "observationCoverage": {
+            "status": "partial",
+            "checkedAt": "2026-10-16T01:00:00.000Z"
+          },
+          "factsRule": "仅限已提供原话，不补未知事实或分享授权。",
+          "recentContext": {
+            "selection": "bounded_actual_neighborhoods",
+            "limits": {
+              "maxMessages": 24,
+              "maxGapMs": 1800000,
+              "maxSpanMs": 7200000,
+              "maxAdditionalBytes": 12000
+            },
+            "windows": [
+              {
+                "anchorSourceId": "qq:72057594049927937001",
+                "reasons": [
+                  "latest"
+                ],
+                "sourceIds": [
+                  "qq:72057594049927937001"
+                ],
+                "boundaryBefore": "accessible_end",
+                "boundaryAfter": "accessible_end",
+                "omittedMessageCount": 0
+              }
+            ],
+            "gaps": [],
+            "coverage": "accessible_messages_only_not_complete_history"
+          }
+        },
+        "imageContext": {
+          "version": 1,
+          "mode": "none",
+          "attached": [],
+          "omitted": []
+        },
+        "draftingGuidance": {
+          "objective": {
+            "text": "回应她周末能喘口气的分享，也说一点自己今天的近况，写成一句完整的话。",
+            "sourceIds": [
+              "private:03fc9a5a-d0a7-4537-bcf3-3686511d7460",
+              "qq:72057594049927937001"
+            ]
+          },
+          "allowedApproach": {
+            "text": "先接住她终于能喘口气的意思，再轻松分享第一次烤司康外形歪了、味道不错。",
+            "sourceIds": [
+              "private:03fc9a5a-d0a7-4537-bcf3-3686511d7460",
+              "qq:72057594049927937001"
+            ]
+          },
+          "avoidances": [],
+          "authority": "expression_control_not_message_content",
+          "instruction": "这些短控制只约束表达任务与用法，不是可发送原文。不要写出控制说明、私下理由或来源标识；保持outboundQuotes授权的意思，askFollowup:false不排除本来要表达的问题。"
+        }
+      },
+      "visibleHelp": "接住她“终于能喘口气”的轻松感，再分享你第一次烤司康的小插曲。\n\n接住她的话，顺势分享今天烤司康的小事。",
+      "output": {
+        "kind": "draft",
+        "text": "接住她的话，顺势分享今天烤司康的小事。",
+        "discussionExplanation": {
+          "kind": "discussion",
+          "text": "接住她“终于能喘口气”的轻松感，再分享你第一次烤司康的小插曲。"
+        },
+        "suggestions": [
+          {
+            "style": "自然",
+            "text": "终于能喘口气了，周末可以歇歇了。我今天第一次烤司康，烤出来有点歪，味道倒还不错哈哈。"
+          }
+        ]
+      },
+      "functionalChecks": [
+        {
+          "name": "actual messages and original string IDs preserved",
+          "status": "pass"
+        },
+        {
+          "name": "user-owned goal preserved",
+          "status": "pass"
+        },
+        {
+          "name": "original request preserved",
+          "status": "pass"
+        },
+        {
+          "name": "fixed observation time delivered",
+          "status": "pass"
+        },
+        {
+          "name": "scope preserved",
+          "status": "pass"
+        },
+        {
+          "name": "bounded HTTP calls",
+          "status": "pass"
+        },
+        {
+          "name": "draft excludes private rationale and note",
+          "status": "pass"
+        },
+        {
+          "name": "whole-help artifact matches displayed help",
+          "status": "pass"
+        },
+        {
+          "name": "draft artifacts contain editable wording only",
+          "status": "pass"
+        }
+      ]
+    },
+    {
+      "caseId": "Q5-invitation",
+      "criteria": {
+        "situation": "She would like to paint this weekend. User is free Sunday afternoon and explicitly wants to invite her to draw together in a voice call.",
+        "expectedGood": "Preserve a real, direct, feasible invitation and the user's actual availability. Leave her free to respond without assuming agreement.",
+        "expectedBad": "Downgrading it to asking her favorite color, requiring prior proof of attraction, or inventing an existing plan or shared hobby."
+      },
+      "request": "我周日下午有空，想邀请她语音一起画画，明确一点，直接给我完整的一句。",
+      "planningInput": {
+        "promptVersion": "relationship-context-2026-10-17.1",
+        "purpose": "discussion",
+        "method": "围绕用户真正希望的恋爱发展选择当前帮助，可接续、邀请、表达好感或讨论。意思明确就直接帮助，只问会改变建议的必要问题。允许暂缓或不用助手，不强制每次制定目的。",
+        "methodCards": [
+          {
+            "id": "respond",
+            "version": "relationship-methods-2026-10-16.3",
+            "goalContribution": "让对方所说的事情得到具体回应，并保留交流的自然延续。",
+            "applicability": "有实际来信，需要理解、回应分享或接续她提出的话题。",
+            "avoid": "读心、审讯式连问、模板夸奖、立刻转移到自己或无限延长聊天。",
+            "requiredContext": [
+              "currentRequest",
+              "latestCompleteExchange",
+              "relevantEarlierEvidence",
+              "applicablePreferences"
+            ],
+            "instruction": "先回应她实际强调的细节或意思，选贴切反应、相关后续或获准的真实分享；认可贴着具体事情，不替她打分或擅自叮嘱收尾；有内容的问题照常可问，明确忙或告别按当轮收住。",
+            "examples": [
+              {
+                "authority": "fictional_illustration_not_task_evidence",
+                "situation": "虚构来信：椅子终于装好，试坐才发现靠背装反了。",
+                "approach": "回应装好后才发现装反的反差，轻松接住分享；若她在求助，再跟进处理方式。例子展示一种反应，实际交流仍可选择贴切的问题或分享。",
+                "wording": "都到试坐这一步了，靠背还给你留了一关哈哈。"
+              }
+            ],
+            "outputKinds": [
+              "discussion",
+              "options"
+            ],
+            "evidenceLimit": "日记中的披露、回应感与心理亲近关联；不能证明一句话导致浪漫兴趣。 分享好事与回应方式主要为观察证据，含既有伴侣；不应套成夸奖模板。 受控邮件语气任务，不能概括所有现代 QQ 交流；支持检查歧义，不要求消除幽默。"
+          },
+          {
+            "id": "choose_next_step",
+            "version": "relationship-methods-2026-10-16.3",
+            "goalContribution": "在聊天之外也能选择适合当下的关系行动。",
+            "applicability": "想联系但不知道聊什么、何时继续，或有多个可行方向。",
+            "avoid": "固定关系阶段、每天联系配额、将沉默当作拒绝或好感、强推任何一种行动。",
+            "requiredContext": [
+              "currentRequest",
+              "goal",
+              "currentState",
+              "recentActualExchange",
+              "availableMaterial"
+            ],
+            "instruction": "想联系时，从她的生活细节、未跟进旧事或用户真实材料选一个具体切口，说明这句增加什么；可回应、了解、分享、活动或表意，末条自己发不等于等待。",
+            "examples": [
+              {
+                "authority": "fictional_illustration_not_task_evidence",
+                "situation": "虚构旧交流：她前天练口琴配乐，中间换气处总断，随后告别。今天用户想联系，没新鲜近况。",
+                "approach": "用未跟进的具体练习进展重新开口，旧告别留在当时，不假称用户听过或也会口琴。",
+                "wording": "你前两天练的那段配乐，换气那一下后来接顺了吗？"
+              }
+            ],
+            "outputKinds": [
+              "discussion",
+              "options"
+            ],
+            "evidenceLimit": "女性学生在同步 QQ 任务中的相互披露；不证明异性异步关系结果，样本报告存在差异。 同性交友、指定次数的实时互动；不提供联系频率、恋爱概率或共同活动的因果保证。"
+          }
+        ],
+        "methodCatalog": [
+          {
+            "id": "respond",
+            "version": "relationship-methods-2026-10-16.3",
+            "name": "理解并回应她的话",
+            "instruction": "先回应她实际强调的细节或意思，选贴切反应、相关后续或获准的真实分享；认可贴着具体事情，不替她打分或擅自叮嘱收尾；有内容的问题照常可问，明确忙或告别按当轮收住。"
+          },
+          {
+            "id": "choose_next_step",
+            "version": "relationship-methods-2026-10-16.3",
+            "name": "比较下一步",
+            "instruction": "想联系时，从她的生活细节、未跟进旧事或用户真实材料选一个具体切口，说明这句增加什么；可回应、了解、分享、活动或表意，末条自己发不等于等待。"
+          },
+          {
+            "id": "express_interest",
+            "version": "relationship-methods-2026-10-16.3",
+            "name": "表达好感与关系意图",
+            "instruction": "用户想表意时，按真实意思表达具体欣赏、想多认识或约会邀请，保留所要的力度和选择空间；历史少不阻止表达，朋友边界或拒绝不解释成隐藏喜欢。"
+          },
+          {
+            "id": "shared_activity",
+            "version": "relationship-methods-2026-10-16.3",
+            "name": "考虑一起做点什么",
+            "instruction": "用户想一起做事时，从真实兴趣和已知条件提出具体活动与邀请，未知安排留给选择；提议、实际邀请、接受、发生分开，取消不复活，不编共同喜好。"
+          },
+          {
+            "id": "clarify",
+            "version": "relationship-methods-2026-10-16.3",
+            "name": "理清这次想表达什么",
+            "instruction": "用户没想清时，先给一种可修正理解和能做的帮助；只私下核对会改变这句内容的事实，意图明确就接着做，不把求助变成目的问卷。"
+          },
+          {
+            "id": "compose",
+            "version": "relationship-methods-2026-10-16.3",
+            "name": "组织参考表达",
+            "instruction": "把选好的具体意思、事实与局部分寸写成一条能直接改用的话，保留有内容的细节、问题或邀请；短guidance只控表达，不抄私下理由，不编自己的经历。"
+          },
+          {
+            "id": "review",
+            "version": "relationship-methods-2026-10-16.3",
+            "name": "找回与回顾",
+            "instruction": "按时间找回实际来往与更正，指出已了解什么、还有哪个具体细节或共同事项可接；友好、活动与恋爱意愿分开，兼顾反证，不用回复数或好感分判进展。"
+          },
+          {
+            "id": "correction",
+            "version": "relationship-methods-2026-10-16.3",
+            "name": "纠正理解与用法",
+            "instruction": "用用户这次原话改受影响的理解、方向或表达，说明哪些旧方式不再适用并交接新意思；局部改稿先改善当前帮助，明确长期要求且回执成功才说已保存。"
+          }
+        ],
+        "methodSelection": {
+          "version": "relationship-methods-2026-10-16.3",
+          "selection": "candidates",
+          "candidates": [
+            "respond",
+            "choose_next_step",
+            "express_interest",
+            "shared_activity",
+            "clarify",
+            "compose",
+            "review",
+            "correction"
+          ],
+          "maxApplied": 2,
+          "selectionRule": "用户此次明确意图优先于旧 topic、focus、purpose和候选顺序；模糊续问承接仍有效的商量方向与局部纠正，明确改方向立即替换。候选不是必走步骤，可选择零至两个已载入方法或直接回答，不必先提问。缺方法卡不等于缺用户信息，不要求用户选择方法或固定关系阶段。",
+          "feedbackRule": "只使用来源有效且适用于当前场景的反馈；单次纠正不自动升级为长期偏好，不自动演化方法。论文提供有限机制参考，不能保证这段关系的结果。"
+        },
+        "asOf": "2026-10-16T01:00:00.000Z",
+        "viewerTimeZone": "Asia/Shanghai",
+        "goal": "希望与这位网上认识、有好感的女生发展双方愿意的恋爱关系。",
+        "intentAuthority": {
+          "sourceId": "private:02821033-6fff-40bb-857a-41ffaa526fb4"
+        },
+        "generationOrigin": "private_discussion",
+        "currentObservationSourceId": null,
+        "topicContext": {
+          "version": 0,
+          "activeId": null,
+          "active": null,
+          "retained": [],
+          "authority": "private_direction_not_outbound_authorization"
+        },
+        "workingState": {
+          "version": 1,
+          "focus": "",
+          "items": [],
+          "openThreads": [],
+          "unknowns": [],
+          "possiblyStale": true,
+          "coverage": {
+            "complete": false,
+            "sourceIds": []
+          },
+          "authority": "previous_summary_needs_review"
+        },
+        "coverage": {
+          "status": "partial",
+          "checkedAt": "2026-10-16T01:00:00.000Z",
+          "source": "fictional-native-shaped-seed"
+        },
+        "selectedMaterialIds": [],
+        "allowedMaterialIds": [],
+        "expressionOptions": [],
+        "selectedOption": null,
+        "actionReceipts": [],
+        "privateRestrictions": [],
+        "preferences": [],
+        "experienceProposalPolicy": {
+          "enabled": false,
+          "maxItems": 2,
+          "feedbackSourceIds": [],
+          "caseIds": []
+        },
+        "replyFocus": [],
+        "lookupHistory": [],
+        "reviewRange": null,
+        "retrievedMemory": {
+          "items": [],
+          "episodes": [],
+          "coverage": {
+            "complete": false,
+            "sourceCount": 3,
+            "retrievedCount": 2,
+            "pending": 3,
+            "processed": 0,
+            "history": {
+              "status": "partial",
+              "checkedAt": "2026-10-16T01:00:00.000Z",
+              "source": "fictional-native-shaped-seed"
+            },
+            "retrieval": "lexical-han-bigram-bm25",
+            "semanticCertainty": false
+          }
+        },
+        "memoryIndex": [],
+        "sources": [
+          {
+            "id": "qq:72057594049927937001",
+            "type": "qq",
+            "text": "周末想画点东西",
+            "at": "2026-10-16T00:59:00.000Z",
+            "role": "contact",
+            "direction": "incoming",
+            "use": "discussion",
+            "messageId": "72057594049927937001",
+            "sequence": "1",
+            "senderUid": "fictional_contact",
+            "senderUin": "3333333333",
+            "revision": "cb35f12502400f795afc45c7c3ab5486b5d679b2d3ab925c8bc01fd3d62f2280",
+            "speaker": "对方"
+          },
+          {
+            "id": "private:02821033-6fff-40bb-857a-41ffaa526fb4",
+            "type": "private",
+            "text": "我周日下午有空，想邀请她语音一起画画，明确一点，直接给我完整的一句。",
+            "at": "2026-10-16T01:00:00.000Z",
+            "role": "user",
+            "use": "discussion",
+            "kind": "discussion",
+            "version": 1,
+            "revision": "b0e59e90b95cad4992d1476ea5d7f132afde50bc6cf38cc8483376f21f47a62d"
+          }
+        ],
+        "privateConversation": [],
+        "evidenceRule": "historicalOnly=true 的消息仅为历史提及，后续可能有未读的更改，不可据此断言当前约定有效。possiblyStale 的状态只作需要核查的上次理解，新原话与用户纠正优先。",
+        "contextPolicy": {
+          "recentHours": 72,
+          "since": "2026-10-13T01:00:00.000Z"
+        },
+        "deferredContext": {
+          "lookupAvailable": true,
+          "qqSourceCount": 0,
+          "privateTurnCount": 0,
+          "relationshipClaimCount": 0
+        },
+        "omittedStateEntries": 0,
+        "imageContext": {
+          "version": 1,
+          "mode": "none",
+          "attached": [],
+          "omitted": []
+        },
+        "relationshipContext": {
+          "version": 3,
+          "asOf": "2026-10-16T01:00:00.000Z",
+          "claims": [],
+          "events": [],
+          "activities": [],
+          "coverage": {
+            "pending": 3,
+            "processorVersion": "relationship-memory-2026-10-12.6",
+            "bootstrapPending": false,
+            "history": {
+              "status": "partial",
+              "checkedAt": "2026-10-16T01:00:00.000Z",
+              "source": "fictional-native-shaped-seed"
+            },
+            "semanticCertainty": false
+          }
+        },
+        "experienceContext": {
+          "cases": [],
+          "adaptations": [],
+          "constraints": [
+            "仅为局部经验；不是她的心理或方法因果效果证据。",
+            "候选适用性尚未确定，核对applicability与当前任务后再使用；本轮明确意思优先，不相关或相反的指导不采用。"
+          ]
+        },
+        "work": {
+          "version": "conversation-work-2026-10-16.1",
+          "authority": "derived_work_view_not_factual_evidence",
+          "scope": "this_relationship",
+          "request": {
+            "sourceId": "private:02821033-6fff-40bb-857a-41ffaa526fb4",
+            "purpose": "discussion",
+            "origin": "user",
+            "trigger": "private_request",
+            "meaningFromSource": "private:02821033-6fff-40bb-857a-41ffaa526fb4",
+            "authority": "current_user_meaning_not_outbound_authorization"
+          },
+          "goal": {
+            "available": true,
+            "meaningFrom": "goal",
+            "authority": "user_owned_long_term_direction_not_wording"
+          },
+          "current": null,
+          "focus": {
+            "sourceIds": [
+              "qq:72057594049927937001"
+            ],
+            "positionFrom": "taskContext.latestActual"
+          },
+          "pendingPrivateIntent": {
+            "sourceIds": []
+          },
+          "controlsFrom": {
+            "current": "topicContext.active",
+            "responsePreference": "taskContext.responsePreference",
+            "authority": "applicable_controls_not_shareable_facts"
+          },
+          "sourceIds": [
+            "private:02821033-6fff-40bb-857a-41ffaa526fb4",
+            "qq:72057594049927937001"
+          ],
+          "outputUse": "planning_only_not_outbound_authorization"
+        },
+        "materialView": {
+          "version": "conversation-materials-2026-10-16.1",
+          "items": [
+            {
+              "kind": "current_exchange",
+              "sourceIds": [
+                "qq:72057594049927937001"
+              ],
+              "novelty": "not_determined",
+              "owner": "contact",
+              "availableAs": "actual_conversation",
+              "interpretation": "read_actual_order_and_speakers"
+            }
+          ],
+          "currentIntent": {
+            "sourceId": "private:02821033-6fff-40bb-857a-41ffaa526fb4",
+            "trigger": "private_request",
+            "authority": "user_meaning_not_shareable_material"
+          },
+          "authority": "evidence_navigation_not_a_script",
+          "instruction": "从这些实际内容里选择这次可聊的一点。核对已表达内容、主体、日期、后续变更和本轮控制；未知不是必须逐项提问的槽位。原文以sources为准，材料类别不代表她的心理、从未聊过或新增分享许可。"
+        },
+        "taskContext": {
+          "version": "relationship-task-2026-10-16.2",
+          "requestOrigin": "private_discussion",
+          "currentRequestSourceId": "private:02821033-6fff-40bb-857a-41ffaa526fb4",
+          "invocation": {
+            "origin": "user",
+            "trigger": "private_request",
+            "requestedPurpose": "discussion"
+          },
+          "timeContext": {
+            "localNow": "2026-10-16 09:00"
+          },
+          "consultationTask": {
+            "purpose": "discussion",
+            "focusOrigin": "latest_available",
+            "focus": [
+              {
+                "sourceId": "qq:72057594049927937001",
+                "laterAvailableMessageCount": 0
+              }
+            ]
+          },
+          "latestActual": {
+            "sourceId": "qq:72057594049927937001",
+            "direction": "incoming",
+            "speaker": "对方",
+            "at": "2026-10-16T00:59:00.000Z",
+            "sequence": "1",
+            "localAt": "2026-10-16 08:59",
+            "elapsedMinutes": 1,
+            "ageMs": 60000
+          },
+          "recentExchange": [
+            {
+              "sourceId": "qq:72057594049927937001",
+              "text": "周末想画点东西",
+              "speaker": "对方",
+              "direction": "incoming",
+              "at": "2026-10-16T00:59:00.000Z",
+              "localAt": "2026-10-16 08:59",
+              "sequence": "1"
+            }
+          ],
+          "selfMessagesAfterLastContact": [],
+          "recentContext": {
+            "selection": "bounded_actual_neighborhoods",
+            "limits": {
+              "maxMessages": 24,
+              "maxGapMs": 1800000,
+              "maxSpanMs": 7200000,
+              "maxAdditionalBytes": 12000
+            },
+            "windows": [
+              {
+                "anchorSourceId": "qq:72057594049927937001",
+                "reasons": [
+                  "latest"
+                ],
+                "sourceIds": [
+                  "qq:72057594049927937001"
+                ],
+                "boundaryBefore": "accessible_end",
+                "boundaryAfter": "accessible_end",
+                "omittedMessageCount": 0
+              }
+            ],
+            "gaps": [],
+            "coverage": "accessible_messages_only_not_complete_history"
+          },
+          "contactMessagesAfterLastSelf": [
+            "qq:72057594049927937001"
+          ],
+          "observationCoverage": {
+            "status": "partial",
+            "checkedAt": "2026-10-16T01:00:00.000Z"
+          },
+          "selfEvidenceSourceIds": [
+            "private:02821033-6fff-40bb-857a-41ffaa526fb4"
+          ],
+          "auxiliaryPolicy": "best_effort",
+          "factsRule": "仅限已提供原话，不补未知事实或分享授权。",
+          "draftControlPolicy": {
+            "version": 1,
+            "required": true,
+            "requiredFields": [
+              "objective",
+              "allowedApproach",
+              "avoidances"
+            ],
+            "intentSourceId": "private:02821033-6fff-40bb-857a-41ffaa526fb4"
+          }
+        },
+        "userRequest": {
+          "sourceId": "private:02821033-6fff-40bb-857a-41ffaa526fb4",
+          "text": "我周日下午有空，想邀请她语音一起画画，明确一点，直接给我完整的一句。"
+        }
+      },
+      "validatedGuidance": {
+        "objective": {
+          "text": "给出一句完整的话，邀请她周日下午语音一起画画。",
+          "sourceIds": [
+            "private:02821033-6fff-40bb-857a-41ffaa526fb4"
+          ]
+        },
+        "allowedApproach": {
+          "text": "承接她说的“周末想画点东西”，明确提出周日下午语音一起画，并问她是否方便；不预设她有空。",
+          "sourceIds": [
+            "private:02821033-6fff-40bb-857a-41ffaa526fb4",
+            "qq:72057594049927937001"
+          ]
+        },
+        "avoidances": [],
+        "authority": "expression_control_not_message_content",
+        "instruction": "这些短控制只约束表达任务与用法，不是可发送原文。不要写出控制说明、私下理由或来源标识；保持outboundQuotes授权的意思，askFollowup:false不排除本来要表达的问题。"
+      },
+      "restrictedWordingInput": {
+        "promptVersion": "relationship-context-2026-10-17.1",
+        "purpose": "draft",
+        "method": "根据提供的拟表达片段和真实 QQ 语境组织一条自然、可修改的表达。不补造经历、心理或共同约定；不要求延长聊天。",
+        "methodCards": [
+          {
+            "id": "compose",
+            "version": "relationship-methods-2026-10-16.3",
+            "goalContribution": "帮助把用户愿意表达的真实意思写成自己的话。",
+            "applicability": "用户明确要草稿、改写，或采用已讨论且明确可分享的内容。",
+            "avoid": "把私人动机写给她、编造经历/感情/约定、强制给三条稿、将复制当发送。",
+            "requiredContext": [
+              "authorizedOutboundMaterial",
+              "actualQQContext",
+              "applicableExpressionPreferences",
+              "currentTopicAndLocalCorrection"
+            ],
+            "instruction": "把选好的具体意思、事实与局部分寸写成一条能直接改用的话，保留有内容的细节、问题或邀请；短guidance只控表达，不抄私下理由，不编自己的经历。",
+            "outputKinds": [
+              "draft"
+            ],
+            "evidenceLimit": "受控邮件语气任务，不能概括所有现代 QQ 交流；支持检查歧义，不要求消除幽默。"
+          }
+        ],
+        "methodSelection": {
+          "version": "relationship-methods-2026-10-16.3",
+          "candidates": [
+            "compose"
+          ],
+          "maxApplied": 1
+        },
+        "style": "natural",
+        "asOf": "2026-10-16T01:00:00.000Z",
+        "viewerTimeZone": "Asia/Shanghai",
+        "outboundQuotes": [
+          {
+            "sourceId": "private:02821033-6fff-40bb-857a-41ffaa526fb4",
+            "text": "我周日下午有空，想邀请她语音一起画画，明确一点，直接给我完整的一句。"
+          }
+        ],
+        "sources": [
+          {
+            "id": "qq:72057594049927937001",
+            "type": "qq",
+            "text": "周末想画点东西",
+            "at": "2026-10-16T00:59:00.000Z",
+            "role": "contact",
+            "direction": "incoming",
+            "use": "discussion",
+            "messageId": "72057594049927937001",
+            "sequence": "1",
+            "senderUid": "fictional_contact",
+            "senderUin": "3333333333",
+            "revision": "cb35f12502400f795afc45c7c3ab5486b5d679b2d3ab925c8bc01fd3d62f2280",
+            "speaker": "对方"
+          }
+        ],
+        "coverage": {
+          "status": "partial",
+          "checkedAt": "2026-10-16T01:00:00.000Z",
+          "source": "fictional-native-shaped-seed"
+        },
+        "replyFocus": [],
+        "presentation": {
+          "language": "zh"
+        },
+        "taskContext": {
+          "version": "relationship-task-2026-10-16.2",
+          "requestOrigin": "restricted_draft",
+          "invocation": {
+            "origin": "user",
+            "trigger": "private_request",
+            "requestedPurpose": "discussion"
+          },
+          "timeContext": {
+            "localNow": "2026-10-16 09:00"
+          },
+          "consultationTask": {
+            "focusOrigin": "latest_available",
+            "focus": [
+              {
+                "sourceId": "qq:72057594049927937001",
+                "laterAvailableMessageCount": 0
+              }
+            ]
+          },
+          "latestActual": {
+            "sourceId": "qq:72057594049927937001",
+            "direction": "incoming",
+            "speaker": "对方",
+            "at": "2026-10-16T00:59:00.000Z",
+            "sequence": "1",
+            "localAt": "2026-10-16 08:59",
+            "elapsedMinutes": 1,
+            "ageMs": 60000
+          },
+          "recentExchange": [
+            {
+              "sourceId": "qq:72057594049927937001",
+              "text": "周末想画点东西",
+              "speaker": "对方",
+              "direction": "incoming",
+              "at": "2026-10-16T00:59:00.000Z",
+              "localAt": "2026-10-16 08:59",
+              "sequence": "1"
+            }
+          ],
+          "selfMessagesAfterLastContact": [],
+          "contactMessagesAfterLastSelf": [
+            "qq:72057594049927937001"
+          ],
+          "observationCoverage": {
+            "status": "partial",
+            "checkedAt": "2026-10-16T01:00:00.000Z"
+          },
+          "factsRule": "仅限已提供原话，不补未知事实或分享授权。",
+          "recentContext": {
+            "selection": "bounded_actual_neighborhoods",
+            "limits": {
+              "maxMessages": 24,
+              "maxGapMs": 1800000,
+              "maxSpanMs": 7200000,
+              "maxAdditionalBytes": 12000
+            },
+            "windows": [
+              {
+                "anchorSourceId": "qq:72057594049927937001",
+                "reasons": [
+                  "latest"
+                ],
+                "sourceIds": [
+                  "qq:72057594049927937001"
+                ],
+                "boundaryBefore": "accessible_end",
+                "boundaryAfter": "accessible_end",
+                "omittedMessageCount": 0
+              }
+            ],
+            "gaps": [],
+            "coverage": "accessible_messages_only_not_complete_history"
+          }
+        },
+        "imageContext": {
+          "version": 1,
+          "mode": "none",
+          "attached": [],
+          "omitted": []
+        },
+        "draftingGuidance": {
+          "objective": {
+            "text": "给出一句完整的话，邀请她周日下午语音一起画画。",
+            "sourceIds": [
+              "private:02821033-6fff-40bb-857a-41ffaa526fb4"
+            ]
+          },
+          "allowedApproach": {
+            "text": "承接她说的“周末想画点东西”，明确提出周日下午语音一起画，并问她是否方便；不预设她有空。",
+            "sourceIds": [
+              "private:02821033-6fff-40bb-857a-41ffaa526fb4",
+              "qq:72057594049927937001"
+            ]
+          },
+          "avoidances": [],
+          "authority": "expression_control_not_message_content",
+          "instruction": "这些短控制只约束表达任务与用法，不是可发送原文。不要写出控制说明、私下理由或来源标识；保持outboundQuotes授权的意思，askFollowup:false不排除本来要表达的问题。"
+        }
+      },
+      "visibleHelp": "用她刚说的周末画画作切口，直接邀请她周日下午语音一起画；把时间留给她选择。\n\n承接她想在周末画画的话，直接邀请。",
+      "output": {
+        "kind": "draft",
+        "text": "承接她想在周末画画的话，直接邀请。",
+        "discussionExplanation": {
+          "kind": "discussion",
+          "text": "用她刚说的周末画画作切口，直接邀请她周日下午语音一起画；把时间留给她选择。"
+        },
+        "suggestions": [
+          {
+            "style": "自然",
+            "text": "你说周末想画点东西，我周日下午有空，要不要那时候语音一起画画？"
+          }
+        ]
+      },
+      "functionalChecks": [
+        {
+          "name": "actual messages and original string IDs preserved",
+          "status": "pass"
+        },
+        {
+          "name": "user-owned goal preserved",
+          "status": "pass"
+        },
+        {
+          "name": "original request preserved",
+          "status": "pass"
+        },
+        {
+          "name": "fixed observation time delivered",
+          "status": "pass"
+        },
+        {
+          "name": "scope preserved",
+          "status": "pass"
+        },
+        {
+          "name": "bounded HTTP calls",
+          "status": "pass"
+        },
+        {
+          "name": "draft excludes private rationale and note",
+          "status": "pass"
+        },
+        {
+          "name": "whole-help artifact matches displayed help",
+          "status": "pass"
+        },
+        {
+          "name": "draft artifacts contain editable wording only",
+          "status": "pass"
+        }
+      ]
+    },
+    {
+      "caseId": "Q6-interest",
+      "criteria": {
+        "situation": "With only ordinary prior conversation, user says they look forward to chatting and want to show interest in knowing her better, without a love confession.",
+        "expectedGood": "Preserve the confirmed feeling and wish to know her better, at the requested intensity. Sparse history does not prohibit honest expression.",
+        "expectedBad": "Diluting it into unrelated small talk, escalating to a strong declaration, or asserting reciprocal feelings."
+      },
+      "request": "我发现挺期待和她聊天的，想多认识她一点，也想让她知道这个意思，但先不表白。帮我表达出来。",
+      "planningInput": {
+        "promptVersion": "relationship-context-2026-10-17.1",
+        "purpose": "discussion",
+        "method": "围绕用户真正希望的恋爱发展选择当前帮助，可接续、邀请、表达好感或讨论。意思明确就直接帮助，只问会改变建议的必要问题。允许暂缓或不用助手，不强制每次制定目的。",
+        "methodCards": [
+          {
+            "id": "respond",
+            "version": "relationship-methods-2026-10-16.3",
+            "goalContribution": "让对方所说的事情得到具体回应，并保留交流的自然延续。",
+            "applicability": "有实际来信，需要理解、回应分享或接续她提出的话题。",
+            "avoid": "读心、审讯式连问、模板夸奖、立刻转移到自己或无限延长聊天。",
+            "requiredContext": [
+              "currentRequest",
+              "latestCompleteExchange",
+              "relevantEarlierEvidence",
+              "applicablePreferences"
+            ],
+            "instruction": "先回应她实际强调的细节或意思，选贴切反应、相关后续或获准的真实分享；认可贴着具体事情，不替她打分或擅自叮嘱收尾；有内容的问题照常可问，明确忙或告别按当轮收住。",
+            "examples": [
+              {
+                "authority": "fictional_illustration_not_task_evidence",
+                "situation": "虚构来信：椅子终于装好，试坐才发现靠背装反了。",
+                "approach": "回应装好后才发现装反的反差，轻松接住分享；若她在求助，再跟进处理方式。例子展示一种反应，实际交流仍可选择贴切的问题或分享。",
+                "wording": "都到试坐这一步了，靠背还给你留了一关哈哈。"
+              }
+            ],
+            "outputKinds": [
+              "discussion",
+              "options"
+            ],
+            "evidenceLimit": "日记中的披露、回应感与心理亲近关联；不能证明一句话导致浪漫兴趣。 分享好事与回应方式主要为观察证据，含既有伴侣；不应套成夸奖模板。 受控邮件语气任务，不能概括所有现代 QQ 交流；支持检查歧义，不要求消除幽默。"
+          },
+          {
+            "id": "choose_next_step",
+            "version": "relationship-methods-2026-10-16.3",
+            "goalContribution": "在聊天之外也能选择适合当下的关系行动。",
+            "applicability": "想联系但不知道聊什么、何时继续，或有多个可行方向。",
+            "avoid": "固定关系阶段、每天联系配额、将沉默当作拒绝或好感、强推任何一种行动。",
+            "requiredContext": [
+              "currentRequest",
+              "goal",
+              "currentState",
+              "recentActualExchange",
+              "availableMaterial"
+            ],
+            "instruction": "想联系时，从她的生活细节、未跟进旧事或用户真实材料选一个具体切口，说明这句增加什么；可回应、了解、分享、活动或表意，末条自己发不等于等待。",
+            "examples": [
+              {
+                "authority": "fictional_illustration_not_task_evidence",
+                "situation": "虚构旧交流：她前天练口琴配乐，中间换气处总断，随后告别。今天用户想联系，没新鲜近况。",
+                "approach": "用未跟进的具体练习进展重新开口，旧告别留在当时，不假称用户听过或也会口琴。",
+                "wording": "你前两天练的那段配乐，换气那一下后来接顺了吗？"
+              }
+            ],
+            "outputKinds": [
+              "discussion",
+              "options"
+            ],
+            "evidenceLimit": "女性学生在同步 QQ 任务中的相互披露；不证明异性异步关系结果，样本报告存在差异。 同性交友、指定次数的实时互动；不提供联系频率、恋爱概率或共同活动的因果保证。"
+          }
+        ],
+        "methodCatalog": [
+          {
+            "id": "respond",
+            "version": "relationship-methods-2026-10-16.3",
+            "name": "理解并回应她的话",
+            "instruction": "先回应她实际强调的细节或意思，选贴切反应、相关后续或获准的真实分享；认可贴着具体事情，不替她打分或擅自叮嘱收尾；有内容的问题照常可问，明确忙或告别按当轮收住。"
+          },
+          {
+            "id": "choose_next_step",
+            "version": "relationship-methods-2026-10-16.3",
+            "name": "比较下一步",
+            "instruction": "想联系时，从她的生活细节、未跟进旧事或用户真实材料选一个具体切口，说明这句增加什么；可回应、了解、分享、活动或表意，末条自己发不等于等待。"
+          },
+          {
+            "id": "express_interest",
+            "version": "relationship-methods-2026-10-16.3",
+            "name": "表达好感与关系意图",
+            "instruction": "用户想表意时，按真实意思表达具体欣赏、想多认识或约会邀请，保留所要的力度和选择空间；历史少不阻止表达，朋友边界或拒绝不解释成隐藏喜欢。"
+          },
+          {
+            "id": "shared_activity",
+            "version": "relationship-methods-2026-10-16.3",
+            "name": "考虑一起做点什么",
+            "instruction": "用户想一起做事时，从真实兴趣和已知条件提出具体活动与邀请，未知安排留给选择；提议、实际邀请、接受、发生分开，取消不复活，不编共同喜好。"
+          },
+          {
+            "id": "clarify",
+            "version": "relationship-methods-2026-10-16.3",
+            "name": "理清这次想表达什么",
+            "instruction": "用户没想清时，先给一种可修正理解和能做的帮助；只私下核对会改变这句内容的事实，意图明确就接着做，不把求助变成目的问卷。"
+          },
+          {
+            "id": "compose",
+            "version": "relationship-methods-2026-10-16.3",
+            "name": "组织参考表达",
+            "instruction": "把选好的具体意思、事实与局部分寸写成一条能直接改用的话，保留有内容的细节、问题或邀请；短guidance只控表达，不抄私下理由，不编自己的经历。"
+          },
+          {
+            "id": "review",
+            "version": "relationship-methods-2026-10-16.3",
+            "name": "找回与回顾",
+            "instruction": "按时间找回实际来往与更正，指出已了解什么、还有哪个具体细节或共同事项可接；友好、活动与恋爱意愿分开，兼顾反证，不用回复数或好感分判进展。"
+          },
+          {
+            "id": "correction",
+            "version": "relationship-methods-2026-10-16.3",
+            "name": "纠正理解与用法",
+            "instruction": "用用户这次原话改受影响的理解、方向或表达，说明哪些旧方式不再适用并交接新意思；局部改稿先改善当前帮助，明确长期要求且回执成功才说已保存。"
+          }
+        ],
+        "methodSelection": {
+          "version": "relationship-methods-2026-10-16.3",
+          "selection": "candidates",
+          "candidates": [
+            "respond",
+            "choose_next_step",
+            "express_interest",
+            "shared_activity",
+            "clarify",
+            "compose",
+            "review",
+            "correction"
+          ],
+          "maxApplied": 2,
+          "selectionRule": "用户此次明确意图优先于旧 topic、focus、purpose和候选顺序；模糊续问承接仍有效的商量方向与局部纠正，明确改方向立即替换。候选不是必走步骤，可选择零至两个已载入方法或直接回答，不必先提问。缺方法卡不等于缺用户信息，不要求用户选择方法或固定关系阶段。",
+          "feedbackRule": "只使用来源有效且适用于当前场景的反馈；单次纠正不自动升级为长期偏好，不自动演化方法。论文提供有限机制参考，不能保证这段关系的结果。"
+        },
+        "asOf": "2026-10-16T01:00:00.000Z",
+        "viewerTimeZone": "Asia/Shanghai",
+        "goal": "希望与这位网上认识、有好感的女生发展双方愿意的恋爱关系。",
+        "intentAuthority": {
+          "sourceId": "private:68e46925-2cac-4661-9fcd-4f4604f849c6"
+        },
+        "generationOrigin": "private_discussion",
+        "currentObservationSourceId": null,
+        "topicContext": {
+          "version": 0,
+          "activeId": null,
+          "active": null,
+          "retained": [],
+          "authority": "private_direction_not_outbound_authorization"
+        },
+        "workingState": {
+          "version": 1,
+          "focus": "",
+          "items": [],
+          "openThreads": [],
+          "unknowns": [],
+          "possiblyStale": true,
+          "coverage": {
+            "complete": false,
+            "sourceIds": []
+          },
+          "authority": "previous_summary_needs_review"
+        },
+        "coverage": {
+          "status": "partial",
+          "checkedAt": "2026-10-16T01:00:00.000Z",
+          "source": "fictional-native-shaped-seed"
+        },
+        "selectedMaterialIds": [],
+        "allowedMaterialIds": [],
+        "expressionOptions": [],
+        "selectedOption": null,
+        "actionReceipts": [],
+        "privateRestrictions": [],
+        "preferences": [],
+        "experienceProposalPolicy": {
+          "enabled": false,
+          "maxItems": 2,
+          "feedbackSourceIds": [],
+          "caseIds": []
+        },
+        "replyFocus": [],
+        "lookupHistory": [],
+        "reviewRange": null,
+        "retrievedMemory": {
+          "items": [],
+          "episodes": [],
+          "coverage": {
+            "complete": false,
+            "sourceCount": 4,
+            "retrievedCount": 3,
+            "pending": 4,
+            "processed": 0,
+            "history": {
+              "status": "partial",
+              "checkedAt": "2026-10-16T01:00:00.000Z",
+              "source": "fictional-native-shaped-seed"
+            },
+            "retrieval": "lexical-han-bigram-bm25",
+            "semanticCertainty": false
+          }
+        },
+        "memoryIndex": [],
+        "sources": [
+          {
+            "id": "qq:72057594049927937001",
+            "type": "qq",
+            "text": "今天这件小事挺有意思",
+            "at": "2026-10-16T00:58:30.000Z",
+            "role": "user",
+            "direction": "outgoing",
+            "use": "discussion",
+            "messageId": "72057594049927937001",
+            "sequence": "1",
+            "senderUid": "fictional_owner",
+            "senderUin": "1111111111",
+            "revision": "e96472e8d806c0f76fd8f7378218fba1bfedddccbafbe6dc48b31813065c8818",
+            "speaker": "我"
+          },
+          {
+            "id": "qq:72057594049927937002",
+            "type": "qq",
+            "text": "哈哈是挺有意思的",
+            "at": "2026-10-16T00:59:00.000Z",
+            "role": "contact",
+            "direction": "incoming",
+            "use": "discussion",
+            "messageId": "72057594049927937002",
+            "sequence": "2",
+            "senderUid": "fictional_contact",
+            "senderUin": "3333333333",
+            "revision": "3ca8b6f1973728de4b3030164a9d8f8d655caa974a7a308aefaee2f517112e34",
+            "speaker": "对方"
+          },
+          {
+            "id": "private:68e46925-2cac-4661-9fcd-4f4604f849c6",
+            "type": "private",
+            "text": "我发现挺期待和她聊天的，想多认识她一点，也想让她知道这个意思，但先不表白。帮我表达出来。",
+            "at": "2026-10-16T01:00:00.000Z",
+            "role": "user",
+            "use": "discussion",
+            "kind": "discussion",
+            "version": 1,
+            "revision": "ab48dd1b234a6190347347e3322713f9ce7da2b7d9bbd63c94fdc61ed70b207c"
+          }
+        ],
+        "privateConversation": [],
+        "evidenceRule": "historicalOnly=true 的消息仅为历史提及，后续可能有未读的更改，不可据此断言当前约定有效。possiblyStale 的状态只作需要核查的上次理解，新原话与用户纠正优先。",
+        "contextPolicy": {
+          "recentHours": 72,
+          "since": "2026-10-13T01:00:00.000Z"
+        },
+        "deferredContext": {
+          "lookupAvailable": true,
+          "qqSourceCount": 0,
+          "privateTurnCount": 0,
+          "relationshipClaimCount": 0
+        },
+        "omittedStateEntries": 0,
+        "imageContext": {
+          "version": 1,
+          "mode": "none",
+          "attached": [],
+          "omitted": []
+        },
+        "relationshipContext": {
+          "version": 4,
+          "asOf": "2026-10-16T01:00:00.000Z",
+          "claims": [],
+          "events": [],
+          "activities": [],
+          "coverage": {
+            "pending": 4,
+            "processorVersion": "relationship-memory-2026-10-12.6",
+            "bootstrapPending": false,
+            "history": {
+              "status": "partial",
+              "checkedAt": "2026-10-16T01:00:00.000Z",
+              "source": "fictional-native-shaped-seed"
+            },
+            "semanticCertainty": false
+          }
+        },
+        "experienceContext": {
+          "cases": [
+            {
+              "id": "qq:72057594049927937001",
+              "status": "observation_available",
+              "goalVersion": 0,
+              "actualActions": [
+                {
+                  "kind": "qq_message",
+                  "messageId": "72057594049927937001",
+                  "eventAt": "2026-10-16T00:58:30.000Z",
+                  "availability": "available",
+                  "sourceId": "qq:72057594049927937001"
+                }
+              ],
+              "observations": [
+                {
+                  "kind": "subsequent_message",
+                  "messageId": "72057594049927937002",
+                  "eventAt": "2026-10-16T00:59:00.000Z",
+                  "relevance": "unconfirmed",
+                  "authority": "actual_qq",
+                  "sourceId": "qq:72057594049927937002"
+                }
+              ],
+              "attribution": "unlinked",
+              "links": [],
+              "reviewSourceIds": [],
+              "sourceIds": [
+                "qq:72057594049927937001",
+                "qq:72057594049927937002"
+              ],
+              "authority": "source_backed_summary_not_independent_evidence"
+            }
+          ],
+          "adaptations": [],
+          "constraints": [
+            "仅为局部经验；不是她的心理或方法因果效果证据。",
+            "候选适用性尚未确定，核对applicability与当前任务后再使用；本轮明确意思优先，不相关或相反的指导不采用。"
+          ]
+        },
+        "work": {
+          "version": "conversation-work-2026-10-16.1",
+          "authority": "derived_work_view_not_factual_evidence",
+          "scope": "this_relationship",
+          "request": {
+            "sourceId": "private:68e46925-2cac-4661-9fcd-4f4604f849c6",
+            "purpose": "discussion",
+            "origin": "user",
+            "trigger": "private_request",
+            "meaningFromSource": "private:68e46925-2cac-4661-9fcd-4f4604f849c6",
+            "authority": "current_user_meaning_not_outbound_authorization"
+          },
+          "goal": {
+            "available": true,
+            "meaningFrom": "goal",
+            "authority": "user_owned_long_term_direction_not_wording"
+          },
+          "current": null,
+          "focus": {
+            "sourceIds": [
+              "qq:72057594049927937002"
+            ],
+            "positionFrom": "taskContext.latestActual"
+          },
+          "pendingPrivateIntent": {
+            "sourceIds": []
+          },
+          "controlsFrom": {
+            "current": "topicContext.active",
+            "responsePreference": "taskContext.responsePreference",
+            "authority": "applicable_controls_not_shareable_facts"
+          },
+          "sourceIds": [
+            "private:68e46925-2cac-4661-9fcd-4f4604f849c6",
+            "qq:72057594049927937002"
+          ],
+          "outputUse": "planning_only_not_outbound_authorization"
+        },
+        "materialView": {
+          "version": "conversation-materials-2026-10-16.1",
+          "items": [
+            {
+              "kind": "current_exchange",
+              "sourceIds": [
+                "qq:72057594049927937001",
+                "qq:72057594049927937002"
+              ],
+              "novelty": "not_determined",
+              "owner": "both",
+              "availableAs": "actual_conversation",
+              "interpretation": "read_actual_order_and_speakers"
+            },
+            {
+              "kind": "already_expressed",
+              "sourceIds": [
+                "qq:72057594049927937001"
+              ],
+              "novelty": "not_determined",
+              "owner": "self",
+              "availableAs": "actual_sent_not_a_fresh_draft"
+            }
+          ],
+          "currentIntent": {
+            "sourceId": "private:68e46925-2cac-4661-9fcd-4f4604f849c6",
+            "trigger": "private_request",
+            "authority": "user_meaning_not_shareable_material"
+          },
+          "authority": "evidence_navigation_not_a_script",
+          "instruction": "从这些实际内容里选择这次可聊的一点。核对已表达内容、主体、日期、后续变更和本轮控制；未知不是必须逐项提问的槽位。原文以sources为准，材料类别不代表她的心理、从未聊过或新增分享许可。"
+        },
+        "taskContext": {
+          "version": "relationship-task-2026-10-16.2",
+          "requestOrigin": "private_discussion",
+          "currentRequestSourceId": "private:68e46925-2cac-4661-9fcd-4f4604f849c6",
+          "invocation": {
+            "origin": "user",
+            "trigger": "private_request",
+            "requestedPurpose": "discussion"
+          },
+          "timeContext": {
+            "localNow": "2026-10-16 09:00"
+          },
+          "consultationTask": {
+            "purpose": "discussion",
+            "focusOrigin": "latest_available",
+            "focus": [
+              {
+                "sourceId": "qq:72057594049927937002",
+                "laterAvailableMessageCount": 0
+              }
+            ]
+          },
+          "latestActual": {
+            "sourceId": "qq:72057594049927937002",
+            "direction": "incoming",
+            "speaker": "对方",
+            "at": "2026-10-16T00:59:00.000Z",
+            "sequence": "2",
+            "localAt": "2026-10-16 08:59",
+            "elapsedMinutes": 1,
+            "ageMs": 60000
+          },
+          "recentExchange": [
+            {
+              "sourceId": "qq:72057594049927937001",
+              "text": "今天这件小事挺有意思",
+              "speaker": "我",
+              "direction": "outgoing",
+              "at": "2026-10-16T00:58:30.000Z",
+              "sequence": "1"
+            },
+            {
+              "sourceId": "qq:72057594049927937002",
+              "text": "哈哈是挺有意思的",
+              "speaker": "对方",
+              "direction": "incoming",
+              "at": "2026-10-16T00:59:00.000Z",
+              "localAt": "2026-10-16 08:59",
+              "sequence": "2"
+            }
+          ],
+          "selfMessagesAfterLastContact": [],
+          "recentContext": {
+            "selection": "bounded_actual_neighborhoods",
+            "limits": {
+              "maxMessages": 24,
+              "maxGapMs": 1800000,
+              "maxSpanMs": 7200000,
+              "maxAdditionalBytes": 12000
+            },
+            "windows": [
+              {
+                "anchorSourceId": "qq:72057594049927937002",
+                "reasons": [
+                  "latest"
+                ],
+                "sourceIds": [
+                  "qq:72057594049927937001",
+                  "qq:72057594049927937002"
+                ],
+                "boundaryBefore": "accessible_end",
+                "boundaryAfter": "accessible_end",
+                "omittedMessageCount": 0
+              }
+            ],
+            "gaps": [],
+            "coverage": "accessible_messages_only_not_complete_history"
+          },
+          "contactMessagesAfterLastSelf": [
+            "qq:72057594049927937002"
+          ],
+          "observationCoverage": {
+            "status": "partial",
+            "checkedAt": "2026-10-16T01:00:00.000Z"
+          },
+          "selfEvidenceSourceIds": [
+            "qq:72057594049927937001",
+            "private:68e46925-2cac-4661-9fcd-4f4604f849c6"
+          ],
+          "auxiliaryPolicy": "best_effort",
+          "factsRule": "仅限已提供原话，不补未知事实或分享授权。",
+          "draftControlPolicy": {
+            "version": 1,
+            "required": true,
+            "requiredFields": [
+              "objective",
+              "allowedApproach",
+              "avoidances"
+            ],
+            "intentSourceId": "private:68e46925-2cac-4661-9fcd-4f4604f849c6"
+          }
+        },
+        "userRequest": {
+          "sourceId": "private:68e46925-2cac-4661-9fcd-4f4604f849c6",
+          "text": "我发现挺期待和她聊天的，想多认识她一点，也想让她知道这个意思，但先不表白。帮我表达出来。"
+        }
+      },
+      "validatedGuidance": {
+        "objective": {
+          "text": "让她知道用户期待和她聊天，也想多认识她一点。",
+          "sourceIds": [
+            "private:68e46925-2cac-4661-9fcd-4f4604f849c6"
+          ]
+        },
+        "allowedApproach": {
+          "text": "承接她轻松的回应，以第一人称向她表达自己的感受和想多了解她的意思，不推测她的心意。",
+          "sourceIds": [
+            "private:68e46925-2cac-4661-9fcd-4f4604f849c6",
+            "qq:72057594049927937002"
+          ]
+        },
+        "avoidances": [
+          {
+            "text": "这次先不表白，也不编造那件小事的细节。",
+            "sourceIds": [
+              "private:68e46925-2cac-4661-9fcd-4f4604f849c6",
+              "qq:72057594049927937001"
+            ]
+          }
+        ],
+        "authority": "expression_control_not_message_content",
+        "instruction": "这些短控制只约束表达任务与用法，不是可发送原文。不要写出控制说明、私下理由或来源标识；保持outboundQuotes授权的意思，askFollowup:false不排除本来要表达的问题。"
+      },
+      "restrictedWordingInput": {
+        "promptVersion": "relationship-context-2026-10-17.1",
+        "purpose": "draft",
+        "method": "根据提供的拟表达片段和真实 QQ 语境组织一条自然、可修改的表达。不补造经历、心理或共同约定；不要求延长聊天。",
+        "methodCards": [
+          {
+            "id": "compose",
+            "version": "relationship-methods-2026-10-16.3",
+            "goalContribution": "帮助把用户愿意表达的真实意思写成自己的话。",
+            "applicability": "用户明确要草稿、改写，或采用已讨论且明确可分享的内容。",
+            "avoid": "把私人动机写给她、编造经历/感情/约定、强制给三条稿、将复制当发送。",
+            "requiredContext": [
+              "authorizedOutboundMaterial",
+              "actualQQContext",
+              "applicableExpressionPreferences",
+              "currentTopicAndLocalCorrection"
+            ],
+            "instruction": "把选好的具体意思、事实与局部分寸写成一条能直接改用的话，保留有内容的细节、问题或邀请；短guidance只控表达，不抄私下理由，不编自己的经历。",
+            "outputKinds": [
+              "draft"
+            ],
+            "evidenceLimit": "受控邮件语气任务，不能概括所有现代 QQ 交流；支持检查歧义，不要求消除幽默。"
+          }
+        ],
+        "methodSelection": {
+          "version": "relationship-methods-2026-10-16.3",
+          "candidates": [
+            "compose"
+          ],
+          "maxApplied": 1
+        },
+        "style": "natural",
+        "asOf": "2026-10-16T01:00:00.000Z",
+        "viewerTimeZone": "Asia/Shanghai",
+        "outboundQuotes": [
+          {
+            "sourceId": "private:68e46925-2cac-4661-9fcd-4f4604f849c6",
+            "text": "挺期待和她聊天的"
+          },
+          {
+            "sourceId": "private:68e46925-2cac-4661-9fcd-4f4604f849c6",
+            "text": "想多认识她一点"
+          }
+        ],
+        "sources": [
+          {
+            "id": "qq:72057594049927937001",
+            "type": "qq",
+            "text": "今天这件小事挺有意思",
+            "at": "2026-10-16T00:58:30.000Z",
+            "role": "user",
+            "direction": "outgoing",
+            "use": "discussion",
+            "messageId": "72057594049927937001",
+            "sequence": "1",
+            "senderUid": "fictional_owner",
+            "senderUin": "1111111111",
+            "revision": "e96472e8d806c0f76fd8f7378218fba1bfedddccbafbe6dc48b31813065c8818",
+            "speaker": "我"
+          },
+          {
+            "id": "qq:72057594049927937002",
+            "type": "qq",
+            "text": "哈哈是挺有意思的",
+            "at": "2026-10-16T00:59:00.000Z",
+            "role": "contact",
+            "direction": "incoming",
+            "use": "discussion",
+            "messageId": "72057594049927937002",
+            "sequence": "2",
+            "senderUid": "fictional_contact",
+            "senderUin": "3333333333",
+            "revision": "3ca8b6f1973728de4b3030164a9d8f8d655caa974a7a308aefaee2f517112e34",
+            "speaker": "对方"
+          }
+        ],
+        "coverage": {
+          "status": "partial",
+          "checkedAt": "2026-10-16T01:00:00.000Z",
+          "source": "fictional-native-shaped-seed"
+        },
+        "replyFocus": [],
+        "presentation": {
+          "language": "zh"
+        },
+        "taskContext": {
+          "version": "relationship-task-2026-10-16.2",
+          "requestOrigin": "restricted_draft",
+          "invocation": {
+            "origin": "user",
+            "trigger": "private_request",
+            "requestedPurpose": "discussion"
+          },
+          "timeContext": {
+            "localNow": "2026-10-16 09:00"
+          },
+          "consultationTask": {
+            "focusOrigin": "latest_available",
+            "focus": [
+              {
+                "sourceId": "qq:72057594049927937002",
+                "laterAvailableMessageCount": 0
+              }
+            ]
+          },
+          "latestActual": {
+            "sourceId": "qq:72057594049927937002",
+            "direction": "incoming",
+            "speaker": "对方",
+            "at": "2026-10-16T00:59:00.000Z",
+            "sequence": "2",
+            "localAt": "2026-10-16 08:59",
+            "elapsedMinutes": 1,
+            "ageMs": 60000
+          },
+          "recentExchange": [
+            {
+              "sourceId": "qq:72057594049927937001",
+              "text": "今天这件小事挺有意思",
+              "speaker": "我",
+              "direction": "outgoing",
+              "at": "2026-10-16T00:58:30.000Z",
+              "sequence": "1"
+            },
+            {
+              "sourceId": "qq:72057594049927937002",
+              "text": "哈哈是挺有意思的",
+              "speaker": "对方",
+              "direction": "incoming",
+              "at": "2026-10-16T00:59:00.000Z",
+              "localAt": "2026-10-16 08:59",
+              "sequence": "2"
+            }
+          ],
+          "selfMessagesAfterLastContact": [],
+          "contactMessagesAfterLastSelf": [
+            "qq:72057594049927937002"
+          ],
+          "observationCoverage": {
+            "status": "partial",
+            "checkedAt": "2026-10-16T01:00:00.000Z"
+          },
+          "factsRule": "仅限已提供原话，不补未知事实或分享授权。",
+          "recentContext": {
+            "selection": "bounded_actual_neighborhoods",
+            "limits": {
+              "maxMessages": 24,
+              "maxGapMs": 1800000,
+              "maxSpanMs": 7200000,
+              "maxAdditionalBytes": 12000
+            },
+            "windows": [
+              {
+                "anchorSourceId": "qq:72057594049927937002",
+                "reasons": [
+                  "latest"
+                ],
+                "sourceIds": [
+                  "qq:72057594049927937001",
+                  "qq:72057594049927937002"
+                ],
+                "boundaryBefore": "accessible_end",
+                "boundaryAfter": "accessible_end",
+                "omittedMessageCount": 0
+              }
+            ],
+            "gaps": [],
+            "coverage": "accessible_messages_only_not_complete_history"
+          }
+        },
+        "imageContext": {
+          "version": 1,
+          "mode": "none",
+          "attached": [],
+          "omitted": []
+        },
+        "draftingGuidance": {
+          "objective": {
+            "text": "让她知道用户期待和她聊天，也想多认识她一点。",
+            "sourceIds": [
+              "private:68e46925-2cac-4661-9fcd-4f4604f849c6"
+            ]
+          },
+          "allowedApproach": {
+            "text": "承接她轻松的回应，以第一人称向她表达自己的感受和想多了解她的意思，不推测她的心意。",
+            "sourceIds": [
+              "private:68e46925-2cac-4661-9fcd-4f4604f849c6",
+              "qq:72057594049927937002"
+            ]
+          },
+          "avoidances": [
+            {
+              "text": "这次先不表白，也不编造那件小事的细节。",
+              "sourceIds": [
+                "private:68e46925-2cac-4661-9fcd-4f4604f849c6",
+                "qq:72057594049927937001"
+              ]
+            }
+          ],
+          "authority": "expression_control_not_message_content",
+          "instruction": "这些短控制只约束表达任务与用法，不是可发送原文。不要写出控制说明、私下理由或来源标识；保持outboundQuotes授权的意思，askFollowup:false不排除本来要表达的问题。"
+        }
+      },
+      "visibleHelp": "可以接着她的“哈哈”说出你的真实感受：和她聊天让你期待，也想多认识她一点。不必把这句话说成表白，更不用猜她是否有同样的心意。\n\n承接她的轻松回应，说出你的期待，给她回应的空间。",
+      "output": {
+        "kind": "draft",
+        "text": "承接她的轻松回应，说出你的期待，给她回应的空间。",
+        "discussionExplanation": {
+          "kind": "discussion",
+          "text": "可以接着她的“哈哈”说出你的真实感受：和她聊天让你期待，也想多认识她一点。不必把这句话说成表白，更不用猜她是否有同样的心意。"
+        },
+        "suggestions": [
+          {
+            "style": "自然",
+            "text": "哈哈，跟你聊天挺开心的。挺期待以后多聊聊，也想多认识你一点。"
+          }
+        ]
+      },
+      "functionalChecks": [
+        {
+          "name": "actual messages and original string IDs preserved",
+          "status": "pass"
+        },
+        {
+          "name": "user-owned goal preserved",
+          "status": "pass"
+        },
+        {
+          "name": "original request preserved",
+          "status": "pass"
+        },
+        {
+          "name": "fixed observation time delivered",
+          "status": "pass"
+        },
+        {
+          "name": "scope preserved",
+          "status": "pass"
+        },
+        {
+          "name": "bounded HTTP calls",
+          "status": "pass"
+        },
+        {
+          "name": "draft excludes private rationale and note",
+          "status": "pass"
+        },
+        {
+          "name": "whole-help artifact matches displayed help",
+          "status": "pass"
+        },
+        {
+          "name": "draft artifacts contain editable wording only",
+          "status": "pass"
+        }
+      ]
+    }
+  ]
+}

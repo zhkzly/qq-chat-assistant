@@ -6,7 +6,7 @@ const { parseModelJson, readModelOutput } = require('./model-json.cjs');
 const { responseEnvelope } = require('./model-response-format.cjs');
 const { prepareAssistantRequest } = require('./assistant-model.cjs');
 const { sourceClosure } = require('./provenance.cjs');
-const { DISCUSSION_COMPACTION_VERSION, eligibleDiscussionTurns, discussionTurnFingerprint, discussionTopicBinding,
+const { DISCUSSION_COMPACTION_VERSION, eligibleDiscussionTurns, readableDiscussionTurns, discussionTurnFingerprint, discussionTopicBinding,
   discussionModelBinding, discussionCompactionEvidence } = require('./discussion-compaction-store.cjs');
 
 const hash = value => createHash('sha256').update(JSON.stringify(value)).digest('hex');
@@ -61,7 +61,7 @@ function compactionBinding(options) {
 function planDiscussionCompaction(options) {
   const { scope, companion, turn, settings = {}, context, discussionCompaction } = options;
   const groups = []; let group = null;
-  for (const item of eligibleDiscussionTurns(companion)) {
+  for (const item of eligibleDiscussionTurns(companion,{store:options.store,scope})) {
     if (item.role === 'user') { group = null; if (item.id !== turn.id) { group = []; groups.push(group); } }
     if (group) group.push(item);
   }
@@ -115,7 +115,7 @@ function validatedCompaction(record, options) {
   const binding = compactionBinding(options);
   if (['goalVersion','topicBinding','modelBinding','promptVersion','protocolVersion'].some(key => record[key] !== binding[key])) return null;
   if (!Array.isArray(record.sourceTurnIds) || record.sourceTurnIds.includes(options.turn.id)) return null;
-  const byTurn = new Map(eligibleDiscussionTurns(options.companion).map(turn => [turn.id, turn]));
+  const byTurn = new Map(eligibleDiscussionTurns(options.companion,{store:options.store,scope:options.scope}).map(turn => [turn.id, turn]));
   if (record.sourceTurnIds.some(id => !byTurn.has(id) || record.turnFingerprints?.[id] !== discussionTurnFingerprint(byTurn.get(id)))) return null;
   const bySource = new Map((options.availableSources || []).map(source => [source.id, source]));
   if (Object.entries(record.sourceRevisions || {}).some(([id, revision]) => bySource.get(id)?.revision !== revision)) return null;
@@ -123,19 +123,25 @@ function validatedCompaction(record, options) {
   try { for (const quote of record.quoteRefs || []) if (!quoteText(byTurn.get(quote.turnId), quote)?.includes(quote.text)) return null; } catch { return null; }
   return record;
 }
-function candidatesForCompaction(record, companion, { sourceTurnIds = [], selectedOption, sourceLookupIds = [] } = {}) {
-  const assistants = eligibleDiscussionTurns(companion).filter(turn => turn.role === 'assistant');
-  const byId = new Map(assistants.map(turn => [turn.id, turn])), candidates = [];
+function candidatesForCompaction(record, companion, { sourceTurnIds = [], selectedOption, sourceLookupIds = [],store,scope } = {}) {
+  const assistants = eligibleDiscussionTurns(companion,{store,scope}).filter(turn => turn.role === 'assistant');
+  const byId = new Map(readableDiscussionTurns(companion).filter(turn=>turn.role==='assistant').map(turn => [turn.id, turn])), candidates = [];
+  const eligibleIds=new Set(assistants.map(turn=>turn.id));
   const explicit = [...sourceTurnIds, selectedOption?.turnId, ...sourceLookupIds].filter(id => byId.has(id));
   const ids = [...new Set([...explicit, assistants.at(-1)?.id, ...assistants.slice(-6).reverse().map(turn => turn.id),
-    ...(record?.quoteRefs || []).filter(quote => quote.role === 'assistant').map(quote => quote.turnId)])].filter(Boolean);
+    ...(record?.quoteRefs || []).filter(quote => quote.role === 'assistant'&&eligibleIds.has(quote.turnId)).map(quote => quote.turnId)])].filter(Boolean);
   for (const id of ids) {
     const turn = byId.get(id); if (turn?.role !== 'assistant') continue;
-    for (const field of ['suggestions','expressionOptions']) for (const [index, item] of (turn[field] || []).entries()) candidates.push({ turnId: id, field, index,
+    for (const field of ['suggestions','expressionOptions']) for (const [index, item] of (turn[field] || []).entries()) {
+      if(selectedOption?.turnId===id&&(field!=='expressionOptions'||index!==selectedOption.index))continue;
+      candidates.push({ turnId: id, field, index,
       text: redact(field === 'suggestions' ? item.text : item.label), ...(field === 'expressionOptions' ? { quotes: item.quotes } : {}), artifactRef: item.artifactRef,
       availability: 'full', authority: 'generated_discussion_not_outbound_authorization' });
+    }
+    if(explicit.includes(id)&&!turn.suggestions?.length&&!turn.expressionOptions?.length&&turn.text?.trim())candidates.push({turnId:id,field:'text',text:redact(turn.text),artifactRef:turn.artifactRef,
+      availability:'full',authority:'generated_discussion_not_outbound_authorization'});
   }
-  for (const quote of record?.quoteRefs || []) if (quote.role === 'assistant' && (quote.field || 'text') === 'text') candidates.push({ turnId: quote.turnId, field: 'text', text: redact(quote.text),
+  for (const quote of record?.quoteRefs || []) if (quote.role === 'assistant' && eligibleIds.has(quote.turnId) && (quote.field || 'text') === 'text') candidates.push({ turnId: quote.turnId, field: 'text', text: redact(quote.text),
     artifactRef: quote.artifactRef, availability: 'full', authority: 'generated_discussion_not_outbound_authorization' });
   return candidates;
 }

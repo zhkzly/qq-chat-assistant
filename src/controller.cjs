@@ -11,7 +11,7 @@ const fingerprint=value=>createHash('sha256').update(JSON.stringify(value)).dige
 const { assistModel, parseAssistant, imageContextFor } = require('./assistant-model.cjs');
 const { buildContext, buildDraftContext, expressionOptionsFor, PROMPT_VERSION } = require('./assistant-context.cjs');
 const { planDiscussionCompaction, assistDiscussionCompaction } = require('./discussion-compaction.cjs');
-const { discussionTopicBinding, discussionModelBinding, DISCUSSION_COMPACTION_VERSION } = require('./discussion-compaction-store.cjs');
+const { discussionTopicBinding, discussionModelBinding, DISCUSSION_COMPACTION_VERSION,automaticDiscussionTurnIds } = require('./discussion-compaction-store.cjs');
 const { normalizeResponseRecovery } = require('./store.cjs');
 const {retrievalQuery}=require('./context-task.cjs');
 const { maintainMemory: runMemoryMaintenance } = require('./memory-engine.cjs');
@@ -80,12 +80,12 @@ class Controller extends EventEmitter {
   snapshot() {
     const messages = this.store.messages(this.scope);
     const companion=this.scope?this.store.getCompanion(this.scope):null;
-    const automaticRuns=new Set((companion?.runs||[]).filter(run=>run.payload?.taskContext?.invocation?.origin==='automatic').map(run=>run.id));
+    const automaticTurns=companion?automaticDiscussionTurnIds(companion,{store:this.store,scope:this.scope}):new Set();
     return { status: this.status, scope: this.scope, revision: this.revision,
       messages: messages.slice(-100).map(publicRecord), total: messages.length,
       coverage: this.scope ? this.store.coverage(this.scope) : null,
       advice: this.currentAdvice(), candidateStatus:this.candidateStatus(), busy: this.busy, historyBusy: this.historyBusy, error: this.error,
-      companion: companion?{...companion,turns:companion.turns.filter(turn=>turn.origin!=='automatic'&&!automaticRuns.has(turn.requestId))}:null,
+      companion: companion?{...companion,turns:companion.turns.filter(turn=>!automaticTurns.has(turn.id))}:null,
       assistantBusy: this.assistantBusy, assistantOrigin:(this.activeAssist||this.pendingAssist)?.args?.origin||null, assistantError: this.assistantError,
       memoryStatus: this.scope && this.store.memoryStatus ? { ...this.store.memoryStatus(this.scope), busy: this.memoryBusy } : null,
       relationship:this.scope&&this.store.relationshipView?this.store.relationshipView(this.scope,{limit:24}):null,

@@ -1,0 +1,146 @@
+{
+  "schemaVersion": 1,
+  "promptVersion": "relationship-context-2026-10-17.1",
+  "compactionProtocolVersion": "discussion-compaction-2026-10-17.1",
+  "functional": {
+    "tests": 620,
+    "pass": 620,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 0,
+    "files": 92,
+    "exitCode": 0,
+    "sha256": "1b31e3c60f05d3bca01eda4f5dd725ae4a5f12429bcdff16c186e65bc359ba93"
+  },
+  "syntax": {
+    "exitCode": 0,
+    "sha256": "2866f890d99199dd29d94f00c53f92c663cc5b5a612a8cae8a160d5c6faceff8"
+  },
+  "browser": {
+    "result": "PASS",
+    "evidence": "continuous_synthetic_controller_browser",
+    "desktopQQIntegration": false,
+    "realQQRead": false,
+    "providerCalls": 0,
+    "actualQQSendActions": 0,
+    "checks": [
+      "Automatic candidates appear before private consultation with scoped QQ target, time, collapsed explanation and visible copy action at 370x560, 370x640 and 480x900",
+      "Actual sent message withdraws the current candidate without an extra automatic reply or loss of edited draft; next incoming creates a newly bound candidate",
+      "Private correction and manual variation synchronously fence old captured copy/adopt callbacks before backend dispatch; typing keeps candidates available; alternative requests include one generated comparison target and preserve unsent input; corrected drafts replace primary wording and explanations preserve history",
+      "User consultation can preempt a running automatic request; finite candidate lifetime and cancellation keep edits and actual QQ intact; clipboard and adoption never become sends"
+    ],
+    "screenshots": "/tmp/qq-current-candidates-n9sRLe"
+  },
+  "sourceHashes": {
+    "src/assistant-actions.cjs": "54bd959aadce35e4491e60aad72c072ae9d9abf0eb3a8f6b8193261988aa7e1d",
+    "src/assistant-context.cjs": "672dd6eb17b9a6245318b9b223fcb6ba9613d03c1f56d685c4171da82bc1d9f2",
+    "src/assistant-model.cjs": "76eb91b82f0091264805a052005d2ad9b02bb4a8e77db79644ccb70c898ae600",
+    "src/candidate-session.cjs": "575c0f824e2da73e861ec86dcaf78ed4f4d337d226181a068c89fc2d36d6477e",
+    "src/context/budget-manifest.cjs": "d17ba3655e92cccc38f985fa78e6b160286211f9668e78e9e1d108dcb8fb530b",
+    "src/context/catalog.cjs": "7b7f92f7ca47c1c90f72c2629cdb5d0829de7c20b3ae87cbd5da719dc61b4eb9",
+    "src/context/planning-view.cjs": "2f794819c0355b3f84c1e822a2a62ffb6e9fa1e82c80b7a954dd9bda941b595a",
+    "src/context/policy.cjs": "76cb2d19855ed11df7f4b9d820152a8e7ae5fef961db92bade1b4dabad43b22a",
+    "src/context/selection.cjs": "028ce71b9f94728808d3304240a18715ea13dc418fc1129577ce661628f2a46e",
+    "src/context/shared.cjs": "c87213e6cb1b0279b0eb844576e8d7c2b78780ce01abc1ec6e5b6bef8563b83d",
+    "src/context/source-snapshot.cjs": "e48c85eb2be71908c7aa38de6d632e1629c605f785a69aee1f3ae6586a7f20f6",
+    "src/context/timeline-view.cjs": "49c1a2ab260610d0533fbf0cafb590e7f07333964c88aa5b9212f171a5bdcc4c",
+    "src/context/wording-controls.cjs": "5e9000ea747e2bd6c46d78288ff44d857307bac0fcfa4216281452139999407f",
+    "src/context/wording-view.cjs": "e7e9de3de0ad7759824e73e90b02fd0be6b174178ad9b7ae5eeccffd8f1ec065",
+    "src/context-task.cjs": "059e0c60d4560051124d52a25d7dd7ae5106e57daf6a09ca526b99504545a0f7",
+    "src/controller.cjs": "cf1ad9397a6bc33567c84f63eae037b3cba97dd070b094e368eeb7707e71a184",
+    "src/conversation-materials.cjs": "84ebaa624d7f5984d58f599c73a1941be13408891d81100ff16de16ca28199c8",
+    "src/conversation-work.cjs": "cbd9263814e0f4e7c51a48b5656de171058e233530846be29258537f2bd4ff45",
+    "src/discussion-compaction-store.cjs": "e4f886af3dba730137ae2e88e5d0f560b3ce01c03517d141789898bc04e0eb5b",
+    "src/discussion-compaction.cjs": "0bfab85f7810e26ee072346487ea267733b40b7a481220fb746c0b081a4851e9",
+    "src/experience-store.cjs": "578b826ccc2dc66ceeb273a27be80865990f6d4485061c4c11ab9b0e3a5339e1",
+    "src/help-behavior.cjs": "be6cefa4d40188cb67d63b2a57abaf9d14d7d4580c3f03b69d9e80ca061fa9ad",
+    "src/help-methods.cjs": "329da7c600cb0058dbb00a6f39d98edab1a5801ab0a5feff8ff5a6960afc3087",
+    "src/media.cjs": "ee00a6f7af727634e60cc850a24ce0faab75d4a68f0a037e902e119d20b1178a",
+    "src/memory-engine.cjs": "6606538271080b2f196e415926e3a73140168f6dc10f95dea62f01483a150bb1",
+    "src/memory-scheduler.cjs": "d97432625255df2af15fda76cf2756ab7c32654767cd050fccea8338e2b7fe45",
+    "src/memory-search.cjs": "e38074fc638e44340b51c6cdf0f29c0f38f8277975b7e0d61ff092a060cef121",
+    "src/messages.cjs": "ca979e9266bd112f07bfddb132e074e4663e2914c6aad9d42f5462cbbbc9a523",
+    "src/model-http.cjs": "e897f79947f674f5c69998ab7546a305867eb0a2b21ff6625ef694ceeb333f72",
+    "src/model-json.cjs": "61f11b1d8867d867cb258d231c1a21cb8cf39ac78196dd45b6fe3cacd19aeeb6",
+    "src/model-response-format.cjs": "c9a38bb491dd15790ec7290521ffb8f8dd3d3d1cf1237125ddc697f0593767ba",
+    "src/model.cjs": "9726fdb0469f2cb8a2e29b97bef40bb09f0801932ef61618da59fb94cdbf94ec",
+    "src/provenance.cjs": "bc52639b9bf117e8c15bec44b64b06eac74868d43b90e437eba595486f8b0c5d",
+    "src/providers.cjs": "01e8ed4f90d6889bf3cf5e25ed9f74c8cd4120e631e6640ec435f43fbf9eaea8",
+    "src/relationship-schema.cjs": "5ebf2f30fd7f1eeeb15c92761cafa4c8bc4b5705df26312fd24a06c56679c54d",
+    "src/relationship-store.cjs": "a5b82678782d001627850d17216b7d2b6782d55923b589bba45118547eee429c",
+    "src/request-budget.cjs": "8587c93b915e919906bf67be097471f53b20c0aa69dbca17605f2f27f975a6b7",
+    "src/server.cjs": "165475911bc5036b708923c8ca994de86eee380e96304f4903b322620d1c27ea",
+    "src/store.cjs": "a71f9da170145b3d2c72f7be41c148bc09a7f15b5977e6cfeac26ffed0846b1c",
+    "src/topic-schema.cjs": "a00fa302004397094bd24f290287310cd99d3f476186bc79a781d980a08c7e63",
+    "src/topic-store.cjs": "8102e1613ab55a2e4e378dab80987a551a7f7e4de892bc8cbda71ae69d0e83f9",
+    "src/vision-context.cjs": "861a57821eae7d4b533a23c91009bae725de1f37513cf966ebbfdf083d547155",
+    "ui/app.js": "bbc62636ffa406fa90f721e8d002410815e473ad991f53b03202cfca65f5d653",
+    "ui/index.html": "5d6d7b74b1a00bf8dd3813c923ac1d56c38ccaa9190efb247fc013225c42eab1",
+    "ui/style.css": "d6e1e562a1565fe152c2ed3414cea7595bfc83559d6a38888af708ec82e253bb"
+  },
+  "jev": {
+    "independentRuntimeDecisionModel": false,
+    "fastPolicy": "local deterministic policy plus lexical retrieval",
+    "primaryPlanningAndWording": "current configured main model",
+    "proxyInternalsIndependentlyVerified": false
+  },
+  "integration": {
+    "main": "pending_verified_fast_forward",
+    "native": "old_worker_relationship-context-2026-10-16.1_still_running",
+    "noQQProcessTerminated": true,
+    "noAssistantQQSend": true,
+    "privateDatabaseBackup": "consistent SQLite backup retained under ignored data/backups; quick_check ok"
+  },
+  "knownLimits": [
+    "Previous language-quality failures remain in the historical review; these deterministic repairs do not certify natural wording.",
+    "Only recognized, unambiguous, source-supported expression controls are projected; ambiguous or conditional memories remain planning context.",
+    "No new provider, embedding service, Jev model or persistent system service was configured.",
+    "Synthetic browser checks do not prove native desktop activation."
+  ],
+  "fictionalModelCheckBeforeProxyRestored": {
+    "caseIds": [
+      "Q3-material",
+      "Q5-invitation",
+      "Q6-interest"
+    ],
+    "httpAttemptCap": 9,
+    "outboundFetchAttempts": 1,
+    "completedProviderResponses": 0,
+    "sourceUnchanged": true,
+    "settingsUnchanged": true,
+    "stopped": {
+      "reason": "transport_failure",
+      "caseId": "Q3-material"
+    },
+    "semanticVerdict": "not_executed_due_to_unavailable_local_proxy",
+    "destination": {
+      "origin": "http://127.0.0.1:8317",
+      "path": "/v1"
+    },
+    "connectionProbe": "GET /v1/models: ECONNREFUSED; no listener at configured 8317",
+    "noRetriesAfterTransportFailure": true
+  },
+  "fictionalModelCheck": {
+    "caseIds": [
+      "Q3-material",
+      "Q5-invitation",
+      "Q6-interest"
+    ],
+    "outboundFetchAttempts": 6,
+    "completedProviderResponses": 6,
+    "httpAttemptCap": 9,
+    "sourceUnchanged": true,
+    "settingsUnchanged": true,
+    "stopped": null,
+    "semanticVerdict": "cross_review_two_adopt_one_minor_edit_no_proven_hard_failure",
+    "sourceReportSha256": "802d24fe6ec77cf172a1b2866af6b0ebc05de8e4a29cc6b5fb6d40041ba1b298",
+    "artifacts": "model-restored-four-artifacts.json",
+    "review": {
+      "file": "quality-cross-review_CN.md",
+      "sha256": "6a359ac3299c0926a2c22fe6672c264424a70c7f5b794b7971d12c69282e8a9d",
+      "independent": false,
+      "implementationParticipant": true,
+      "unseenGeneralization": false
+    }
+  }
+}

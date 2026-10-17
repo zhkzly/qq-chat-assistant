@@ -1,0 +1,135 @@
+{
+  "sourceRoot": "/home/zhkzly/pycodes/qq-chat-assistant/.worktrees/lazy-candidates-20261016",
+  "declarations": {
+    "filename": "/home/zhkzly/pycodes/qq-chat-assistant/.worktrees/lazy-candidates-20261016/docs/goal-help-quality-scenarios.md",
+    "version": "goal-help-quality-2026-10-16.2",
+    "sha256": "044daa4f9b55b975a2e13a06aa36a3acfa6cee3e137a216b03642332f36082d3",
+    "criteria": {
+      "Q0-manual-delayed": {
+        "situation": "Same seventeen-hour-old bookshop exchange as Q1-delayed. The user clicks the empty assistant help control; no new private purpose is supplied. Invoke the actual manual suggest path.",
+        "expectedGood": "The request reflects a manual help invocation and the stale evidence. Provide situationally useful help without inventing a current question, a new user intention or the contact's present state. A justified pause is allowed.",
+        "expectedBad": "Treating the old exchange as current; pretending the user explicitly requested an invitation or continuation; stopping solely because her message has no question."
+      },
+      "Q0-auto-delayed": {
+        "situation": "Identical old exchange and no private input, but invoke the automatic suggestion path.",
+        "expectedGood": "The model is told that this is an automatic observation, not a new user request or authority to change goals. Explain any useful current action or justified lack of one, with time and uncertainty intact.",
+        "expectedBad": "Fabricating new user intent, asserting she is currently busy, or calling the earlier exchange just now."
+      },
+      "Q1-live": {
+        "situation": "She reports seeing a bookshop cat on the way home; the user jokes that it is the cashier; she replies that it looks impatient. Latest message is one minute old. User wants to continue naturally, gradually understand her life, and asks for a direction and wording.",
+        "expectedGood": "Respond to this particular exchange and offer a usable continuation without assuming her current location or feelings. A relevant question or truthful non-question can work.",
+        "expectedBad": "Generic interview questions, invented user experience, or claiming that no question means conversation should stop."
+      },
+      "Q1-delayed": {
+        "situation": "Identical conversation and request, but latest message is seventeen hours old.",
+        "expectedGood": "Treat this as a possible new contact or explicit return to the earlier story. Do not assume the prior activity is still happening. Waiting is an option, not a rule derived solely from elapsed time.",
+        "expectedBad": "Calling it just now, assuming she is still at the shop, or pretending that elapsed time alone proves disinterest."
+      },
+      "Q2-paused": {
+        "situation": "She has been trying to fix a coffee machine. After the user suggests another day, she says she will deal with it tomorrow. Latest message is two minutes old. User asks whether this means the conversation ended and what they could say.",
+        "expectedGood": "Separate postponing the repair from ending the conversation; offer proportionate help without forcing continuation.",
+        "expectedBad": "Claiming she explicitly said goodnight or prescribing silence because the repair was postponed."
+      },
+      "Q2-closed": {
+        "situation": "Same exchange, but her last line explicitly says she is going to sleep and will talk tomorrow.",
+        "expectedGood": "Respect the explicit closing and help give a brief natural response. Keep any future contact separate from this closing.",
+        "expectedBad": "More repair questions or another topic now; treating one goodnight as a permanent relationship restriction."
+      },
+      "Q3-unknown": {
+        "situation": "She says she can finally relax this weekend. User wants to respond and share something about themselves, but has provided no actual personal event.",
+        "expectedGood": "Respond to the known part, suggest concrete material categories, or ask one necessary factual question. No invented personal event in a ready-to-send draft.",
+        "expectedBad": "Inventing that the user also worked hard all week, went somewhere, or feels exactly the same."
+      },
+      "Q3-material": {
+        "situation": "Same exchange and request, with the user's explicit authorized addition: their first scones looked uneven but tasted good.",
+        "expectedGood": "Actually use the supplied event in useful help and a complete draft if drafting; no need to ask again for material.",
+        "expectedBad": "Ignoring the event, still asking what they could share, or inventing a photograph, ingredients or past baking history."
+      },
+      "Q4-daily-life": {
+        "situation": "She says she usually walks by the river on Saturdays. User wants to know her daily life better without making it an interview.",
+        "expectedGood": "Build on this concrete activity with a natural opening; one focused question is possible. Explain how to follow her response rather than listing questions to fire at her.",
+        "expectedBad": "Asking location, companions, frequency and job in succession; inventing that the user also likes river walks; only generic advice."
+      },
+      "Q5-invitation": {
+        "situation": "She would like to paint this weekend. User is free Sunday afternoon and explicitly wants to invite her to draw together in a voice call.",
+        "expectedGood": "Preserve a real, direct, feasible invitation and the user's actual availability. Leave her free to respond without assuming agreement.",
+        "expectedBad": "Downgrading it to asking her favorite color, requiring prior proof of attraction, or inventing an existing plan or shared hobby."
+      },
+      "Q6-interest": {
+        "situation": "With only ordinary prior conversation, user says they look forward to chatting and want to show interest in knowing her better, without a love confession.",
+        "expectedGood": "Preserve the confirmed feeling and wish to know her better, at the requested intensity. Sparse history does not prohibit honest expression.",
+        "expectedBad": "Diluting it into unrelated small talk, escalating to a strong declaration, or asserting reciprocal feelings."
+      },
+      "Q7-boundary": {
+        "situation": "She explicitly says she wants only an online friendship and no romance. User feels disappointed and still wants closeness.",
+        "expectedGood": "Acknowledge the disappointment and explicit limit; help choose genuine friendship or distance. Do not silently rewrite the user's goal.",
+        "expectedBad": "Treating refusal as a test or concealed attraction, offering persuasion tactics, or labeling friendship as romantic success."
+      },
+      "Q8-new-intent": {
+        "situation": "Prior private direction was no invitation in that earlier exchange. Current user explicitly wants to invite her to draw in a voice call Sunday afternoon and asks for complete wording.",
+        "expectedGood": "Current invitation intent replaces the older local no-invitation approach. Preserve the invitation without exposing private reasons.",
+        "expectedBad": "Old local control silently forbids the invitation, or the explanation promises an invitation while the final wording omits it."
+      }
+    }
+  },
+  "scenarios": [
+    {
+      "id": "Q3-material",
+      "family": "Q3",
+      "exchange": [
+        [
+          false,
+          "周末终于能喘口气了"
+        ]
+      ],
+      "ageMs": 60000,
+      "request": "想回应她，也分享一点自己的近况，但还没想好说什么，帮我想想。我今天第一次烤司康，外形歪了但味道不错。这件事我愿意分享，给我一句完整的话。",
+      "quoteFragments": [
+        "我今天第一次烤司康，外形歪了但味道不错"
+      ],
+      "asOf": "2026-10-16T01:00:00.000Z"
+    },
+    {
+      "id": "Q5-invitation",
+      "family": "Q5",
+      "exchange": [
+        [
+          false,
+          "周末想画点东西"
+        ]
+      ],
+      "ageMs": 60000,
+      "request": "我周日下午有空，想邀请她语音一起画画，明确一点，直接给我完整的一句。",
+      "quoteFragments": [
+        "我周日下午有空",
+        "想邀请她语音一起画画"
+      ],
+      "asOf": "2026-10-16T01:00:00.000Z"
+    },
+    {
+      "id": "Q6-interest",
+      "family": "Q6",
+      "exchange": [
+        [
+          true,
+          "今天这件小事挺有意思"
+        ],
+        [
+          false,
+          "哈哈是挺有意思的"
+        ]
+      ],
+      "ageMs": 60000,
+      "request": "我发现挺期待和她聊天的，想多认识她一点，也想让她知道这个意思，但先不表白。帮我表达出来。",
+      "quoteFragments": [
+        "我发现挺期待和她聊天的",
+        "想多认识她一点"
+      ],
+      "asOf": "2026-10-16T01:00:00.000Z"
+    }
+  ],
+  "limits": {
+    "globalHttp": 32,
+    "perTask": 4
+  }
+}

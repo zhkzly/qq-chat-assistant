@@ -23,7 +23,7 @@ test('restricted automatic wording also distinguishes a missing candidate from c
  assert.equal(normalized.replyDisposition,undefined,'actual wording delivery has one unambiguous status');
 });
 
-test('legacy automatic origin is recovered from scoped task identity beyond the retained run list',()=>{
+test('legacy automatic output is filtered by scoped task identity beyond retained runs without rewriting original origin',()=>{
  const store=new Store(':memory:');
  try{
   const {TaskLedger}=require('../src/request-budget.cjs'),ledger=new TaskLedger(store);
@@ -33,8 +33,14 @@ test('legacy automatic origin is recovered from scoped task identity beyond the 
   const unknown=store.appendTurn(scope,{role:'assistant',kind:'discussion',text:'Unidentified historical help.',requestId:foreign.id});
   const current=store.getCompanion(scope);
   assert.equal(current.runs.length,0);
-  assert.equal(current.turns.find(x=>x.id===known.id).origin,'automatic');
+  assert.equal(current.turns.find(x=>x.id===known.id).origin,undefined);
   assert.equal(current.turns.find(x=>x.id===unknown.id).origin,undefined);
+  const {Controller}=require('../src/controller.cjs');
+  const controller=new Controller({store,settings:{},read:async()=>{throw Error('No native read in this fixture');}});
+  try{
+   controller.scope={...scope};const visible=controller.snapshot().companion.turns;
+   assert.ok(!visible.some(x=>x.id===known.id));assert.ok(visible.some(x=>x.id===unknown.id));
+  }finally{controller.close();}
  }finally{store.close();}
 });
 

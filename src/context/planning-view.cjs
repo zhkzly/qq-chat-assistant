@@ -2,7 +2,7 @@
 const {redact}=require('../model.cjs');
 const {selectMethods}=require('../help-methods.cjs');
 const {validatedCompaction,candidatesForCompaction}=require('../discussion-compaction.cjs');
-const {eligibleDiscussionTurns}=require('../discussion-compaction-store.cjs');
+const {eligibleDiscussionTurns,automaticDiscussionTurnIds}=require('../discussion-compaction-store.cjs');
 const {sameScope}=require('../messages.cjs');
 const {PROMPT_VERSION,METHODS,sanitize,pick}=require('./shared.cjs');
 const {eligibleQQ,sameScopeIfPresent,supportedByAvailable,pendingPrivateReviews,sourceSnapshot}=require('./source-snapshot.cjs');
@@ -70,13 +70,14 @@ function buildContext(options) {
   const {actualById,all,byId,current}=snapshot;
   const pendingIntents = pendingPrivateReviews(companion, byId);
   const explicitTurnIds=new Set([...sourceTurnIds,...sourceLookupIds.map(id=>id.replace(/^private:/,'')),selectedOption?.turnId].filter(Boolean));
-  const automaticRequestIds=new Set((companion.runs||[]).filter(run=>run.manifest?.invocation?.origin==='automatic'||run.payload?.taskContext?.invocation?.origin==='automatic').map(run=>run.id));
-  const automaticTurn=entry=>entry.role==='assistant'&&(entry.origin==='automatic'||automaticRequestIds.has(entry.requestId))&&!explicitTurnIds.has(entry.id);
+  const automaticIds=automaticDiscussionTurnIds(companion,{store:options.store,scope});
+  const eligibleTurns=eligibleDiscussionTurns(companion,{store:options.store,scope});
+  const automaticTurn=entry=>entry.role==='assistant'&&automaticIds.has(entry.id)&&!explicitTurnIds.has(entry.id);
   const protectedPendingIds = pendingIntents.slice(-3).map(source => source.id);
-  const compacted = validatedCompaction(discussionCompaction, { scope, companion, turn, availableSources: all, settings, promptVersion: PROMPT_VERSION });
+  const compacted = validatedCompaction(discussionCompaction, { scope, companion, turn, availableSources: all, settings, promptVersion: PROMPT_VERSION,store:options.store });
   const coveredTurnIds = new Set(compacted?.sourceTurnIds || []);
   const protectedPrivateIds = new Set([current.id, intentSourceId, ...protectedPendingIds, ...sourceLookupIds.map(id => id.startsWith('private:') ? id : `private:${id}`)]);
-  const latestPriorUser = [...eligibleDiscussionTurns(companion)].reverse().find(item => item.role === 'user' && item.id !== turn.id);
+  const latestPriorUser = [...eligibleTurns].reverse().find(item => item.role === 'user' && item.id !== turn.id);
   if (latestPriorUser) protectedPrivateIds.add(`private:${latestPriorUser.id}`);
   for (const id of sourceTurnIds) if (companion.turns.some(item => item.id === id && item.role === 'user')) protectedPrivateIds.add(`private:${id}`);
   const foldedPrivateIds = new Set(compacted ? Object.keys(compacted.sourceRevisions).filter(id => byId.get(id)?.type === 'private' && !protectedPrivateIds.has(id)) : []);
@@ -125,7 +126,7 @@ function buildContext(options) {
   const essentialIds = new Set(selected.keys());
   const recentPlan=planRecentContext(validQQ,{replyMessageIds,imageMessageIds:protectedImageIds,byteBudget});
   const timeSegments=recentHistorySegments(validQQ,historyPolicy),timeCandidateIds=new Set(timeSegments.flat().map(m=>`qq:${m.messageId}`)),timePriorityIds=new Set();
-  const recentPrivateIds=new Set(eligibleDiscussionTurns(companion).filter(t=>t.role==='user'&&t.id!==turn.id&&inRecentWindow(t.createdAt)&&byId.has(`private:${t.id}`)).map(t=>`private:${t.id}`));
+  const recentPrivateIds=new Set(eligibleTurns.filter(t=>t.role==='user'&&t.id!==turn.id&&inRecentWindow(t.createdAt)&&byId.has(`private:${t.id}`)).map(t=>`private:${t.id}`));
   const reviewing=purpose==='review';
   const privateRequest=generationOrigin!=='qq_observation';
   const queryText=[turn.transient?'':current.text,...validQQ.filter(m=>recentPlan.candidateMessageIds.includes(m.messageId)).map(m=>m.text),
@@ -190,15 +191,15 @@ function buildContext(options) {
   if (retrievedDiscussion.length) payload.retrievedDiscussion = retrievedDiscussion.map(item => ({ ...sanitize(pick(item, ['id','role','kind','text','discussionExplanation','suggestions','expressionOptions','artifactRef'])), authority: 'generated_discussion_not_outbound_authorization' }));
   const manualAlternative=candidateAlternative===true&&invocation?.origin==='user'&&invocation?.trigger==='manual_suggestion';
   const implicitAnchor=(privateRequest||manualAlternative)&&!sourceTurnIds.length&&!selectedOption?currentCandidateAnchor(companion,currentCandidateRef):null;
-  const candidatePool = candidatesForCompaction(compacted, companion, { sourceTurnIds, selectedOption, sourceLookupIds }).filter(candidate=>
+  const candidatePool = candidatesForCompaction(compacted, companion, { sourceTurnIds, selectedOption, sourceLookupIds,store:options.store,scope }).filter(candidate=>
     !automaticTurn(companion.turns.find(t=>t.id===candidate.turnId)||{})&&(privateRequest||compacted||explicitTurnIds.has(candidate.turnId)));
   if(implicitAnchor){
     for(let index=candidatePool.length-1;index>=0;index--)if(candidatePool[index].turnId===implicitAnchor.turnId)candidatePool.splice(index,1);
     candidatePool.unshift(implicitAnchor);
   }
-  const preferredCandidateTurnIds = new Set([...[...eligibleDiscussionTurns(companion)].reverse().filter(item => item.role === 'assistant').slice(0, 1).map(item => item.id), ...sourceTurnIds, selectedOption?.turnId, ...sourceLookupIds].filter(Boolean));
+  const preferredCandidateTurnIds = new Set([...[...eligibleTurns].reverse().filter(item => item.role === 'assistant').slice(0, 1).map(item => item.id), ...sourceTurnIds, selectedOption?.turnId, ...sourceLookupIds].filter(Boolean));
   if(implicitAnchor)preferredCandidateTurnIds.add(implicitAnchor.turnId);
-  const candidates={selected,automaticTurn,explicitTurnIds,inRecentWindow,validQQ,foldedPrivateIds,essentialIds,recentPlan,timeSegments,timeCandidateIds,timePriorityIds,recentPrivateIds,reviewing,privateRequest,relevantRecord,queryText,protectedPendingIds,selectedProposal,proposals,intentSource,topicView,compacted,coveredTurnIds,candidatePool,preferredCandidateTurnIds};
+  const candidates={selected,automaticTurn,eligibleTurns,explicitTurnIds,inRecentWindow,validQQ,foldedPrivateIds,essentialIds,recentPlan,timeSegments,timeCandidateIds,timePriorityIds,recentPrivateIds,reviewing,privateRequest,relevantRecord,queryText,protectedPendingIds,selectedProposal,proposals,intentSource,topicView,compacted,coveredTurnIds,candidatePool,preferredCandidateTurnIds};
   const coreInventory=[...(options.coreMemory||options.store?._memoryRecords?.(scope)||[]),...(memoryResult?.items||[]),...memoryIndex,...(relationshipContext?.claims||[])];
   const {coreItems,optionalRawLimit,optionalRawIds,optionalRetrieved,recentContextPlan,recentPriorityIds,recentInitialAdditionalBytes}=selectPlanningContext({options:{...options,asOf,viewerTimeZone},snapshot,candidates,view:{payload,state,methodSelection,restrictions},budget,coreInventory,projectPlanningViews,reconcilePlanningViews,compactPlanningViews});
   const currentRequest=payload.userRequest,position=payload.taskContext;delete payload.userRequest;delete payload.taskContext;

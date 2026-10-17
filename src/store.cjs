@@ -163,13 +163,8 @@ class Store {
         this._syncMemory(scope,record);record.feedback=this.experiences.listFeedback(scope);
       }
       if(record.topics.items.length&&pruneTopics(record,this._rawMemorySources(scope,record)))this.db.prepare('INSERT INTO companion VALUES(?,?) ON CONFLICT(scope_key) DO UPDATE SET record=excluded.record').run(scopeKey(scope),this._serializeCompanion(record));
-      // Older turns predate persisted origin metadata. Recover only an exact
-      // scoped ledger identity; missing history never licenses a text guess.
-      if(record.turns.some(turn=>turn.role==='assistant'&&turn.origin===undefined&&turn.requestId)&&
-        this.db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='assistant_tasks'").get()){
-        const automatic=new Set(this.db.prepare("SELECT id FROM assistant_tasks WHERE scope_key=? AND origin='automatic'").all(scopeKey(scope)).map(task=>task.id));
-        for(const turn of record.turns)if(turn.role==='assistant'&&turn.origin===undefined&&automatic.has(turn.requestId))turn.origin='automatic';
-      }
+      // Legacy origin is derived in scoped read views. Mutating an original
+      // turn here would change fingerprints and invalidate legitimate history.
       return record;
     });
   }

@@ -53,7 +53,7 @@ function coreCatalog(inventory,byId,scope){
     const stable=typed?item.lifecycle==='active'&&item.assertionKind==='stated'&&item.epistemicStatus==='supported':
       ['fact','preference'].includes(item.kind)&&item.status==='active'&&['stated','supported'].includes(item.certainty||'stated');
     if(!stable||item.reviewComplete===false||!supportedByAvailable(item,byId,scope)||coreSeen.has(item.id))continue;
-    const summary=sanitize(pick(item,['id','version','kind','subject','aspect','text','assertionKind','epistemicStatus','sourceIds','firstEvidenceAt','lastEvidenceAt','validFrom','validUntil','applicability','currentApplicability']));
+    const summary=sanitize(pick(item,['id','version','kind','recordType','status','certainty','lifecycle','reviewComplete','subject','aspect','text','assertionKind','epistemicStatus','sourceIds','firstEvidenceAt','lastEvidenceAt','validFrom','validUntil','context','applicability','currentApplicability']));
     summary.authority='validated_historical_summary_originals_available_by_lookup';
     summary.currentStatus=summary.currentApplicability||summary.applicability||'not_established_by_old_evidence';
     if(coreBytes+bytes(summary)>4000)continue;
