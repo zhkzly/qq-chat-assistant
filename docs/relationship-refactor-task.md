@@ -28,3 +28,7 @@ No changes to the installed QQ client, provider credentials, real chat database 
 - Five fictional actual-model batches used 51 HTTP calls in total. Semantic results, failures and reviewer disagreement are archived under docs/relationship-refactor-evidence. A bounded method calibration did not demonstrate stable quality improvement.
 - Engineering implementation is complete in the isolated candidate. The natural-conversation goal is not fully accepted: L4 still needs rewrite and the last H8 violates the predeclared first-person-pretext boundary. Do not report goal completion from functional success.
 - Retain branch fix/lazy-candidates-20261016. Do not merge or activate as a verified relationship-conversation release. Main and its user-owned untracked files remain untouched; no QQ process was terminated and no QQ message was sent.
+
+## Subsequent user-authorized repair
+
+The above disposition describes the 2026-10-16 candidate. On 2026-10-17 the user requested the identified handoff defects be fixed. The follow-up source commit583abe3 passed620 functional checks and was fast-forwarded into main with exact source parity. This integration does not certify the historical language failures as fixed or prove relationship outcomes. Current evidence and native activation state are tracked in context-handoff-repair-review_CN.md.

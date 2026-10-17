@@ -85,11 +85,21 @@
     "proxyInternalsIndependentlyVerified": false
   },
   "integration": {
-    "main": "pending_verified_fast_forward",
-    "native": "old_worker_relationship-context-2026-10-16.1_still_running",
+    "main": "fast_forwarded_source_commit_583abe3",
+    "native": "waiting_for_normal_user_qq_exit_to_reconstruct_worker",
     "noQQProcessTerminated": true,
     "noAssistantQQSend": true,
-    "privateDatabaseBackup": "consistent SQLite backup retained under ignored data/backups; quick_check ok"
+    "privateDatabaseBackup": "consistent SQLite backup retained under ignored data/backups; quick_check ok",
+    "sourceParity": {
+      "sourceFiles": 45,
+      "differences": 0
+    },
+    "oneShotActivation": {
+      "maxWaitSeconds": 900,
+      "forcedQQExit": false,
+      "sourceHashCheckBeforeLaunch": true,
+      "statusFile": "/tmp/qq-handoff-launch-status-20261017.json"
+    }
   },
   "knownLimits": [
     "Previous language-quality failures remain in the historical review; these deterministic repairs do not certify natural wording.",
