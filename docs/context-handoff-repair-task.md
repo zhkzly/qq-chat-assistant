@@ -47,3 +47,9 @@ Evidence: source/functional/browser/fictional model/native activation remain sep
 - Final repair validation: 620/620 functional checks across 92 files; recursive syntax and continuous synthetic browser checks passed.
 - Initial fictional provider batch stopped on its first ECONNREFUSED, with no model response. User restored the existing 8317 proxy; read-only model discovery returned200, then the same predeclared three fictional tasks completed in six HTTP calls, source/settings unchanged. Implementation-participant cross-review: two adopt, one minor edit, no proven hard failure. Prior L4/H8 failures remain.
 - The user explicitly requested these repairs after the historical candidate-only disposition. Source is now ready for local fast-forward integration; integration is not a claim of universal natural-language quality or romantic outcomes. Native reconstruction follows only normal user-controlled QQ exit with unsent text preserved.
+
+## Native activation completed
+
+- User confirmed saved input and then explicitly authorized a normal SIGTERM when the old parent remained alive. Sent SIGTERM once to the verified old assistant QQ parent, never SIGKILL.
+- The existing launcher reconstructed the native worker. After user login, the actual service reports relationship-context-2026-10-17.1; original account/contact,888 selected records, native reading/listening and helper window are ready.
+- Original945 message records from the consistent backup remain byte-identical, one new record is present, all original goals and the model settings bytes are preserved. No QQ message was sent by these operations; no real message bodies were added to Git.

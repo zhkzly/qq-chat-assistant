@@ -8,4 +8,4 @@
 - [x] Focused red-then-green, full functional and relevant browser verification complete; previous language failures remain visible.
 - [x] Source commit583abe3 is fast-forwarded into main; all45 source/UI file hashes match the tested candidate. Native activation remains a separate check.
 - [x] Read-only legacy origin classification preserves original turn fingerprints and legitimate historical artifacts.
-- [ ] Native worker activation and model connectivity verified after normal QQ exit and proxy recovery.
+- [x] Native worker17.1, original authenticated contact,888 selected messages, native reading and helper window verified after authorized SIGTERM/login;8317 and unchanged model settings verified.

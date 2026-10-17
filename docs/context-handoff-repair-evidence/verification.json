@@ -86,8 +86,7 @@
   },
   "integration": {
     "main": "fast_forwarded_source_commit_583abe3",
-    "native": "waiting_for_normal_user_qq_exit_to_reconstruct_worker",
-    "noQQProcessTerminated": true,
+    "native": "verified_new_worker_authenticated_same_contact_native_read_ready",
     "noAssistantQQSend": true,
     "privateDatabaseBackup": "consistent SQLite backup retained under ignored data/backups; quick_check ok",
     "sourceParity": {
@@ -98,8 +97,41 @@
       "maxWaitSeconds": 900,
       "forcedQQExit": false,
       "sourceHashCheckBeforeLaunch": true,
-      "statusFile": "/tmp/qq-handoff-launch-status-20261017.json"
-    }
+      "statusFile": "/tmp/qq-handoff-launch-status-20261017.json",
+      "completed": true,
+      "phase": "verified_new_native_worker"
+    },
+    "oldQQTermination": {
+      "authorizedAfterUserConfirmedSavedInput": true,
+      "signal": "SIGTERM",
+      "sentOnce": true,
+      "SIGKILLUsed": false,
+      "cause": "previous QQ parent remained alive after reported menu exit"
+    },
+    "nativeMetadata": {
+      "promptVersion": "relationship-context-2026-10-17.1",
+      "phase": "ready",
+      "authenticated": true,
+      "selected": true,
+      "scopeMatchesBefore": true,
+      "actualCount": 888,
+      "oldCount": 887,
+      "nativeReadReady": true,
+      "helperOpen": true,
+      "listenerAttached": true,
+      "model": "gpt-6-sol",
+      "qqMessagesSentByAssistant": 0,
+      "assistantErrorPresent": false
+    },
+    "messageAndGoalPreservation": {
+      "beforeBackupMessageRows": 945,
+      "currentMessageRows": 946,
+      "missingOriginalRows": 0,
+      "changedOriginalRows": 0,
+      "changedGoals": 0,
+      "realMessageBodiesExported": false
+    },
+    "settingsBytesPreserved": true
   },
   "knownLimits": [
     "Previous language-quality failures remain in the historical review; these deterministic repairs do not certify natural wording.",
