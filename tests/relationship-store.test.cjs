@@ -15,6 +15,7 @@ const claim = (sourceId,extra={}) => ({subject:'contact',aspect:'recent_context'
 const complete = (batch,extra={}) => ({reviewedSourceIds:batch.reviewedSourceIds,items:[],episodes:[],retire:[],...extra});
 
 test('typed views separate self/contact/dyad and expire applicability without erasing evidence',t=>{
+  t.mock.timers.enable({apis:['Date'],now:Date.parse('2026-10-14T12:00:00Z')});
   const s=new Store(':memory:');t.after(()=>s.close());
   const m=normalize(raw(undefined,false,{elements:[{textElement:{content:'这周准备考试'}}]}),scope);s.add(scope,[m]);
   const u=user(s,'我想邀请她一起看电影，但不确定她的意思');

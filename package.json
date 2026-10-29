@@ -30,7 +30,10 @@
     "test:model-error-ui": "node scripts/model-error-browser-check.cjs",
     "test:vision-ui": "node scripts/vision-browser-check.cjs",
     "test:explanation-ui": "node scripts/explanation-browser-check.cjs",
-    "test:goal-acceptance": "node scripts/goal-acceptance-check.cjs"
+    "test:goal-acceptance": "node scripts/goal-acceptance-check.cjs",
+    "eval:check": "node scripts/eval-dataset.cjs check",
+    "eval:list": "node scripts/eval-dataset.cjs list",
+    "eval:case": "node scripts/eval-dataset.cjs show"
   },
   "engines": {
     "node": ">=22"

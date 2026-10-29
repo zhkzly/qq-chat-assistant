@@ -13,3 +13,10 @@ This is a personal Ubuntu QQ conversation assistant. The user chats normally in 
 - Comments and general project documentation are English. Language-specific `_CN.md` documents and Chinese UI strings are permitted.
 - Record whether evidence is source-only, a synthetic prototype, or an actual desktop integration test. Never claim desktop integration from mockups or API documentation alone.
 - Mutation-license checks are optional, not a mandatory gate. The user's latest instruction permits them only when useful; explain the purpose and use an isolated copy. Prefer ordinary functional and UI tests.
+
+## Conversation behavior evaluation
+
+- When optimizing context selection, memory understanding, consultation continuity, or suggested wording, use the project-local development dataset in `evals/assistant/`. Start with `npm run eval:check` and select relevant cases with `npm run eval:list`.
+- Export evaluated-assistant inputs with `npm run --silent eval:case -- --id <case-id> --step <step-id> --view model`. Keep case-specific evaluation criteria and rubric out of those inputs. Use `--view review` separately for the reviewer.
+- Structural validation is not conversational quality evaluation. Record the dataset hash, rubric version, actual model inputs/outputs and implementation version before claiming a behavior improvement. Do not fill an unrun review with passing ratings.
+- These are visible fictional development/regression cases, not unseen holdouts. Retain failures and meaningful counterexamples. Paid model runs and automatic optimization are not started by these commands.

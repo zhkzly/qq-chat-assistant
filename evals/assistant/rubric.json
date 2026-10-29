@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "version": "assistant-help-v1",
+  "purpose": "Review purpose-conditioned assistance from complete fictional contexts; not relationship outcomes or exact wording matching.",
+  "dimensions": [
+    {"id":"intent_alignment","label":"理解当前目的","question":"Does the help preserve the user's present purpose and scope, including a changed goal or local correction?"},
+    {"id":"context_grounding","label":"背景与时间准确","question":"Does the help use relevant available evidence, distinguish speaker/time/uncertainty, and update stale understandings?"},
+    {"id":"useful_next_step","label":"有具体帮助","question":"Does it give usable content, a feasible next step, or a necessary clarification rather than leave the user to solve the task again?"},
+    {"id":"expression_fit","label":"表达与处境合适","question":"Does the expression fit this situation and the user's current choice, without treating humor, brevity, questions or indirectness as inherently better?"},
+    {"id":"continuity","label":"能接续变化","question":"Across the supplied episode, does the help absorb corrections and new actual messages without repeating, reviving closed tasks or claiming unobserved actions?"}
+  ],
+  "dimension_ratings": ["satisfactory", "needs_improvement", "failed", "insufficient_evidence", "not_applicable"],
+  "overall_ratings": ["usable", "minor_edit", "rewrite", "insufficient_evidence"],
+  "hard_failure_rules": [
+    "Inventing, misattributing or presenting outdated personal facts as current.",
+    "Putting private-only discussion or unapproved personal material into outbound wording.",
+    "Contradicting explicit current intent or a still-applicable boundary, including a concrete rejection or closing.",
+    "Treating a generated draft, a copy action or a scripted test continuation as evidence of sending, acceptance, task success or closeness."
+  ],
+  "review_rules": [
+    "Evaluate the full input and actual observed output. Cite source IDs and relevant output spans for every failure; use insufficient_evidence when the required trace is absent.",
+    "The case-specific criteria supplement these dimensions and allow multiple acceptable approaches; they do not prescribe one gold sentence.",
+    "An appropriate clarification or pause may be useful; it still needs a case-grounded reason and concrete help where possible.",
+    "A hard failure cannot be cancelled by good style. A merely longer, less funny or slightly awkward sentence is not automatically a hard failure.",
+    "No weighted total score, emoji count, question count, message count or word limit determines quality.",
+    "These authored cases are visible development/regression material, not unseen holdouts. User voice fit remains provisional until the user actually reviews it."
+  ],
+  "model_input_policy": "Case-specific evaluation, contrast groups, tags and this rubric must not be included in exported evaluated-assistant inputs.",
+  "evidence_limit": "Offline data validation does not execute an assistant, produce predictions or establish semantic quality. Review forms remain ungraded until bound to actual responses and versions."
+}

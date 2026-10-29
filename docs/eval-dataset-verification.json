@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "checked_at": "2026-10-29T14:23:05.580Z",
+  "dataset_hash": "80bd56e2f922165506e0df4f212aac1a2071b2af44bd290ec88bb8f309ef64fe",
+  "rubric_version": "assistant-help-v1",
+  "cases": 18,
+  "steps": 34,
+  "data_class": "authored fictional visible development/regression fixtures",
+  "semantic_evaluation": "not_run",
+  "model_api_calls": 0,
+  "goal_loop_started": false,
+  "global_configuration_changed": false,
+  "commands": [
+    {
+      "command": "npm run eval:check",
+      "exit_code": 0
+    },
+    {
+      "command": "node --test --test-isolation=none tests/eval-dataset.test.cjs",
+      "exit_code": 0,
+      "checks": 7
+    },
+    {
+      "command": "node scripts/test.cjs",
+      "exit_code": 0,
+      "test_files": 97,
+      "tests": 662
+    },
+    {
+      "command": "node scripts/check.cjs",
+      "exit_code": 0
+    },
+    {
+      "command": "git diff --check",
+      "exit_code": 0
+    }
+  ],
+  "content_review": {
+    "remaining_blockers": 0,
+    "blind": false,
+    "prior_project_participant": true,
+    "resolved": [
+      "Learning case accepts truthful wording asking the friend for missing error/code, not only private clarification.",
+      "Descriptive case names removed from exported request IDs."
+    ]
+  },
+  "baseline_test_issue": {
+    "test": "tests/relationship-store.test.cjs:17",
+    "reproduced_on_unchanged_main": true,
+    "cause": "A real-time private source occurred after a fixed historical asOf date.",
+    "fix": "Freeze only this test clock at 2026-10-14; all original assertions retained.",
+    "production_change": false
+  },
+  "evidence_limits": [
+    "No assistant predictions or semantic ratings produced.",
+    "Authored follow-up messages do not prove carried runtime state or adoption.",
+    "Existing actual-model runner is not yet adapted to this JSONL format.",
+    "No unseen holdout or actual QQ integration claim."
+  ],
+  "functional_log_sha256": "becbf4bba658f3212cde7e66380e6137185506d3a8ed45996867edb4b0fc0cf1"
+}

@@ -43,6 +43,8 @@ npm run diagnose
 
 Tests use synthetic messages. Browser screenshots are labeled synthetic. Real history and credentials are under ignored, private `data/`; do not share that directory. The documentation archive excludes it.
 
+Reusable fictional development cases and their review criteria are in [evals/assistant](evals/assistant/README.md). Run `npm run eval:check` for offline validation and `npm run eval:list` to select cases. The checker does not run a model or grade conversational quality.
+
 Mutation checks are optional when useful, not a normal prerequisite. Browser checks use isolated temporary Chrome profiles; their results do not prove native integration or relationship outcomes.
 
 ## Architecture
