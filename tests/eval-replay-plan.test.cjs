@@ -62,8 +62,9 @@ test('response-relative feedback is guarded or explicitly adapted; it never sile
 });
 test('native observable fixtures retain long histories, future evidence and automatic user controls',()=>{
  const loaded=loadReplayPlans({includeLegacy:false}),plans=loaded.plans;
- assert.equal(plans.length,3);assert.match(loaded.datasetHash,/^[a-f0-9]{64}$/);assert.equal(loaded.policyVersion,REPLAY_POLICY_VERSION);
- for(const plan of plans){assert.deepEqual(validateReplayPlan(plan),[],plan.id);assert.equal(plan.source_kind,'event_fixture');assert.ok(plan.steps.length>=3);assert.equal(plan.initial.private_events.some(event=>event.role==='assistant'),false);}
+ assert.ok(plans.length>=3);assert.match(loaded.datasetHash,/^[a-f0-9]{64}$/);assert.equal(loaded.policyVersion,REPLAY_POLICY_VERSION);
+ for(const plan of plans){assert.deepEqual(validateReplayPlan(plan),[],plan.id);assert.equal(plan.source_kind,'event_fixture');}
+ for(const plan of plans.filter(p=>['replay-mixed-history-reciprocity','replay-job-change-later-recall','replay-incoming-then-human-send'].includes(p.id))){assert.ok(plan.steps.length>=3);assert.equal(plan.initial.private_events.some(event=>event.role==='assistant'),false);}
  const mixed=plans.find(plan=>plan.id==='replay-mixed-history-reciprocity');assert.ok(mixed.initial.qq_events.length>=80);assert.ok(mixed.steps.some(step=>step.qq_events.some(event=>event.speaker==='self')));
  const job=plans.find(plan=>plan.id==='replay-job-change-later-recall');assert.ok(job.initial.qq_events.length>=80);assert.ok(job.steps.reduce((n,step)=>n+step.qq_events.length,0)>=45);assert.equal(job.reviewer_only.excluded_understandings.length,0);
  const automatic=plans.find(plan=>plan.id==='replay-incoming-then-human-send');assert.equal(automatic.initial.user_controls.automatic,true);assert.equal(automatic.steps[0].user_controls.automatic,true);assert.equal(automatic.steps[0].request,null);assert.equal(automatic.steps[1].request,null);assert.ok(automatic.steps[1].qq_events.some(event=>event.speaker==='self'));assert.equal(automatic.steps.at(-1).user_controls.automatic,false);
@@ -83,8 +84,8 @@ test('replay validation rejects future, regressing, duplicate and internal imple
  ]){const changed=structuredClone(plan);change(changed);assert.ok(validateReplayPlan(changed).length);}
 });
 test('loader validates all legacy and native plans, checks adaptation identity, and reports row locations',t=>{
- const loaded=loadReplayPlans();assert.equal(loaded.plans.length,cases.length+3);
- assert.ok(loaded.plans.every(plan=>plan.steps.every(step=>step.feedback.mode==='independent')),'frozen reviewed adaptations make the supplied cases replayable without blind response-relative feedback');
+ const loaded=loadReplayPlans();assert.equal(loaded.plans.length,cases.length+loadReplayPlans({includeLegacy:false}).plans.length);
+ assert.ok(loaded.plans.filter(plan=>plan.source_kind==='legacy_case').every(plan=>plan.steps.every(step=>step.feedback.mode==='independent')),'frozen reviewed adaptations make the supplied cases replayable without blind response-relative feedback');
  const legacy=loaded.plans.find(plan=>plan.id==='cm-local-correction-continuity');assert.equal(legacy.steps[0].feedback.mode,'independent');assert.ok(legacy.adaptations.length);
  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'qq-replay-plan-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
  fs.writeFileSync(path.join(dir,'bad.jsonl'),'{broken\n');assert.throws(()=>loadReplayPlans({includeLegacy:false,replayDir:dir}),/bad.jsonl:1/);

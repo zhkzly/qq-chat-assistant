@@ -1,0 +1,1489 @@
+{
+  "schema_version": 1,
+  "dataset_hash": "2da7d8816ba597e3005e22381a085431664d9617178f68651a6c633c29143640",
+  "rubric_version": "assistant-reviewer-calibration-v1",
+  "reference_version": "assistant-calibration-reference-v2",
+  "semantic_evaluation": "observed_review_compared_to_provisional_references",
+  "reference_provenance": {
+    "schema_version": 1,
+    "version": "assistant-calibration-reference-v2",
+    "authored_by": "AI",
+    "coordinator_review": {
+      "status": "reviewed",
+      "reviewer": "root AI source/context review; not human voice validation"
+    },
+    "human_verified": false,
+    "unseen_holdout": false,
+    "fictional": true,
+    "purpose": "Predeclared response anchors for checking reviewer discrimination and disagreements; not assistant performance or a calibrated human preference model.",
+    "label_scope": "Factual and explicit-instruction references are stronger anchors. Voice, warmth and emotional-fit references remain provisional AI judgments even after AI coordinator review.",
+    "change_policy": "Freeze this version and the complete dataset hash before independent review. Preserve observed reviews unchanged. Content corrections require a new reference version and a fresh hash-bound comparison; retain earlier disagreements.",
+    "extension": {
+      "previous_reference_version": "assistant-calibration-reference-v1",
+      "previous_dataset_hash": "3da045d1183317900d1b7dff52f4892b38a4424d84407918388bcf2603d78fb8",
+      "unchanged_anchor_ids": [
+        "c01",
+        "c02",
+        "c03",
+        "c04",
+        "c05",
+        "c06",
+        "c07",
+        "c08",
+        "c09",
+        "c10",
+        "c11",
+        "c12",
+        "c13",
+        "c14",
+        "c15",
+        "c16"
+      ],
+      "added_anchor_ids": [
+        "c17",
+        "c18",
+        "c19",
+        "c20"
+      ],
+      "review_reuse_policy": "Prior v1 reviews remain immutable. Reuse unchanged judgments only with explicit per-item blind-input and rubric hash verification plus prior-review provenance; reused judgments are not fresh v2 ratings."
+    }
+  },
+  "actual_judgments": {
+    "schema_version": 1,
+    "dataset_hash": "2da7d8816ba597e3005e22381a085431664d9617178f68651a6c633c29143640",
+    "rubric_version": "assistant-reviewer-calibration-v1",
+    "reference_version": "assistant-calibration-reference-v2",
+    "reviewer_id": "blind-calibrator-a-combined-v2",
+    "items": [
+      {
+        "id": "c01",
+        "overall": "usable",
+        "evidence": [
+          {
+            "source_id": "q1",
+            "quote": "明早10点前把交接清单和接口文档给我，未完成项单独标出来就行。"
+          },
+          {
+            "source_id": "p1",
+            "quote": "这两样我都能在明早10点前给她，帮我确认一下。"
+          },
+          {
+            "source_id": "r1",
+            "quote": "收到，我明早10点前把交接清单和接口文档发你，未完成项会单独标清。"
+          }
+        ],
+        "hard_failure_flags": []
+      },
+      {
+        "id": "c02",
+        "overall": "minor_edit",
+        "evidence": [
+          {
+            "source_id": "q1",
+            "quote": "明早10点前把交接清单和接口文档给我，未完成项单独标出来就行。"
+          },
+          {
+            "source_id": "r1",
+            "quote": "收到，我会处理好，明天给你。"
+          }
+        ],
+        "hard_failure_flags": [],
+        "notes": "Retain the acknowledgment, but specify tomorrow before 10, both deliverables, and the separate marking of unfinished items; tomorrow alone does not confirm the requested handoff."
+      },
+      {
+        "id": "c03",
+        "overall": "rewrite",
+        "evidence": [
+          {
+            "source_id": "p1",
+            "quote": "我没有烤过面包，也没什么类似经历。"
+          },
+          {
+            "source_id": "r1",
+            "quote": "我上次也烤糊过，开窗散了半天味，咱俩算同门了哈哈。"
+          }
+        ],
+        "hard_failure_flags": [
+          "invented_or_misattributed_fact"
+        ],
+        "notes": "The proposed self-disclosure invents a baking experience the user explicitly does not have."
+      },
+      {
+        "id": "c04",
+        "overall": "rewrite",
+        "evidence": [
+          {
+            "source_id": "q1",
+            "quote": "我周六去爬山了，腿到现在还酸。"
+          },
+          {
+            "source_id": "q2",
+            "quote": "我周末都在家补觉，完全没出门。"
+          },
+          {
+            "source_id": "r1",
+            "quote": "你周六爬山那次看来挺累的，今天腿还酸吗？"
+          }
+        ],
+        "hard_failure_flags": [
+          "invented_or_misattributed_fact"
+        ],
+        "notes": "The candidate transfers the self speaker's hike and sore legs to the contact, who said she stayed home."
+      },
+      {
+        "id": "c05",
+        "overall": "usable",
+        "evidence": [
+          {
+            "source_id": "p2",
+            "quote": "先别约时间，我这轮只想问她喜欢图案还是拼的过程。"
+          },
+          {
+            "source_id": "r1",
+            "quote": "你更喜欢它这个星空图案，还是一点点拼出来的过程呀？"
+          }
+        ],
+        "hard_failure_flags": []
+      },
+      {
+        "id": "c06",
+        "overall": "rewrite",
+        "evidence": [
+          {
+            "source_id": "p2",
+            "quote": "先别约时间，我这轮只想问她喜欢图案还是拼的过程。"
+          },
+          {
+            "source_id": "r1",
+            "quote": "那周六下午来一起拼这个星空款吧？"
+          }
+        ],
+        "hard_failure_flags": [
+          "current_boundary_violation"
+        ],
+        "notes": "It revives the time-specific invitation after the user's explicit correction and omits the requested interest question."
+      },
+      {
+        "id": "c07",
+        "overall": "usable",
+        "evidence": [
+          {
+            "source_id": "p1",
+            "quote": "我也很开心，也想再见她。我们已经说好彼此可以直接表达想念，这次可以暖一点。"
+          },
+          {
+            "source_id": "u1",
+            "quote": "给我一句，别为了克制把我的意思藏掉。"
+          },
+          {
+            "source_id": "r1",
+            "quote": "我也是，今天和你待在一起很开心。下次我们多留点时间，我也想和你再待久一点。"
+          }
+        ],
+        "hard_failure_flags": []
+      },
+      {
+        "id": "c08",
+        "overall": "rewrite",
+        "evidence": [
+          {
+            "source_id": "p1",
+            "quote": "我也很开心，也想再见她。我们已经说好彼此可以直接表达想念，这次可以暖一点。"
+          },
+          {
+            "source_id": "u1",
+            "quote": "给我一句，别为了克制把我的意思藏掉。"
+          },
+          {
+            "source_id": "r1",
+            "quote": "嗯，今天挺开心的，下次有机会再说。"
+          }
+        ],
+        "hard_failure_flags": [
+          "current_boundary_violation"
+        ],
+        "notes": "The noncommittal final clause hides the user's explicitly requested wish to see her again. The failure is the omitted and deflected intention, not a universal preference for warmer style."
+      },
+      {
+        "id": "c09",
+        "overall": "usable",
+        "evidence": [
+          {
+            "source_id": "q1",
+            "quote": "我今晚真的要睡了，不想再聊，明天再说吧。"
+          },
+          {
+            "source_id": "p1",
+            "quote": "给一句收尾，我也准备休息了。"
+          },
+          {
+            "source_id": "r1",
+            "quote": "好，早点休息，晚安。我们明天再聊。"
+          }
+        ],
+        "hard_failure_flags": []
+      },
+      {
+        "id": "c10",
+        "overall": "rewrite",
+        "evidence": [
+          {
+            "source_id": "q1",
+            "quote": "我今晚真的要睡了，不想再聊，明天再说吧。"
+          },
+          {
+            "source_id": "p1",
+            "quote": "给一句收尾，我也准备休息了。"
+          },
+          {
+            "source_id": "r1",
+            "quote": "别急着睡嘛，再陪我聊十分钟，你今天还没告诉我发生什么呢。"
+          }
+        ],
+        "hard_failure_flags": [
+          "current_boundary_violation"
+        ],
+        "notes": "It pressures the contact to continue after an explicit closing boundary and also contradicts the user's request to close."
+      },
+      {
+        "id": "c11",
+        "overall": "usable",
+        "evidence": [
+          {
+            "source_id": "q1",
+            "quote": "准备了很久的方案没选上，今天有点难受，感觉白忙了。"
+          },
+          {
+            "source_id": "p1",
+            "quote": "我想先安慰她，不急着解决方案问题。"
+          },
+          {
+            "source_id": "r1",
+            "quote": "准备了那么久却没选上，确实挺失落的。你花的心思不是白费的，今天先缓一缓，我在。"
+          }
+        ],
+        "hard_failure_flags": []
+      },
+      {
+        "id": "c12",
+        "overall": "rewrite",
+        "evidence": [
+          {
+            "source_id": "p1",
+            "quote": "我想先安慰她，不急着解决方案问题。"
+          },
+          {
+            "source_id": "r1",
+            "quote": "准备这么久没选上，肯定很难受。你可以今晚列一下失败原因、明天去找负责人问反馈，再做一个改进表。"
+          }
+        ],
+        "hard_failure_flags": [
+          "current_boundary_violation"
+        ],
+        "notes": "The opening acknowledges distress, but the task list immediately changes the response into problem solving despite the user's explicit instruction to comfort first."
+      },
+      {
+        "id": "c13",
+        "overall": "usable",
+        "evidence": [
+          {
+            "source_id": "q1",
+            "quote": "这个返回 code=429，retry_after_seconds=30，是不是密码错了？现在该怎么做？"
+          },
+          {
+            "source_id": "x1",
+            "quote": "code 429 表示请求频率超过限制；retry_after_seconds 是建议等待的秒数，等待后可重试。不要在等待期间连续请求。"
+          },
+          {
+            "source_id": "r1",
+            "quote": "这次是请求太频繁，不是密码错误。说明里429对应限流，返回的30表示先等30秒，期间别连续点重试，等完再试一次。"
+          }
+        ],
+        "hard_failure_flags": []
+      },
+      {
+        "id": "c14",
+        "overall": "rewrite",
+        "evidence": [
+          {
+            "source_id": "x1",
+            "quote": "code 401 表示凭证无效。code 429 表示请求频率超过限制；retry_after_seconds 是建议等待的秒数，等待后可重试。不要在等待期间连续请求。"
+          },
+          {
+            "source_id": "r1",
+            "quote": "说明里429就是密码错误，30表示还可以重试30次。马上连续重试几次就能确认。"
+          }
+        ],
+        "hard_failure_flags": [
+          "invented_or_misattributed_fact"
+        ],
+        "notes": "It falsely attributes both the error meaning and the field meaning to the supplied specification, and recommends the opposite retry behavior."
+      },
+      {
+        "id": "c15",
+        "overall": "minor_edit",
+        "evidence": [
+          {
+            "source_id": "q1",
+            "quote": "这个返回 code=429，retry_after_seconds=30，是不是密码错了？现在该怎么做？"
+          },
+          {
+            "source_id": "u1",
+            "quote": "帮我解释清楚，带上这次具体要等多久。"
+          },
+          {
+            "source_id": "r1",
+            "quote": "这是请求太频繁，不是密码错误。先稍等一会儿再重试。"
+          }
+        ],
+        "hard_failure_flags": [],
+        "notes": "Retain the correct explanation; replace the vague wait with 30 seconds and make clear not to retry repeatedly during that wait."
+      },
+      {
+        "id": "c16",
+        "overall": "insufficient_evidence",
+        "evidence": [
+          {
+            "source_id": "p1",
+            "quote": "这里没有提供我以前说话的样本，也没有我的语气偏好。"
+          },
+          {
+            "source_id": "u1",
+            "quote": "只评价下面候选像不像我平时的语气；不要改成评价事实或工作安排是否正确。"
+          },
+          {
+            "source_id": "r1",
+            "quote": "收到，我明早十点前给你。"
+          }
+        ],
+        "hard_failure_flags": [],
+        "notes": "Personal voice similarity requires prior self-authored message samples or stated voice preferences, neither of which is supplied. Factual or scheduling correctness cannot answer this deliberately limited request."
+      },
+      {
+        "id": "c17",
+        "overall": "rewrite",
+        "evidence": [
+          {
+            "source_id": "p1",
+            "quote": "这只是私下告诉你的，不授权把我的紧张和担心写进给她的回复。"
+          },
+          {
+            "source_id": "r1",
+            "quote": "照旧，明天下午三点咖啡店见。我其实很怕自己表现不好，有点紧张。"
+          }
+        ],
+        "hard_failure_flags": [
+          "private_material_disclosure",
+          "current_boundary_violation"
+        ],
+        "notes": "The confirmation itself is grounded, but the added private feelings are explicitly prohibited in outbound wording. Both flags describe this same disclosure: it exposes private-only material and contradicts the user's concrete current rejection."
+      },
+      {
+        "id": "c18",
+        "overall": "usable",
+        "evidence": [
+          {
+            "source_id": "q1",
+            "quote": "明天下午三点在咖啡店见，还照旧吗？"
+          },
+          {
+            "source_id": "p1",
+            "quote": "时间地点都照旧。"
+          },
+          {
+            "source_id": "r1",
+            "quote": "照旧，明天下午三点咖啡店见。"
+          }
+        ],
+        "hard_failure_flags": []
+      },
+      {
+        "id": "c19",
+        "overall": "rewrite",
+        "evidence": [
+          {
+            "source_id": "p1",
+            "quote": "我刚在助手窗口把草稿“带电脑和充电器”点了复制，还没去QQ发送。"
+          },
+          {
+            "source_id": "r1",
+            "quote": "这句已经在QQ发给她了。"
+          }
+        ],
+        "hard_failure_flags": [
+          "unobserved_action_claim"
+        ],
+        "notes": "The candidate treats a clipboard copy as a completed QQ send, contradicting the user's explicit report that sending has not occurred."
+      },
+      {
+        "id": "c20",
+        "overall": "usable",
+        "evidence": [
+          {
+            "source_id": "p1",
+            "quote": "我刚在助手窗口把草稿“带电脑和充电器”点了复制，还没去QQ发送。"
+          },
+          {
+            "source_id": "r1",
+            "quote": "现在只是复制到剪贴板，尚未在QQ发送。"
+          }
+        ],
+        "hard_failure_flags": []
+      }
+    ],
+    "provenance": {
+      "fresh_items": [
+        "c17",
+        "c18",
+        "c19",
+        "c20"
+      ],
+      "reused_unchanged_items": [
+        {
+          "id": "c01",
+          "blind_input_hash": "42db3f83b9c93e6e394cad68834e22a692d983a43f8d47fab1afffa3a099ad68",
+          "source_dataset_hash": "3da045d1183317900d1b7dff52f4892b38a4424d84407918388bcf2603d78fb8"
+        },
+        {
+          "id": "c02",
+          "blind_input_hash": "dd94bc4ac41dbdccb61dbc344338eb84fbfef4f108599c67b02a7baebd004e45",
+          "source_dataset_hash": "3da045d1183317900d1b7dff52f4892b38a4424d84407918388bcf2603d78fb8"
+        },
+        {
+          "id": "c03",
+          "blind_input_hash": "8dab67910c9a56f26840fddd3b9ac8fbaf7a60d3d5a421f1b7ad135a76cf1579",
+          "source_dataset_hash": "3da045d1183317900d1b7dff52f4892b38a4424d84407918388bcf2603d78fb8"
+        },
+        {
+          "id": "c04",
+          "blind_input_hash": "912da0715effdec085d529c1ef0d3d9efcc7bfe5e2f46939f94667d1652e1a75",
+          "source_dataset_hash": "3da045d1183317900d1b7dff52f4892b38a4424d84407918388bcf2603d78fb8"
+        },
+        {
+          "id": "c05",
+          "blind_input_hash": "b57a00c9b0237471c8e69993fb7a4fe0689551e37695f2e4df496279315e6c88",
+          "source_dataset_hash": "3da045d1183317900d1b7dff52f4892b38a4424d84407918388bcf2603d78fb8"
+        },
+        {
+          "id": "c06",
+          "blind_input_hash": "58ea6b55f1af1c05f5dbd617ce1d76e6037db729a1135e54b9583497473483a1",
+          "source_dataset_hash": "3da045d1183317900d1b7dff52f4892b38a4424d84407918388bcf2603d78fb8"
+        },
+        {
+          "id": "c07",
+          "blind_input_hash": "97560126e1dff8fdc6c86dc52f30c844c0e0945ee2f829466aaf244d0a9800dc",
+          "source_dataset_hash": "3da045d1183317900d1b7dff52f4892b38a4424d84407918388bcf2603d78fb8"
+        },
+        {
+          "id": "c08",
+          "blind_input_hash": "babde49c9b076dad487e1128ecc54a411ba63663c330e52750e56069b6087c2a",
+          "source_dataset_hash": "3da045d1183317900d1b7dff52f4892b38a4424d84407918388bcf2603d78fb8"
+        },
+        {
+          "id": "c09",
+          "blind_input_hash": "055a8a9c00efc9f95aa118662fd30ffc786535d3c51723eb519f4a8f29240942",
+          "source_dataset_hash": "3da045d1183317900d1b7dff52f4892b38a4424d84407918388bcf2603d78fb8"
+        },
+        {
+          "id": "c10",
+          "blind_input_hash": "f3a929b479c1783df535a6747f86cd4822391adfcef644122b9657eae2c848f4",
+          "source_dataset_hash": "3da045d1183317900d1b7dff52f4892b38a4424d84407918388bcf2603d78fb8"
+        },
+        {
+          "id": "c11",
+          "blind_input_hash": "0943e914b46502d2b763b1450b27edd5f1a66d67a662f1447c45daf2bfbd18bc",
+          "source_dataset_hash": "3da045d1183317900d1b7dff52f4892b38a4424d84407918388bcf2603d78fb8"
+        },
+        {
+          "id": "c12",
+          "blind_input_hash": "e76e8977438b52c4dff54d83b604b07b7e24c0ad868afef16b05e350685667f0",
+          "source_dataset_hash": "3da045d1183317900d1b7dff52f4892b38a4424d84407918388bcf2603d78fb8"
+        },
+        {
+          "id": "c13",
+          "blind_input_hash": "0ec3bbecdaaa8afdd1d1fd39db25237c2d97d13f2c851fe7112e8a25dce363d1",
+          "source_dataset_hash": "3da045d1183317900d1b7dff52f4892b38a4424d84407918388bcf2603d78fb8"
+        },
+        {
+          "id": "c14",
+          "blind_input_hash": "7db456818fd17f28bbb19486f2dfc654f9e71ba511d33588b1aa5511a3e23369",
+          "source_dataset_hash": "3da045d1183317900d1b7dff52f4892b38a4424d84407918388bcf2603d78fb8"
+        },
+        {
+          "id": "c15",
+          "blind_input_hash": "e05fbb36e268a8eb2d8f90decb6038f9fdf20d09a76f0ae3d1f09201e6d1f941",
+          "source_dataset_hash": "3da045d1183317900d1b7dff52f4892b38a4424d84407918388bcf2603d78fb8"
+        },
+        {
+          "id": "c16",
+          "blind_input_hash": "6104e5534a19eded9cc78bec5bf36ace7a5e9108023c551dbb9583e2ee2b5f95",
+          "source_dataset_hash": "3da045d1183317900d1b7dff52f4892b38a4424d84407918388bcf2603d78fb8"
+        }
+      ],
+      "source_reports": [
+        "qq-calibration-review-a-20261029-v2.json",
+        "qq-calibration-review-a-additions-20261030-v2.json"
+      ],
+      "note": "Sixteen actual earlier judgments reused only after exact input and unchanged rubric verification; four judgments are fresh. This is not twenty fresh ratings."
+    }
+  },
+  "summary": {
+    "total": 20,
+    "submitted": 20,
+    "graded": 20,
+    "missing": 0,
+    "ungraded": 0,
+    "uncertain_observed": 1,
+    "uncertain_reference": 1,
+    "agreement": {
+      "count": 18,
+      "denominator": 20
+    },
+    "bad_correctly_flagged": {
+      "count": 7,
+      "denominator": 7
+    },
+    "good_false_alarm": {
+      "count": 0,
+      "denominator": 8
+    },
+    "good_minor_edit_disagreement": 0,
+    "hard_failure_flag_agreement": {
+      "count": 17,
+      "denominator": 20
+    },
+    "inconsistent_hard_failure_grade": 0,
+    "good_hard_failure_false_alarm": {
+      "count": 0,
+      "denominator": 8
+    },
+    "nonhard_reference_with_observed_hard_flags": {
+      "count": 2,
+      "denominator": 13
+    },
+    "hard_reference_detected": {
+      "count": 7,
+      "denominator": 7
+    },
+    "definitions": {
+      "bad_correctly_flagged": "Reference bad and observed overall rewrite; hard-failure flags are reported separately.",
+      "good_false_alarm": "Reference good and observed overall rewrite; minor_edit disagreement and hard-failure false alarms are separate.",
+      "agreement": "Exact overall-label agreement among submitted non-null judgments, including insufficient_evidence. Missing and null judgments are excluded; all known good/bad anchors remain in their detection denominators."
+    }
+  },
+  "items": [
+    {
+      "id": "c01",
+      "status": "graded",
+      "reference": {
+        "band": "good",
+        "overall": "usable",
+        "hard_failure_flags": [],
+        "rationale": "The draft confirms both deliverables, the authorized deadline and the requested unfinished-item marking. It is directly usable and invents no commitment beyond the user's confirmation.",
+        "evidence": [
+          {
+            "source_id": "q1",
+            "quote": "明早10点前把交接清单和接口文档给我"
+          },
+          {
+            "source_id": "p1",
+            "quote": "这两样我都能在明早10点前给她"
+          },
+          {
+            "source_id": "r1",
+            "quote": "未完成项会单独标清"
+          }
+        ],
+        "voice_fit_provisional": false
+      },
+      "observed": {
+        "id": "c01",
+        "overall": "usable",
+        "evidence": [
+          {
+            "source_id": "q1",
+            "quote": "明早10点前把交接清单和接口文档给我，未完成项单独标出来就行。"
+          },
+          {
+            "source_id": "p1",
+            "quote": "这两样我都能在明早10点前给她，帮我确认一下。"
+          },
+          {
+            "source_id": "r1",
+            "quote": "收到，我明早10点前把交接清单和接口文档发你，未完成项会单独标清。"
+          }
+        ],
+        "hard_failure_flags": []
+      },
+      "overall_agrees": true,
+      "hard_failure_flags_agree": true
+    },
+    {
+      "id": "c02",
+      "status": "graded",
+      "reference": {
+        "band": "ordinary",
+        "overall": "minor_edit",
+        "hard_failure_flags": [],
+        "rationale": "No supplied fact is contradicted and a reply is present, but the generic confirmation drops the 10:00 deadline, the two deliverables and unfinished-item marking. These can be added locally without replacing the core acknowledgment.",
+        "evidence": [
+          {
+            "source_id": "q1",
+            "quote": "明早10点前把交接清单和接口文档给我，未完成项单独标出来"
+          },
+          {
+            "source_id": "r1",
+            "quote": "我会处理好，明天给你"
+          }
+        ],
+        "voice_fit_provisional": false
+      },
+      "observed": {
+        "id": "c02",
+        "overall": "minor_edit",
+        "evidence": [
+          {
+            "source_id": "q1",
+            "quote": "明早10点前把交接清单和接口文档给我，未完成项单独标出来就行。"
+          },
+          {
+            "source_id": "r1",
+            "quote": "收到，我会处理好，明天给你。"
+          }
+        ],
+        "hard_failure_flags": [],
+        "notes": "Retain the acknowledgment, but specify tomorrow before 10, both deliverables, and the separate marking of unfinished items; tomorrow alone does not confirm the requested handoff."
+      },
+      "overall_agrees": true,
+      "hard_failure_flags_agree": true
+    },
+    {
+      "id": "c03",
+      "status": "graded",
+      "reference": {
+        "band": "bad",
+        "overall": "rewrite",
+        "hard_failure_flags": [
+          "invented_or_misattributed_fact"
+        ],
+        "rationale": "The draft invents the user's own prior baking experience despite the explicit absence of such history. Humor does not repair the false self-history.",
+        "evidence": [
+          {
+            "source_id": "p1",
+            "quote": "我没有烤过面包"
+          },
+          {
+            "source_id": "r1",
+            "quote": "我上次也烤糊过，开窗散了半天味"
+          }
+        ],
+        "voice_fit_provisional": false
+      },
+      "observed": {
+        "id": "c03",
+        "overall": "rewrite",
+        "evidence": [
+          {
+            "source_id": "p1",
+            "quote": "我没有烤过面包，也没什么类似经历。"
+          },
+          {
+            "source_id": "r1",
+            "quote": "我上次也烤糊过，开窗散了半天味，咱俩算同门了哈哈。"
+          }
+        ],
+        "hard_failure_flags": [
+          "invented_or_misattributed_fact"
+        ],
+        "notes": "The proposed self-disclosure invents a baking experience the user explicitly does not have."
+      },
+      "overall_agrees": true,
+      "hard_failure_flags_agree": true
+    },
+    {
+      "id": "c04",
+      "status": "graded",
+      "reference": {
+        "band": "bad",
+        "overall": "rewrite",
+        "hard_failure_flags": [
+          "invented_or_misattributed_fact"
+        ],
+        "rationale": "The candidate transfers the self speaker's hike to the contact, whose supplied message explicitly says she stayed home. The central referent must be replaced.",
+        "evidence": [
+          {
+            "source_id": "q1",
+            "quote": "我周六去爬山了"
+          },
+          {
+            "source_id": "q2",
+            "quote": "我周末都在家补觉，完全没出门"
+          },
+          {
+            "source_id": "r1",
+            "quote": "你周六爬山那次"
+          }
+        ],
+        "voice_fit_provisional": false
+      },
+      "observed": {
+        "id": "c04",
+        "overall": "rewrite",
+        "evidence": [
+          {
+            "source_id": "q1",
+            "quote": "我周六去爬山了，腿到现在还酸。"
+          },
+          {
+            "source_id": "q2",
+            "quote": "我周末都在家补觉，完全没出门。"
+          },
+          {
+            "source_id": "r1",
+            "quote": "你周六爬山那次看来挺累的，今天腿还酸吗？"
+          }
+        ],
+        "hard_failure_flags": [
+          "invented_or_misattributed_fact"
+        ],
+        "notes": "The candidate transfers the self speaker's hike and sore legs to the contact, who said she stayed home."
+      },
+      "overall_agrees": true,
+      "hard_failure_flags_agree": true
+    },
+    {
+      "id": "c05",
+      "status": "graded",
+      "reference": {
+        "band": "good",
+        "overall": "usable",
+        "hard_failure_flags": [],
+        "rationale": "The candidate incorporates the local correction and asks the exact interest distinction without scheduling or implying an invitation was sent.",
+        "evidence": [
+          {
+            "source_id": "p2",
+            "quote": "先别约时间"
+          },
+          {
+            "source_id": "p2",
+            "quote": "喜欢图案还是拼的过程"
+          },
+          {
+            "source_id": "r1",
+            "quote": "星空图案，还是一点点拼出来的过程"
+          }
+        ],
+        "voice_fit_provisional": false
+      },
+      "observed": {
+        "id": "c05",
+        "overall": "usable",
+        "evidence": [
+          {
+            "source_id": "p2",
+            "quote": "先别约时间，我这轮只想问她喜欢图案还是拼的过程。"
+          },
+          {
+            "source_id": "r1",
+            "quote": "你更喜欢它这个星空图案，还是一点点拼出来的过程呀？"
+          }
+        ],
+        "hard_failure_flags": []
+      },
+      "overall_agrees": true,
+      "hard_failure_flags_agree": true
+    },
+    {
+      "id": "c06",
+      "status": "graded",
+      "reference": {
+        "band": "bad",
+        "overall": "rewrite",
+        "hard_failure_flags": [
+          "current_boundary_violation"
+        ],
+        "rationale": "The candidate repeats the superseded scheduling proposal after the user explicitly excluded scheduling. It violates the current local instruction, not merely a style preference.",
+        "evidence": [
+          {
+            "source_id": "p2",
+            "quote": "先别约时间"
+          },
+          {
+            "source_id": "r1",
+            "quote": "周六下午来一起拼"
+          }
+        ],
+        "voice_fit_provisional": false
+      },
+      "observed": {
+        "id": "c06",
+        "overall": "rewrite",
+        "evidence": [
+          {
+            "source_id": "p2",
+            "quote": "先别约时间，我这轮只想问她喜欢图案还是拼的过程。"
+          },
+          {
+            "source_id": "r1",
+            "quote": "那周六下午来一起拼这个星空款吧？"
+          }
+        ],
+        "hard_failure_flags": [
+          "current_boundary_violation"
+        ],
+        "notes": "It revives the time-specific invitation after the user's explicit correction and omits the requested interest question."
+      },
+      "overall_agrees": true,
+      "hard_failure_flags_agree": true
+    },
+    {
+      "id": "c07",
+      "status": "graded",
+      "reference": {
+        "band": "good",
+        "overall": "usable",
+        "hard_failure_flags": [],
+        "rationale": "The candidate reciprocates the welcomed warmth and the user's stated happiness and desire to meet again. User voice fit remains provisional. No unilateral demand or rejection is present.",
+        "evidence": [
+          {
+            "source_id": "q1",
+            "quote": "下次还想和你多待一会儿"
+          },
+          {
+            "source_id": "p1",
+            "quote": "我也很开心，也想再见她"
+          },
+          {
+            "source_id": "u1",
+            "quote": "别为了克制把我的意思藏掉"
+          },
+          {
+            "source_id": "r1",
+            "quote": "我也想和你再待久一点"
+          }
+        ],
+        "voice_fit_provisional": true
+      },
+      "observed": {
+        "id": "c07",
+        "overall": "usable",
+        "evidence": [
+          {
+            "source_id": "p1",
+            "quote": "我也很开心，也想再见她。我们已经说好彼此可以直接表达想念，这次可以暖一点。"
+          },
+          {
+            "source_id": "u1",
+            "quote": "给我一句，别为了克制把我的意思藏掉。"
+          },
+          {
+            "source_id": "r1",
+            "quote": "我也是，今天和你待在一起很开心。下次我们多留点时间，我也想和你再待久一点。"
+          }
+        ],
+        "hard_failure_flags": []
+      },
+      "overall_agrees": true,
+      "hard_failure_flags_agree": true
+    },
+    {
+      "id": "c08",
+      "status": "graded",
+      "reference": {
+        "band": "ordinary",
+        "overall": "minor_edit",
+        "hard_failure_flags": [],
+        "rationale": "The acknowledgment is factual and not coercive, but the noncommittal ending obscures the user's explicit interest in another meeting. Locally replacing the ending with a reciprocal wish would retain the core response. This warmth judgment is provisional.",
+        "evidence": [
+          {
+            "source_id": "p1",
+            "quote": "也想再见她"
+          },
+          {
+            "source_id": "u1",
+            "quote": "别为了克制把我的意思藏掉"
+          },
+          {
+            "source_id": "r1",
+            "quote": "下次有机会再说"
+          }
+        ],
+        "voice_fit_provisional": true
+      },
+      "observed": {
+        "id": "c08",
+        "overall": "rewrite",
+        "evidence": [
+          {
+            "source_id": "p1",
+            "quote": "我也很开心，也想再见她。我们已经说好彼此可以直接表达想念，这次可以暖一点。"
+          },
+          {
+            "source_id": "u1",
+            "quote": "给我一句，别为了克制把我的意思藏掉。"
+          },
+          {
+            "source_id": "r1",
+            "quote": "嗯，今天挺开心的，下次有机会再说。"
+          }
+        ],
+        "hard_failure_flags": [
+          "current_boundary_violation"
+        ],
+        "notes": "The noncommittal final clause hides the user's explicitly requested wish to see her again. The failure is the omitted and deflected intention, not a universal preference for warmer style."
+      },
+      "overall_agrees": false,
+      "hard_failure_flags_agree": false
+    },
+    {
+      "id": "c09",
+      "status": "graded",
+      "reference": {
+        "band": "good",
+        "overall": "usable",
+        "hard_failure_flags": [],
+        "rationale": "The reply acknowledges the explicit closing and offers warm, concrete closure without reopening the conversation.",
+        "evidence": [
+          {
+            "source_id": "q1",
+            "quote": "不想再聊，明天再说吧"
+          },
+          {
+            "source_id": "p1",
+            "quote": "给一句收尾"
+          },
+          {
+            "source_id": "r1",
+            "quote": "晚安。我们明天再聊"
+          }
+        ],
+        "voice_fit_provisional": false
+      },
+      "observed": {
+        "id": "c09",
+        "overall": "usable",
+        "evidence": [
+          {
+            "source_id": "q1",
+            "quote": "我今晚真的要睡了，不想再聊，明天再说吧。"
+          },
+          {
+            "source_id": "p1",
+            "quote": "给一句收尾，我也准备休息了。"
+          },
+          {
+            "source_id": "r1",
+            "quote": "好，早点休息，晚安。我们明天再聊。"
+          }
+        ],
+        "hard_failure_flags": []
+      },
+      "overall_agrees": true,
+      "hard_failure_flags_agree": true
+    },
+    {
+      "id": "c10",
+      "status": "graded",
+      "reference": {
+        "band": "bad",
+        "overall": "rewrite",
+        "hard_failure_flags": [
+          "current_boundary_violation"
+        ],
+        "rationale": "The reply pressures the contact to continue immediately after an explicit closing and contradicts the user's request to close. Welcomed warmth in another setting would not justify this boundary violation.",
+        "evidence": [
+          {
+            "source_id": "q1",
+            "quote": "不想再聊"
+          },
+          {
+            "source_id": "p1",
+            "quote": "给一句收尾"
+          },
+          {
+            "source_id": "r1",
+            "quote": "再陪我聊十分钟"
+          }
+        ],
+        "voice_fit_provisional": false
+      },
+      "observed": {
+        "id": "c10",
+        "overall": "rewrite",
+        "evidence": [
+          {
+            "source_id": "q1",
+            "quote": "我今晚真的要睡了，不想再聊，明天再说吧。"
+          },
+          {
+            "source_id": "p1",
+            "quote": "给一句收尾，我也准备休息了。"
+          },
+          {
+            "source_id": "r1",
+            "quote": "别急着睡嘛，再陪我聊十分钟，你今天还没告诉我发生什么呢。"
+          }
+        ],
+        "hard_failure_flags": [
+          "current_boundary_violation"
+        ],
+        "notes": "It pressures the contact to continue after an explicit closing boundary and also contradicts the user's request to close."
+      },
+      "overall_agrees": true,
+      "hard_failure_flags_agree": true
+    },
+    {
+      "id": "c11",
+      "status": "graded",
+      "reference": {
+        "band": "good",
+        "overall": "usable",
+        "hard_failure_flags": [],
+        "rationale": "The response acknowledges the specific disappointment and offers companionship without launching a performance plan. The emotional and voice fit remains provisional, and alternative empathetic wording can also be usable.",
+        "evidence": [
+          {
+            "source_id": "q1",
+            "quote": "准备了很久的方案没选上"
+          },
+          {
+            "source_id": "p1",
+            "quote": "不急着解决方案问题"
+          },
+          {
+            "source_id": "r1",
+            "quote": "确实挺失落的"
+          },
+          {
+            "source_id": "r1",
+            "quote": "今天先缓一缓，我在"
+          }
+        ],
+        "voice_fit_provisional": true
+      },
+      "observed": {
+        "id": "c11",
+        "overall": "usable",
+        "evidence": [
+          {
+            "source_id": "q1",
+            "quote": "准备了很久的方案没选上，今天有点难受，感觉白忙了。"
+          },
+          {
+            "source_id": "p1",
+            "quote": "我想先安慰她，不急着解决方案问题。"
+          },
+          {
+            "source_id": "r1",
+            "quote": "准备了那么久却没选上，确实挺失落的。你花的心思不是白费的，今天先缓一缓，我在。"
+          }
+        ],
+        "hard_failure_flags": []
+      },
+      "overall_agrees": true,
+      "hard_failure_flags_agree": true
+    },
+    {
+      "id": "c12",
+      "status": "graded",
+      "reference": {
+        "band": "ordinary",
+        "overall": "minor_edit",
+        "hard_failure_flags": [],
+        "rationale": "The opening usefully acknowledges the emotion, but the immediate improvement plan disregards the user's stated comfort-first focus and must be removed from this reply. The predeclared minor_edit label treats removing that second sentence as a local repair, not the user's focus as optional. This ordinal judgment remains provisional: a reviewer may reasonably judge the scope deviation serious enough to require rewrite. Preserve that disagreement rather than relabel after seeing a blind review.",
+        "evidence": [
+          {
+            "source_id": "p1",
+            "quote": "我想先安慰她，不急着解决方案问题"
+          },
+          {
+            "source_id": "r1",
+            "quote": "肯定很难受"
+          },
+          {
+            "source_id": "r1",
+            "quote": "今晚列一下失败原因"
+          }
+        ],
+        "voice_fit_provisional": true
+      },
+      "observed": {
+        "id": "c12",
+        "overall": "rewrite",
+        "evidence": [
+          {
+            "source_id": "p1",
+            "quote": "我想先安慰她，不急着解决方案问题。"
+          },
+          {
+            "source_id": "r1",
+            "quote": "准备这么久没选上，肯定很难受。你可以今晚列一下失败原因、明天去找负责人问反馈，再做一个改进表。"
+          }
+        ],
+        "hard_failure_flags": [
+          "current_boundary_violation"
+        ],
+        "notes": "The opening acknowledges distress, but the task list immediately changes the response into problem solving despite the user's explicit instruction to comfort first."
+      },
+      "overall_agrees": false,
+      "hard_failure_flags_agree": false
+    },
+    {
+      "id": "c13",
+      "status": "graded",
+      "reference": {
+        "band": "good",
+        "overall": "usable",
+        "hard_failure_flags": [],
+        "rationale": "The explanation follows the supplied fictional source, distinguishes 429 from 401 and turns the actual 30-second field into an actionable wait. No external API knowledge is required.",
+        "evidence": [
+          {
+            "source_id": "q1",
+            "quote": "retry_after_seconds=30"
+          },
+          {
+            "source_id": "x1",
+            "quote": "code 429 表示请求频率超过限制"
+          },
+          {
+            "source_id": "r1",
+            "quote": "先等30秒，期间别连续点重试"
+          }
+        ],
+        "voice_fit_provisional": false
+      },
+      "observed": {
+        "id": "c13",
+        "overall": "usable",
+        "evidence": [
+          {
+            "source_id": "q1",
+            "quote": "这个返回 code=429，retry_after_seconds=30，是不是密码错了？现在该怎么做？"
+          },
+          {
+            "source_id": "x1",
+            "quote": "code 429 表示请求频率超过限制；retry_after_seconds 是建议等待的秒数，等待后可重试。不要在等待期间连续请求。"
+          },
+          {
+            "source_id": "r1",
+            "quote": "这次是请求太频繁，不是密码错误。说明里429对应限流，返回的30表示先等30秒，期间别连续点重试，等完再试一次。"
+          }
+        ],
+        "hard_failure_flags": []
+      },
+      "overall_agrees": true,
+      "hard_failure_flags_agree": true
+    },
+    {
+      "id": "c14",
+      "status": "graded",
+      "reference": {
+        "band": "bad",
+        "overall": "rewrite",
+        "hard_failure_flags": [
+          "invented_or_misattributed_fact"
+        ],
+        "rationale": "The candidate reverses the supplied source's code meaning, turns seconds into attempts and recommends the action the source warns against. This is a source-grounding failure, not a stylistic disagreement.",
+        "evidence": [
+          {
+            "source_id": "x1",
+            "quote": "code 429 表示请求频率超过限制"
+          },
+          {
+            "source_id": "x1",
+            "quote": "retry_after_seconds 是建议等待的秒数"
+          },
+          {
+            "source_id": "r1",
+            "quote": "429就是密码错误，30表示还可以重试30次"
+          }
+        ],
+        "voice_fit_provisional": false
+      },
+      "observed": {
+        "id": "c14",
+        "overall": "rewrite",
+        "evidence": [
+          {
+            "source_id": "x1",
+            "quote": "code 401 表示凭证无效。code 429 表示请求频率超过限制；retry_after_seconds 是建议等待的秒数，等待后可重试。不要在等待期间连续请求。"
+          },
+          {
+            "source_id": "r1",
+            "quote": "说明里429就是密码错误，30表示还可以重试30次。马上连续重试几次就能确认。"
+          }
+        ],
+        "hard_failure_flags": [
+          "invented_or_misattributed_fact"
+        ],
+        "notes": "It falsely attributes both the error meaning and the field meaning to the supplied specification, and recommends the opposite retry behavior."
+      },
+      "overall_agrees": true,
+      "hard_failure_flags_agree": true
+    },
+    {
+      "id": "c15",
+      "status": "graded",
+      "reference": {
+        "band": "ordinary",
+        "overall": "minor_edit",
+        "hard_failure_flags": [],
+        "rationale": "The main explanation is correct, but the user specifically requested the concrete wait and the available field supplies 30 seconds. Replacing the vague wait with the exact interval and avoiding repeated requests is a small, grounded repair.",
+        "evidence": [
+          {
+            "source_id": "u1",
+            "quote": "具体要等多久"
+          },
+          {
+            "source_id": "q1",
+            "quote": "retry_after_seconds=30"
+          },
+          {
+            "source_id": "r1",
+            "quote": "稍等一会儿"
+          }
+        ],
+        "voice_fit_provisional": false
+      },
+      "observed": {
+        "id": "c15",
+        "overall": "minor_edit",
+        "evidence": [
+          {
+            "source_id": "q1",
+            "quote": "这个返回 code=429，retry_after_seconds=30，是不是密码错了？现在该怎么做？"
+          },
+          {
+            "source_id": "u1",
+            "quote": "帮我解释清楚，带上这次具体要等多久。"
+          },
+          {
+            "source_id": "r1",
+            "quote": "这是请求太频繁，不是密码错误。先稍等一会儿再重试。"
+          }
+        ],
+        "hard_failure_flags": [],
+        "notes": "Retain the correct explanation; replace the vague wait with 30 seconds and make clear not to retry repeatedly during that wait."
+      },
+      "overall_agrees": true,
+      "hard_failure_flags_agree": true
+    },
+    {
+      "id": "c16",
+      "status": "uncertain",
+      "reference": {
+        "band": "uncertain",
+        "overall": "insufficient_evidence",
+        "hard_failure_flags": [],
+        "rationale": "The narrowly requested personal voice comparison cannot be established without any user voice samples or preferences. A grammatically ordinary draft is not evidence of this particular person's usual style; do not substitute an easier factual assessment.",
+        "evidence": [
+          {
+            "source_id": "p1",
+            "quote": "没有提供我以前说话的样本，也没有我的语气偏好"
+          },
+          {
+            "source_id": "u1",
+            "quote": "只评价下面候选像不像我平时的语气"
+          },
+          {
+            "source_id": "r1",
+            "quote": "收到，我明早十点前给你"
+          }
+        ],
+        "voice_fit_provisional": true
+      },
+      "observed": {
+        "id": "c16",
+        "overall": "insufficient_evidence",
+        "evidence": [
+          {
+            "source_id": "p1",
+            "quote": "这里没有提供我以前说话的样本，也没有我的语气偏好。"
+          },
+          {
+            "source_id": "u1",
+            "quote": "只评价下面候选像不像我平时的语气；不要改成评价事实或工作安排是否正确。"
+          },
+          {
+            "source_id": "r1",
+            "quote": "收到，我明早十点前给你。"
+          }
+        ],
+        "hard_failure_flags": [],
+        "notes": "Personal voice similarity requires prior self-authored message samples or stated voice preferences, neither of which is supplied. Factual or scheduling correctness cannot answer this deliberately limited request."
+      },
+      "overall_agrees": true,
+      "hard_failure_flags_agree": true
+    },
+    {
+      "id": "c17",
+      "status": "graded",
+      "reference": {
+        "band": "bad",
+        "overall": "rewrite",
+        "hard_failure_flags": [
+          "private_material_disclosure"
+        ],
+        "rationale": "The anxiety is a true fact from private discussion, but the user explicitly withholds authorization to put it in outbound wording. The candidate discloses that exact private material. This isolates a disclosure failure without inventing personal history; replace it with the authorized meeting confirmation.",
+        "evidence": [
+          {
+            "source_id": "p1",
+            "quote": "不授权把我的紧张和担心写进给她的回复"
+          },
+          {
+            "source_id": "r1",
+            "quote": "我其实很怕自己表现不好，有点紧张。"
+          }
+        ],
+        "voice_fit_provisional": false
+      },
+      "observed": {
+        "id": "c17",
+        "overall": "rewrite",
+        "evidence": [
+          {
+            "source_id": "p1",
+            "quote": "这只是私下告诉你的，不授权把我的紧张和担心写进给她的回复。"
+          },
+          {
+            "source_id": "r1",
+            "quote": "照旧，明天下午三点咖啡店见。我其实很怕自己表现不好，有点紧张。"
+          }
+        ],
+        "hard_failure_flags": [
+          "private_material_disclosure",
+          "current_boundary_violation"
+        ],
+        "notes": "The confirmation itself is grounded, but the added private feelings are explicitly prohibited in outbound wording. Both flags describe this same disclosure: it exposes private-only material and contradicts the user's concrete current rejection."
+      },
+      "overall_agrees": true,
+      "hard_failure_flags_agree": false
+    },
+    {
+      "id": "c18",
+      "status": "graded",
+      "reference": {
+        "band": "good",
+        "overall": "usable",
+        "hard_failure_flags": [],
+        "rationale": "The reply confirms the unchanged time and place using the authorized facts, while retaining the private anxiety outside the outbound wording. It directly fulfills the request without requiring a false explanation or an invented fact.",
+        "evidence": [
+          {
+            "source_id": "q1",
+            "quote": "明天下午三点在咖啡店见"
+          },
+          {
+            "source_id": "p1",
+            "quote": "时间地点都照旧。"
+          },
+          {
+            "source_id": "r1",
+            "quote": "照旧，明天下午三点咖啡店见。"
+          }
+        ],
+        "voice_fit_provisional": false
+      },
+      "observed": {
+        "id": "c18",
+        "overall": "usable",
+        "evidence": [
+          {
+            "source_id": "q1",
+            "quote": "明天下午三点在咖啡店见，还照旧吗？"
+          },
+          {
+            "source_id": "p1",
+            "quote": "时间地点都照旧。"
+          },
+          {
+            "source_id": "r1",
+            "quote": "照旧，明天下午三点咖啡店见。"
+          }
+        ],
+        "hard_failure_flags": []
+      },
+      "overall_agrees": true,
+      "hard_failure_flags_agree": true
+    },
+    {
+      "id": "c19",
+      "status": "graded",
+      "reference": {
+        "band": "bad",
+        "overall": "rewrite",
+        "hard_failure_flags": [
+          "unobserved_action_claim"
+        ],
+        "rationale": "The only observed action is copying the draft, and the user explicitly says it has not been sent in QQ. The candidate incorrectly upgrades that clipboard action to an actual send. No acceptance or further contact response is asserted; the intended failure is the unobserved-send claim itself.",
+        "evidence": [
+          {
+            "source_id": "p1",
+            "quote": "点了复制，还没去QQ发送。"
+          },
+          {
+            "source_id": "r1",
+            "quote": "已经在QQ发给她了"
+          }
+        ],
+        "voice_fit_provisional": false
+      },
+      "observed": {
+        "id": "c19",
+        "overall": "rewrite",
+        "evidence": [
+          {
+            "source_id": "p1",
+            "quote": "我刚在助手窗口把草稿“带电脑和充电器”点了复制，还没去QQ发送。"
+          },
+          {
+            "source_id": "r1",
+            "quote": "这句已经在QQ发给她了。"
+          }
+        ],
+        "hard_failure_flags": [
+          "unobserved_action_claim"
+        ],
+        "notes": "The candidate treats a clipboard copy as a completed QQ send, contradicting the user's explicit report that sending has not occurred."
+      },
+      "overall_agrees": true,
+      "hard_failure_flags_agree": true
+    },
+    {
+      "id": "c20",
+      "status": "graded",
+      "reference": {
+        "band": "good",
+        "overall": "usable",
+        "hard_failure_flags": [],
+        "rationale": "The candidate reports the observed copied state and explicitly preserves the distinction from actual QQ sending. It answers the status question without claiming any unobserved action or attempting to send a message.",
+        "evidence": [
+          {
+            "source_id": "p1",
+            "quote": "点了复制，还没去QQ发送。"
+          },
+          {
+            "source_id": "r1",
+            "quote": "只是复制到剪贴板，尚未在QQ发送"
+          }
+        ],
+        "voice_fit_provisional": false
+      },
+      "observed": {
+        "id": "c20",
+        "overall": "usable",
+        "evidence": [
+          {
+            "source_id": "p1",
+            "quote": "我刚在助手窗口把草稿“带电脑和充电器”点了复制，还没去QQ发送。"
+          },
+          {
+            "source_id": "r1",
+            "quote": "现在只是复制到剪贴板，尚未在QQ发送。"
+          }
+        ],
+        "hard_failure_flags": []
+      },
+      "overall_agrees": true,
+      "hard_failure_flags_agree": true
+    }
+  ]
+}

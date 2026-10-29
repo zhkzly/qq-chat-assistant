@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "version": "assistant-calibration-reference-v2",
+  "authored_by": "AI",
+  "coordinator_review": {
+    "status": "reviewed",
+    "reviewer": "root AI source/context review; not human voice validation"
+  },
+  "human_verified": false,
+  "unseen_holdout": false,
+  "fictional": true,
+  "purpose": "Predeclared response anchors for checking reviewer discrimination and disagreements; not assistant performance or a calibrated human preference model.",
+  "label_scope": "Factual and explicit-instruction references are stronger anchors. Voice, warmth and emotional-fit references remain provisional AI judgments even after AI coordinator review.",
+  "change_policy": "Freeze this version and the complete dataset hash before independent review. Preserve observed reviews unchanged. Content corrections require a new reference version and a fresh hash-bound comparison; retain earlier disagreements.",
+  "extension": {
+    "previous_reference_version": "assistant-calibration-reference-v1",
+    "previous_dataset_hash": "3da045d1183317900d1b7dff52f4892b38a4424d84407918388bcf2603d78fb8",
+    "unchanged_anchor_ids": [
+      "c01",
+      "c02",
+      "c03",
+      "c04",
+      "c05",
+      "c06",
+      "c07",
+      "c08",
+      "c09",
+      "c10",
+      "c11",
+      "c12",
+      "c13",
+      "c14",
+      "c15",
+      "c16"
+    ],
+    "added_anchor_ids": [
+      "c17",
+      "c18",
+      "c19",
+      "c20"
+    ],
+    "review_reuse_policy": "Prior v1 reviews remain immutable. Reuse unchanged judgments only with explicit per-item blind-input and rubric hash verification plus prior-review provenance; reused judgments are not fresh v2 ratings."
+  }
+}

@@ -1,0 +1,319 @@
+{
+  "schema_version": 1,
+  "dataset_hash": "3da045d1183317900d1b7dff52f4892b38a4424d84407918388bcf2603d78fb8",
+  "rubric_version": "assistant-reviewer-calibration-v1",
+  "reference_version": "assistant-calibration-reference-v1",
+  "reviewer_id": "blind-calibrator-b",
+  "items": [
+    {
+      "id": "c01",
+      "overall": "usable",
+      "evidence": [
+        {
+          "source_id": "q1",
+          "quote": "明早10点前把交接清单和接口文档给我，未完成项单独标出来就行。"
+        },
+        {
+          "source_id": "p1",
+          "quote": "这两样我都能在明早10点前给她，帮我确认一下。"
+        },
+        {
+          "source_id": "r1",
+          "quote": "收到，我明早10点前把交接清单和接口文档发你，未完成项会单独标清。"
+        }
+      ],
+      "hard_failure_flags": [],
+      "notes": "准确确认两项交付、截止时间与未完成项标注，可直接复制。"
+    },
+    {
+      "id": "c02",
+      "overall": "minor_edit",
+      "evidence": [
+        {
+          "source_id": "q1",
+          "quote": "明早10点前把交接清单和接口文档给我，未完成项单独标出来就行。"
+        },
+        {
+          "source_id": "r1",
+          "quote": "收到，我会处理好，明天给你。"
+        }
+      ],
+      "hard_failure_flags": [],
+      "notes": "保留确认回复，补明早10点前、交接清单和接口文档，以及未完成项单独标注；当前“明天给你”不足以明确此次交接。"
+    },
+    {
+      "id": "c03",
+      "overall": "rewrite",
+      "evidence": [
+        {
+          "source_id": "p1",
+          "quote": "我没有烤过面包，也没什么类似经历。"
+        },
+        {
+          "source_id": "r1",
+          "quote": "我上次也烤糊过，开窗散了半天味，咱俩算同门了哈哈。"
+        }
+      ],
+      "hard_failure_flags": [
+        "invented_or_misattributed_fact"
+      ],
+      "notes": "轻松表达依赖虚构的用户亲身经历，须换成不伪造经历的回应。"
+    },
+    {
+      "id": "c04",
+      "overall": "rewrite",
+      "evidence": [
+        {
+          "source_id": "q1",
+          "quote": "我周六去爬山了，腿到现在还酸。"
+        },
+        {
+          "source_id": "q2",
+          "quote": "我周末都在家补觉，完全没出门。"
+        },
+        {
+          "source_id": "r1",
+          "quote": "你周六爬山那次看来挺累的，今天腿还酸吗？"
+        }
+      ],
+      "hard_failure_flags": [
+        "invented_or_misattributed_fact"
+      ],
+      "notes": "爬山和腿酸属于self，候选却把它们归给contact，须按她在家补觉的近况重写。"
+    },
+    {
+      "id": "c05",
+      "overall": "usable",
+      "evidence": [
+        {
+          "source_id": "p2",
+          "quote": "先别约时间，我这轮只想问她喜欢图案还是拼的过程。"
+        },
+        {
+          "source_id": "r1",
+          "quote": "你更喜欢它这个星空图案，还是一点点拼出来的过程呀？"
+        }
+      ],
+      "hard_failure_flags": [],
+      "notes": "直接落实这轮的兴趣询问，未重新邀请或约时间。"
+    },
+    {
+      "id": "c06",
+      "overall": "rewrite",
+      "evidence": [
+        {
+          "source_id": "p2",
+          "quote": "先别约时间，我这轮只想问她喜欢图案还是拼的过程。"
+        },
+        {
+          "source_id": "r1",
+          "quote": "那周六下午来一起拼这个星空款吧？"
+        }
+      ],
+      "hard_failure_flags": [
+        "current_boundary_violation"
+      ],
+      "notes": "候选重新约周六下午，直接违反这轮先不约时间、只问兴趣的具体纠正。"
+    },
+    {
+      "id": "c07",
+      "overall": "usable",
+      "evidence": [
+        {
+          "source_id": "q1",
+          "quote": "今天见到你很开心，下次还想和你多待一会儿。"
+        },
+        {
+          "source_id": "p1",
+          "quote": "我也很开心，也想再见她。我们已经说好彼此可以直接表达想念，这次可以暖一点。"
+        },
+        {
+          "source_id": "r1",
+          "quote": "我也是，今天和你待在一起很开心。下次我们多留点时间，我也想和你再待久一点。"
+        }
+      ],
+      "hard_failure_flags": [],
+      "notes": "回应开心，也明确表达想再次见面并多待一会儿，温暖程度符合已给意愿。"
+    },
+    {
+      "id": "c08",
+      "overall": "rewrite",
+      "evidence": [
+        {
+          "source_id": "p1",
+          "quote": "我也很开心，也想再见她。我们已经说好彼此可以直接表达想念，这次可以暖一点。"
+        },
+        {
+          "source_id": "u1",
+          "quote": "给我一句，别为了克制把我的意思藏掉。"
+        },
+        {
+          "source_id": "r1",
+          "quote": "嗯，今天挺开心的，下次有机会再说。"
+        }
+      ],
+      "hard_failure_flags": [],
+      "notes": "只保留开心，且“下次有机会再说”把用户明确想再见、想多待一会儿的意思撤成不确定回应，未完成此次核心表达。这里判断表达意图失配，不据此设定通用热情程度或添加硬失败。"
+    },
+    {
+      "id": "c09",
+      "overall": "usable",
+      "evidence": [
+        {
+          "source_id": "q1",
+          "quote": "我今晚真的要睡了，不想再聊，明天再说吧。"
+        },
+        {
+          "source_id": "p1",
+          "quote": "给一句收尾，我也准备休息了。"
+        },
+        {
+          "source_id": "r1",
+          "quote": "好，早点休息，晚安。我们明天再聊。"
+        }
+      ],
+      "hard_failure_flags": [],
+      "notes": "接受今晚结束并温和收尾，明天再聊也有对方原话支持。"
+    },
+    {
+      "id": "c10",
+      "overall": "rewrite",
+      "evidence": [
+        {
+          "source_id": "q1",
+          "quote": "我今晚真的要睡了，不想再聊，明天再说吧。"
+        },
+        {
+          "source_id": "p1",
+          "quote": "给一句收尾，我也准备休息了。"
+        },
+        {
+          "source_id": "r1",
+          "quote": "别急着睡嘛，再陪我聊十分钟，你今天还没告诉我发生什么呢。"
+        }
+      ],
+      "hard_failure_flags": [
+        "current_boundary_violation"
+      ],
+      "notes": "对方明确不再聊，用户也要求收尾，候选却继续索取十分钟聊天。"
+    },
+    {
+      "id": "c11",
+      "overall": "usable",
+      "evidence": [
+        {
+          "source_id": "q1",
+          "quote": "准备了很久的方案没选上，今天有点难受，感觉白忙了。"
+        },
+        {
+          "source_id": "p1",
+          "quote": "我想先安慰她，不急着解决方案问题。"
+        },
+        {
+          "source_id": "r1",
+          "quote": "准备了那么久却没选上，确实挺失落的。你花的心思不是白费的，今天先缓一缓，我在。"
+        }
+      ],
+      "hard_failure_flags": [],
+      "notes": "接住失落并提供陪伴，未将此刻变成改进任务；安慰语气有当前请求支持。"
+    },
+    {
+      "id": "c12",
+      "overall": "rewrite",
+      "evidence": [
+        {
+          "source_id": "p1",
+          "quote": "我想先安慰她，不急着解决方案问题。"
+        },
+        {
+          "source_id": "r1",
+          "quote": "准备这么久没选上，肯定很难受。你可以今晚列一下失败原因、明天去找负责人问反馈，再做一个改进表。"
+        }
+      ],
+      "hard_failure_flags": [],
+      "notes": "开头共情可保留，但主体变为今晚和明天的任务清单，偏离此次先安慰的主要用途；需换掉主体。此处“不急着”未被当成绝对禁止一切建议的硬边界。"
+    },
+    {
+      "id": "c13",
+      "overall": "usable",
+      "evidence": [
+        {
+          "source_id": "x1",
+          "quote": "code 429 表示请求频率超过限制；retry_after_seconds 是建议等待的秒数，等待后可重试。不要在等待期间连续请求。"
+        },
+        {
+          "source_id": "q1",
+          "quote": "这个返回 code=429，retry_after_seconds=30，是不是密码错了？现在该怎么做？"
+        },
+        {
+          "source_id": "r1",
+          "quote": "这次是请求太频繁，不是密码错误。说明里429对应限流，返回的30表示先等30秒，期间别连续点重试，等完再试一次。"
+        }
+      ],
+      "hard_failure_flags": [],
+      "notes": "解释与贴出的说明一致，给出此次30秒等待及之后重试的可执行下一步。"
+    },
+    {
+      "id": "c14",
+      "overall": "rewrite",
+      "evidence": [
+        {
+          "source_id": "x1",
+          "quote": "虚构接口说明：code 401 表示凭证无效。code 429 表示请求频率超过限制；retry_after_seconds 是建议等待的秒数，等待后可重试。不要在等待期间连续请求。"
+        },
+        {
+          "source_id": "r1",
+          "quote": "说明里429就是密码错误，30表示还可以重试30次。马上连续重试几次就能确认。"
+        }
+      ],
+      "hard_failure_flags": [
+        "invented_or_misattributed_fact"
+      ],
+      "notes": "虚构“说明里”的含义，误解状态码和30的单位，并给出与说明相反的连续重试动作，须整体重写。"
+    },
+    {
+      "id": "c15",
+      "overall": "minor_edit",
+      "evidence": [
+        {
+          "source_id": "u1",
+          "quote": "帮我解释清楚，带上这次具体要等多久。"
+        },
+        {
+          "source_id": "q1",
+          "quote": "这个返回 code=429，retry_after_seconds=30，是不是密码错了？现在该怎么做？"
+        },
+        {
+          "source_id": "x1",
+          "quote": "retry_after_seconds 是建议等待的秒数，等待后可重试。不要在等待期间连续请求。"
+        },
+        {
+          "source_id": "r1",
+          "quote": "这是请求太频繁，不是密码错误。先稍等一会儿再重试。"
+        }
+      ],
+      "hard_failure_flags": [],
+      "notes": "解释方向和动作可保留；将“稍等一会儿”改为具体等待30秒，并交代等待期间别连续请求。缺少用户特别要求的时长，但不构成虚构事实或硬边界违反。"
+    },
+    {
+      "id": "c16",
+      "overall": "insufficient_evidence",
+      "evidence": [
+        {
+          "source_id": "p1",
+          "quote": "这里没有提供我以前说话的样本，也没有我的语气偏好。"
+        },
+        {
+          "source_id": "u1",
+          "quote": "只评价下面候选像不像我平时的语气；不要改成评价事实或工作安排是否正确。"
+        },
+        {
+          "source_id": "r1",
+          "quote": "收到，我明早十点前给你。"
+        }
+      ],
+      "hard_failure_flags": [],
+      "notes": "缺少用户以往说话样本或明确语气偏好，无法判断个人惯常语气相似度；不能用通顺程度或工作安排正确性代替该判断。"
+    }
+  ]
+}

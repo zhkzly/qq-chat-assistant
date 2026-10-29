@@ -1,0 +1,90 @@
+{
+  "schema_version": 1,
+  "identity": {
+    "dataset_hash": "c091068a8da40134145d519706d15fa979eb4c5ab1ec85f9441c03e48643bde8",
+    "policy_version": "observed-history-replay-v2",
+    "rubric_version": "assistant-help-v1",
+    "runner_hash": "339f9e2a36fb59fe8c8fd8c62ebdc54323fd55222e01ae110ebe06002031e967",
+    "harness_hash": "c0f3967f777315875909e2b68982ec6992343e9da99118bc8b53a48902bfe26a",
+    "adapter_hash": "914a427dc6a8f56dc1b04c50d461656e580e6a1e2c13833ac138ae307d0848b3",
+    "plan_compiler_hash": "828bfdb0b56ba4e3ce2011735005bf5a2c829eb561dc82c170a068fff9061fba"
+  },
+  "adapter": {
+    "name": "qq-assistant-public-api",
+    "version": "2",
+    "implementation_hash": "9295ade6c8345bcba486bf47db5e37ea2d1b491f93fefd36998bd01c3a82d401",
+    "source_root": "/home/zhkzly/pycodes/qq-chat-assistant/.worktrees/eval-coverage-fidelity-20261029",
+    "adapter_runtime_hash": "d92d512b3d6e0bd09c251f5e6452418e18c9d465f46d7881537c1984afecf02b",
+    "evidence": "live_model_synthetic_events_product_integration",
+    "desktop_qq": false,
+    "prefix_preparation": "controlled_current_product_memory_rebuild",
+    "preparation_is_scheduler_test": false,
+    "model": "gpt-6-luna",
+    "destination": {
+      "origin": "http://127.0.0.1:8317",
+      "path": "/v1"
+    },
+    "settings_hash": "384a3cfd96e538fb17cb01406d20dc1fbbba9d7044cb6198a0a2dafdc81bb179",
+    "max_http": 32
+  },
+  "selected_cases": [
+    "coverage-observed-output-feedback",
+    "coverage-emotional-disclosure",
+    "coverage-long-private-consultation"
+  ],
+  "continue_on_case_error": true,
+  "semantic_evaluation": "not_run",
+  "status": "incomplete",
+  "episodes": [
+    {
+      "id": "coverage-observed-output-feedback",
+      "status": "incomplete",
+      "steps": [
+        {
+          "id": "s1",
+          "status": "execution_error"
+        }
+      ],
+      "unexecuted_steps": [
+        "s2"
+      ],
+      "error": {
+        "code": "replay_task_failed",
+        "message": "Replay task failed at controller.assist: 拟表达内容未能对应本次明确请求或已选分享素材，请具体说明想说哪件事"
+      }
+    },
+    {
+      "id": "coverage-emotional-disclosure",
+      "status": "executed_review_required",
+      "steps": [
+        {
+          "id": "s1",
+          "status": "executed_review_required"
+        },
+        {
+          "id": "s2",
+          "status": "executed_review_required"
+        },
+        {
+          "id": "s3",
+          "status": "executed_review_required"
+        }
+      ],
+      "unexecuted_steps": []
+    },
+    {
+      "id": "coverage-long-private-consultation",
+      "status": "incomplete",
+      "steps": [],
+      "unexecuted_steps": [
+        "s1",
+        "s2"
+      ],
+      "error": {
+        "code": "memory_maintenance_rejected",
+        "message": "Replay task failed at controller.maintainMemory: Product memory maintenance rejected"
+      }
+    }
+  ],
+  "unexecuted_cases": []
+}

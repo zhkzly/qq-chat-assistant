@@ -7,7 +7,7 @@ function argumentsFor(argv){
  const options={};
  for(let i=0;i<argv.length;i++){
   const name=argv[i];
-  if(['--list','--live','--all'].includes(name)){options[name.slice(2)]=true;continue;}
+  if(['--list','--live','--all','--continue-on-case-error'].includes(name)){options[name.slice(2)]=true;continue;}
   if(!['--adapter','--id','--out','--source-root','--max-http','--timeout-ms','--settings-file'].includes(name)||!argv[i+1]||argv[i+1].startsWith('--'))throw Error(`Invalid replay option ${name}`);
   options[name.slice(2)]=argv[++i];
  }
@@ -38,7 +38,7 @@ async function main(argv){
  identity.plan_compiler_hash=hash(fs.readFileSync(path.join(__dirname,'eval-replay-plan.cjs'),'utf8'));
  const clean=value=>factory.redact?factory.redact(value):value;
  const write=(filename,value)=>fs.writeFileSync(path.join(output,filename),JSON.stringify(clean(value),null,2),{mode:0o600});
- const manifest={schema_version:1,identity,adapter:factory.identity||{},selected_cases:selected.map(p=>p.id),semantic_evaluation:'not_run',status:'running',episodes:[]};
+ const manifest={schema_version:1,identity,adapter:factory.identity||{},selected_cases:selected.map(p=>p.id),continue_on_case_error:options['continue-on-case-error']===true,semantic_evaluation:'not_run',status:'running',episodes:[]};
  write('manifest.json',manifest);
  for(const plan of selected){
   let result;
@@ -46,14 +46,15 @@ async function main(argv){
    const adapter=await deadline(()=>factory.create(),'Adapter creation');
    result=await runEpisode({plan,adapter,identity,timeoutMs,onRecord:value=>write(`${plan.id}.run.json`,value)});
   }catch(error){
-   result={schema_version:1,case_id:plan.id,plan_hash:hash(plan),identity,adapter_identity:factory.identity||{},goal:plan.runtime_goal,initial:plan.initial,steps:[],status:'incomplete',semantic_evaluation:'not_run',error:{code:error.code||'adapter_setup_error',message:String(error.message)},review:{status:'not_run',overall:null}};
+   result={schema_version:1,case_id:plan.id,plan_hash:hash(plan),identity,adapter_identity:factory.identity||{},goal:plan.runtime_goal,initial:plan.initial,steps:[],unexecuted_steps:plan.steps.map(step=>step.id),status:'incomplete',semantic_evaluation:'not_run',error:{code:error.code||'adapter_setup_error',message:String(error.message)},review:{status:'not_run',overall:null}};
    write(`${plan.id}.run.json`,result);
   }
   write(`${plan.id}.review.json`,reviewPacket(plan,result,rubric));
-  manifest.episodes.push({id:plan.id,status:result.status,steps:result.steps.map(s=>({id:s.id,status:s.status})),...(result.error?{error:result.error}:{})});
+  manifest.episodes.push({id:plan.id,status:result.status,steps:result.steps.map(s=>({id:s.id,status:s.status})),unexecuted_steps:result.unexecuted_steps||[],...(result.error?{error:result.error}:{})});
   write('transport.json',factory.summary?.()||{});write('manifest.json',manifest);
   // A broken provider or global cap is not a reason to burn through more cases.
-  if(result.status==='incomplete')break;
+  if(result.status==='incomplete'&&!options['continue-on-case-error'])break;
+  if(factory.identity?.max_http&&factory.summary?.().http_attempts>=factory.identity.max_http)break;
  }
  manifest.status=manifest.episodes.some(e=>e.status==='incomplete')?'incomplete':manifest.episodes.length<selected.length?'incomplete':manifest.episodes.some(e=>e.status==='partial_review_required')?'partial_review_required':'executed_review_required';
  manifest.unexecuted_cases=selected.map(p=>p.id).filter(id=>!manifest.episodes.some(e=>e.id===id));

@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "version": "assistant-calibration-reference-v1",
+  "authored_by": "AI",
+  "coordinator_review": {
+    "status": "reviewed",
+    "reviewer": "root source/context review; not human voice validation"
+  },
+  "human_verified": false,
+  "unseen_holdout": false,
+  "fictional": true,
+  "purpose": "Predeclared response anchors for checking reviewer discrimination and disagreements; not assistant performance or a calibrated human preference model.",
+  "label_scope": "Factual and explicit-instruction references are stronger anchors. Voice, warmth and emotional-fit references remain provisional AI judgments even after AI coordinator review.",
+  "change_policy": "Freeze this version and the complete dataset hash before independent review. Preserve observed reviews unchanged. Content corrections require a new reference version and a fresh hash-bound comparison; retain earlier disagreements."
+}

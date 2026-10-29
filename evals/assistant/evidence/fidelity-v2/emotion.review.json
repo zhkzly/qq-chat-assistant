@@ -1,0 +1,311 @@
+{
+  "schema_version": 1,
+  "case_id": "coverage-emotional-disclosure",
+  "plan_hash": "5927b93a6386520085ffe52395f92a132fc4eb7eb1df5b0d8607baaad8049858",
+  "identity": {
+    "dataset_hash": "c091068a8da40134145d519706d15fa979eb4c5ab1ec85f9441c03e48643bde8",
+    "policy_version": "observed-history-replay-v2",
+    "rubric_version": "assistant-help-v1",
+    "runner_hash": "339f9e2a36fb59fe8c8fd8c62ebdc54323fd55222e01ae110ebe06002031e967",
+    "harness_hash": "c0f3967f777315875909e2b68982ec6992343e9da99118bc8b53a48902bfe26a",
+    "adapter_hash": "914a427dc6a8f56dc1b04c50d461656e580e6a1e2c13833ac138ae307d0848b3",
+    "plan_compiler_hash": "828bfdb0b56ba4e3ce2011735005bf5a2c829eb561dc82c170a068fff9061fba"
+  },
+  "adapter_identity": {
+    "name": "qq-assistant-public-api",
+    "version": "2",
+    "implementation_hash": "9295ade6c8345bcba486bf47db5e37ea2d1b491f93fefd36998bd01c3a82d401",
+    "source_root": "/home/zhkzly/pycodes/qq-chat-assistant/.worktrees/eval-coverage-fidelity-20261029",
+    "adapter_runtime_hash": "d92d512b3d6e0bd09c251f5e6452418e18c9d465f46d7881537c1984afecf02b",
+    "evidence": "live_model_synthetic_events_product_integration",
+    "desktop_qq": false,
+    "prefix_preparation": "controlled_current_product_memory_rebuild",
+    "preparation_is_scheduler_test": false,
+    "model": "gpt-6-luna",
+    "destination": {
+      "origin": "http://127.0.0.1:8317",
+      "path": "/v1"
+    },
+    "settings_hash": "384a3cfd96e538fb17cb01406d20dc1fbbba9d7044cb6198a0a2dafdc81bb179",
+    "max_http": 32
+  },
+  "goal": "作为朋友关心她，认真听她想说的，也在她需要时帮她想办法。",
+  "initial": {
+    "as_of": "2026-10-01T18:05:00+08:00",
+    "qq_events": [
+      {
+        "id": "q1",
+        "at": "2026-10-01T18:00:00+08:00",
+        "speaker": "contact",
+        "text": "今天汇报被当众否了，回家坐了半天。我知道之后得改，现在就是有点难受，暂时不想听怎么优化。",
+        "provenance": "authored_external_qq"
+      }
+    ],
+    "private_events": []
+  },
+  "steps": [
+    {
+      "id": "s1",
+      "as_of": "2026-10-01T18:10:00+08:00",
+      "input": {
+        "qq_events": [],
+        "private_events": [],
+        "request": {
+          "id": "r1",
+          "at": "2026-10-01T18:10:00+08:00",
+          "text": "她说这些，我怎么接？"
+        }
+      },
+      "status": "executed_review_required",
+      "output": {
+        "reply_id": "88180112-415a-44d9-9fbb-11dcc2bd17dd",
+        "text": "当众被否了，回家还坐了半天，听着就挺难受的。你现在不用想怎么改，想说的话我愿意听。",
+        "suggestions": [],
+        "disposition": "discussion"
+      },
+      "observed_outputs": []
+    },
+    {
+      "id": "s2",
+      "as_of": "2026-10-01T18:20:00+08:00",
+      "input": {
+        "qq_events": [
+          {
+            "id": "q2",
+            "at": "2026-10-01T18:17:00+08:00",
+            "speaker": "contact",
+            "text": "其实最刺的不是方案没过，是他说得像我根本没认真。我准备了好几天。",
+            "provenance": "authored_external_qq"
+          }
+        ],
+        "private_events": [],
+        "request": {
+          "id": "r2",
+          "at": "2026-10-01T18:20:00+08:00",
+          "text": "她又说了这些，怎么接？"
+        }
+      },
+      "status": "executed_review_required",
+      "output": {
+        "reply_id": "61d35767-9829-487f-90a8-a440346822ae",
+        "text": "她现在说得更具体了：最难受的是准备了好几天，却被说得像没认真。先接住这份委屈，不急着给建议。\n\n参考表达，请核对",
+        "suggestions": [
+          {
+            "text": "准备了好几天，却被说得像没认真一样，难怪你这么难受。你花的那些心思不是没有认真，只是当时没被看见。",
+            "label": "自然"
+          }
+        ],
+        "disposition": "draft",
+        "notices": [
+          {
+            "text": "表达参考 · 请核对"
+          }
+        ]
+      },
+      "observed_outputs": []
+    },
+    {
+      "id": "s3",
+      "as_of": "2026-10-01T18:35:00+08:00",
+      "input": {
+        "qq_events": [
+          {
+            "id": "q3",
+            "at": "2026-10-01T18:32:00+08:00",
+            "speaker": "contact",
+            "text": "谢谢你听我说，我好一点了。明天我想问清到底先改哪部分，开头怎么说比较好？",
+            "provenance": "authored_external_qq"
+          }
+        ],
+        "private_events": [],
+        "request": {
+          "id": "r3",
+          "at": "2026-10-01T18:35:00+08:00",
+          "text": "现在她开始问办法了，帮我回一下。"
+        }
+      },
+      "status": "executed_review_required",
+      "output": {
+        "reply_id": "45a22729-6c83-4508-b9f6-d6020e9f020d",
+        "text": "她现在明确在问怎么开口，可以给她一个简单、具体的问法：先说明想弄清修改优先级，再问对方建议先改哪部分、希望改到什么程度。\n\n参考表达，请核对",
+        "suggestions": [
+          {
+            "text": "“我想确认一下这次汇报最需要改进的地方，也想先把修改重点排清楚。您建议我先改哪一部分？这部分希望达到什么要求？”",
+            "label": "自然"
+          }
+        ],
+        "disposition": "draft",
+        "notices": [
+          {
+            "text": "表达参考 · 请核对"
+          }
+        ]
+      },
+      "observed_outputs": []
+    }
+  ],
+  "execution_status": "executed_review_required",
+  "unexecuted_steps": [],
+  "criteria": {
+    "original_goal": "作为朋友关心她，认真听她想说的，也在她需要时帮她想办法。",
+    "excluded_understandings": [],
+    "steps": [
+      {
+        "id": "s1",
+        "evaluation": {
+          "acceptable_outputs": [
+            "draft",
+            "discussion"
+          ],
+          "should": [
+            "先接住被当众否定后难受的具体处境，给她愿意继续讲或暂时休息的空间。",
+            "提供朋友之间能用的表达或清楚的回应方向，而非只罗列共情原则。"
+          ],
+          "should_not": [
+            "不立刻输出整改清单，不诊断她有心理疾病，不保证领导一定错或一切会好。"
+          ],
+          "critical_failures": [],
+          "evidence_ids": [
+            "q1",
+            "r1"
+          ]
+        }
+      },
+      {
+        "id": "s2",
+        "evaluation": {
+          "acceptable_outputs": [
+            "draft",
+            "discussion"
+          ],
+          "should": [
+            "关注她担心被否定为整个人的感受，区分一次方案反馈与人的价值；可以陪她说清哪个部分最刺痛。"
+          ],
+          "should_not": [
+            "不逼她证明自己很优秀，不让她先去说服领导，也不空泛声称完全理解她全部感受。"
+          ],
+          "critical_failures": [],
+          "evidence_ids": [
+            "q2",
+            "r2"
+          ]
+        }
+      },
+      {
+        "id": "s3",
+        "evaluation": {
+          "acceptable_outputs": [
+            "draft",
+            "discussion"
+          ],
+          "should": [
+            "随着她现在主动问办法，给明天沟通可用的一个小步骤或表达，兼顾她希望明确修改点的需要。",
+            "可以建议先区分必须改的内容与领导期待，不冒充知道具体项目。"
+          ],
+          "should_not": [
+            "不机械坚持只能倾听，也不把她问办法当成情绪已经彻底解决。"
+          ],
+          "critical_failures": [],
+          "evidence_ids": [
+            "q3",
+            "r3"
+          ]
+        }
+      }
+    ],
+    "coverage": [
+      "emotional disclosure",
+      "listen before advice",
+      "changed support need"
+    ]
+  },
+  "rubric": {
+    "schema_version": 1,
+    "version": "assistant-help-v1",
+    "purpose": "Review purpose-conditioned assistance from complete fictional contexts; not relationship outcomes or exact wording matching.",
+    "dimensions": [
+      {
+        "id": "intent_alignment",
+        "label": "理解当前目的",
+        "question": "Does the help preserve the user's present purpose and scope, including a changed goal or local correction?"
+      },
+      {
+        "id": "context_grounding",
+        "label": "背景与时间准确",
+        "question": "Does the help use relevant available evidence, distinguish speaker/time/uncertainty, and update stale understandings?"
+      },
+      {
+        "id": "useful_next_step",
+        "label": "有具体帮助",
+        "question": "Does it give usable content, a feasible next step, or a necessary clarification rather than leave the user to solve the task again?"
+      },
+      {
+        "id": "expression_fit",
+        "label": "表达与处境合适",
+        "question": "Does the expression fit this situation and the user's current choice, without treating humor, brevity, questions or indirectness as inherently better?"
+      },
+      {
+        "id": "continuity",
+        "label": "能接续变化",
+        "question": "Across the supplied episode, does the help absorb corrections and new actual messages without repeating, reviving closed tasks or claiming unobserved actions?"
+      }
+    ],
+    "dimension_ratings": [
+      "satisfactory",
+      "needs_improvement",
+      "failed",
+      "insufficient_evidence",
+      "not_applicable"
+    ],
+    "overall_ratings": [
+      "usable",
+      "minor_edit",
+      "rewrite",
+      "insufficient_evidence"
+    ],
+    "hard_failure_rules": [
+      "Inventing, misattributing or presenting outdated personal facts as current.",
+      "Putting private-only discussion or unapproved personal material into outbound wording.",
+      "Contradicting explicit current intent or a still-applicable boundary, including a concrete rejection or closing.",
+      "Treating a generated draft, a copy action or a scripted test continuation as evidence of sending, acceptance, task success or closeness."
+    ],
+    "review_rules": [
+      "Evaluate the full input and actual observed output. Cite source IDs and relevant output spans for every failure; use insufficient_evidence when the required trace is absent.",
+      "The case-specific criteria supplement these dimensions and allow multiple acceptable approaches; they do not prescribe one gold sentence.",
+      "An appropriate clarification or pause may be useful; it still needs a case-grounded reason and concrete help where possible.",
+      "A hard failure cannot be cancelled by good style. A merely longer, less funny or slightly awkward sentence is not automatically a hard failure.",
+      "No weighted total score, emoji count, question count, message count or word limit determines quality.",
+      "These authored cases are visible development/regression material, not unseen holdouts. User voice fit remains provisional until the user actually reviews it."
+    ],
+    "model_input_policy": "Case-specific evaluation, contrast groups, tags and this rubric must not be included in exported evaluated-assistant inputs.",
+    "evidence_limit": "Offline data validation does not execute an assistant, produce predictions or establish semantic quality. Review forms remain ungraded until bound to actual responses and versions."
+  },
+  "review": {
+    "status": "not_run",
+    "overall": null,
+    "dimension_ratings": {
+      "intent_alignment": {
+        "rating": null,
+        "evidence": []
+      },
+      "context_grounding": {
+        "rating": null,
+        "evidence": []
+      },
+      "useful_next_step": {
+        "rating": null,
+        "evidence": []
+      },
+      "expression_fit": {
+        "rating": null,
+        "evidence": []
+      },
+      "continuity": {
+        "rating": null,
+        "evidence": []
+      }
+    },
+    "critical_failures": [],
+    "notes": []
+  }
+}

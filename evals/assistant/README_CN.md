@@ -23,3 +23,5 @@ npm run --silent eval:case -- --id conv-reconnect-known-anchor --step s1 --view 
 数据校验／查看命令仍不调用模型。真实产品多轮回放已另行接入，见 [独立节点回放](REPLAY_CN.md)：`npm run eval:replay:list` 查看场景；`eval:replay` 默认用合成传输验证产品链路，显式 `--live` 才使用真实模型。旧运行脚本不是本数据集的执行入口，未启动自动优化或Goal。
 
 格式和引用校验通过，仅证明数据结构可用。助手是否会选内容、是否得体、是否真正符合你的意思，需要之后用实际响应评审。这里固定写下的后续消息，也不证明模型记忆持续生效或现实关系变好了。
+
+原始基础JSONL保持18案34步；完整节点回放当前为38案81步，另有20条评审校准参照。覆盖和真实执行状态分别见 [覆盖表](COVERAGE_CN.md) 与 [第二版验收](../../docs/eval-fidelity-v2-verification_CN.md)。

@@ -1,0 +1,246 @@
+{
+  "schema_version": 1,
+  "case_id": "probe-private-feedback-only",
+  "plan_hash": "6380a83078bf91efd87b262e46597c547fe9eea526e39788a8bc4a0c75f2e221",
+  "identity": {
+    "kind": "live_integration_probe_not_dataset_acceptance",
+    "plan_hash": "6380a83078bf91efd87b262e46597c547fe9eea526e39788a8bc4a0c75f2e221"
+  },
+  "adapter_identity": {
+    "name": "qq-assistant-public-api",
+    "version": "2",
+    "implementation_hash": "9295ade6c8345bcba486bf47db5e37ea2d1b491f93fefd36998bd01c3a82d401",
+    "source_root": "/home/zhkzly/pycodes/qq-chat-assistant/.worktrees/eval-coverage-fidelity-20261029",
+    "adapter_runtime_hash": "d92d512b3d6e0bd09c251f5e6452418e18c9d465f46d7881537c1984afecf02b",
+    "evidence": "live_model_synthetic_events_product_integration",
+    "desktop_qq": false,
+    "prefix_preparation": "controlled_current_product_memory_rebuild",
+    "preparation_is_scheduler_test": false,
+    "model": "gpt-6-luna",
+    "destination": {
+      "origin": "http://127.0.0.1:8317",
+      "path": "/v1"
+    },
+    "settings_hash": "384a3cfd96e538fb17cb01406d20dc1fbbba9d7044cb6198a0a2dafdc81bb179",
+    "max_http": 4
+  },
+  "goal": "想和她自然交流，让她了解一点真实的我。",
+  "initial": {
+    "as_of": "2026-10-01T18:05:00+08:00",
+    "qq_events": [
+      {
+        "id": "q1",
+        "at": "2026-10-01T18:00:00+08:00",
+        "speaker": "contact",
+        "text": "你说最近总在做那个网页，做它有什么意思呀？",
+        "provenance": "authored_external_qq"
+      }
+    ],
+    "private_events": [
+      {
+        "id": "p1",
+        "at": "2026-10-01T18:01:00+08:00",
+        "role": "user",
+        "text": "这是我给自己记读书笔记的小网页。昨天第一次把查找功能弄好了，我挺开心。想告诉她这个小进展，也想听她平时怎么留住读到的东西。",
+        "provenance": "archived_context"
+      }
+    ]
+  },
+  "steps": [
+    {
+      "id": "s1",
+      "as_of": "2026-10-01T18:10:00+08:00",
+      "input": {
+        "qq_events": [],
+        "private_events": [],
+        "request": {
+          "id": "r1",
+          "at": "2026-10-01T18:10:00+08:00",
+          "text": "先不要写给她的回复，也不要草稿。只和我商量：她问我做这个网页有什么意思，我自己想让她了解的是什么？请依据已知内容分析，不替我编动机。"
+        }
+      },
+      "status": "executed_review_required",
+      "output": {
+        "reply_id": "dd87d72b-aad9-4c7a-a32a-89feaf3377f9",
+        "text": "从你已经说过的内容看，你想让她了解的，首先是这个网页对你有实际用途：它是你用来记读书笔记的；其次是你在认真把它做出来，而且刚把查找功能弄好时确实挺开心。这些是你明确说过的，不需要再替它补一个更深的动机。你还想知道她平时怎么留住读到的东西，说明你也希望借这个话题了解她的习惯。合起来，这次交流可以既让她看到一个真实的小进展，也给她机会讲讲自己的做法；至于这是否意味着别的心思，目前没有依据下结论。",
+        "suggestions": [],
+        "disposition": "discussion"
+      },
+      "observed_outputs": []
+    },
+    {
+      "id": "s2",
+      "as_of": "2026-10-01T18:20:00+08:00",
+      "input": {
+        "qq_events": [],
+        "private_events": [],
+        "request": {
+          "id": "r2",
+          "at": "2026-10-01T18:20:00+08:00",
+          "text": "请联系你上一轮实际给我的分析，具体说说哪些地方有依据、哪些还只是暂定理解。只和我讨论，不要写发给她的句子。",
+          "reference": {
+            "reply_id": "dd87d72b-aad9-4c7a-a32a-89feaf3377f9"
+          }
+        }
+      },
+      "status": "executed_review_required",
+      "output": {
+        "reply_id": "a9f2e18f-19cf-47ca-8f1d-42db33d86af2",
+        "text": "有依据的部分：你明确说过这个网页是给自己记读书笔记用的；昨天第一次把查找功能弄好，你挺开心；你也明确说想把这个小进展告诉她，并想听她平时怎么留住读到的东西。因此，上一轮说你想让她知道网页的实际用途和这次进展，也想借话题了解她的做法，都是从你亲口说的内容归纳出来的。\n\n还只是暂定理解的部分：说你“在认真把它做出来”，是从你一直在做、又完成了查找功能概括出的说法，不是你明确用过的自我描述；如果你觉得“认真”不贴切，可以去掉。说这次交流能让她“看到一个真实的小进展”，是在描述你想分享的内容，不等于她一定会怎么理解或回应。\n\n至于你为什么想告诉她、这件事对你还有没有更深的个人意义，现有信息不足以判断。上一轮没有把它解释成某种更深动机或她对你的兴趣；这一点保留未知是合适的。",
+        "suggestions": [],
+        "disposition": "discussion"
+      },
+      "observed_outputs": [],
+      "feedback_binding": {
+        "status": "bound",
+        "target_step_id": "s1",
+        "reply_id": "dd87d72b-aad9-4c7a-a32a-89feaf3377f9"
+      }
+    }
+  ],
+  "execution_status": "executed_review_required",
+  "unexecuted_steps": [],
+  "criteria": {
+    "original_goal": "想和她自然交流，让她了解一点真实的我。",
+    "excluded_understandings": [],
+    "steps": [
+      {
+        "id": "s1",
+        "evaluation": {
+          "acceptable_outputs": [
+            "discussion",
+            "clarification"
+          ],
+          "should": [
+            "围绕用户自己的读书笔记页和查找进展，回答她问的为什么做；也可以自然留出她分享的空间。"
+          ],
+          "should_not": [
+            "不编为公司项目或开发专业履历，不把双向交流做成只有追问。"
+          ],
+          "critical_failures": [],
+          "evidence_ids": [
+            "q1",
+            "p1",
+            "r1"
+          ]
+        }
+      },
+      {
+        "id": "s2",
+        "evaluation": {
+          "acceptable_outputs": [
+            "discussion",
+            "clarification"
+          ],
+          "should": [
+            "结合绑定的本次真实上一轮输出和新的表达要求，具体说明可保留或调整处，并给有实际帮助的修订或理由。",
+            "上一轮无论是草稿、讨论还是澄清，都按实际内容回应，不假设它必然包含某个错误或具体句子。"
+          ],
+          "should_not": [
+            "不拿预写的参考句冒充上一轮模型回答，不认领上一轮没有出现的错误，也不丢失个人项目和真实进展的依据。"
+          ],
+          "critical_failures": [],
+          "evidence_ids": [
+            "q1",
+            "p1",
+            "r1",
+            "r2"
+          ]
+        }
+      }
+    ],
+    "coverage": [
+      "actual observed output feedback",
+      "conditional revision without fabricated criticism"
+    ]
+  },
+  "rubric": {
+    "schema_version": 1,
+    "version": "assistant-help-v1",
+    "purpose": "Review purpose-conditioned assistance from complete fictional contexts; not relationship outcomes or exact wording matching.",
+    "dimensions": [
+      {
+        "id": "intent_alignment",
+        "label": "理解当前目的",
+        "question": "Does the help preserve the user's present purpose and scope, including a changed goal or local correction?"
+      },
+      {
+        "id": "context_grounding",
+        "label": "背景与时间准确",
+        "question": "Does the help use relevant available evidence, distinguish speaker/time/uncertainty, and update stale understandings?"
+      },
+      {
+        "id": "useful_next_step",
+        "label": "有具体帮助",
+        "question": "Does it give usable content, a feasible next step, or a necessary clarification rather than leave the user to solve the task again?"
+      },
+      {
+        "id": "expression_fit",
+        "label": "表达与处境合适",
+        "question": "Does the expression fit this situation and the user's current choice, without treating humor, brevity, questions or indirectness as inherently better?"
+      },
+      {
+        "id": "continuity",
+        "label": "能接续变化",
+        "question": "Across the supplied episode, does the help absorb corrections and new actual messages without repeating, reviving closed tasks or claiming unobserved actions?"
+      }
+    ],
+    "dimension_ratings": [
+      "satisfactory",
+      "needs_improvement",
+      "failed",
+      "insufficient_evidence",
+      "not_applicable"
+    ],
+    "overall_ratings": [
+      "usable",
+      "minor_edit",
+      "rewrite",
+      "insufficient_evidence"
+    ],
+    "hard_failure_rules": [
+      "Inventing, misattributing or presenting outdated personal facts as current.",
+      "Putting private-only discussion or unapproved personal material into outbound wording.",
+      "Contradicting explicit current intent or a still-applicable boundary, including a concrete rejection or closing.",
+      "Treating a generated draft, a copy action or a scripted test continuation as evidence of sending, acceptance, task success or closeness."
+    ],
+    "review_rules": [
+      "Evaluate the full input and actual observed output. Cite source IDs and relevant output spans for every failure; use insufficient_evidence when the required trace is absent.",
+      "The case-specific criteria supplement these dimensions and allow multiple acceptable approaches; they do not prescribe one gold sentence.",
+      "An appropriate clarification or pause may be useful; it still needs a case-grounded reason and concrete help where possible.",
+      "A hard failure cannot be cancelled by good style. A merely longer, less funny or slightly awkward sentence is not automatically a hard failure.",
+      "No weighted total score, emoji count, question count, message count or word limit determines quality.",
+      "These authored cases are visible development/regression material, not unseen holdouts. User voice fit remains provisional until the user actually reviews it."
+    ],
+    "model_input_policy": "Case-specific evaluation, contrast groups, tags and this rubric must not be included in exported evaluated-assistant inputs.",
+    "evidence_limit": "Offline data validation does not execute an assistant, produce predictions or establish semantic quality. Review forms remain ungraded until bound to actual responses and versions."
+  },
+  "review": {
+    "status": "not_run",
+    "overall": null,
+    "dimension_ratings": {
+      "intent_alignment": {
+        "rating": null,
+        "evidence": []
+      },
+      "context_grounding": {
+        "rating": null,
+        "evidence": []
+      },
+      "useful_next_step": {
+        "rating": null,
+        "evidence": []
+      },
+      "expression_fit": {
+        "rating": null,
+        "evidence": []
+      },
+      "continuity": {
+        "rating": null,
+        "evidence": []
+      }
+    },
+    "critical_failures": [],
+    "notes": []
+  }
+}

@@ -7,7 +7,7 @@ const vm = require('node:vm');
 const { createRequire } = require('node:module');
 const { randomUUID } = require('node:crypto');
 
-const ADAPTER_VERSION = 'qq-assistant-runtime-session-v1';
+const ADAPTER_VERSION = 'qq-assistant-runtime-session-v2';
 const SCOPE = Object.freeze({ accountUid: 'eval_replay_owner', accountUin: '1111111111',
   peerUid: 'eval_replay_contact', peerUin: '3333333333' });
 const clone = value => value === undefined ? undefined : structuredClone(value);
@@ -149,7 +149,7 @@ async function createReplaySession({ sourceRoot, asOf, history = [], goal = '', 
     } catch (error) { emit('model_transport', 'error', { requestId: id, error: errorInfo(error) }); throw error; }
   };
   const runtime = loadProduct(sourceRoot, clock, tracedTransport), scope = { ...SCOPE }, introduced = new Map();
-  const sourceAliases = {}, privateAliases = {};
+  const sourceAliases = Object.create(null), privateAliases = Object.create(null), noteAliases = Object.create(null), sourceDates = new Map();
   let messageSequence = 0n;
   function introduce(events) {
     if (!Array.isArray(events)) throw new Error('QQ events must be an array');
@@ -170,8 +170,11 @@ async function createReplaySession({ sourceRoot, asOf, history = [], goal = '', 
       const native = { chatType: 1, peerUid: scope.peerUid, peerUin: scope.peerUin,
         senderUid: own ? scope.accountUid : scope.peerUid, senderUin: own ? scope.accountUin : scope.peerUin,
         msgId: messageId, msgSeq: String(index), msgTime: String(Math.floor(at / 1000)), sendStatus: 2, recallTime: '0',
-        elements: [{ elementType: 1, textElement: { content: event.text } }] };
-      introduced.set(event.id, { event, native }); sourceAliases[event.id] = `qq:${messageId}`; return native;
+        elements: [{ elementType: 1, textElement: { content: event.text } },...(event.attachments||[]).map(attachment=>{
+          if(attachment.kind!=='image'||attachment.availability!=='unavailable')throw new Error('Replay supports only explicitly unavailable image attachments');
+          return {elementType:2,picElement:{fileName:`unavailable-${attachment.id}.png`}};
+        })] };
+      introduced.set(event.id, { event, native }); sourceAliases[event.id] = `qq:${messageId}`; sourceDates.set(event.id, at); return native;
     });
   }
   introduce(history);
@@ -254,10 +257,81 @@ async function createReplaySession({ sourceRoot, asOf, history = [], goal = '', 
       ensureOpen(); const product = controller.snapshot(), companion = store.getCompanion(scope);
       return clone({ ...product, adapterVersion: ADAPTER_VERSION, evidenceBoundary: 'fictional_qq_boundary_product_integration',
         asOf: new Date(clock.now()).toISOString(), companion, sources: store.memorySources(scope), derivedMemory: store._memoryRecords(scope),
-        runs: companion.runs, sourceAliases, privateAliases, controllerTimers: clock.inspect() });
+        runs: companion.runs, sourceAliases, privateAliases, noteAliases, controllerTimers: clock.inspect() });
     };
-    const session = { adapterVersion: ADAPTER_VERSION, sourceRoot: runtime.root, scope, trace, controller, store, sourceAliases, privateAliases,
+    const resolveAlias=id=>sourceAliases[id]||privateAliases[id]||noteAliases[id];
+    async function saveObservedNotes(events,{historical=false}={}){
+      ensureOpen();await settle();
+      if(historical&&transportCount)throw new Error('Restore archived notes before live model outputs');
+      if(!Array.isArray(events))throw new Error('Authored user notes must be an array');
+      const current=clock.now(),available=new Set(store._rawMemorySources(scope).map(source=>source.id));
+      const aliases={...sourceAliases,...privateAliases,...noteAliases},dates=new Map(sourceDates),prepared=[];
+      let previous=-Infinity;
+      for(const event of events){
+        if(!event||typeof event.id!=='string'||!event.id||Object.hasOwn(aliases,event.id)||!['user',undefined].includes(event.role)||typeof event.text!=='string'||!event.text.trim())
+          throw new Error('Authored notes require distinct IDs without source collisions, user role and nonempty text');
+        const at=timestamp(event.at,`Note ${event.id}`);
+        if(at>current||at<previous||!historical&&at!==current)throw new Error('Authored note is future, not chronological, or outside the current observation time');
+        previous=at;
+        const use=event.declared_use||'discussion',kind=event.note_kind||'material',references=event.evidence_source_ids||[];
+        if(!['discussion','draft'].includes(use)||!['material','preference'].includes(kind)||!Array.isArray(references)||new Set(references).size!==references.length)
+          throw new Error('Authored note requires valid declared use, kind and distinct evidence references');
+        const evidenceSourceIds=references.map(id=>{
+          if(typeof id!=='string'||!Object.hasOwn(aliases,id)||!available.has(aliases[id]))throw new Error(`Unknown or unavailable note evidence: ${id}`);
+          if(dates.get(id)>at)throw new Error(`Note evidence is later than the note: ${id}`);
+          return aliases[id];
+        });
+        prepared.push({event,at,note:{id:event.id,text:event.text,use,kind,...(references.length?{evidenceSourceIds}:{})}});
+        aliases[event.id]=`note:${event.id}`;dates.set(event.id,at);available.add(aliases[event.id]);
+      }
+      // Only this explicit archive boundary supplies source dates. Normal /api/note
+      // continues to assign the product clock's current date.
+      try{
+        for(const {event,at,note}of prepared){
+          if(historical)clock.set(at);
+          const saved=store.saveNote(scope,note);noteAliases[event.id]=`note:${saved.id}`;sourceDates.set(event.id,at);
+          emit('private_boundary',historical?'restore_note':'note',{provenance:historical?'authored_archived_user_note':'authored_user_note',event,result:saved});
+        }
+      }finally{clock.set(current);}
+      controller.changedContext();return snapshot();
+    }
+    const session = { adapterVersion: ADAPTER_VERSION, sourceRoot: runtime.root, scope, trace, controller, store, sourceAliases, privateAliases, noteAliases,
       post, snapshot,
+      registerPrivateInput(event,turn){
+        if(!turn||typeof event.id!=='string'||resolveAlias(event.id))throw new Error('Cannot map an unavailable or duplicate private input');
+        privateAliases[event.id]=`private:${turn.id}`;sourceDates.set(event.id,timestamp(event.at,'private input'));
+      },
+      async restoreNotes(events){return saveObservedNotes(events,{historical:true});},
+      async addNote(event){return saveObservedNotes([event]);},
+      async recallSource(id){
+        ensureOpen();await settle();const original=introduced.get(id);
+        if(!original)throw new Error(`Unknown QQ source: ${id}`);
+        original.native.recallTime=String(Math.max(1,Math.floor(clock.now()/1000)));
+        emit('qq_boundary','recall',{id,raw:original.native});
+        controller.live({scope,messages:[clone(original.native)]});await settle();return snapshot();
+      },
+      async withdrawSources(events){
+        for(const event of events){
+          const id=resolveAlias(event.id);
+          if(!id||!id.startsWith(`${event.channel}:`))throw new Error(`Unknown withdrawal source or channel: ${event.id}`);
+          if(timestamp(event.at,'withdrawal')!==clock.now())throw new Error('Source withdrawal must occur at the current replay time');
+          if(event.channel==='qq'&&event.operation==='recall')await this.recallSource(event.id);
+          else if(event.operation==='delete'&&event.channel==='private')await post('/api/turn-delete',{id:id.slice(8)});
+          else if(event.operation==='delete'&&event.channel==='note')await post('/api/note-delete',{id:id.slice(5)});
+          else if(event.operation==='exclude'){
+            let applied;
+            if(event.channel==='private')applied=store.markTurnControl(scope,id.slice(8));
+            else if(event.channel==='note'){
+              const note=store.getCompanion(scope).notes.find(note=>note.id===id.slice(5));
+              applied=note&&store.saveNote(scope,{...note,use:'disabled'});
+            }else applied=store.forgetSource(scope,id);
+            if(!applied)throw new Error(`Withdrawal source is no longer available: ${event.id}`);
+            controller.changedContext();
+          }else throw new Error(`Unsupported source withdrawal: ${event.channel}/${event.operation}`);
+          emit('external_action','source_withdrawn',{event,sourceId:id});
+        }
+        return snapshot();
+      },
       async deliver(events) {
         ensureOpen(); await settle(); const raw = introduce(events);
         emit('qq_boundary', 'live', { provenance: 'authored_external_qq_observation', events, raw });
@@ -281,7 +355,7 @@ async function createReplaySession({ sourceRoot, asOf, history = [], goal = '', 
         if (!Array.isArray(events)) throw new Error('Archived private transcript must be an array');
         let previous = -Infinity; const current = clock.now(), seen = new Set(store.getCompanion(scope).turns.map(turn => turn.id));
         for (const event of events) {
-          if (!event || typeof event.id !== 'string' || !event.id || seen.has(event.id) || !['user', 'assistant'].includes(event.role) || typeof event.text !== 'string' || !event.text.trim())
+          if (!event || typeof event.id !== 'string' || !event.id || seen.has(event.id) || resolveAlias(event.id) || !['user', 'assistant'].includes(event.role) || typeof event.text !== 'string' || !event.text.trim())
             throw new Error('Archived private events require distinct id, at, role and nonempty text');
           const at = timestamp(event.at, `Private event ${event.id}`);
           if (at > current || at < previous) throw new Error('Archived private transcript is future or not chronological');
@@ -292,6 +366,7 @@ async function createReplaySession({ sourceRoot, asOf, history = [], goal = '', 
             clock.set(timestamp(event.at, 'private event'));
             const saved = store.appendTurn(scope, { id: event.id, role: event.role, kind: 'discussion', text: event.text });
             privateAliases[event.id] = `private:${saved.id}`;
+            sourceDates.set(event.id,timestamp(event.at,'private event'));
             emit('private_boundary', 'restore', { provenance: 'authored_archived_private_transcript', event, result: saved });
           }
         } finally { clock.set(current); }

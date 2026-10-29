@@ -31,15 +31,16 @@ with `create()` for a new isolated episode. An episode exposes:
 | `advanceTo(iso)` | Advance scenario time and finish work due before that point. |
 | `observe(events)` | Receive externally authored QQ messages, including actual human sends. |
 | `observePrivate(events)` | Process additional user inputs; return any actual intermediate assistant outputs. Never insert authored new assistant answers. |
-| `respond(request)` | Return the actual answer to the current user input. |
-| `configure({automatic})` | Optional explicit user control. |
+| `respond(request)` | Return the actual answer; an optional `reference.reply_id` binds an actually observed earlier answer. |
+| `configure({automatic?, goal?})` | Optional explicit user controls, including a changed long-term purpose. |
+| `withdrawSources(events)` | Apply observed source deletion, exclusion or QQ recall, without executing any real QQ message action. |
 | `drainOutputs()` | Return newly generated observable outputs, including automatic advice preceding a manual request. |
 | `currentOutput()` | Return the currently displayed candidate, or null. |
 | `diagnostics()` | Optional versioned internal evidence; errors do not determine conversational quality. |
 | `close()` | Release episode resources. |
 
 Set `protocol_version: 1`. Output shape is `{reply_id?, text, suggestions:[{text}],
-disposition}` where disposition is draft, discussion, clarification, wait or
+disposition, options?:[{label}], notices?:[{text}], references?:[{label,text}]}` where disposition is draft, discussion, clarification, wait or
 unavailable. Implement automatic observation methods when evaluating automatic
 behavior. Optional diagnostics cannot substitute for observable outputs.
 
@@ -69,6 +70,8 @@ events exercise normal scheduling. Preparation calls count toward the HTTP cap.
 Historical private context is explicitly archived; live assistant replies are
 never replaced. No real QQ process, user database or settings is modified.
 
+Use `--continue-on-case-error` explicitly to retain an independent case failure and continue a batch. The default stops; the global HTTP cap is always respected. Missing steps and cases remain recorded, and a batch with any execution failure stays incomplete.
+
 ## Evidence and review
 
 `*.run.json` contains actual external inputs, outputs, optional internal traces
@@ -82,8 +85,7 @@ records corrected ordinary goals and independent instructions for authored
 feedback that would otherwise assume a particular generated answer. Original
 texts remain available to the reviewer. Never silently adapt a case to help a
 particular implementation. Unbound response-dependent feedback is not delivered
-and is reported as not replayed. Three additional event fixtures test longer
-prefixes, changed work information and automatic/manual transitions.
+and is reported as not replayed. The coverage supplements add emotional disclosure, warmth, repair, low reciprocation, source withdrawal, goal changes, actual-answer feedback and long private histories; see [coverage](COVERAGE_CN.md).
 
 The frozen prefix is the evidence available at the checkpoint, not simply all
 current database rows with old message timestamps. Current data may have later
@@ -99,3 +101,32 @@ Rebuilding memory after a rewrite is separate from migrating a user's existing
 production database. No cross-version memory cache is implemented here; any
 future cache must bind raw-prefix identity, implementation, model/configuration,
 time policy and preparation conditions.
+
+## Policy v2 fidelity and calibration
+
+The reader accepts frozen v1 fixtures; new observable capabilities require policy
+`observed-history-replay-v2`. Authored notes retain `note_kind`, `declared_use`,
+`evidence_source_ids`, original ID and time. Derived understanding stays reviewer-only.
+`feedback.mode: observed_output` binds `target_step_id` to that step's actual
+returned reply. Optional `target_output` selects output, observed_outputs or
+intermediate_outputs with an explicit index for list channels. An unavailable
+target is unreplayed rather than replaced by an authored answer. New assistant
+turns cannot appear in step inputs.
+
+`source_updates` carry original source IDs, event times, channel and delete,
+exclude or recall operations. QQ recall is an observed external event, never a
+request to operate real QQ. Withdrawn evidence cannot support later authored notes.
+Controls, goals and references are public conversational actions, not a memory
+schema or prescribed tool sequence.
+
+The current adapter exports substantive answer content: explanation/body, labeled
+wording, choices, recovery notices and expandable method/source claims. It does not
+verify desktop layout, buttons or every source-catalog display. Prefix memory
+progress follows committed receipts and segment cursors, not a falling source count.
+Historical source restoration is distinct from normal current-time note creation.
+
+Reviewer calibration is offline and independent of the product. `eval:judge:check`
+validates anchors; `eval:judge:export` gives blinded material; `eval:judge:compare`
+compares real supplied judgments with version-bound provisional references. No
+command invokes a judge. See [calibration](calibration/README.md); AI references,
+style disagreements and ungraded items remain explicit.

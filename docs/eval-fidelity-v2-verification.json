@@ -1,0 +1,246 @@
+{
+  "schema_version": 1,
+  "date": "2026-10-30",
+  "scope": "Evaluation fidelity and coverage; no production src, QQ or user-settings changes.",
+  "base_commit": "b7e4b0e",
+  "dataset_hash": "d7890b62c8c92e7e496d631ca8f2c255bd6871380d779e194fbb85125a0e7aa0",
+  "case_count": 38,
+  "step_count": 81,
+  "policy_version": "observed-history-replay-v2",
+  "synthetic_integration": {
+    "directory": "/tmp/qq-eval-fidelity-offline-20261030-final",
+    "status": "incomplete",
+    "cases_attempted": 38,
+    "steps_review_required": 79,
+    "steps_error": 1,
+    "steps_unexecuted": 1,
+    "incomplete_cases": [
+      "coverage-long-single-source"
+    ],
+    "semantic_evaluation": "not_run"
+  },
+  "live_case_runs": [
+    {
+      "directory": "/tmp/qq-eval-fidelity-live-20261029-v2",
+      "identity": {
+        "dataset_hash": "c091068a8da40134145d519706d15fa979eb4c5ab1ec85f9441c03e48643bde8",
+        "policy_version": "observed-history-replay-v2",
+        "rubric_version": "assistant-help-v1",
+        "runner_hash": "339f9e2a36fb59fe8c8fd8c62ebdc54323fd55222e01ae110ebe06002031e967",
+        "harness_hash": "c0f3967f777315875909e2b68982ec6992343e9da99118bc8b53a48902bfe26a",
+        "adapter_hash": "914a427dc6a8f56dc1b04c50d461656e580e6a1e2c13833ac138ae307d0848b3",
+        "plan_compiler_hash": "828bfdb0b56ba4e3ce2011735005bf5a2c829eb561dc82c170a068fff9061fba"
+      },
+      "adapter": {
+        "name": "qq-assistant-public-api",
+        "version": "2",
+        "implementation_hash": "9295ade6c8345bcba486bf47db5e37ea2d1b491f93fefd36998bd01c3a82d401",
+        "source_root": "/home/zhkzly/pycodes/qq-chat-assistant/.worktrees/eval-coverage-fidelity-20261029",
+        "adapter_runtime_hash": "d92d512b3d6e0bd09c251f5e6452418e18c9d465f46d7881537c1984afecf02b",
+        "evidence": "live_model_synthetic_events_product_integration",
+        "desktop_qq": false,
+        "prefix_preparation": "controlled_current_product_memory_rebuild",
+        "preparation_is_scheduler_test": false,
+        "model": "gpt-6-luna",
+        "destination": {
+          "origin": "http://127.0.0.1:8317",
+          "path": "/v1"
+        },
+        "settings_hash": "384a3cfd96e538fb17cb01406d20dc1fbbba9d7044cb6198a0a2dafdc81bb179",
+        "max_http": 32
+      },
+      "status": "incomplete",
+      "episodes": [
+        {
+          "id": "coverage-observed-output-feedback",
+          "status": "incomplete",
+          "steps": [
+            {
+              "id": "s1",
+              "status": "execution_error"
+            }
+          ],
+          "unexecuted_steps": [
+            "s2"
+          ],
+          "error": {
+            "code": "replay_task_failed",
+            "message": "Replay task failed at controller.assist: 拟表达内容未能对应本次明确请求或已选分享素材，请具体说明想说哪件事"
+          },
+          "plan_hash": "3da18e7616baed3ab29139dd187aa57c4570165344b12a7a8d7b0b616abe4cf8",
+          "matches_current_plan": true
+        },
+        {
+          "id": "coverage-emotional-disclosure",
+          "status": "executed_review_required",
+          "steps": [
+            {
+              "id": "s1",
+              "status": "executed_review_required"
+            },
+            {
+              "id": "s2",
+              "status": "executed_review_required"
+            },
+            {
+              "id": "s3",
+              "status": "executed_review_required"
+            }
+          ],
+          "unexecuted_steps": [],
+          "plan_hash": "5927b93a6386520085ffe52395f92a132fc4eb7eb1df5b0d8607baaad8049858",
+          "matches_current_plan": true
+        },
+        {
+          "id": "coverage-long-private-consultation",
+          "status": "incomplete",
+          "steps": [],
+          "unexecuted_steps": [
+            "s1",
+            "s2"
+          ],
+          "error": {
+            "code": "memory_maintenance_rejected",
+            "message": "Replay task failed at controller.maintainMemory: Product memory maintenance rejected"
+          },
+          "plan_hash": "4facbf78c6250875d5e9ff6e9999c2b2ee17d3610de355cf77cd27f1e8aeb5ee",
+          "matches_current_plan": true
+        }
+      ],
+      "http_attempts": 17,
+      "settings_unchanged": true
+    },
+    {
+      "directory": "/tmp/qq-eval-feedback-positive-live-20261030-v2",
+      "identity": {
+        "dataset_hash": "d7890b62c8c92e7e496d631ca8f2c255bd6871380d779e194fbb85125a0e7aa0",
+        "policy_version": "observed-history-replay-v2",
+        "rubric_version": "assistant-help-v1",
+        "runner_hash": "339f9e2a36fb59fe8c8fd8c62ebdc54323fd55222e01ae110ebe06002031e967",
+        "harness_hash": "f45b4cf27ef5a6a1f21ad2678712abd4922c0dbd7afcb6489799c13642a7ae70",
+        "adapter_hash": "d540d2be2d07ff81c55fd718b73a12407ad66420758155736d207d29c5109c68",
+        "plan_compiler_hash": "1f43b997cd4afca0edc5aa46edcff2df427dca538dbfd938c576ff2528253033"
+      },
+      "adapter": {
+        "name": "qq-assistant-public-api",
+        "version": "2",
+        "implementation_hash": "9295ade6c8345bcba486bf47db5e37ea2d1b491f93fefd36998bd01c3a82d401",
+        "source_root": "/home/zhkzly/pycodes/qq-chat-assistant/.worktrees/eval-coverage-fidelity-20261029",
+        "adapter_runtime_hash": "d92d512b3d6e0bd09c251f5e6452418e18c9d465f46d7881537c1984afecf02b",
+        "evidence": "live_model_synthetic_events_product_integration",
+        "desktop_qq": false,
+        "prefix_preparation": "controlled_current_product_memory_rebuild",
+        "preparation_is_scheduler_test": false,
+        "model": "gpt-6-luna",
+        "destination": {
+          "origin": "http://127.0.0.1:8317",
+          "path": "/v1"
+        },
+        "settings_hash": "384a3cfd96e538fb17cb01406d20dc1fbbba9d7044cb6198a0a2dafdc81bb179",
+        "max_http": 10
+      },
+      "status": "incomplete",
+      "episodes": [
+        {
+          "id": "coverage-feedback-current-material",
+          "status": "incomplete",
+          "steps": [
+            {
+              "id": "s1",
+              "status": "execution_error"
+            }
+          ],
+          "unexecuted_steps": [
+            "s2"
+          ],
+          "error": {
+            "code": "replay_task_failed",
+            "message": "Replay task failed at controller.assist: 拟表达内容未能对应本次明确请求或已选分享素材，请具体说明想说哪件事"
+          },
+          "plan_hash": "844583d61703788fc2c854cdaa7bf4222ec1d09a99f622dab7eb881d4226c9d5",
+          "matches_current_plan": true
+        }
+      ],
+      "http_attempts": 2,
+      "settings_unchanged": true
+    }
+  ],
+  "private_feedback_probe": {
+    "directory": "/tmp/qq-eval-private-feedback-probe-20261030",
+    "status": "executed_review_required",
+    "http_attempts": 4,
+    "feedback_binding": {
+      "status": "bound",
+      "target_step_id": "s1",
+      "reply_id": "dd87d72b-aad9-4c7a-a32a-89feaf3377f9"
+    },
+    "evidence_limit": "Isolated private-consultation integration probe, not replacement for failed frozen drafting cases and not a semantic pass."
+  },
+  "calibration": {
+    "dataset_hash": "2da7d8816ba597e3005e22381a085431664d9617178f68651a6c633c29143640",
+    "reference_version": "assistant-calibration-reference-v2",
+    "summary": {
+      "total": 20,
+      "submitted": 20,
+      "graded": 20,
+      "missing": 0,
+      "ungraded": 0,
+      "uncertain_observed": 1,
+      "uncertain_reference": 1,
+      "agreement": {
+        "count": 18,
+        "denominator": 20
+      },
+      "bad_correctly_flagged": {
+        "count": 7,
+        "denominator": 7
+      },
+      "good_false_alarm": {
+        "count": 0,
+        "denominator": 8
+      },
+      "good_minor_edit_disagreement": 0,
+      "hard_failure_flag_agreement": {
+        "count": 17,
+        "denominator": 20
+      },
+      "inconsistent_hard_failure_grade": 0,
+      "good_hard_failure_false_alarm": {
+        "count": 0,
+        "denominator": 8
+      },
+      "nonhard_reference_with_observed_hard_flags": {
+        "count": 2,
+        "denominator": 13
+      },
+      "hard_reference_detected": {
+        "count": 7,
+        "denominator": 7
+      },
+      "definitions": {
+        "bad_correctly_flagged": "Reference bad and observed overall rewrite; hard-failure flags are reported separately.",
+        "good_false_alarm": "Reference good and observed overall rewrite; minor_edit disagreement and hard-failure false alarms are separate.",
+        "agreement": "Exact overall-label agreement among submitted non-null judgments, including insufficient_evidence. Missing and null judgments are excluded; all known good/bad anchors remain in their detection denominators."
+      }
+    },
+    "evidence_limit": "Provisional AI references, sixteen unchanged input judgments explicitly reused and four fresh; not twenty fresh judgments, human gold or unseen generalization."
+  },
+  "engineering_checks": {
+    "log": "/tmp/qq-eval-fidelity-tests-20261030-verified.log",
+    "files": 105,
+    "checks": 720,
+    "failures": 0,
+    "syntax": "passed",
+    "diff_check": "passed",
+    "evidence_scope": "Engineering checks, separate from semantic product quality; the strengthened v2 negative checks also pass."
+  },
+  "limitations": [
+    "One synthetic long-source request fails the product context budget after successful memory preparation; retained.",
+    "History-only and current-material drafting cases fail a planning quote/authorization guard; retained.",
+    "Long-private live controlled preparation rejects a local instruction classified as a stable preference; no answer graded.",
+    "Emotion step 2 needs wording correction; no user voice confirmation.",
+    "Reviewer ordinal and overlapping hard-flag disagreements retained.",
+    "No real desktop, accessible image recognition, voice, real multi-account races or human relationship-outcome evidence."
+  ],
+  "retained_fictional_evidence": "evals/assistant/evidence/fidelity-v2"
+}

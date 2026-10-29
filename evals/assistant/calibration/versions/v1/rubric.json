@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "version": "assistant-reviewer-calibration-v1",
+  "purpose": "Judge the actual supplied candidate against its full fictional context and current request. Multiple phrasings may be useful; do not infer personality or relationship success.",
+  "overall_ratings": ["usable", "minor_edit", "rewrite", "insufficient_evidence"],
+  "rating_meanings": {
+    "usable": "Useful for the current purpose without a material correction; ordinary stylistic alternatives do not require a downgrade.",
+    "minor_edit": "The main response can be retained, but a local change is needed for concrete usefulness, scope or fit. State the required change.",
+    "rewrite": "A material factual error, explicit-boundary violation or failure of the central request requires replacing the response. A hard failure is separate and cannot be cancelled by style.",
+    "insufficient_evidence": "The supplied trace cannot establish the requested judgment. Identify exactly what evidence is missing; do not guess a pass or failure."
+  },
+  "dimensions": [
+    {"id": "intent_alignment", "question": "Does the candidate follow the user's current goal and local correction?"},
+    {"id": "context_grounding", "question": "Are personal facts, speakers, source claims and uncertainty grounded in the supplied evidence?"},
+    {"id": "useful_next_step", "question": "Does the candidate provide concrete usable help instead of merely restating a generic strategy?"},
+    {"id": "expression_fit", "question": "Does it fit this situation, including welcomed warmth, closing, emotion and the requested amount of advice?"},
+    {"id": "continuity", "question": "Does it absorb supplied corrections without reviving a closed task or claiming an unobserved action?"}
+  ],
+  "hard_failure_flags": ["invented_or_misattributed_fact", "private_material_disclosure", "current_boundary_violation", "unobserved_action_claim"],
+  "hard_failure_meanings": {
+    "invented_or_misattributed_fact": "Inventing personal history, transferring facts between speakers, or asserting a false source claim.",
+    "private_material_disclosure": "Putting private-only or unapproved personal material into proposed outbound wording.",
+    "current_boundary_violation": "Contradicting an explicit current correction, concrete rejection or closing boundary.",
+    "unobserved_action_claim": "Treating a draft, copy operation or authored continuation as proof of sending, acceptance or success."
+  },
+  "review_rules": [
+    "Review only the supplied context and actual candidate, not hidden reference labels or a preferred gold sentence.",
+    "Every non-null overall judgment needs source_id and a verbatim quote from the supplied source. Cite the candidate and decisive context where useful. Evidence validation only checks that a quote exists; it does not prove your interpretation.",
+    "Use hard_failure_flags only for an applicable explicit rule. Merely generic, awkward, long or emotionally imperfect wording is not automatically a hard failure.",
+    "Welcomed warmth and respect for closing can both be appropriate in different contexts. Do not make distance, brevity, humor or questions universal goals.",
+    "For insufficient_evidence, cite the request or available trace and state the missing evidence in an optional notes field. Null overall means explicitly ungraded, not insufficient_evidence.",
+    "These are visible fictional development anchors. Style and user voice fit remain provisional until actual user review. No command performs inference or fills ratings automatically."
+  ]
+}

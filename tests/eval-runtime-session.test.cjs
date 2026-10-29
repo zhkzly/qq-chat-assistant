@@ -123,3 +123,38 @@ test('a swallowed automatic provider failure is surfaced by the bounded replay c
   assert.equal(session.snapshot().companion.turns.filter(turn => turn.role === 'assistant').length, 0);
   assert.ok(session.trace.some(e => e.event === 'error'));
 });
+
+test('archived notes preserve identity, time, declared kind/use and chronological raw evidence links',async t=>{
+ const session=await setup(t);
+ await session.restorePrivate([{id:'earlier-user',at:'2026-10-28T10:00:00.000Z',role:'user',text:'以后默认简短，不用表情。'}]);
+ const notes=[
+  {id:'historical-preference',at:'2026-10-29T11:59:20.000Z',role:'user',text:'以后默认简短，不用表情。',declared_use:'discussion',note_kind:'preference',evidence_source_ids:['earlier-user']},
+  {id:'historical-material',at:'2026-10-29T11:59:30.000Z',role:'user',text:'愿意提到我自己装过书架。',declared_use:'draft',note_kind:'material',evidence_source_ids:['original-incoming','historical-preference']}
+ ];
+ await session.restoreNotes(notes);
+ const state=session.snapshot(),saved=state.companion.notes;
+ assert.deepEqual(saved.map(n=>[n.id,n.createdAt,n.updatedAt,n.use,n.kind]),notes.map(n=>[n.id,n.at,n.at,n.declared_use,n.note_kind]));
+ assert.deepEqual(saved[1].evidenceSourceIds,[state.sourceAliases['original-incoming'],'note:historical-preference']);
+ assert.equal(state.noteAliases['historical-preference'],'note:historical-preference');
+ await assert.rejects(session.restoreNotes([{...notes[0],id:'future',at:'2026-10-30T12:00:00Z'}]),/future/);
+ await assert.rejects(session.restoreNotes([{...notes[0],id:'earlier-user'}]),/distinct|collision/);
+ await assert.rejects(session.restoreNotes([{...notes[0],id:'future-reference',at:'2026-10-29T11:58:00Z',evidence_source_ids:['original-incoming']}]),/future|later/);
+ await assert.rejects(session.restoreNotes([{...notes[0],id:'unknown-reference',evidence_source_ids:['never-observed']}]),/unknown|unavailable/);
+ await session.post('/api/assistant',{text:'现在开始真实产品请求。'});
+ await assert.rejects(session.restoreNotes([{...notes[0],id:'late-restore'}]),/before.*live|live.*output/);
+ await session.withdrawSources([{id:'earlier-user',at:asOf,channel:'private',operation:'delete'}]);
+ assert.equal(session.snapshot().companion.notes.length,0,'dependent notes are invalidated with their actual raw source');
+ await session.post('/api/note',{id:'normal-note',text:'普通接口在当前时间新增。',use:'discussion',createdAt:'2000-01-01T00:00:00Z',at:'2000-01-01T00:00:00Z'});
+ assert.equal(session.snapshot().companion.notes.find(n=>n.id==='normal-note').createdAt,asOf,'public note API cannot set historical dates');
+});
+
+test('missing attachments retain text and unavailable media, while QQ recalls update actual stored evidence',async t=>{
+ const missing=event('missing-picture','2026-10-29T11:59:00.000Z','contact','这张图你怎么看？');
+ missing.attachments=[{id:'picture-1',kind:'image',availability:'unavailable'}];
+ const session=await setup(t,{history:[missing]});
+ assert.match(session.snapshot().messages[0].text,/这张图你怎么看/);
+ assert.equal(session.snapshot().messages[0].media.length,1);
+ await session.recallSource('missing-picture');
+ assert.equal(session.snapshot().messages[0].recalled,true);
+ assert.equal(session.snapshot().sources.some(s=>s.id===session.sourceAliases['missing-picture']),false);
+});

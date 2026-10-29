@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "identity": {
+    "dataset_hash": "d7890b62c8c92e7e496d631ca8f2c255bd6871380d779e194fbb85125a0e7aa0",
+    "policy_version": "observed-history-replay-v2",
+    "rubric_version": "assistant-help-v1",
+    "runner_hash": "339f9e2a36fb59fe8c8fd8c62ebdc54323fd55222e01ae110ebe06002031e967",
+    "harness_hash": "f45b4cf27ef5a6a1f21ad2678712abd4922c0dbd7afcb6489799c13642a7ae70",
+    "adapter_hash": "d540d2be2d07ff81c55fd718b73a12407ad66420758155736d207d29c5109c68",
+    "plan_compiler_hash": "1f43b997cd4afca0edc5aa46edcff2df427dca538dbfd938c576ff2528253033"
+  },
+  "adapter": {
+    "name": "qq-assistant-public-api",
+    "version": "2",
+    "implementation_hash": "9295ade6c8345bcba486bf47db5e37ea2d1b491f93fefd36998bd01c3a82d401",
+    "source_root": "/home/zhkzly/pycodes/qq-chat-assistant/.worktrees/eval-coverage-fidelity-20261029",
+    "adapter_runtime_hash": "d92d512b3d6e0bd09c251f5e6452418e18c9d465f46d7881537c1984afecf02b",
+    "evidence": "live_model_synthetic_events_product_integration",
+    "desktop_qq": false,
+    "prefix_preparation": "controlled_current_product_memory_rebuild",
+    "preparation_is_scheduler_test": false,
+    "model": "gpt-6-luna",
+    "destination": {
+      "origin": "http://127.0.0.1:8317",
+      "path": "/v1"
+    },
+    "settings_hash": "384a3cfd96e538fb17cb01406d20dc1fbbba9d7044cb6198a0a2dafdc81bb179",
+    "max_http": 10
+  },
+  "selected_cases": [
+    "coverage-feedback-current-material"
+  ],
+  "continue_on_case_error": false,
+  "semantic_evaluation": "not_run",
+  "status": "incomplete",
+  "episodes": [
+    {
+      "id": "coverage-feedback-current-material",
+      "status": "incomplete",
+      "steps": [
+        {
+          "id": "s1",
+          "status": "execution_error"
+        }
+      ],
+      "unexecuted_steps": [
+        "s2"
+      ],
+      "error": {
+        "code": "replay_task_failed",
+        "message": "Replay task failed at controller.assist: 拟表达内容未能对应本次明确请求或已选分享素材，请具体说明想说哪件事"
+      }
+    }
+  ],
+  "unexecuted_cases": []
+}

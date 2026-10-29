@@ -42,3 +42,30 @@ Fixed future QQ messages are new authored external observations. A `self` event 
 ## Decisions
 
 The observer cutoff is explicit and checked against every prefix event. Native fixtures use the same portable observations as legacy plans. Archived assistant context is retained because it was already observed; new assistant outputs remain solely runtime evidence. Ordinary tests cover these boundaries; no mutation check or paid model run is necessary for this data compiler.
+
+## Policy v2 additions
+
+New fixtures declare `observed-history-replay-v2`; frozen v1 inputs remain readable.
+User notes preserve optional note_kind/material|preference and evidence_source_ids
+referring to original raw IDs. Their source time and identity are not reset to the
+cutoff. Post-prefix private events are user inputs only; actual new assistant
+answers come solely from the implementation.
+
+A step may declare user_controls.goal and source_updates with id/at/channel and
+operation delete|exclude|recall. QQ deletion is not an observation operation; QQ
+recall/exclusion and private/note deletion/exclusion are supported. References to
+withdrawn evidence, including dependent authored notes, are unavailable for later
+new note evidence. Reviewer historical references remain intact.
+
+feedback.mode observed_output and target_step_id select a prior actual returned
+answer; optional target_output {channel,index?} selects a recorded automatic or
+intermediate reply. The fixture never supplies the answer's content or predicted
+ID. Unavailable targets remain unexecuted.
+
+Unavailable image attachments contain only id, kind:image and availability:unavailable.
+They test honest handling of missing visual evidence, not image recognition.
+
+Versioned evaluation-corrections.json changes only reviewer criteria after checking
+the original criterion hash. The availability case now accepts truthful,
+noncommittal drafts as well as private clarification; the no-invented-commitment
+rule remains. Original shards are unchanged and correction reasons are retained.
