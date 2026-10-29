@@ -56,3 +56,5 @@ Compaction, ordinary assistance, format repair, transport retries and restricted
 An explicit consent record binds model access to the selected QQ account/contact, model and API base URL. Closing the helper pauses automatic model generation. No arbitrary QQ dispatch or send API is exposed.
 
 The historical recovery release was merged into main and activated in the then-running helper (source `7d00a63`, prompt `relationship-context-2026-10-13.2`). A service-only refresh preserved QQ, the selected scope and all measured unsent inputs. The original failed private question completed through natural-text recovery in two HTTP attempts; bookkeeping remained deferred. See the [native recovery evidence](docs/response-recovery-evidence.json).
+
+The independent conversation checkpoint replay evaluates unchanged external histories through a replaceable product adapter; see [replay protocol](evals/assistant/REPLAY.md). It retains actual multi-turn outputs and leaves behavioral reviews ungraded until separately assessed.

@@ -33,7 +33,9 @@
     "test:goal-acceptance": "node scripts/goal-acceptance-check.cjs",
     "eval:check": "node scripts/eval-dataset.cjs check",
     "eval:list": "node scripts/eval-dataset.cjs list",
-    "eval:case": "node scripts/eval-dataset.cjs show"
+    "eval:case": "node scripts/eval-dataset.cjs show",
+    "eval:replay": "node scripts/eval-replay-cli.cjs --adapter ./scripts/eval-qq-adapter.cjs",
+    "eval:replay:list": "node scripts/eval-replay-cli.cjs --list"
   },
   "engines": {
     "node": ">=22"

@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "version": "legacy-replay-adaptations-v1",
+  "cases": {
+    "cm-dated-fatigue-current-unknown": {
+      "goal": {
+        "original_text": "与一位朋友互相关心并了解当前生活，回应具体近况，不把短期疲劳变成人格结论。",
+        "replacement_text": "与这位朋友自然交流，关心她最近的生活。",
+        "reason": "Preserve friendship and current-life interest; leave temporal/personality test instructions with the reviewer."
+      }
+    },
+    "cm-new-job-corrects-old-understanding": {
+      "goal": {
+        "original_text": "与一位朋友互相关心并了解当前生活，使对人的理解随新证据更新。",
+        "replacement_text": "与这位朋友互相关心，了解她最近的生活。",
+        "reason": "Preserve ordinary mutual care; do not tell the system which derived understanding must change."
+      },
+      "requests": {
+        "s1": {
+          "original_text": "旧理解里还写着她在配送站上晚班。结合她这次原话更新一下，我想接她的新生活。",
+          "replacement_text": "结合她这次原话，我想接她的新生活，帮我想想怎么回。",
+          "reason": "The derived understanding note is reviewer-only, so the current request must not claim that the running system already has that note."
+        }
+      }
+    },
+    "cm-generated-invitation-vs-actual": {
+      "goal": {
+        "original_text": "表达真实的一起活动意愿，并区分建议、实际邀请、对方接受和真实共同经历。",
+        "replacement_text": "想邀请她一起做陶艺，把这次活动商量清楚。",
+        "reason": "Preserve the activity invitation purpose; keep draft/send/acceptance diagnostic distinctions reviewer-only."
+      },
+      "requests": {
+        "s1": {
+          "original_text": "她这句算答应刚才助手给的邀请了吗？",
+          "replacement_text": "她这句算答应私下记录里那条参考邀请了吗？",
+          "reason": "Bind the question to the supplied historical private draft, not an unspecified newly generated runtime answer."
+        }
+      }
+    },
+    "cm-ambiguous-interest-critical-availability": {
+      "goal": {
+        "original_text": "了解她当下真正愿意的活动，也真实表达用户自己的意愿和安排，不从单句推人格。",
+        "replacement_text": "想了解她愿意做什么，也表达自己真实的活动意愿和安排。",
+        "reason": "Preserve reciprocal activity planning; keep the personality-inference diagnostic outside the ordinary goal."
+      },
+      "requests": {
+        "s2": {
+          "original_text": "她补充了意思。请更新刚才那份理解，保留范围，帮我接她实际想做的事。",
+          "replacement_text": "结合她新补充的意思，帮我理解这次活动选择，并接她实际想做的事。",
+          "reason": "Independent updated request; do not require an unbound previous runtime understanding artifact."
+        }
+      }
+    },
+    "cm-local-correction-continuity": {
+      "requests": {
+        "s1": {
+          "original_text": "刚才那句太做作，也太像正式邀约了。这轮先接她说的分别计数，轻松一点，暂时不邀请。",
+          "replacement_text": "这轮先接她说的分别计数，轻松一点，暂时不邀请。",
+          "reason": "Independent current instruction; do not assert that a newly generated answer was awkward or an invitation."
+        }
+      }
+    }
+  }
+}

@@ -63,12 +63,11 @@ version before completing ratings. A rubric rating is not an observed result.
    set when the affected behavior expands. Never relabel data validation as a
    quality improvement or discard failures merely because they are inconvenient.
 
-The new JSONL exporter is not yet an automatic adapter for the older
-`goal-help-quality-check.cjs` runner. That runner uses executable JS fixtures,
-a fixed romantic goal and a different replay representation. Do not pass this
-JSONL to it unchanged or claim its model runs used these cases. Integrating
-an actual runtime runner is a separate step; this package makes cases and
-criteria available now without starting any API calls or Goal loop.
+The inspection exporter remains separate from actual agent evaluation. Use the
+independent checkpoint replay in [REPLAY.md](REPLAY.md) to drive the product via
+its replaceable adapter. `eval:case --view model` is not the replay execution
+path. The older `goal-help-quality-check.cjs` uses different fixed-goal JS fixtures
+and is not the runner for this dataset.
 
 ## Evidence limits and maintenance
 
@@ -77,7 +76,7 @@ It need not equal a generated candidate and is not proof that the user adopted
 it, that a real contact replied, or that a relationship improved. The exported
 later steps include authored updates and prior user requests; they do not
 fabricate unseen generated assistant turns or prove runtime memory persisted.
-A future continuous runtime runner must bind its real outputs and state too.
+The checkpoint runner retains its actual outputs and state within each episode.
 
 Add new failures as fictional cases with the same causal structure. Keep original
 IDs stable, preserve source dates and review boundaries, and rerun the checker.
