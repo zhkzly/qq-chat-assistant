@@ -39,10 +39,12 @@ test('production help and recovery lanes share present-task reasoning within the
  assert.ok(Buffer.byteLength(foreground)<12000);
 });
 
-test('restricted wording preserves a chosen relevant question while limiting unsolicited tail questions',()=>{
+test('restricted wording preserves human question targets while generated proposals do not prove factual premises',()=>{
  for(const purpose of ['draft','plain_draft_recovery']){
   const prompt=prepareAssistantRequest({model:'fixture'},{purpose,sources:[],presentation:{askFollowup:false}}).request.messages[0].content;
   assert.match(prompt,/askFollowup=false[^。]*尾问/);
-  assert.match(prompt,/guidance[^。]*相关问题[^。]*保留/);
+  assert.match(prompt,/draftingGuidance为GENERATED_PROPOSAL/);
+  assert.match(prompt,/问题的事实前提只由实际QQ和独立获准事实支持/);
+  assert.match(prompt,/保留人类明确的提问目标或邀请力度/);
  }
 });

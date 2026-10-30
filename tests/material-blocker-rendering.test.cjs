@@ -52,31 +52,32 @@ test('actual012 response fixtures retain exact raw-content hashes and original c
  assert.equal(firstResponse.requestDelivery.sourceId,currentSourceId);assert.equal(repairResponse.requestDelivery.sourceId,currentSourceId);
  assert.equal(rationale.includes(question),false,'the observed response rationale did not duplicate the structured question');
 });
-test('actual012 primary blocker renders its structured question and preserves rationale as private explanation',()=>{
+test('actual012 primary blocker renders only its structured question while legacy rationale stays diagnostic',()=>{
  const diagnostics={},result=parseAssistant(repairResponseContent,'discussion',primaryPayload(),diagnostics);
- assert.equal(result.kind,'question');assert.equal(result.text,question);assert.deepEqual(result.discussionExplanation,{kind:'discussion',text:rationale});
+ assert.equal(result.kind,'question');assert.equal(result.text,question);assert.equal(result.discussionExplanation,undefined);
  assert.deepEqual(diagnostics.blockerRendering,{rawResponse:repairResponseContent,question,originalText:rationale});
  assert.deepEqual(result.requestDelivery.blocker,repairResponse.requestDelivery.blocker);assert.equal(result.suggestions,undefined);
  assert.equal(sha(repairResponseContent),repairResponseSha256,'rendering cannot rewrite the preserved producer content');
 });
-test('restricted final blocker renders its structured question without requiring a duplicate in rationale',()=>{
+test('restricted final blocker renders its structured question without promoting untyped legacy rationale',()=>{
  const rawFinal=finalResponse(),original=structuredClone(rawFinal),diagnostics={},result=parseAssistant(rawFinal,'draft',finalPayload(),diagnostics);
- assert.equal(result.kind,'question');assert.equal(result.text,question);assert.deepEqual(result.discussionExplanation,{kind:'discussion',text:rationale});
+ assert.equal(result.kind,'question');assert.equal(result.text,question);assert.equal(result.discussionExplanation,undefined);
  assert.deepEqual(diagnostics.blockerRendering,{rawResponse:original,question,originalText:rationale});assert.deepEqual(rawFinal,original,'rendering must not mutate the caller raw response');
  assert.deepEqual(result.deliveryBlocker,repairResponse.requestDelivery.blocker);assert.equal(result.suggestions,undefined);
 });
 for(const restricted of [false,true])test(`${restricted?'restricted final':'actual012 primary'} controller publishes a canonical private blocker without draft delivery or extra repair`,async t=>{
  const app=await controllerFixture(t,{restricted}),reply=await app.respond();
- assert.equal(reply.kind,'question');assert.equal(reply.text,question);assert.ok(reply.discussionExplanation.text.includes(rationale));
+ assert.equal(reply.kind,'question');assert.equal(reply.text,question);assert.equal(reply.discussionExplanation,undefined);
  assert.equal(reply.suggestions,undefined);assert.equal(app.run().status,'complete');assert.equal(app.run().manifest.requestDelivery.status,'blocked');
  assert.deepEqual(app.run().manifest.requestDelivery.blocker,repairResponse.requestDelivery.blocker);
  const rawContent=app.calls.at(-1).content;
+ assert.equal(JSON.parse(rawContent).text,rationale,'the real producer rationale reaches parsing unchanged and remains audit-only');
  assert.deepEqual(app.contexts.at(-1).manifest.blockerRendering,{question,rawResponseSha256:sha(rawContent)});
  assert.deepEqual(app.run().manifest.blockerRendering,{question,rawResponseSha256:sha(rawContent)});
  assert.deepEqual(app.run().requests.at(-1).manifest.blockerRendering,{question,rawResponseSha256:sha(rawContent)});
  assert.equal(app.calls.length,restricted?2:1,'a complete structured blocker must not spend a fulfillment repair on text duplication');
  assert.equal(app.run().requests.some(request=>request.purpose==='delivery_repair'),false);
- const saved=app.store.getCompanion(scope).turns.at(-1);assert.equal(saved.text,question);assert.ok(saved.discussionExplanation.text.includes(rationale));
+ const saved=app.store.getCompanion(scope).turns.at(-1);assert.equal(saved.text,question);assert.equal(saved.discussionExplanation,undefined);
  assert.equal(app.store.messages(scope).some(message=>message.direction==='outgoing'),false);
 });
 const malformed=[
@@ -99,7 +100,7 @@ test('applied forget clears a normalized blocker sentinel before every subsequen
  const app=await controllerFixture(t,{requestText,responder:(p,wrapper,index)=>{
   const sourceId=p.intentAuthority?.sourceId||p.userRequest.sourceId,source=p.sources.find(item=>item.id===sourceId);
   if(index===0)return {kind:'question',text:`你要求不再使用${secret}，需要先执行移除。`,
-   requestDelivery:{mode:'editable_message',sourceId,quote:source.text,blocker:{kind:'missing_authorization',missing:`确认${secret}是否仍可用于表达`,question:`${secret}还可以向她提及吗？`}},
+   requestDelivery:{mode:'editable_message',sourceId,quote:source.text,blocker:{kind:'missing_authorization',missing:`确认${secret}是否仍可用于表达`,question:`${secret}还可以向她提及吗？`,explanation:`移除${secret}后才能重新确认分享范围。`}},
    actions:[{type:'forget',sourceId:targetId,targetQuote:secret,evidenceQuote:`忘记${secret}`}]};
   afterForgetArgs=structuredClone(app.controller.activeAssist?.args);
   return {kind:'question',text:'原有材料已不再使用，需要确认仍希望分享的具体事情。',

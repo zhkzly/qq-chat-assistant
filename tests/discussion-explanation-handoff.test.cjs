@@ -78,13 +78,14 @@ test('a later private discussion can retrieve the explanation as generated help,
   assert.equal(JSON.stringify(context.payload).split(explanation).length-1,1,'one canonical generated explanation body');
   assert.ok(!context.payload.sources.some(source=>source.id===`private:${reply.id}`));
 });
-test('a clarification retains its private explanation separately without starting the composer', async t => {
+test('a legacy clarification records only its canonical question without promoting untyped planning prose', async t => {
   const { store, controller, inputs } = setup(t);
-  controller.assistantModel = async (_, input) => { inputs.push(input.payload); return { kind: 'discussion', text: explanation, draftPlan: { clarification: '你这次希望只接住吐槽，还是也愿意邀请？' } }; };
+  const raw={kind:'discussion',text:explanation,draftPlan:{clarification:'你这次希望只接住吐槽，还是也愿意邀请？'}};
+  controller.assistantModel = async (_, input) => { inputs.push(input.payload); return raw; };
   const reply = await controller.assist({ text: '我还不确定怎么表达', purpose: 'discussion' });
-  assert.equal(inputs.length, 1); assert.equal(reply.kind, 'question'); assert.deepEqual(reply.discussionExplanation, { kind: 'discussion', text: explanation });
+  assert.equal(inputs.length, 1); assert.equal(reply.kind, 'question'); assert.equal(reply.discussionExplanation,undefined);assert.equal(raw.text,explanation,'the original producer body is unchanged, not promoted');
   assert.equal(reply.text, '你这次希望只接住吐槽，还是也愿意邀请？'); assert.equal(reply.suggestions, undefined);
-  assert.equal(store.experiences.artifact(scope, reply.artifactRef).body, `${explanation}\n\n${reply.text}`);
+  assert.equal(store.experiences.artifact(scope, reply.artifactRef).body,reply.text);
 });
 test('QQ reply advice exposes the same full help text while only wording remains adoptable', async t => {
   const { store, controller } = setup(t);

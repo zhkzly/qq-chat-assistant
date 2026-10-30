@@ -1,4 +1,5 @@
 'use strict';
+const {withoutCurrentControl}=require('./fixtures/wording-lanes.cjs');
 const test=require('node:test'),assert=require('node:assert/strict');
 const {Store}=require('../src/store.cjs'),{buildContext,buildDraftContext}=require('../src/assistant-context.cjs');
 const {prepareAssistantRequest}=require('../src/assistant-model.cjs');
@@ -24,7 +25,7 @@ test('actual old admitted fragment reaches wording with its recording time, not 
 test('single admitted proposition remains single evidence while guidance controls composition rather than another sentence to echo',t=>{
  const f=fixture(t),draft=buildDraftContext(f.prepared,f.plan,f.args),request=prepareAssistantRequest(f.args.settings,draft.payload,[]).request;
  assert.equal(draft.payload.outboundQuotes.length,1);assert.equal(draft.payload.outboundQuotes[0].text,FACT);
- assert.match(request.messages[0].content,/记录时间.*不是.*发生|recording.*not.*event/);assert.match(request.messages[0].content,/同一.*一次/);
+ assert.match(request.messages[0].content,/记录\/笔记编辑时间不是发生或完成时间|recording.*not.*event/);assert.match(request.messages[0].content,/同一.*一次/);
  assert.match(request.messages[0].content,/明确.*时间|explicit.*temporal/);assert.match(request.messages[0].content,/中性|neutral/);
  assert.deepEqual(f.plan.quotes[0].text,FACT);
 });
@@ -34,7 +35,8 @@ test('restricted repair and measured rebuild retain essential provenance without
  const result=await assistModel({...f.args.settings,anonymous:true,baseUrl:'http://fixture.invalid/v1'},draft,undefined,async(_url,args)=>{
   const request=JSON.parse(args.body),wrapper=JSON.parse(request.messages[1].content),p=wrapper.originalInput||wrapper;calls.push({request,p,wrapper});
   assert.equal(p.outboundQuotes[0].provenance.source.recordedAt,OLD);assert.equal(p.outboundQuotes[0].text,FACT);
-  assert.equal(JSON.stringify(p).includes('PRIVATE_BODY_MUST_NOT_CROSS'),false);assert.equal(JSON.stringify(p).includes('我愿把网页的用途和查找进展告诉她'),false);
+  const other=withoutCurrentControl(p,f.prepared.payload.sources.find(source=>source.id===f.prepared.payload.intentAuthority.sourceId).text);
+  assert.equal(JSON.stringify(other).includes('PRIVATE_BODY_MUST_NOT_CROSS'),false);assert.equal(JSON.stringify(other).includes('我愿把网页的用途和查找进展告诉她'),false);
   return new Response(JSON.stringify({choices:[{message:{content:calls.length===1?'invalid-json':'查找功能已经能按标题找回自己的摘记了。'}}]}),{status:200});
  });
  assert.equal(calls.length,2);assert.equal(result.kind,'draft');assert.equal(draft.extraRequests.length,1);assert.equal(draft.extraRequests[0].payload.originalInput.outboundQuotes[0].provenance.source.recordedAt,OLD);

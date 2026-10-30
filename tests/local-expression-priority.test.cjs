@@ -5,6 +5,7 @@ const {buildContext,buildDraftContext}=require('../src/assistant-context.cjs');
 const {prepareAssistantRequest}=require('./fixtures/assistant-protocol.cjs');
 const {wordingControls}=require('../src/context/wording-controls.cjs');
 const {scope,raw}=require('./fixtures/native.cjs');
+const {withoutCurrentControl}=require('./fixtures/wording-lanes.cjs');
 const OLD='以后回复用短句，不用表情，直接一点，语气轻松，表达口语，别像点评员。';
 function fixture(t,{core=false,feedback=false,text='这轮不要用短句，可以加点表情，含蓄一点。邀请她一起听歌。',old=OLD}={}){
  const store=new Store(':memory:');t.after(()=>store.close());
@@ -32,7 +33,11 @@ for(const core of [false,true])test(`current local controls override ${core?'cor
  assert.match(controls,/语气轻松/);assert.match(controls,/点评和说教/);assert.match(controls,/自然口语/);
  assert.notEqual(draft.payload.style,'short');assert.equal(draft.payload.presentation.useEmoji,true);
  assert.equal(draft.payload.draftingGuidance.objective.text,'邀请她一起听这首歌');assert.deepEqual(draft.payload.outboundQuotes,[]);
- assert.equal(JSON.stringify(f.store.getCompanion(scope)),before);assert.equal(prepareAssistantRequest(f.args.settings,draft.payload).serialized.includes(f.text),false);
+ assert.equal(JSON.stringify(f.store.getCompanion(scope)),before);
+ const packet=prepareAssistantRequest(f.args.settings,draft.payload),actual=packet.serialized,otherLanes=withoutCurrentControl(packet.wirePayload,f.text);
+ assert.equal(draft.payload.currentHumanControl.sourceId,f.prepared.payload.intentAuthority.sourceId);
+ const assertionView={...packet.request,messages:packet.request.messages.map((message,index)=>index===1?{...message,content:JSON.stringify(otherLanes)}:message)};
+ assert.equal(JSON.stringify(assertionView).includes(f.text),false);assert.equal(packet.serialized,actual);
 });
 test('canonical local feedback has the same scoped override authority',t=>{
  const f=fixture(t,{feedback:true}),draft=f.draft();assert.doesNotMatch(texts(draft),/用简短句子|不额外添加 emoji|直接表达用户/);
@@ -63,7 +68,8 @@ for(const text of [
  '我在分析“不要用短句，可以加点表情，含蓄一点”这句引用。'
 ])test('quoted, conditional or private reported wishes cannot clear persistent controls: '+text.slice(0,8),t=>{
  const f=fixture(t,{text}),draft=f.draft({useEmoji:undefined});assert.match(texts(draft),/用简短句子/);assert.match(texts(draft),/不额外添加 emoji/);assert.match(texts(draft),/直接表达用户/);
- assert.equal(JSON.stringify(draft.payload).includes('PRIVATE_LOCAL_REASON'),false);
+ const otherLanes=withoutCurrentControl(draft.payload,text);assert.equal(draft.payload.currentHumanControl.sourceId,f.prepared.payload.intentAuthority.sourceId);
+ assert.equal(JSON.stringify(otherLanes).includes('PRIVATE_LOCAL_REASON'),false);assert.deepEqual(draft.payload.outboundQuotes,[]);
 });
 for(const text of ['她平时表达很含蓄，我想回应她这次分享。','我今天做了简短的汇报。邀请她一起听歌。'])test('ordinary descriptive material does not create expression controls: '+text.slice(0,10),t=>{
  const f=fixture(t,{old:'以后直接一点，不用表情。',text}),draft=f.draft();

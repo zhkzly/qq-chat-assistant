@@ -92,7 +92,7 @@ test('quoted, negated or unresolved conditional disclosure can use existing priv
   assert.equal(result.draftPlan.clarification,text);assert.equal(result.draftPlan.quotes,undefined);
  }
  const packet=prepareAssistantRequest({model:'synthetic'},prepared.payload);
- assert.match(packet.request.messages[0].content,/quoted\/negated\/conditional willingness不自动授权/);
+ assert.match(packet.request.messages[0].content,/引语\/否定\/未满足条件非许可/);
  assert.match(packet.request.messages[0].content,/完整来源和当前QQ上下文.*指代、否定、引用、已满足条件及最新限制/);
  // This verifies the clarification contract and delivered interpretation rule,
  // not that a scripted transport can judge semantic permission correctly.

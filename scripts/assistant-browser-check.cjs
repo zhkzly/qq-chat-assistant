@@ -13,6 +13,7 @@ const { raw, scope } = require('../tests/fixtures/native.cjs');
 const { CDP } = require('./cdp.cjs');
 const { actions } = require('./browser-actions.cjs');
 const { withCurrentDraftControls } = require('../tests/fixtures/draft-controls.cjs');
+const { withoutCurrentControl } = require('../tests/fixtures/wording-lanes.cjs');
 const { withRequestDelivery } = require('./synthetic-request-delivery.cjs');
 
 const sleep = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds));
@@ -185,12 +186,17 @@ async function until(predicate, label) {
     assert.equal(controller.snapshot().total,0);
     checks.push('Selecting a discussed expression direction creates a restricted draft without retyping the old private material');
     await until(()=>cdp.evaluate("!document.querySelector('#assistant-send').disabled"),'option draft rendered');
-    await submit(`${privateFear}，但想告诉她实验终于成功了，帮我写一句。`,'assistant-draft');
+    const mixedPrivateRequest=`${privateFear}，但想告诉她实验终于成功了，帮我写一句。`;
+    await submit(mixedPrivateRequest,'assistant-draft');
     await until(() => cdp.evaluate("document.querySelectorAll('#assistant-thread .assistant-suggestion').length===2"), 'one optional draft');
     assert.deepEqual(calls.slice(-2).map(call => call.payload.purpose), ['draft_prepare', 'draft']);
-    const outbound = JSON.stringify(calls.at(-1).payload);
+    const wordingPayload=calls.at(-1).payload;
+    const outbound = JSON.stringify(withoutCurrentControl(wordingPayload,mixedPrivateRequest));
+    assert.equal(wordingPayload.currentHumanControl.sourceId,calls.at(-2).payload.intentAuthority.sourceId);
+    const renderedSuggestions=await cdp.evaluate("Array.from(document.querySelectorAll('#assistant-thread .assistant-suggestion')).map(node=>node.textContent).join('\\n')");
     for (const secret of [privateFear, syntheticGoal, 'PRIVATE_BROWSER_NOTE_', '我主要想分享终于松了口气']) {
       assert.equal(outbound.includes(secret), false, secret);
+      assert.equal(renderedSuggestions.includes(secret),false,`rendered suggestion: ${secret}`);
     }
     assert.match(outbound, /实验终于成功了/);
     await ui.click('#assistant-thread .assistant-suggestion button[data-action=adopt]',-1);

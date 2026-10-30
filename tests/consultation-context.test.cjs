@@ -5,6 +5,7 @@ const {buildContext,buildDraftContext}=require('../src/assistant-context.cjs');
 const {assistModel,prepareAssistantRequest}=require('./fixtures/assistant-protocol.cjs');
 const {withCurrentDraftControls}=require('./fixtures/draft-controls.cjs');
 const {scope,raw}=require('./fixtures/native.cjs');
+const {withoutCurrentControl}=require('./fixtures/wording-lanes.cjs');
 function message(id,at,own=false,text='Synthetic actual message'){
  return normalize(raw(String(id),own,{msgTime:String(Date.parse(at)/1000),elements:[{textElement:{content:text}}]}),scope);
 }
@@ -53,14 +54,16 @@ test('request rebuilds retain a fixed clock and a compact whitelisted invocation
  const unpinned=buildContext({...f.args,asOf:undefined});await new Promise(resolve=>setTimeout(resolve,10));
  assert.equal(unpinned.rebuildForRequest(payload=>Buffer.byteLength(JSON.stringify(payload),'utf8')).payload.asOf,unpinned.payload.asOf,'implicit clock also freezes at first build');
 });
-test('restricted draft keeps safe QQ navigation and clock without private consultation content',t=>{
+test('restricted draft keeps QQ navigation and complete current controls without adding private facts',t=>{
  const f=fixture(t,{records:[message(1501,'2026-10-15T15:00:00Z'),message(1502,'2026-10-15T15:01:00Z',true)],replyMessageIds:['1501'],text:'PRIVATE_REASON_想让她更在意我，仅供私下商量，给一句接话'});
  const draft=buildDraftContext(f.context,withCurrentDraftControls({intent:'reply',quotes:[]},f.context.payload),{scope,companion:f.args.companion,requestId:'synthetic-safe-clock-draft'}).payload;
  assert.equal(draft.asOf,f.context.payload.asOf);assert.deepEqual(draft.taskContext.timeContext,f.context.payload.taskContext.timeContext);
  assert.deepEqual(draft.taskContext.invocation,f.context.payload.taskContext.invocation);assert.equal(draft.taskContext.requestOrigin,'restricted_draft');
  assert.equal(draft.taskContext.consultationTask.purpose,undefined,'private task carrier is replaced by safe QQ focus');
  assert.deepEqual(draft.taskContext.consultationTask.focus,f.context.payload.taskContext.consultationTask.focus);
- assert.equal(JSON.stringify(draft).includes('PRIVATE_REASON'),false);assert.equal(JSON.stringify(draft).includes('PRIVATE_GOAL'),false);
+ const otherLanes=withoutCurrentControl(draft,f.args.turn.text);
+ assert.equal(draft.currentHumanControl.sourceId,f.context.payload.intentAuthority.sourceId);assert.deepEqual(draft.outboundQuotes,[]);
+ assert.equal(JSON.stringify(otherLanes).includes('PRIVATE_REASON'),false);assert.equal(JSON.stringify(otherLanes).includes('PRIVATE_GOAL'),false);
  assert.equal(draft.userRequest,undefined);assert.equal(draft.goal,undefined);
 });
 test('removed and missing focus refs do not reappear through consultation metadata',t=>{

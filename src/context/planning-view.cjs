@@ -11,6 +11,7 @@ const {requiredQuoteSources,planRecentContext,recentExchange,recentHistoryPolicy
 const {contextBudget,finish,attachSelectionManifest}=require('./budget-manifest.cjs');
 const {selectPlanningContext}=require('./selection.cjs');
 const {SourceHandleOwner}=require('../source-handles.cjs');
+const {bindSelectedDirectionControl}=require('./selected-direction-control.cjs');
 const {buildConversationWork,CONVERSATION_WORK_VERSION}=require('../conversation-work.cjs');
 const {buildMaterialView,VERSION:MATERIAL_VERSION}=require('../conversation-materials.cjs');
 const {boundedSource}=require('./source-delivery.cjs');
@@ -248,6 +249,7 @@ function buildContext(options) {
   if(implicitAnchor){const delivered=payload.privateCandidates?.find(item=>item.selection==='implicit_discussion_anchor'&&item.turnId===implicitAnchor.turnId);
     context.manifest.implicitDiscussionAnchor={turnId:implicitAnchor.turnId,artifactRef:implicitAnchor.artifactRef,field:implicitAnchor.field,...(implicitAnchor.index!==undefined?{index:implicitAnchor.index}:{}),availability:delivered?.availability||'omitted_for_budget'};}
   if(payload.editingReferences)bindEditingReferenceChoices(context,editingReferences);
+  if(payload.selectedOption)bindSelectedDirectionControl(context,{store:options.store,scope});
   Object.defineProperty(context,'sourceReferenceRevisions',{value:sourceReferenceRevisions});
   Object.defineProperty(context,'sourceHandleOwner',{value:options.settings?.sourceHandleOwner,writable:true,configurable:true});
   context.essentialSourceIds=[...essentialIds];

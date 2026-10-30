@@ -405,7 +405,6 @@ function parseAssistant(value, purpose, input, diagnostics) {
   const deliveryCheck=purpose==='draft'?{ok:true,value:undefined}:issues.check('requestDelivery','request_delivery_invalid',()=>parseRequestDelivery(data,payload));
   const delivery=deliveryCheck.value;
   const attach=result=>{
-    if(normalized.explanation)result.discussionExplanation=normalized.explanation;
     if(purpose==='draft'&&payload?.requestDeliveryObligation){
       if(data.deliveryBlocker!==undefined)result.deliveryBlocker=parseDeliveryBlocker(data.deliveryBlocker,data,payload.requestDeliveryObligation);
       validateTerminalDelivery(result,payload.requestDeliveryObligation);

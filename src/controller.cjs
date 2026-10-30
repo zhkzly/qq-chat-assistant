@@ -13,7 +13,7 @@ const {maintenanceDecision}=require('./memory-scheduler.cjs');
 const fingerprint=value=>createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const FORGOTTEN_REQUEST='所选来源已从助手参考中移除。仅使用仍可用的信息继续本次帮助，不复述已移除内容。';
 const {SourceHandleOwner}=require('./source-handles.cjs');
-const {editable,validateTerminalDelivery,blockerRenderingWitness,deliveryStatus}=require('./request-delivery.cjs');
+const {editable,validateTerminalDelivery,blockerRenderingWitness,deliveryStatus,clarificationBody}=require('./request-delivery.cjs');
 const { assistModel, parseAssistant, imageContextFor } = require('./assistant-model.cjs');
 const { buildContext, buildDraftContext, expressionOptionsFor, PROMPT_VERSION } = require('./assistant-context.cjs');
 const { planDiscussionCompaction, assistDiscussionCompaction } = require('./discussion-compaction.cjs');
@@ -574,11 +574,9 @@ class Controller extends EventEmitter {
           let result=parseAssistant(output,resultInput.payload.purpose,resultInput,diagnostics);
           if(diagnostics.blockerRendering)input.manifest.blockerRendering=blockerRenderingWitness(diagnostics.blockerRendering);
           if(result.kind==='question'&&(result.requestDelivery?.blocker||result.deliveryBlocker)){
-            // Only carry the bounded private explanation returned by the model
-            // adapter's parser; raw provider fields are not a permission source.
-            const explanation=result.discussionExplanation||output?.discussionExplanation;
-            if(explanation&&typeof explanation==='object'&&!Array.isArray(explanation)&&Object.keys(explanation).every(key=>['kind','text'].includes(key))&&explanation.kind==='discussion'&&typeof explanation.text==='string'&&explanation.text.trim()&&explanation.text.length<=6000)
-              result.discussionExplanation={kind:'discussion',text:explanation.text};
+            // Typed explanation and question already share result.text. Never
+            // promote an adapter's untyped legacy prose into a second body.
+            delete result.discussionExplanation;
             result.replyDisposition='clarify';
           }
           if(result.requestDelivery){
@@ -683,8 +681,9 @@ class Controller extends EventEmitter {
       if(!result||result.lookup)throw new Error('本次信息整理未能完成，请重试；原始输入已保存');
       let reviewed=context,discussionExplanation=result.discussionExplanation;stagedReview={context,result};
       if(result.draftPlan?.clarification) {
-        if(result.kind!=='question'&&typeof result.text==='string'&&result.text.trim())discussionExplanation={kind:result.kind,text:result.text};
-        result={...result,kind:'question',text:result.kind==='question'&&typeof result.text==='string'&&result.text.trim()?result.text:result.draftPlan.clarification,...(purpose==='reply'?{replyDisposition:'clarify'}:{})};
+        const blocker=result.requestDelivery?.blocker||result.deliveryBlocker;
+        discussionExplanation=undefined;
+        result={...result,kind:'question',text:blocker?clarificationBody(blocker):result.draftPlan.clarification,...(purpose==='reply'?{replyDisposition:'clarify'}:{})};
       }
       else if(result.draftPlan){
         if(typeof result.text==='string'&&result.text.trim())discussionExplanation={kind:result.kind,text:result.text};
@@ -693,6 +692,7 @@ class Controller extends EventEmitter {
         result=await invoke(context);if(!current())return;reviewed=null;if(result.discussionExplanation)discussionExplanation=result.discussionExplanation;
       } else if(purpose==='draft'&&!['question','discussion'].includes(result.kind))throw new Error('模型尚未明确拟表达内容，请继续说明或选择一个方向');
       if(!current())return;
+      if(result.requestDelivery?.blocker||result.deliveryBlocker)discussionExplanation=undefined;
       validateTerminalDelivery(result,requestDeliveryObligation);
       let expressionOptions=[];
       try{expressionOptions=expressionOptionsFor(context,result.expressionOptions||[]);}catch(error){receipts.push({status:'rejected',reason:error.message});}

@@ -80,7 +80,7 @@ test('vague request receives grounded local controls in the serialized final dra
   assert.equal(final.draftingGuidance.allowedApproach.text, guidance.allowedApproach.text);
   assert.deepEqual(final.draftingGuidance.avoidances, guidance.avoidances);
   assert.equal(final.draftingGuidance.currentStep.text, guidance.currentStep.text);
-  assert.equal(final.draftingGuidance.authority, 'expression_control_not_message_content');
+  assert.equal(final.draftingGuidance.authority, 'GENERATED_PROPOSAL');
   assert.equal(final.outboundQuotes.length, 1);
   for (const excluded of ['PRIVATE_MOTIVE_', 'PRIVATE_LONG_GOAL_', '不要像普通群发', '明白：']) assert.equal(body.includes(excluded), false, excluded);
   assert.equal(final.privateConversation, undefined); assert.equal(final.workingState, undefined); assert.equal(final.goal, undefined);

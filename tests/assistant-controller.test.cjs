@@ -1,4 +1,5 @@
 'use strict';
+const {withoutCurrentControl}=require('./fixtures/wording-lanes.cjs');
 const {withCurrentDraftControls}=require('./fixtures/draft-controls.cjs');
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -116,7 +117,7 @@ test('explicit local help and feedback do not rewrite the user-owned long-term g
   assert.ok(companion(app).goal.version > version);
 });
 
-test('mixed private request is separated from the actual outgoing draft input', async t => {
+test('mixed current private meaning is control-only while outward material stays independently approved', async t => {
   const contexts = [];
   const privateFear = 'PRIVATE_FEAR_我怕她嫌我烦';
   const privateNote = 'PRIVATE_NOTE_这周很担心她不喜欢我';
@@ -143,13 +144,18 @@ test('mixed private request is separated from the actual outgoing draft input', 
   await app.controller.assist({ text: `${privateFear}，但想告诉她${shareable}，帮我写一句。`, purpose: 'draft', materialIds: [selected.id] });
   assert.equal(contexts.length, 2);
   assert.match(JSON.stringify(contexts[0].payload), /PRIVATE_FEAR_/);
-  const outgoing = JSON.stringify(contexts[1].payload);
+  const outgoing = JSON.stringify(withoutCurrentControl(contexts[1].payload,`${privateFear}，但想告诉她${shareable}，帮我写一句。`));
+  assert.equal(contexts[1].payload.currentHumanControl.sourceId,contexts[0].payload.intentAuthority.sourceId);
+  assert.deepEqual(contexts[1].payload.outboundQuotes.map(quote=>({sourceId:quote.sourceId,text:quote.text})),[
+    {sourceId:contexts[0].payload.userRequest.sourceId,text:shareable},{sourceId:`note:${selected.id}`,text:selected.text}
+  ]);
   for (const excluded of [privateFear, privateNote, goal, '我怕她嫌我烦']) assert.equal(outgoing.includes(excluded), false, excluded);
   assert.equal(contexts[1].payload.userRequest, undefined);
   assert.equal(contexts[1].payload.goal, undefined);
   assert.match(outgoing, /实验终于成功了/);
   assert.match(outgoing, /今天去爬山了/);
   assert.equal(companion(app).turns.at(-1).suggestions.length, 1);
+  for(const excluded of [privateFear,privateNote,goal,'我怕她嫌我烦'])assert.equal(JSON.stringify(companion(app).turns.at(-1).suggestions).includes(excluded),false,excluded);
   assert.equal(app.controller.snapshot().total, 0, 'generating a draft is not an actual send');
 });
 

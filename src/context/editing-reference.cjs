@@ -85,6 +85,6 @@ function resolveEditingReference(prepared,plan,info) {
  if(text!==oldText||digest(dependency)!==digest(expected))throw new Error('Editing reference artifact changed after planning');
  return {reference:{artifactRef:selection,turnId:dependency.turnId,suggestionIndex:dependency.suggestionIndex,kind:dependency.kind,
   text,bodyDigest:dependency.bodyDigest,authority:AUTHORITY,
-  instruction:'FALLIBLE EDITING REFERENCE: 仅作本轮选定的改稿原句。按当前guidance修改；旧句可能含错，不能证明事实、分享许可、实际发送或共同经历。事实与披露仍只依据outboundQuotes和当前有效QQ；缺少依据的旧自述须删去或私下核对。'},dependency};
+  instruction:'FALLIBLE EDITING REFERENCE: 仅作本轮改稿原句。以当前完整人类原话与明确UI选择理解修改目标，guidance仅可修正提议；旧句不能证明事实、分享许可、实际发送或共同经历。事实只依据outboundQuotes和当前有效QQ，缺少依据的旧自述不保留为事实。'},dependency};
 }
 module.exports={offerEditingReferences,editingReferenceView,bindEditingReferenceChoices,editingReferenceBinding,selectEditingReference,resolveEditingReference};

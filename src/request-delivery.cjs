@@ -10,23 +10,26 @@ function failure(message, delivery,field='requestDelivery') {
  if(delivery)error.requestDelivery=delivery;
  return error;
 }
+const clarificationBody=blocker=>blocker.explanation===undefined?blocker.question:`${blocker.explanation}\n\n${blocker.question}`;
 function parseDeliveryBlocker(blocker,value,delivery) {
- if(!blocker||typeof blocker!=='object'||Array.isArray(blocker)||Object.keys(blocker).some(key=>!['kind','missing','question'].includes(key))||
+ if(!blocker||typeof blocker!=='object'||Array.isArray(blocker)||Object.keys(blocker).some(key=>!['kind','missing','question','explanation'].includes(key))||
   !['missing_fact','missing_authorization'].includes(blocker.kind)||['missing','question'].some(key=>typeof blocker[key]!=='string'||!blocker[key].trim()||blocker[key].length>1000)||
-  !(value.kind==='question'&&typeof value.text==='string'&&value.text.includes(blocker.question)||value.draftPlan?.clarification===blocker.question)||value.draftPlan&&!value.draftPlan.clarification||value.lookup||value.suggestions?.length)
+  blocker.explanation!==undefined&&(typeof blocker.explanation!=='string'||!blocker.explanation.trim()||blocker.explanation.length>1000)||
+  !(value.kind==='question'&&value.text===clarificationBody(blocker)||value.draftPlan?.clarification===blocker.question)||value.draftPlan&&!value.draftPlan.clarification||value.lookup||value.suggestions?.length)
   throw failure('a blocker must identify the specific missing fact/permission and a private question in kind:question/text',delivery);
- return {kind:blocker.kind,missing:blocker.missing,question:blocker.question};
+ return {kind:blocker.kind,missing:blocker.missing,question:blocker.question,...(blocker.explanation!==undefined?{explanation:blocker.explanation}:{})};
 }
-// Rendering uses the structured question as the single display value. The
-// unchanged shared validator still checks its complete blocker shape first.
+// The typed blocker owns one recorded body. Untyped legacy prose is diagnostic
+// only; an explicit why-only explanation never becomes a second turn field.
 function normalizeBlockerQuestion(value,rawResponse,diagnostics,purpose) {
  const blocker=purpose==='draft'?value?.deliveryBlocker:value?.requestDelivery?.blocker;
- if(value?.kind!=='question'||typeof value.text!=='string'||!value.text.trim()||value.text.length>6000||!blocker||value.text===blocker.question)return {value};
- const candidate={...value,text:blocker.question};
+ if(value?.kind!=='question'||typeof value.text!=='string'||!value.text.trim()||value.text.length>6000||!blocker)return {value};
+ const candidate={...value,text:clarificationBody(blocker)};
  try{parseDeliveryBlocker(blocker,candidate,value.requestDelivery);}catch{return {value};}
+ if(candidate.text===value.text)return {value};
  const rendering={rawResponse:structuredClone(rawResponse),question:blocker.question,originalText:value.text};
  if(diagnostics)diagnostics.blockerRendering=rendering;
- return {value:candidate,explanation:{kind:'discussion',text:value.text}};
+ return {value:candidate};
 }
 function blockerRenderingWitness(rendering) {
  if(!rendering)return undefined;
@@ -74,4 +77,4 @@ function deliveryStatus(delivery,result,{restricted=false}={}) {
  if(restricted)return result.kind==='draft'&&result.suggestions?.some(item=>item.text?.trim())?'delivered':'unfulfilled';
  return editable(delivery)?'unfulfilled':'private_help';
 }
-module.exports={VERSION,editable,parseRequestDelivery,parseDeliveryBlocker,normalizeBlockerQuestion,blockerRenderingWitness,validateTerminalDelivery,deliveryStatus};
+module.exports={VERSION,editable,parseRequestDelivery,parseDeliveryBlocker,normalizeBlockerQuestion,blockerRenderingWitness,validateTerminalDelivery,deliveryStatus,clarificationBody};

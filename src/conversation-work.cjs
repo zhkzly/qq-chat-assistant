@@ -9,7 +9,7 @@ function buildConversationWork(payload={}){
   const guidance=payload.draftingGuidance||{},controls=[guidance.objective,guidance.allowedApproach,guidance.currentStep,...(guidance.avoidances||[])].filter(Boolean);
   const sourceIds=available([...focus,...controls.flatMap(control=>control.sourceIds||[]),...(payload.outboundQuotes||[]).map(quote=>quote.sourceId)]);
   return {version:VERSION,authority:'derived_work_view_not_factual_evidence',scope:'this_relationship',purpose:'draft',focus:{sourceIds:focus},
-   wording:{guidanceFrom:'draftingGuidance',materialFrom:'outboundQuotes',authority:'validated_wording_controls_and_authorized_quotes'},sourceIds,outputUse:'restricted_wording_only'};
+   wording:{guidanceFrom:'draftingGuidance',materialFrom:'outboundQuotes',controlFrom:'currentHumanControl',authority:'generated_proposals_with_admitted_facts_and_control_only_human_meaning'},sourceIds,outputUse:'restricted_wording_only'};
  }
  const invocation=payload.taskContext?.invocation||{},sourceId=payload.intentAuthority?.sourceId||payload.taskContext?.currentRequestSourceId||payload.userRequest?.sourceId;
  const topic=payload.topicContext?.active,active=topic?.lifecycle==='active';

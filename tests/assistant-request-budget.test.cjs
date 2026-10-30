@@ -1,6 +1,7 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
 const {Store}=require('../src/store.cjs');
+const {SourceHandleOwner}=require('../src/source-handles.cjs');
 const {normalize}=require('../src/messages.cjs');
 const {buildContext,buildDraftContext}=require('../src/assistant-context.cjs');
 const {assistModel,prepareAssistantRequest,canonicalSourceView}=require('./fixtures/assistant-protocol.cjs');
@@ -32,7 +33,11 @@ for(const requestLimit of [64000,32000])test(`native-shaped long context fits th
  checkEssential(JSON.parse(JSON.parse(calls[0]).messages[1].content),args,context.manifest.sourceHandles);assert.ok(context.manifest.omittedSourceCount>0);assert.ok(context.manifest.inputBytes<=48000);
 });
 for(const purpose of ['discussion','draft_prepare','draft'])test(`${purpose} recovery or structural repair respects its actual envelope and complete evidence`,async t=>{
- const {args}=fixture(t),prepared=buildContext({...args,purpose:purpose==='draft_prepare'?'draft_prepare':'discussion'}),context=purpose==='draft'?buildDraftContext(prepared,{quotes:[{sourceId:prepared.payload.userRequest.sourceId,text:args.turn.text}],guidance:currentControls(prepared.payload)},args):prepared;
+ const {args}=fixture(t);
+ // Match the real Controller's task owner before tightening its shared
+ // settings; a standalone auto-owner keeps its separate captured snapshot.
+ if(purpose==='draft_prepare')args.settings.sourceHandleOwner=new SourceHandleOwner({scope,taskId:args.requestId});
+ const prepared=buildContext({...args,purpose:purpose==='draft_prepare'?'draft_prepare':'discussion'}),context=purpose==='draft'?buildDraftContext(prepared,{quotes:[{sourceId:prepared.payload.userRequest.sourceId,text:args.turn.text}],guidance:currentControls(prepared.payload)},args):prepared;
  // Lazy context no longer fills the 64KB window. Tighten the fixture around
  // its actual ordinary request so the repair wrapper still exercises eviction.
  if(purpose==='draft_prepare')args.settings.assistantRequestBytes=prepareAssistantRequest(args.settings,context.payload).requestBytes+200;

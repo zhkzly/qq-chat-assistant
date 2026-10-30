@@ -1,4 +1,5 @@
 'use strict';
+const {withoutCurrentControl}=require('./fixtures/wording-lanes.cjs');
 function admittedQuotes(quotes){
  return quotes.map(quote=>{assert.equal(quote.provenance?.version,1);assert.equal(quote.provenance.source.sourceId,quote.sourceId);return {sourceId:quote.sourceId,text:quote.text};});
 }
@@ -50,14 +51,14 @@ for(const mode of ['guidance_only','new_material'])test(`structured repair prese
  const receipts=store.getCompanion(scope).runs.at(-1).requests;
  const normal={...requests[0],payload:canonicalSourceView(requests[0].payload,receipts[0].manifest.sourceHandles,receipts[0].payload)},repair={...requests[1],payload:canonicalSourceView(requests[1].payload,receipts[1].manifest.sourceHandles,receipts[1].payload)},draft=canonicalSourceView(requests[2].payload,receipts[2].manifest.sourceHandles,receipts[2].payload),currentId=normal.payload.userRequest.sourceId;
  assert.match(normal.wire.messages[0].content,/quotes:\[\{materialRef,authorityRef\}\]/);
- assert.match(normal.wire.messages[0].content,/每段必须分别选择本次已提供的materialRef和authorityRef/);
- assert.match(normal.wire.messages[0].content,/目的、提问、邀请、表意动作和口吻由短guidance承接，不作事实片段/);
+ assert.match(normal.wire.messages[0].content,/quotes≤8，两项必需/);
+ assert.match(normal.wire.messages[0].content,/动作\/提问\/口吻入guidance/);
  assert.match(repair.payload.task,/求助要求、交流目的和口吻用短guidance承接，不作素材/);
  assert.match(repair.payload.task,/原始用户发言候选不是许可/);
  assert.match(repair.payload.task,/完整上下文的指代、否定、引用、条件和最新限制/);
- assert.match(normal.wire.messages[0].content,/许可发言范围不能用边界缩短来去掉否定或条件/);
- assert.match(normal.wire.messages[0].content,/选定已有UI表达只保留原有精确素材范围/);
- assert.match(normal.wire.messages[0].content,/目录\/模式\/助手总结\/生成答案不授权/);
+ assert.match(normal.wire.messages[0].content,/不切许可条件\/否定/);
+ assert.match(normal.wire.messages[0].content,/UI只原精确范围/);
+ assert.match(normal.wire.messages[0].content,/目录、模式、助手产物不授权/);
  assert.match(repair.payload.task,/不填sourceId\/text\/authorization\/authorizationQuote/);
  assert.doesNotMatch(repair.payload.task,/只回应实际QQ时才可quotes:\[\]/);
  assert.ok(repair.payload.task.includes('选最小相关对外片段'),'repair must retain actual newly authorized meaning without forwarding the whole private source');
@@ -66,7 +67,9 @@ for(const mode of ['guidance_only','new_material'])test(`structured repair prese
  assert.deepEqual(draft.draftingGuidance.objective.sourceIds,[priorId,currentId]);assert.deepEqual(draft.draftingGuidance.allowedApproach.sourceIds,[priorId,currentId]);
  assert.deepEqual(admittedQuotes(draft.outboundQuotes),mode==='new_material'?[{sourceId:currentId,text:NEW_MATERIAL}]:[]);
  assert.ok(draft.sources.every(source=>source.type==='qq'),'private instructions are control references, not raw composer sources');
- for(const privateBody of [PRIOR,CRITICISM,'PRIVATE_PRIOR_REASON'])assert.equal(JSON.stringify(draft).includes(privateBody),false);
+ const other=withoutCurrentControl(draft,text);assert.equal(draft.currentHumanControl.sourceId,currentId);assert.equal(draft.draftingGuidance.authority,'GENERATED_PROPOSAL');
+ for(const privateBody of [PRIOR,CRITICISM,'PRIVATE_PRIOR_REASON'])assert.equal(JSON.stringify(other).includes(privateBody),false);
+ assert.ok(answer.suggestions.every(item=>![PRIOR,CRITICISM,'PRIVATE_PRIOR_REASON'].some(privateBody=>item.text.includes(privateBody))));
  assert.equal(store.getCompanion(scope).turns.find(turn=>turn.id===priorId.slice('private:'.length)).text,PRIOR);
  const budget=controller.usage.get(scope,taskId);assert.equal(budget.status,'complete');assert.equal(budget.attempts,3);assert.equal(budget.limit,3);
  assert.deepEqual(budget.requests.map(request=>request.purpose),['discussion','delivery_repair','draft']);

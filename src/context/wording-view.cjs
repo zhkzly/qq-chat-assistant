@@ -9,6 +9,8 @@ const {wordingControlsForContext}=require('./wording-controls.cjs');
 const {resolveDraftMaterial,assertDraftSourcesCurrent}=require('./draft-material.cjs');
 const {resolveEditingReference}=require('./editing-reference.cjs');
 const {buildMaterialProvenance}=require('./material-provenance.cjs');
+const {buildCurrentHumanControl}=require('./current-human-control.cjs');
+const {buildSelectedDirectionControl}=require('./selected-direction-control.cjs');
 function buildDraftContext(prepared, plan, info) {
   if (!sameScopeIfPresent({ scope: prepared.manifest.scope }, info.scope)) throw new Error('当前联系人已变化，请重新组织草稿');
   const settings={...(info.settings||{model:prepared.manifest.requestModel,assistantRequestBytes:prepared.manifest.requestByteBudget}),sourceHandleOwner:info.settings?.sourceHandleOwner||prepared.sourceHandleOwner};
@@ -17,10 +19,12 @@ function buildDraftContext(prepared, plan, info) {
   const controlRefs=plan?.taskUse!=='different'&&plan?.taskUse!=='uncertain'?prepared.payload.topicContext?.controlRefs||[]:[];
   const byId = new Map([...controlRefs.map(ref=>({id:ref.sourceId,revision:ref.revision})),...prepared.payload.sources].map(s => [s.id, s]));
   const material=resolveDraftMaterial(prepared.payload,plan,{restrictions:prepared.restrictions||prepared.payload.privateRestrictions||[]});
+  const human=buildCurrentHumanControl(prepared,info);
+  const selectedDirection=buildSelectedDirectionControl(prepared,info);
   const provenance=buildMaterialProvenance(prepared,material.quotes,info),quotes=provenance.quotes;
-  const dependencyRevisions=Object.fromEntries(provenance.dependencies.map(ref=>[ref.sourceId,ref.revision]));
+  const dependencyRevisions=Object.fromEntries([...provenance.dependencies,...human.dependencies].map(ref=>[ref.sourceId,ref.revision]));
   const editing=resolveEditingReference(prepared,plan,info);
-  assertDraftSourcesCurrent({...prepared,manifest:{...prepared.manifest,sourceRevisions:{...prepared.manifest.sourceRevisions,...dependencyRevisions}}},[...new Set([...material.sourceIds,...provenance.dependencies.map(ref=>ref.sourceId)])],info);
+  assertDraftSourcesCurrent({...prepared,manifest:{...prepared.manifest,sourceRevisions:{...prepared.manifest.sourceRevisions,...dependencyRevisions}}},[...new Set([...material.sourceIds,...Object.keys(dependencyRevisions)])],info);
   const originalOrder=new Map((prepared.fullAvailableSources||prepared.payload.sources).map((source,index)=>[source.id,index]));
   const qq = prepared.payload.sources.filter(s => s.type === 'qq').sort((a,b)=>Date.parse(a.at)-Date.parse(b.at)||(originalOrder.get(a.id)??0)-(originalOrder.get(b.id)??0));
   const selection = selectMethods({ purpose: 'draft' });
@@ -34,6 +38,8 @@ function buildDraftContext(prepared, plan, info) {
     viewerTimeZone:prepared.payload.viewerTimeZone||Intl.DateTimeFormat().resolvedOptions().timeZone,
     ...(editing?{editingReference:editing.reference}:{}),
     outboundQuotes: quotes, sources: [...qq], coverage: prepared.payload.coverage,
+    ...(human.control?{currentHumanControl:human.control}:{}),
+    ...(selectedDirection.control?{selectedDirectionControl:selectedDirection.control}:{}),
     ...(safeWordingControls.items.length?{wordingControls:safeWordingControls}:{}),
     replyFocus: prepared.payload.replyFocus || [],
     presentation: { language: typeof plan.language==='string'&&/^[a-z]{2,3}(?:-[a-zA-Z0-9]{2,8})*$/.test(plan.language) ? plan.language : 'zh',
@@ -55,11 +61,12 @@ function buildDraftContext(prepared, plan, info) {
   refreshDraftTask();
   refreshDraftImages();
   if (guidance && Object.keys(guidance).length) payload.draftingGuidance = { ...guidance,
-    authority: 'expression_control_not_message_content',
-    instruction: 'guidance控制组织方式，outboundQuotes提供依据，不是两段要分别复述的话。同一相关意思只说一次，不混同相关事实的主体/日期/否定/细节；无需用完或照抄全部片段，私下边界与已选动作优先。不写控制说明、私下理由、来源标识；askFollowup:false不排除已选问题。' };
+    authority: 'GENERATED_PROPOSAL',
+    instruction: '这是规划模型的派生提议，不证明用户选择、事实或问题前提。根据实际QQ与获准素材校正不受支持的动作或问题；功能、可能性和意愿不能冒充已参与、已约定或已发生。以currentHumanControl整段原话理解本轮动作、力度、条件和否定，保持用户实际明确的问题或邀请。CONTROL_ONLY通道本身不新增外发事实或许可；同一事实若另在outboundQuotes中独立获准仍可用，未获准的私下事实/理由不可转入话语。只选相关获准事实，同一意思表达一次，不逐段复述提议与素材。' };
   const controlIds = guidance ? [...new Set([guidance.objective,guidance.allowedApproach,...(guidance.avoidances || []),guidance.currentStep].filter(Boolean).flatMap(item => item.sourceIds))] : [];
   const essentialIds=new Set([...(prepared.essentialSourceIds||qq.map(source=>source.id)),...quotes.map(q=>q.sourceId),...controlIds,...payload.replyFocus.map(id=>`qq:${id}`),...(payload.imageContext?.attached||[]).map(image=>image.sourceId)]);
   const recentPriorityIds=new Set(prepared.manifest.recentQQContext?.admittedPrioritySourceIds||[]);
+  let proposalOmitted=false;
   for (;;) {
     const kept=new Set(payload.sources.map(source=>source.id));let laterComplete=true;
     for(const source of [...qq].reverse()){
@@ -69,6 +76,7 @@ function buildDraftContext(prepared, plan, info) {
     refreshDraftTask();
     refreshDraftImages();
     if(budget.fits(payload))break;
+    if(payload.draftingGuidance){delete payload.draftingGuidance;proposalOmitted=true;continue;}
     if(payload.methodCards.length){
       payload.methodCatalog=selection.catalog.map(({id,version})=>({id,version}));
       payload.methodSelection.operationalInstructionsLocation='system';payload.methodCards=[];
@@ -82,7 +90,8 @@ function buildDraftContext(prepared, plan, info) {
     if(removable<0)throw new Error('当前拟表达内容或最新完整来信超过上下文预算，请分段处理；没有静默截断');
     payload.sources.splice(removable,1);
   }
-  // Do not serialize the private request, goal, assistant summary or excluded-source negatives.
+  // Only the bound current-human control lane may carry current private text.
+  // Historical private bodies, goals and excluded-source negatives stay out.
   const referencedSources=[...new Set([...material.sourceIds, ...controlIds])].map(id=>({id,revision:byId.get(id)?.revision}))
     .concat(projectedControls.sourceRefs.map(ref=>({id:ref.sourceId,revision:ref.revision})));
   const uniqueSources = entries => [...new Map(entries.map(source => [source.id, source])).values()];
@@ -92,7 +101,10 @@ function buildDraftContext(prepared, plan, info) {
   // in canonical private revision fences/artifact input references.
   Object.assign(context.manifest.sourceRevisions,dependencyRevisions);
   context.manifest.materialProvenance={version:1,dependencyCount:provenance.dependencies.length,rootMetadataLimit:8};
-  if(editing)context.manifest.inputArtifactRefs=[editing.dependency];
+  if(human.control)context.manifest.currentHumanControl={version:1,authority:'CONTROL_ONLY',sourceId:human.control.sourceId,revision:dependencyRevisions[human.control.sourceId],complete:true};
+  context.manifest.compositionProposal={authority:'GENERATED_PROPOSAL',status:proposalOmitted?'omitted_for_budget':payload.draftingGuidance?'provided':'absent'};
+  if(editing||selectedDirection.dependency)context.manifest.inputArtifactRefs=[...(editing?[editing.dependency]:[]),...(selectedDirection.dependency?[selectedDirection.dependency]:[])];
+  if(selectedDirection.control)context.manifest.selectedDirectionControl=structuredClone(prepared.manifest.selectedDirectionControl);
   if(material.ignoredAuthorizations?.length)context.manifest.ignoredMaterialAuthorizations=structuredClone(material.ignoredAuthorizations);
   context.manifest.disclosureBindings=material.bindings.map(binding=>({...binding,scope:{...info.scope}}));
   context.manifest.taskBinding={use:plan.taskUse||'continue',topicId:prepared.payload.topicContext?.active?.id||null,topicVersion:prepared.payload.topicContext?.active?.version||null,controlRefs:controlRefs.filter(ref=>controlIds.includes(ref.sourceId))};

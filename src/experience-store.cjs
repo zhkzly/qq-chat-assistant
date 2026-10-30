@@ -56,10 +56,28 @@ class ExperienceStore {
         parentRef:artifact.parentRef,bodyDigest:artifact.bodyDigest,stateWitness:state.witness})};
     return {text:artifact.body,dependency};
   }
+  resolveActionOption(scope,selection){
+    const fail=()=>{throw new Error('Selected direction artifact changed or is unavailable in this conversation');};
+    if(!plain(selection)||typeof selection.turnId!=='string'||!Number.isSafeInteger(selection.optionIndex)||selection.optionIndex<0)return fail();
+    const reference=ref(selection.artifactRef),artifact=this.artifact(scope,reference);
+    const turn=this._raw(scope).turns.find(item=>item.id===selection.turnId&&item.role==='assistant'&&!item.memoryExcluded),item=turn?.expressionOptions?.[selection.optionIndex];
+    const state=this.artifactStates(scope,[reference])[0];
+    if(!artifact||artifact.kind!=='action_option'||artifact.assistantTurnId!==selection.turnId||
+      !item?.artifactRef||refKey(item.artifactRef)!==refKey(reference)||!artifact.parentRef||!turn.artifactRef||refKey(artifact.parentRef)!==refKey(turn.artifactRef)||
+      state.availability!=='active'||typeof artifact.body!=='string'||!artifact.body.trim()||item.label!==artifact.body||artifact.bodyDigest!==digest(artifact.body)||
+      !Array.isArray(item.quotes)||!item.quotes.length||item.quotes.length>8)return fail();
+    const live=this._sources(scope),tuples=item.quotes.map(quote=>({sourceId:quote.sourceId,text:quote.text,revision:quote.revision}));
+    if(tuples.some(quote=>{const source=live.get(quote.sourceId);return typeof quote.sourceId!=='string'||typeof quote.text!=='string'||!quote.text.trim()||typeof quote.revision!=='string'||
+      !source||source.deleted||source.excluded||source.use==='disabled'||source.revision!==quote.revision;}))return fail();
+    const tupleDigest=digest(tuples),style=typeof item.style==='string'?item.style:undefined;
+    const dependency={artifactRef:reference,turnId:selection.turnId,optionIndex:selection.optionIndex,kind:'action_option',bodyDigest:artifact.bodyDigest,tupleDigest,
+      witness:digest({ref:reference,turnId:selection.turnId,index:selection.optionIndex,kind:'action_option',parentRef:artifact.parentRef,bodyDigest:artifact.bodyDigest,tupleDigest,style,stateWitness:state.witness})};
+    return {label:artifact.body,...(style!==undefined?{style}:{}),dependency};
+  }
   assertInputArtifactsCurrent(scope, references=[]) {
     if(!Array.isArray(references)||references.length>8)throw new Error('Invalid editing reference dependencies');
     return references.map(expected=>{
-      const current=this.resolveMessageCandidate(scope,expected).dependency;
+      const current=(expected.kind==='action_option'?this.resolveActionOption(scope,expected):this.resolveMessageCandidate(scope,expected)).dependency;
       if(digest(current)!==digest(expected))throw new Error('Editing reference artifact changed before commit');
       return current;
     });

@@ -5,6 +5,7 @@ const test=require('node:test'),assert=require('node:assert/strict');
 const {Controller}=require('./fixtures/assistant-protocol.cjs'),{Store}=require('../src/store.cjs');
 const {scope,raw}=require('./fixtures/native.cjs');
 const {withCurrentDraftControls}=require('./fixtures/draft-controls.cjs');
+const {withoutCurrentControl}=require('./fixtures/wording-lanes.cjs');
 const PREFERENCE='自然口语，简短，别用emoji，因为PRIVATE_CONFIG_REASON我怕显得太认真。';
 const UPDATED='语气轻松，可以加点emoji。';
 const REQUEST='这次我明确想直接邀请她一起逛展，用轻松幽默的一句话。';
@@ -25,6 +26,8 @@ function fixture(t,model){
 function plan(payload){return withCurrentDraftControls({intent:'reply',quotes:[]},payload,
  {objective:'这次直接邀请她一起逛展',allowedApproach:'用轻松的邀请句表达用户这次明确确认的意思'});}
 function assertSafeDefault(planning,draft){
+ const current=planning.sources.find(source=>source.id===planning.intentAuthority.sourceId);
+ withoutCurrentControl(draft,current.text);assert.equal(draft.currentHumanControl.sourceId,current.id);
  assert.equal(planning.taskContext.responsePreference,PREFERENCE);
  assert.ok(draft.wordingControls?.items.some(item=>item.sourceIds.includes('responsePreference')&&/口语/.test(item.text)));
  assert.ok(draft.wordingControls.items.some(item=>/简短/.test(item.text)));
@@ -80,7 +83,10 @@ test('local wording criticism carries the prior invitation and humor through gui
    for(const control of [draft.draftingGuidance.objective,draft.draftingGuidance.allowedApproach])assert.deepEqual(control.sourceIds,[priorId,currentId]);
    assert.ok(draft.sources.some(source=>source.id==='qq:56701'));
    assert.ok(draft.sources.every(source=>source.type==='qq'),'guidance source IDs do not ship raw private sources');
-   assert.equal(JSON.stringify(draft).includes(priorText),false);assert.equal(JSON.stringify(draft).includes(criticism),false);
+   const otherLanes=withoutCurrentControl(draft,criticism);assert.equal(draft.currentHumanControl.sourceId,currentId);
+   assert.equal(draft.draftingGuidance.authority,'GENERATED_PROPOSAL');
+   assert.equal(JSON.stringify(otherLanes).includes(priorText),false);assert.equal(JSON.stringify(otherLanes).includes(criticism),false);
+   assert.equal(JSON.stringify(answer.suggestions).includes(priorText),false);assert.equal(JSON.stringify(answer.suggestions).includes(criticism),false);
    assert.equal(controller.usage.get(scope,request.taskId).status,'complete');
   }
  }

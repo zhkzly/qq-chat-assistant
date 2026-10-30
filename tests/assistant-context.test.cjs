@@ -7,6 +7,7 @@ const { normalize } = require('../src/messages.cjs');
 const { buildContext, buildDraftContext } = require('../src/assistant-context.cjs');
 const { assistModel } = require('./fixtures/assistant-protocol.cjs');
 const { scope, raw } = require('./fixtures/native.cjs');
+const {withoutCurrentControl}=require('./fixtures/wording-lanes.cjs');
 
 function message(id, outgoing, text) {
   return normalize(raw(String(id), outgoing, { elements: [{ textElement: { content: text } }] }), scope);
@@ -140,7 +141,7 @@ test('draft preparation rejects unauthorized private sources and respects alread
   ] }, fixture.args), /本次明确请求|已选分享素材/);
 });
 
-test('actual serialized drafting request contains only selected expression and QQ context, without private inputs', async t => {
+test('actual serialized drafting request separates complete current controls from approved expression and QQ evidence', async t => {
   const privateFear = 'PRIVATE_FEAR_我怕她嫌我烦';
   const privateNote = 'PRIVATE_NOTE_最近特别患得患失';
   const shared = '实验终于成功了';
@@ -164,17 +165,26 @@ test('actual serialized drafting request contains only selected expression and Q
       return { ok: true, json: async () => ({ choices: [{ message: { content: JSON.stringify({ kind: 'draft', text: '简短分享：',
         suggestions: [{ style: '自然', text: '实验终于成功啦，今天还去爬了山。' }] }) } }] }) };
     });
-  const serialized = JSON.stringify(captured);
+  const actualSerialized=JSON.stringify(captured),payload=JSON.parse(captured.messages[1].content);
+  const otherLanes=withoutCurrentControl(payload,fixture.turn.text);
+  const assertionView={...captured,messages:captured.messages.map((message,index)=>index===1?{...message,content:JSON.stringify(otherLanes)}:message)};
+  const serialized = JSON.stringify(assertionView);
   for (const excluded of [privateFear, privateNote, 'PRIVATE_GOAL_', 'OLDER_PRIVATE_', 'PRIVATE_SUMMARY_'])
     assert.equal(serialized.includes(excluded), false, excluded);
   assert.match(serialized, /实验终于成功了/);
   assert.match(serialized, /今天去爬山了/);
   assert.match(serialized, /最近你的实验怎么样/);
-  const payload = JSON.parse(captured.messages[1].content);
+  const aliases=new Map(context.manifest.sourceHandles.bindings.map(binding=>[binding.handle,binding.sourceId]));
+  assert.equal(aliases.get(payload.currentHumanControl.sourceId),prepared.payload.intentAuthority.sourceId);
+  assert.deepEqual(payload.outboundQuotes.map(quote=>({sourceId:aliases.get(quote.sourceId),text:quote.text})),[
+    {sourceId:prepared.payload.userRequest.sourceId,text:shared},{sourceId:`note:${selected.id}`,text:selected.text}
+  ]);
+  assert.equal(JSON.stringify(captured),actualSerialized,'the assertion projection cannot change the actual request');
   assert.equal(payload.userRequest, undefined);
   assert.equal(payload.privateConversation, undefined);
   assert.equal(payload.workingState, undefined);
   assert.equal(payload.goal, undefined);
   assert.equal(captured.tools, undefined);
   assert.equal(result.suggestions.length, 1);
+  for(const excluded of [privateFear,privateNote,'PRIVATE_GOAL_','OLDER_PRIVATE_','PRIVATE_SUMMARY_'])assert.equal(JSON.stringify(result.suggestions).includes(excluded),false,excluded);
 });

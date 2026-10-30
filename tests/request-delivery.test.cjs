@@ -1,4 +1,5 @@
 'use strict';
+const {requestWithoutCurrentControl}=require('./fixtures/wording-lanes.cjs');
 const {wireSourceView,canonicalSourceView}=require('./fixtures/source-wire.cjs');
 const {withCurrentStatementAuthority,materialRefForText}=require('./fixtures/current-statement-authority.cjs');
 const test=require('node:test'),assert=require('node:assert/strict');
@@ -131,7 +132,8 @@ test('terminal strategy uses the one task fulfillment repair with restricted inp
  actualIncoming(app);const reply=await app.controller.assist({text:'给我能改着发的话。 PRIVATE_TERMINAL_MARKER只是私下背景。'});
  assert.equal(reply.suggestions.length,1);assert.equal(app.calls.length,3);assert.equal(app.run().manifest.requestDelivery.status,'delivered');
  const repair=app.calls[2];assert.equal(repair.wrapper.purpose,'draft');assert.equal(repair.p.userRequest,undefined);assert.equal(repair.p.goal,undefined);
- assert.equal(JSON.stringify(repair.request).includes('PRIVATE_TERMINAL_MARKER'),false);
+ assert.equal(JSON.stringify(requestWithoutCurrentControl(repair.request,'给我能改着发的话。 PRIVATE_TERMINAL_MARKER只是私下背景。')).includes('PRIVATE_TERMINAL_MARKER'),false);
+ assert.equal(reply.suggestions.some(item=>item.text.includes('PRIVATE_TERMINAL_MARKER')),false);
  assert.equal(app.run().requests.filter(request=>request.purpose==='delivery_repair').length,1);
 });
 for(const kind of ['missing_fact','missing_authorization'])test(`terminal specific ${kind} is a valid private waiting question`,async t=>{

@@ -7,14 +7,18 @@ const {prepareAssistantRequest}=require('./fixtures/assistant-protocol.cjs');
 const {scope,raw}=require('./fixtures/native.cjs');
 const {withCurrentDraftControls}=require('./fixtures/draft-controls.cjs');
 const {wordingControls}=require('../src/context-task.cjs');
+const {withoutCurrentControl}=require('./fixtures/wording-lanes.cjs');
 function fixture(t){const store=new Store(':memory:');t.after(()=>store.close());store.add(scope,[normalize(raw(),scope)]);store.setGoal(scope,'PRIVATE_GOAL_SENTINEL');store.saveNote(scope,{kind:'preference',use:'discussion',text:'以后用短句，别写得像点评员，因为PRIVATE_REASON_SENTINEL我担心被嫌烦。'});store.saveNote(scope,{kind:'material',use:'discussion',text:'PRIVATE_NOTE_SENTINEL'});const turn=store.appendTurn(scope,{role:'user',kind:'discussion',text:'PRIVATE_REQUEST_SENTINEL，但帮我自然接一句。'});const args={scope,records:store.messages(scope),companion:store.getCompanion(scope),turn,requestId:'synthetic-wording',responsePreference:'自然一点，贴近我的说话方式，允许emoji，因为PRIVATE_STYLE_REASON我很紧张。'};const prepared=buildContext(args);return {store,args,prepared};}
-test('wording receives normalized expression controls without private reasons or outbound authorization',t=>{
+test('wording separates complete current meaning from sanitized preferences and outward authorization',t=>{
  const {args,prepared}=fixture(t),plan=withCurrentDraftControls({intent:'reply',quotes:[]},prepared.payload),draft=buildDraftContext(prepared,plan,args);
  assert.equal(draft.payload.wordingControls.authority,'expression_control_not_outbound_material');
  const controls=JSON.stringify(draft.payload.wordingControls);assert.match(controls,/短句|简短/);assert.match(controls,/点评|评价/);assert.match(controls,/口语|表达习惯/);assert.match(controls,/emoji/);
  assert.ok(draft.payload.wordingControls.items.some(item=>item.sourceIds.some(id=>id.startsWith('note:'))));
  assert.deepEqual(draft.payload.outboundQuotes,[]);
- const wire=prepareAssistantRequest({},draft.payload).serialized;
+ const packet=prepareAssistantRequest({},draft.payload),actual=packet.serialized,otherLanes=withoutCurrentControl(packet.wirePayload,args.turn.text);
+ assert.equal(draft.payload.currentHumanControl.sourceId,prepared.payload.intentAuthority.sourceId);
+ const assertionView={...packet.request,messages:packet.request.messages.map((message,index)=>index===1?{...message,content:JSON.stringify(otherLanes)}:message)};
+ const wire=JSON.stringify(assertionView);assert.equal(packet.serialized,actual);
  for(const secret of ['PRIVATE_GOAL_SENTINEL','PRIVATE_REASON_SENTINEL','PRIVATE_NOTE_SENTINEL','PRIVATE_REQUEST_SENTINEL','PRIVATE_STYLE_REASON'])assert.equal(wire.includes(secret),false,secret);
  assert.equal(draft.payload.preferences,undefined);assert.equal(draft.payload.responsePreference,undefined);
 });

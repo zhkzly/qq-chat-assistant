@@ -1,4 +1,5 @@
 'use strict';
+const {withoutCurrentControl}=require('./fixtures/wording-lanes.cjs');
 const test=require('node:test'),assert=require('node:assert/strict');
 const {definitions,dimensions}=require('../scripts/continuous-conversation-cases.cjs');
 const {runHarness}=require('../scripts/goal-help-quality-check.cjs');
@@ -45,7 +46,9 @@ test('the next automatic planner still sees the actual local user correction wit
   assert.ok(planner.effectivePayload.sources.some(source=>source.role==='user'&&source.text===request));
   for(const stage of item.stages.filter(value=>value.purpose==='draft')){
     assert.equal(!!stage.effectivePayload.privateConversation,false);assert.equal(!!stage.effectivePayload.goal,false);
-    assert.equal(JSON.stringify(stage.effectivePayload).includes(request),false);
+    const other=stage.effectivePayload.currentHumanControl?withoutCurrentControl(stage.effectivePayload,request):stage.effectivePayload;
+    assert.equal(JSON.stringify(other).includes(request),false);
+    assert.ok(stage.effectivePayload.outboundQuotes.every(quote=>!quote.text.includes(request)));
   }
   assert.ok(noFailedChecks(report));
 });
