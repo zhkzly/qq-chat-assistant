@@ -6,7 +6,8 @@ const response=content=>({ok:true,json:async()=>({choices:[{message:{content}}]}
 test('restricted draft formatting normalizes cosmetic labels without changing meaning',()=>{
   const result=parseAssistant({analysis:'分享近况',suggestions:[{text:'今天种的番茄发芽了。'}]},'draft');
   assert.equal(result.kind,'draft');assert.deepEqual(result.suggestions,[{style:'自然',text:'今天种的番茄发芽了。'}]);
-  assert.equal(parseAssistant({kind:'draft',text:'她已经明确要休息，这次可以不补发。',suggestions:[]},'draft').kind,'discussion');
+  assert.deepEqual(parseAssistant({kind:'draft',text:'那你先休息，明天再聊。',suggestions:[]},'draft').suggestions,[{style:'自然',text:'那你先休息，明天再聊。'}]);
+  assert.equal(parseAssistant({kind:'discussion',text:'她已经明确要休息，这次可以不补发。',suggestions:[]},'draft').kind,'discussion');
   assert.throws(()=>parseAssistant({kind:'draft',text:'',suggestions:[]},'draft'));
 });
 test('malformed private output gets one bounded natural response recovery and preserves its actual request trace',async()=>{

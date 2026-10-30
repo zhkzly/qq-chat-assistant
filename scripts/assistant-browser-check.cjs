@@ -13,6 +13,7 @@ const { raw, scope } = require('../tests/fixtures/native.cjs');
 const { CDP } = require('./cdp.cjs');
 const { actions } = require('./browser-actions.cjs');
 const { withCurrentDraftControls } = require('../tests/fixtures/draft-controls.cjs');
+const { withRequestDelivery } = require('./synthetic-request-delivery.cjs');
 
 const sleep = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds));
 async function until(predicate, label) {
@@ -64,6 +65,8 @@ async function until(predicate, label) {
       return { kind: 'discussion', text: '可以先聊清楚你想分享的心情。<img src=x onerror=alert(1)>',methodIds:['clarify'] };
     }
   });
+  const syntheticAssistantModel = controller.assistantModel;
+  controller.assistantModel = async (...args) => withRequestDelivery(await syntheticAssistantModel(...args), args[1].payload);
   controller.updateStatus({ phase: 'ready', account: { uid: scope.accountUid, uin: scope.accountUin } });
   const server = createServer({ controller, token: 'synthetic-assistant-browser-token', uiDir: path.join(root, 'ui'),
     saveSettings() {}, modelFetch: async () => ({ ok: true, json: async () => ({ data: [{ id: 'synthetic-assistant' }] }) }) });

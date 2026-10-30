@@ -41,7 +41,7 @@ const schemas={
  assistant_result:object({kind:choice(['discussion','question','options','review','acknowledgment']),text:string,methodIds:strings,requestDelivery:object({mode:choice(['private_help','editable_message','both']),sourceId:string,quote:string,blocker:object({kind:choice(['missing_fact','missing_authorization']),missing:string,question:string},['kind','missing','question'])},['mode','sourceId','quote']),draftPlan,replyDisposition:choice(['wait','clarify','unavailable']),
  lookup:object({query:string,discussionTurnIds:strings,sourceIds:strings,offset:integer,maxChars:integer,methodIds:strings,discover:boolean,before:string,after:string,types:array(choice(['qq','private','note','feedback']))}),
     actions:array(action),stateReview:choice(['no_change']),statePatch,topicPatch,relationshipPatch,experienceProposals:array(experienceProposal),expressionOptions:array(expressionOption)},['kind','text']),
- draft_result:object({kind:choice(['draft','discussion','question']),text:string,deliveryBlocker,suggestions:array(object({style:string,text:string},['style','text'])),methodIds:strings,replyDisposition:choice(['wait','clarify','unavailable'])},['kind','text']),
+ draft_result:object({kind:choice(['draft','discussion','question']),text:{...string,description:'For kind=draft, the complete outward message body, 1..1200 characters. For kind=question, private clarification.'},deliveryBlocker,suggestions:array(object({style:string,text:string},['style','text'])),methodIds:strings,replyDisposition:choice(['wait','clarify','unavailable'])},['kind','text']),
  discussion_compaction_result:object({summary:string,reviewedTurnIds:strings,quoteRefs:array(quoteRef)},['summary','reviewedTurnIds','quoteRefs']),
  memory_result:object({batchId:string,reviewedAll:boolean,items:array(memoryItem),episodes:array(episode),retire:array(memoryRetirement),relationshipPatch},['batchId','reviewedAll','items','episodes','retire'])
 };
@@ -58,7 +58,7 @@ function responseEnvelope(settings,purpose,payload) {
   // Keep the provider envelope flat; the local terminal validator owns the
   // conditional contract across providers and program-generated fallbacks.
   schema={...schema,properties:{...schema.properties,kind:choice(['draft','question']),
-    suggestions:{...schema.properties.suggestions,description:'Required for kind=draft: complete editable wording, never strategy.'},
+    suggestions:{...schema.properties.suggestions,description:'Optional legacy candidates for kind=draft; if nonempty they are authoritative. Otherwise draft.text is the complete outward body.'},
     deliveryBlocker:{...deliveryBlocker,description:'Required for kind=question: identify the specific missing fact or authorization and the matching private question.'}}};
  }
  if(name==='assistant_result'&&payload){

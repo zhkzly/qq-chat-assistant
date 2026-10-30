@@ -193,5 +193,5 @@ test('restricted result schema exposes the same terminal wording-or-blocker cont
  const request=prepareAssistantRequest({model:'claude-sonnet-4-6'},p,[]).request;
  const schema=request.tools[0].function.parameters;
  assert.deepEqual(schema.properties.kind.enum,['draft','question']);assert.equal(schema.oneOf,undefined);assert.equal(schema.anyOf,undefined);
- assert.match(schema.properties.deliveryBlocker.description,/Required for kind=question/);assert.match(schema.properties.suggestions.description,/Required for kind=draft/);assert.ok(schema.properties.deliveryBlocker.required.includes('missing'));
+ assert.match(schema.properties.deliveryBlocker.description,/Required for kind=question/);assert.match(schema.properties.suggestions.description,/Optional legacy candidates/);assert.ok(schema.properties.deliveryBlocker.required.includes('missing'));
 });

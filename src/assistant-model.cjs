@@ -175,11 +175,16 @@ function requireDraftControlGuidance(guidance, payload) {
 function parseAssistantStrict(value, purpose, input) {
   if (typeof value === 'string') value = parseModelJson(value);
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('助手返回格式不正确');
+  // A final draft body is already outward wording; suggestions is only its
+  // canonical UI carrier. Never reinterpret private help or a blocker here.
+  if(purpose==='draft'&&value.kind==='draft'&&typeof value.text==='string'&&value.text.trim()&&value.text.length<=1200&&
+    !Object.hasOwn(value,'deliveryBlocker')&&!Object.hasOwn(value,'blocker')&&!Object.hasOwn(value.requestDelivery||{},'blocker')&&
+    (value.suggestions===undefined||Array.isArray(value.suggestions)&&value.suggestions.length===0))
+    value={...value,suggestions:[{style:'自然',text:value.text}]};
   // Formatting labels are not semantic obligations for the model. Normalize
   // lossless legacy names and absent cosmetic styles only on restricted drafts.
   if(purpose==='draft'&&Array.isArray(value.suggestions)) {
     value={...value,kind:value.kind||'draft',text:value.text||value.analysis||'参考表达',suggestions:value.suggestions.map(s=>typeof s==='string'?{style:'自然',text:s}:s&&typeof s==='object'?{...s,style:s.style||'自然'}:s)};
-    if(!value.suggestions.length&&typeof value.text==='string'&&value.text.trim()&&value.text!=='参考表达')value.kind='discussion';
   }
   const payload = input?.payload || input;
   if(value.replyDisposition!==undefined&&!['wait','clarify','unavailable'].includes(value.replyDisposition))
