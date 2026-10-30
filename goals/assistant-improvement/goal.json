@@ -1,0 +1,222 @@
+{
+  "schema_version": 1,
+  "id": "qq-assistant-improvement",
+  "version": "2026-10-30.1",
+  "baseline": {
+    "commit": "009b4aa",
+    "evidence": "docs/eval-fidelity-v2-verification_CN.md",
+    "known_failures": [
+      { "case_id": "coverage-observed-output-feedback", "observed": "Draft planning failed source/authorization validation; no first output was available for feedback." },
+      { "case_id": "coverage-feedback-current-material", "observed": "An invented quotation was attributed to current user material; the positive control also failed planning validation." },
+      { "case_id": "coverage-long-private-consultation", "observed": "Controlled memory preparation rejected a local correction classified as a stable preference; the requested help was not reached." },
+      { "case_id": "coverage-long-single-source", "observed": "Memory preparation finished, but the answer was still blocked by the product context budget." }
+    ],
+    "limited_positive_evidence": [
+      "Three actual emotional-disclosure turns were reviewed as usable / minor edit / usable; the middle turn asserted too much.",
+      "A distinct two-turn private-consultation-only probe bound actual feedback correctly. It does not replace either failed draft case."
+    ]
+  },
+  "replay_dataset": {
+    "policy_version": "observed-history-replay-v2",
+    "hash": "d7890b62c8c92e7e496d631ca8f2c255bd6871380d779e194fbb85125a0e7aa0",
+    "cases": 38,
+    "steps": 81,
+    "visibility": "fictional_visible_development_cases",
+    "inventory_command": "npm run eval:replay:list"
+  },
+  "outcome": {
+    "product": "Improve the actual QQ assistant's ability to help the user pursue their stated purpose through grounded, continuous private consultation and usable, personal wording.",
+    "purpose_scope": "The current use includes romantic interest; friendship, work, support, learning and later user goal changes remain valid purposes.",
+    "completion": "Complete the finite staged targets with independently reviewed actual SUT outputs, preserved source/permission/time provenance and relevant counterexamples; document remaining limits and lifecycle evidence separately.",
+    "success_is_not": [
+      "A relationship outcome or a predicted reply from another person.",
+      "All synthetic transport checks passing, a green build, valid JSON or a successful request alone.",
+      "A smaller replacement task or an easy probe substituted for a retained failed case."
+    ]
+  },
+  "evidence": {
+    "frozen_inputs": [
+      "Observed raw QQ/private prefix, cutoff, runtime goal and external inputs.",
+      "Dataset, plan, rubric, calibration, adapter, implementation and model configuration identities.",
+      "Original source IDs as strings, source time, authored-note purpose/disclosure and actual-output feedback references."
+    ],
+    "sut": "Each candidate rebuilds its own state from the same raw observations. Product-specific imports and memory formats stay in the replaceable adapter; no derived expected understanding enters the assistant.",
+    "synthetic_replay_accepts_quality": false,
+    "review": {
+      "requires_actual_outputs": true,
+      "requires_hash_binding": true,
+      "independent_of_implementation": true,
+      "packet": "Give the reviewer frozen observations, behavioral criteria and all actual visible outputs/errors/missing steps. Keep implementation hypothesis, candidate identity and internal diagnostics outside the blinded packet.",
+      "judgment": "Retain itemized grades, cited output evidence, uncertainty and disagreements. Completion needs actual acceptable judgments for every required step; an absent grade remains absent.",
+      "attribution": "Retain manifest.json, transport.json and every *.run.json alongside *.review.json; inspect diagnostics only after the independent judgment."
+    },
+    "calibration": {
+      "version": "assistant-calibration-reference-v2",
+      "anchors": 20,
+      "hash": "2da7d8816ba597e3005e22381a085431664d9617178f68651a6c633c29143640",
+      "human_gold": false,
+      "requirement": "New reviewers or changed judge/rubric versions consume the blinded export and retain actual hash-bound comparisons and disagreements. These AI-authored anchors are provisional."
+    },
+    "lifecycle": {
+      "controlled_rebuild_proves_host_lifecycle": false,
+      "requirement": "Distinguish controlled history reconstruction from normal host ingestion, automatic maintenance, contact changes and reopening. Report source-only, synthetic integration, isolated host-lifecycle and actual desktop evidence separately."
+    },
+    "integrity_vs_quality": "The round checker validates provenance and completeness of supplied evidence. It cannot establish semantic truth, reviewer sincerity, natural wording or real-world benefit."
+  },
+  "constraints": {
+    "qq_workflow": "Keep normal desktop QQ plus a separate assistant window, automatically loading accessible history and observing actually received/sent records. Suggestions remain for human review and manual sending.",
+    "no_send": "Do not add message sending, forwarding, automatic replies or simulated send keys. Drafts and clipboard actions never count as actual sent messages.",
+    "scope_binding": "Bind data/model requests to the authenticated account and selected contact; discard stale results after scope changes and retain original QQ message IDs as strings.",
+    "privacy": "Never commit credentials, real chat histories, exports or private model settings; do not copy them into research/evidence archives.",
+    "authorization": "Preserve existing auto_review, hooks, sandbox, provider and network boundaries. Permission to attempt an action is separate from quality acceptance and Goal completion.",
+    "evaluation": "Keep frozen raw cases and external behavioral criteria independent of architecture. Preserve failures, unexecuted steps, disagreements and negative controls; never backfill passing ratings.",
+    "documentation": "General documentation and comments use English; this goal's _CN.md guide and Chinese UI strings may use Chinese.",
+    "verification": "Prefer functional tests, builds, relevant UI checks and actual output review. Mutation checks are optional, explained first, and isolated with reliable restoration when useful."
+  },
+  "boundaries": {
+    "allowed_after_explicit_activation": [
+      "Inspect and change project product code, prompts, context/memory architecture, adapter and project-scoped agent skills when a concrete hypothesis calls for it.",
+      "Rewrite substantial components when comparative evidence supports that approach; do not treat current architecture as a required solution.",
+      "Run isolated fictional replay using the selected real model within the declared round HTTP cap, if the activation explicitly authorizes live replay."
+    ],
+    "requires_separate_authorization": [
+      "Only when outside existing session authorization: change or restart the live QQ installation/runtime, activate a production candidate or change the selected model/provider. Prepare a reviewable compatibility candidate first and preserve unsent work within the authorized scope.",
+      "Only for new rights not already authorized in the session: external writes, push/publish, messages to others, global configuration/memory writes, external use of real private data or installation outside the project. Existing authorization persists; local reversible commits follow already authorized work without a repeated permission question."
+    ],
+    "forbidden": [
+      "Re-enable the previous AstrBot/NapCat automatic-reply deployment.",
+      "Weaken an external case, disclosure/source boundary or reviewer standard solely to make a candidate pass.",
+      "Present a hypothetical reply, controlled rebuild, synthetic output or API documentation as actual desktop/relationship evidence."
+    ],
+    "romantic_outcome_is_completion": false,
+    "setup_is_activation": false
+  },
+  "iteration_policy": {
+    "coordinator": "The main agent owns the queue, stage choices and evidence ledger. Use separate implementation and blinded evaluation agents; request diagnosis only when evidence needs causal attribution.",
+    "architecture_rewrite_allowed": true,
+    "round": [
+      "Select a concrete failure hypothesis, finite target case IDs and named countercases before changing the candidate. Freeze the comparison input and acceptance criteria.",
+      "Implement the hypothesis in isolation. Run appropriate functional checks and replay; inspect actual outputs, not only transport status.",
+      "Have an independent evaluator review the blinded actual-output packet using the frozen behavioral criteria. Keep missing/error/uncertain judgments open.",
+      "Use diagnostics to attribute the first causal deviation; accept, revise or reject the hypothesis with referenced evidence and record the next action."
+    ],
+    "stage_acceptance": "Required target and guardrail steps may accumulate across bounded rounds at the same candidate identity. A new candidate must explicitly invalidate and rerun affected accepted evidence; no copied success across changed inputs, standards or implementations.",
+    "guardrails": "Select the listed stage guardrails relevant to each hypothesis, and cover all listed guardrails before stage acceptance. Keep paired opposite cases together when the proposed mechanism could affect both.",
+    "thrash": "If the same correction recurs twice, oscillates, or unchanged failure repeats, stop patching and change the causal hypothesis. After three distinct new failures in one step, revisit the general approach instead of adding case-specific rules.",
+    "no_shortcut": "Do not lower the goal to an MVP, a tiny happy path, minimal green checks or a private-only substitute. Do not add permanent planner/brainstorm roles or a separate workflow platform."
+  },
+  "stop_conditions": {
+    "complete": "All three stages have independent acceptable actual-output evidence for their finite targets and guardrails, with affected evidence refreshed for the final candidate, appropriate engineering checks passed and lifecycle/desktop limitations accurately stated.",
+    "not_complete": [
+      "Synthetic-only or source-only evidence, unexecuted/error steps, absent reviews, unbound outputs, unresolved hard failures or materially uncertain grades.",
+      "An exhausted round HTTP cap, a green integrity checker, authorized action or an apparently positive authored continuation.",
+      "Substituting authored romantic success or another real-world outcome for evidence of actual assistant behavior."
+    ],
+    "round_limit": "Stop further HTTP calls at the round cap, retain partial evidence, diagnose and record the next finite action. The cap does not mark the Goal complete.",
+    "pause": "Pause only when the user explicitly requests it; preserve the current hypothesis and incomplete evidence.",
+    "blocked": "Report the exact external/authorization dependency after available independent work is complete; never convert missing permission, unavailable service or uncertain evidence into success."
+  },
+  "execution": {
+    "activation": "explicit_user_request_only",
+    "max_http_per_round": 32,
+    "http_cap_scope": "total_baseline_and_candidate_including_preparation_repair_and_maintenance",
+    "artifacts_root": ".goal-runs",
+    "artifacts_policy": "Ignored local per-round artifacts. Keep request/response and identity traces; export only privacy-reviewed fictional evidence.",
+    "default_transport": "synthetic",
+    "live_requires_explicit_activation_authorization": true
+  },
+  "stages": [
+    {
+      "id": "delivery_provenance",
+      "objective": "Deliver usable actual drafts/private help while preserving source, disclosure and actual-output feedback identity.",
+      "target_cases": [
+        "coverage-observed-output-feedback",
+        "coverage-feedback-current-material",
+        "cm-generated-invitation-vs-actual",
+        "replay-incoming-then-human-send",
+        "coverage-private-source-withdrawal",
+        "coverage-material-note-exclusion"
+      ],
+      "guardrail_cases": [
+        "coverage-observed-qq-recall",
+        "conv-share-own-material-missing",
+        "cm-conditional-expression-scope",
+        "coverage-emotional-disclosure"
+      ],
+      "acceptance": [
+        "Both retained failed draft/feedback scenarios reach every requested actual output and feedback step without invented source quotations or substituted private-only tasks.",
+        "Original source identity/time/disclosure survives draft planning and feedback; generated/copied text remains distinct from actual QQ sends and withdrawn sources cannot support later claims.",
+        "Independent review finds each target/guardrail step acceptable for its actual user purpose, with no unresolved source, privacy or fabricated-history hard failure."
+      ]
+    },
+    {
+      "id": "memory_continuity",
+      "objective": "Use long and changing observed histories to answer continuously, with dated/scope-correct memory and evidence for normal host lifecycle separately from controlled preparation.",
+      "target_cases": [
+        "coverage-long-private-consultation",
+        "coverage-long-single-source",
+        "replay-mixed-history-reciprocity",
+        "replay-job-change-later-recall",
+        "cm-local-correction-continuity",
+        "cm-closed-topic-not-restored",
+        "cm-dated-fatigue-current-unknown",
+        "cm-new-job-corrects-old-understanding",
+        "cm-conditional-expression-scope",
+        "cm-stable-preference-quoted-wish",
+        "coverage-observed-qq-recall"
+      ],
+      "guardrail_cases": [
+        "coverage-observed-output-feedback",
+        "coverage-feedback-current-material",
+        "coverage-private-source-withdrawal",
+        "coverage-material-note-exclusion",
+        "coverage-permanent-goal-change"
+      ],
+      "acceptance": [
+        "Both retained long-context failures reach their requested output steps with the full frozen raw input; no shortening or prepared expected memory substitutes for them.",
+        "Review confirms the current purpose, dated corrections, local versus stable preferences, withdrawn evidence and actual consultation continuation are applied appropriately.",
+        "Exercise the changed memory/context behavior through the normal host scheduling/ingestion lifecycle in isolation, including account/contact switch and reopen where affected. Retain lifecycle traces and identify any desktop-only gap; controlled replay preparation alone cannot satisfy this criterion."
+      ]
+    },
+    {
+      "id": "communication_quality",
+      "objective": "Give natural, useful, personal help and wording that follows the user's actual purpose, mutual willingness and uncertainty without fabricated material or pressure.",
+      "target_cases": [
+        "cm-ambiguous-interest-critical-availability",
+        "conv-reconnect-known-anchor",
+        "conv-reconnect-still-busy",
+        "conv-reconnect-no-anchor",
+        "conv-share-own-material",
+        "conv-share-own-material-missing",
+        "conv-puzzle-explicit-invite",
+        "conv-puzzle-interest-only",
+        "conv-friend-art-share",
+        "conv-work-handoff",
+        "conv-learning-missing-error",
+        "coverage-warm-reciprocity",
+        "coverage-low-reciprocity",
+        "coverage-emotional-disclosure",
+        "coverage-misunderstanding-repair",
+        "coverage-explicit-decline",
+        "coverage-welcomed-initiative",
+        "coverage-ambiguity-neutral",
+        "coverage-ambiguity-explicit",
+        "coverage-permanent-goal-change",
+        "coverage-unavailable-image"
+      ],
+      "guardrail_cases": [
+        "coverage-observed-output-feedback",
+        "coverage-feedback-current-material",
+        "coverage-long-private-consultation",
+        "coverage-long-single-source",
+        "cm-generated-invitation-vs-actual",
+        "cm-stable-preference-quoted-wish"
+      ],
+      "acceptance": [
+        "All targeted actual outputs receive independent behavioral judgments for usefulness, naturalness, support, warranted initiative and uncertainty; the retained middle-turn emotional overstatement is not silently accepted.",
+        "Paired opposite cases distinguish welcome from refusal, explicit intent from ambiguity, available from missing material, and friendship/work/learning from romance.",
+        "Separate reviewers' provisional voice judgments from the user's own preference confirmation. Do not claim verified personal voice without that feedback, or causal relationship improvement from authored external replies."
+      ]
+    }
+  ]
+}

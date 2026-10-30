@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "coordinator": {
+    "skill": ".agents/skills/qq-goal-iteration/SKILL.md"
+  },
+  "agents": {
+    "qq_implementer": {
+      "config": ".codex/agents/qq_implementer.toml",
+      "skill": ".agents/skills/qq-assistant-implement/SKILL.md"
+    },
+    "qq_evaluator": {
+      "config": ".codex/agents/qq_evaluator.toml",
+      "skill": ".agents/skills/qq-assistant-evaluate/SKILL.md"
+    },
+    "qq_diagnostician": {
+      "config": ".codex/agents/qq_diagnostician.toml",
+      "skill": ".agents/skills/qq-assistant-diagnose/SKILL.md"
+    }
+  }
+}

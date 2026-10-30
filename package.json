@@ -38,7 +38,10 @@
     "eval:replay:list": "node scripts/eval-replay-cli.cjs --list",
     "eval:judge:check": "node scripts/eval-reviewer-calibration.cjs check",
     "eval:judge:export": "node scripts/eval-reviewer-calibration.cjs export",
-    "eval:judge:compare": "node scripts/eval-reviewer-calibration.cjs compare"
+    "eval:judge:compare": "node scripts/eval-reviewer-calibration.cjs compare",
+    "goal:roles": "python3 scripts/goal-agent-config.py check",
+    "goal:round": "node scripts/goal-round.cjs",
+    "goal:status": "node scripts/goal-round.cjs status"
   },
   "engines": {
     "node": ">=22"

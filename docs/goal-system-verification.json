@@ -1,0 +1,147 @@
+{
+  "schema_version": 1,
+  "date": "2026-10-30",
+  "scope": "Project-local Codex Goal workflow setup; no product improvement or desktop integration claim",
+  "base_commit": "009b4aa332e2b5ddd6e6a719930aaf391358852a",
+  "product_source_hash": "9295ade6c8345bcba486bf47db5e37ea2d1b491f93fefd36998bd01c3a82d401",
+  "product_source_changed": false,
+  "native_goal_started": false,
+  "production_activated": false,
+  "global_approval_config_changed": false,
+  "hooks_changed": false,
+  "replay_dataset_hash": "d7890b62c8c92e7e496d631ca8f2c255bd6871380d779e194fbb85125a0e7aa0",
+  "calibration_dataset_hash": "2da7d8816ba597e3005e22381a085431664d9617178f68651a6c633c29143640",
+  "roles": {
+    "version": 1,
+    "status": "current",
+    "agents": [
+      {
+        "name": "qq_implementer",
+        "config": ".codex/agents/qq_implementer.toml",
+        "skill": ".agents/skills/qq-assistant-implement/SKILL.md",
+        "skill_sha256": "d3b9238ac60c51cc8169765cef9d383147d6e4c6b56098df4e236b87685ce721",
+        "config_sha256": "093cb754e1639e8929a6a3500947b41ebdac153b617e84a9faa64c8af049f062"
+      },
+      {
+        "name": "qq_evaluator",
+        "config": ".codex/agents/qq_evaluator.toml",
+        "skill": ".agents/skills/qq-assistant-evaluate/SKILL.md",
+        "skill_sha256": "e7a964939209e8fd87fea7647f76d9e7408a51459c209d854268b98b8f0c72b8",
+        "config_sha256": "ba692f113a7165d1e7083cdcac3a12b69aad4eead5927d5c2dc9ca32b2bb7dcf"
+      },
+      {
+        "name": "qq_diagnostician",
+        "config": ".codex/agents/qq_diagnostician.toml",
+        "skill": ".agents/skills/qq-assistant-diagnose/SKILL.md",
+        "skill_sha256": "0e19534e6fb51855d14b931daaf3f445bc4986a66464c3b4c459c393e2616460",
+        "config_sha256": "9e1e7fec0df57797778e0c14b3f7b5206779dd5cf4e3aba06bd4f4dfc149e026"
+      }
+    ]
+  },
+  "checks": {
+    "npm_test": {
+      "files": 108,
+      "tests": 742,
+      "passed": 742,
+      "failed": 0,
+      "skipped": 0
+    },
+    "application_javascript_parse": "passed",
+    "role_generation": "current",
+    "dataset_structure": "valid",
+    "independent_final_review": "no remaining blocking core findings; not semantic product acceptance"
+  },
+  "native_forward": {
+    "client_version": "0.164.0",
+    "evidence_kind": "actual native Codex role configuration discovery, canary receipt and review inference",
+    "main_prompt_included_skill_digest": false,
+    "receipt_matches_evaluator_digest": true,
+    "root_jsonl_includes_explicit_spawn_thread_id": false,
+    "limitations": [
+      "CLI events recorded collaboration waits but omitted explicit child spawn/thread identity; discovery, exact unsupplied skill digest receipt and actual output are retained separately.",
+      "Tools are disabled by evaluator native configuration; no adversarial tool-permission test was performed.",
+      "Review is bounded by supplied fictional observations and provisional AI references."
+    ],
+    "calibration_summary": {
+      "total": 20,
+      "submitted": 20,
+      "graded": 20,
+      "missing": 0,
+      "ungraded": 0,
+      "uncertain_observed": 1,
+      "uncertain_reference": 1,
+      "agreement": {
+        "count": 18,
+        "denominator": 20
+      },
+      "bad_correctly_flagged": {
+        "count": 7,
+        "denominator": 7
+      },
+      "good_false_alarm": {
+        "count": 0,
+        "denominator": 8
+      },
+      "good_minor_edit_disagreement": 0,
+      "hard_failure_flag_agreement": {
+        "count": 19,
+        "denominator": 20
+      },
+      "inconsistent_hard_failure_grade": 0,
+      "good_hard_failure_false_alarm": {
+        "count": 0,
+        "denominator": 8
+      },
+      "nonhard_reference_with_observed_hard_flags": {
+        "count": 0,
+        "denominator": 13
+      },
+      "hard_reference_detected": {
+        "count": 7,
+        "denominator": 7
+      },
+      "definitions": {
+        "bad_correctly_flagged": "Reference bad and observed overall rewrite; hard-failure flags are reported separately.",
+        "good_false_alarm": "Reference good and observed overall rewrite; minor_edit disagreement and hard-failure false alarms are separate.",
+        "agreement": "Exact overall-label agreement among submitted non-null judgments, including insufficient_evidence. Missing and null judgments are excluded; all known good/bad anchors remain in their detection denominators."
+      }
+    },
+    "calibration_disagreements": [
+      {
+        "id": "c08",
+        "reference": "minor_edit",
+        "actual": "rewrite"
+      },
+      {
+        "id": "c12",
+        "reference": "minor_edit",
+        "actual": "rewrite"
+      }
+    ],
+    "actual_existing_output_ratings": [
+      {
+        "entry_id": "ef0c6669-c137-4274-8ece-89c8550d4192",
+        "overall": "usable"
+      },
+      {
+        "entry_id": "f1903e62-dfe0-43a3-a02f-17111cfb9cb5",
+        "overall": "usable"
+      },
+      {
+        "entry_id": "00889106-0742-4331-8a55-ba8d73f82add",
+        "overall": "usable"
+      }
+    ],
+    "old_output_source": "Prior actual isolated-product gpt-6-luna replay; setup reused its emotion case without calling the SUT model again.",
+    "partial_review_only": true,
+    "paired_candidate_improvement_proven": false,
+    "previous_review_disagreement": "New evaluator graded all three emotional-disclosure outputs usable; earlier review graded the middle minor_edit. Both reviews are retained; no consensus was fabricated."
+  },
+  "evidence_files": {
+    "calibration-comparison.json": "3b03d5630032253346993bd3b3c35543af2b84dda87502152828f2fb575a87fc",
+    "evaluator-role-receipt.json": "d80adf40a7de9908fafca0853a2fef345b1ef8a455c448e8bba7ed196ca56787",
+    "forward-reviewer-bundle.json": "cc365fb44434380aa09281940c646287c1599f3c3f3120962922135c5d648bf5",
+    "incomplete-round-check.json": "d3b77a4a6104b3410f87d800c065813c08ea2118c210257232461f10d268817b",
+    "native-evaluator-response.json": "69122a8847359e73ceb95487de08e62ba8a27aa7f1949c861ea26eb4f3744d3e"
+  }
+}

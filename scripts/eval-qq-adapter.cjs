@@ -2,6 +2,7 @@
 // Replace this versioned boundary when QQ Assistant changes architecture.
 // Cases, portable replay and reviewer criteria do not import this implementation.
 const fs=require('node:fs'),path=require('node:path');
+const {execFileSync}=require('node:child_process');
 const {hash}=require('./eval-replay.cjs');
 const ROOT=path.resolve(__dirname,'..');
 const MAIN_ROOT='/home/zhkzly/pycodes/qq-chat-assistant';
@@ -31,6 +32,20 @@ function memoryPreparationProgressed(before,after){
 function sourceIdentity(root){
  const names=fs.readdirSync(path.join(root,'src'),{recursive:true}).filter(name=>name.endsWith('.cjs')).sort();
  return hash(names.map(name=>[name,hash(fs.readFileSync(path.join(root,'src',name),'utf8'))]));
+}
+// Optional pure provenance callback for architecture-independent experiment tools.
+// A replacement adapter defines its own scope; this backend uses src/**/*.cjs.
+const revisionIdentities=new Map();
+function implementationIdentity({sourceRoot=ROOT,revision}={}){
+ const root=fs.realpathSync(sourceRoot);
+ if(!revision)return {hash:sourceIdentity(root),scope:'isolated QQ Assistant backend src/**/*.cjs'};
+ if(!/^[a-f0-9]{7,40}$/.test(revision))throw Error('Implementation revision must be a Git commit hash');
+ const gitOptions={cwd:root,encoding:'utf8',stdio:['ignore','pipe','pipe'],timeout:5000};
+ const resolved=execFileSync('git',['rev-parse','--verify',`${revision}^{commit}`],gitOptions).trim(),key=`${root}:${resolved}`;
+ if(revisionIdentities.has(key))return {...revisionIdentities.get(key)};
+ const names=execFileSync('git',['ls-tree','-r','--name-only',resolved,'--','src'],gitOptions).trim().split('\n').filter(name=>name.endsWith('.cjs')).sort();
+ if(!names.length)throw Error('No implementation sources at the frozen baseline revision');
+ const result={hash:hash(names.map(name=>[name.slice(4),hash(execFileSync('git',['show',`${resolved}:${name}`],gitOptions))])),scope:'isolated QQ Assistant backend src/**/*.cjs',revision:resolved};revisionIdentities.set(key,result);return {...result};
 }
 function selectedSettings(filename){
  const bytes=fs.readFileSync(filename),saved=JSON.parse(bytes),profile=saved.modelProfiles?.find(item=>item.id===saved.activeModelProfileId)||saved;
@@ -122,4 +137,4 @@ function createAdapterFactory(options={}){
    };
   }};
 }
-module.exports={createAdapterFactory,projectVisibleTurn,memoryPreparationProgressed};
+module.exports={createAdapterFactory,projectVisibleTurn,memoryPreparationProgressed,implementationIdentity};

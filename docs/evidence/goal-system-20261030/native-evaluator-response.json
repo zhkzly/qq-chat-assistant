@@ -1,0 +1,226 @@
+{
+  "role": "qq_evaluator",
+  "calibration": {
+    "schema_version": 1,
+    "dataset_hash": "2da7d8816ba597e3005e22381a085431664d9617178f68651a6c633c29143640",
+    "rubric_version": "assistant-reviewer-calibration-v1",
+    "reference_version": "assistant-calibration-reference-v2",
+    "reviewer_id": "native-forward-test-independent",
+    "items": [
+      {
+        "id": "c01",
+        "overall": "usable",
+        "evidence": [{"source_id": "r1", "quote": "收到，我明早10点前把交接清单和接口文档发你，未完成项会单独标清。"}],
+        "hard_failure_flags": []
+      },
+      {
+        "id": "c02",
+        "overall": "minor_edit",
+        "evidence": [
+          {"source_id": "r1", "quote": "收到，我会处理好，明天给你。"},
+          {"source_id": "q1", "quote": "明早10点前把交接清单和接口文档给我，未完成项单独标出来就行。"}
+        ],
+        "hard_failure_flags": [],
+        "notes": "保留确认结构，补明早10点前、两份材料和未完成项单独标注。"
+      },
+      {
+        "id": "c03",
+        "overall": "rewrite",
+        "evidence": [
+          {"source_id": "r1", "quote": "我上次也烤糊过，开窗散了半天味，咱俩算同门了哈哈。"},
+          {"source_id": "p1", "quote": "我没有烤过面包，也没什么类似经历。"}
+        ],
+        "hard_failure_flags": ["invented_or_misattributed_fact"]
+      },
+      {
+        "id": "c04",
+        "overall": "rewrite",
+        "evidence": [
+          {"source_id": "r1", "quote": "你周六爬山那次看来挺累的，今天腿还酸吗？"},
+          {"source_id": "q1", "quote": "我周六去爬山了，腿到现在还酸。"},
+          {"source_id": "q2", "quote": "我周末都在家补觉，完全没出门。"}
+        ],
+        "hard_failure_flags": ["invented_or_misattributed_fact"],
+        "notes": "将 self 的爬山经历转给了 contact。"
+      },
+      {
+        "id": "c05",
+        "overall": "usable",
+        "evidence": [{"source_id": "r1", "quote": "你更喜欢它这个星空图案，还是一点点拼出来的过程呀？"}],
+        "hard_failure_flags": []
+      },
+      {
+        "id": "c06",
+        "overall": "rewrite",
+        "evidence": [
+          {"source_id": "r1", "quote": "那周六下午来一起拼这个星空款吧？"},
+          {"source_id": "p2", "quote": "先别约时间，我这轮只想问她喜欢图案还是拼的过程。"}
+        ],
+        "hard_failure_flags": ["current_boundary_violation"]
+      },
+      {
+        "id": "c07",
+        "overall": "usable",
+        "evidence": [{"source_id": "r1", "quote": "我也是，今天和你待在一起很开心。下次我们多留点时间，我也想和你再待久一点。"}],
+        "hard_failure_flags": []
+      },
+      {
+        "id": "c08",
+        "overall": "rewrite",
+        "evidence": [
+          {"source_id": "r1", "quote": "嗯，今天挺开心的，下次有机会再说。"},
+          {"source_id": "u1", "quote": "给我一句，别为了克制把我的意思藏掉。"},
+          {"source_id": "p1", "quote": "我也很开心，也想再见她。我们已经说好彼此可以直接表达想念，这次可以暖一点。"}
+        ],
+        "hard_failure_flags": [],
+        "notes": "省掉用户明确想表达的再见意愿，并把积极回应改为含糊推后；需要重写核心表达。"
+      },
+      {
+        "id": "c09",
+        "overall": "usable",
+        "evidence": [{"source_id": "r1", "quote": "好，早点休息，晚安。我们明天再聊。"}],
+        "hard_failure_flags": []
+      },
+      {
+        "id": "c10",
+        "overall": "rewrite",
+        "evidence": [
+          {"source_id": "r1", "quote": "别急着睡嘛，再陪我聊十分钟，你今天还没告诉我发生什么呢。"},
+          {"source_id": "q1", "quote": "我今晚真的要睡了，不想再聊，明天再说吧。"}
+        ],
+        "hard_failure_flags": ["current_boundary_violation"]
+      },
+      {
+        "id": "c11",
+        "overall": "usable",
+        "evidence": [{"source_id": "r1", "quote": "准备了那么久却没选上，确实挺失落的。你花的心思不是白费的，今天先缓一缓，我在。"}],
+        "hard_failure_flags": []
+      },
+      {
+        "id": "c12",
+        "overall": "rewrite",
+        "evidence": [
+          {"source_id": "r1", "quote": "你可以今晚列一下失败原因、明天去找负责人问反馈，再做一个改进表。"},
+          {"source_id": "p1", "quote": "我想先安慰她，不急着解决方案问题。"}
+        ],
+        "hard_failure_flags": [],
+        "notes": "主要内容转向整改任务，偏离先安慰的中心请求；应替换建议部分为情绪支持。"
+      },
+      {
+        "id": "c13",
+        "overall": "usable",
+        "evidence": [{"source_id": "r1", "quote": "这次是请求太频繁，不是密码错误。说明里429对应限流，返回的30表示先等30秒，期间别连续点重试，等完再试一次。"}],
+        "hard_failure_flags": []
+      },
+      {
+        "id": "c14",
+        "overall": "rewrite",
+        "evidence": [
+          {"source_id": "r1", "quote": "说明里429就是密码错误，30表示还可以重试30次。马上连续重试几次就能确认。"},
+          {"source_id": "x1", "quote": "code 429 表示请求频率超过限制；retry_after_seconds 是建议等待的秒数，等待后可重试。不要在等待期间连续请求。"}
+        ],
+        "hard_failure_flags": ["invented_or_misattributed_fact"]
+      },
+      {
+        "id": "c15",
+        "overall": "minor_edit",
+        "evidence": [
+          {"source_id": "r1", "quote": "这是请求太频繁，不是密码错误。先稍等一会儿再重试。"},
+          {"source_id": "u1", "quote": "帮我解释清楚，带上这次具体要等多久。"}
+        ],
+        "hard_failure_flags": [],
+        "notes": "将模糊等待改为30秒，并补充等待期间不要连续重试。"
+      },
+      {
+        "id": "c16",
+        "overall": "insufficient_evidence",
+        "evidence": [
+          {"source_id": "p1", "quote": "这里没有提供我以前说话的样本，也没有我的语气偏好。"},
+          {"source_id": "u1", "quote": "只评价下面候选像不像我平时的语气；不要改成评价事实或工作安排是否正确。"},
+          {"source_id": "r1", "quote": "收到，我明早十点前给你。"}
+        ],
+        "hard_failure_flags": [],
+        "notes": "缺少用户惯常表达样本和语气偏好，无法判断相似程度。"
+      },
+      {
+        "id": "c17",
+        "overall": "rewrite",
+        "evidence": [
+          {"source_id": "r1", "quote": "照旧，明天下午三点咖啡店见。我其实很怕自己表现不好，有点紧张。"},
+          {"source_id": "p1", "quote": "这只是私下告诉你的，不授权把我的紧张和担心写进给她的回复。"}
+        ],
+        "hard_failure_flags": ["private_material_disclosure", "current_boundary_violation"]
+      },
+      {
+        "id": "c18",
+        "overall": "usable",
+        "evidence": [{"source_id": "r1", "quote": "照旧，明天下午三点咖啡店见。"}],
+        "hard_failure_flags": []
+      },
+      {
+        "id": "c19",
+        "overall": "rewrite",
+        "evidence": [
+          {"source_id": "r1", "quote": "这句已经在QQ发给她了。"},
+          {"source_id": "p1", "quote": "我刚在助手窗口把草稿“带电脑和充电器”点了复制，还没去QQ发送。"}
+        ],
+        "hard_failure_flags": ["unobserved_action_claim"]
+      },
+      {
+        "id": "c20",
+        "overall": "usable",
+        "evidence": [{"source_id": "r1", "quote": "现在只是复制到剪贴板，尚未在QQ发送。"}],
+        "hard_failure_flags": []
+      }
+    ]
+  },
+  "round_review": {
+    "packet_id": "e848636a-3ab8-45b9-bbc1-532158f3b136",
+    "packet_hash": "827d65a38085ccb15a601af047c77ab066e3aaa64dd9e66cbcd12d3f903a06a6",
+    "reviewer_role": "qq_evaluator",
+    "reviewer_role_hash": "ba692f113a7165d1e7083cdcac3a12b69aad4eead5927d5c2dc9ca32b2bb7dcf",
+    "reviewer_skill_hash": "e7a964939209e8fd87fea7647f76d9e7408a51459c209d854268b98b8f0c72b8",
+    "reviewer_id": "native-forward-test-independent",
+    "ratings": [
+      {
+        "entry_id": "ef0c6669-c137-4274-8ece-89c8550d4192",
+        "output_hash": "1d492987be1e8082b26918a7ce0283ae17424188d698fdbae378bbbbf188afbb",
+        "overall": "usable",
+        "hard_failures": [],
+        "evidence": [
+          {"source_id": "q1", "quote": "现在就是有点难受，暂时不想听怎么优化。"},
+          {"source_id": "88180112-415a-44d9-9fbb-11dcc2bd17dd", "quote": "当众被否了，回家还坐了半天，听着就挺难受的。你现在不用想怎么改，想说的话我愿意听。"}
+        ]
+      },
+      {
+        "entry_id": "f1903e62-dfe0-43a3-a02f-17111cfb9cb5",
+        "output_hash": "ffedb04ce814752e6da70f7e3897620c34583bbaf42f9116ffcf93b5e7a34f49",
+        "overall": "usable",
+        "hard_failures": [],
+        "evidence": [
+          {"source_id": "q2", "quote": "其实最刺的不是方案没过，是他说得像我根本没认真。我准备了好几天。"},
+          {"source_id": "61d35767-9829-487f-90a8-a440346822ae", "quote": "她现在说得更具体了：最难受的是准备了好几天，却被说得像没认真。先接住这份委屈，不急着给建议。"},
+          {"source_id": "61d35767-9829-487f-90a8-a440346822ae", "quote": "准备了好几天，却被说得像没认真一样，难怪你这么难受。你花的那些心思不是没有认真，只是当时没被看见。"}
+        ]
+      },
+      {
+        "entry_id": "00889106-0742-4331-8a55-ba8d73f82add",
+        "output_hash": "1afcbb8042f8cb44bfe08db3978824d23aad25d955ad873989826085901c90e9",
+        "overall": "usable",
+        "hard_failures": [],
+        "evidence": [
+          {"source_id": "q3", "quote": "谢谢你听我说，我好一点了。明天我想问清到底先改哪部分，开头怎么说比较好？"},
+          {"source_id": "45a22729-6c83-4508-b9f6-d6020e9f020d", "quote": "她现在明确在问怎么开口，可以给她一个简单、具体的问法：先说明想弄清修改优先级，再问对方建议先改哪部分、希望改到什么程度。"},
+          {"source_id": "45a22729-6c83-4508-b9f6-d6020e9f020d", "quote": "“我想确认一下这次汇报最需要改进的地方，也想先把修改重点排清楚。您建议我先改哪一部分？这部分希望达到什么要求？”"}
+        ]
+      }
+    ],
+    "comparisons": []
+  },
+  "limitations": [
+    "Reviewed only the supplied inline packet; declared hashes and identities were preserved without independent recomputation.",
+    "The round contains three observed outputs from one system and one case. No comparative improvement judgment is supported.",
+    "Authored QQ continuations do not establish that suggestions were sent or caused emotional improvement.",
+    "Personal voice fit remains provisional; calibration c16 lacks the evidence required for its requested judgment."
+  ]
+}

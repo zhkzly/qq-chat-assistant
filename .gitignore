@@ -17,3 +17,6 @@ dist/
 research/archive.zip
 .worktrees/
 .openviking/
+
+# Private per-round Goal evidence and state
+.goal-runs/

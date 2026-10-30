@@ -23,3 +23,10 @@ This is a personal Ubuntu QQ conversation assistant. The user chats normally in 
 - New conversational-output reviewers or changed Judge/rubric versions should use the blinded calibration export (`npm run eval:judge:export`) and retain actual hash-bound comparisons and disagreements; AI-authored references are provisional, not human gold. Source time, authored-note permissions and actual-output feedback references must survive replay.
 - Structural validation is not conversational quality evaluation. Record the dataset hash, rubric version, actual model inputs/outputs and implementation version before claiming a behavior improvement. Do not fill an unrun review with passing ratings.
 - These are visible fictional development/regression cases, not unseen holdouts. Retain failures and meaningful counterexamples. Inspection, validation and default replay do not start paid model runs. Explicit `--live` replay invokes the selected model under its declared cap; no command starts automatic optimization.
+
+## Project Goal optimization
+
+- For an explicitly activated assistant-improvement Goal, use the project coordinator skill `.agents/skills/qq-goal-iteration/SKILL.md` and the contract/queue in `goals/assistant-improvement/GOAL_CN.md`. Setup alone does not activate a Goal or authorize live replay.
+- The main agent coordinates and can spawn the project roles `qq_implementer`, `qq_evaluator`, and `qq_diagnostician`; each consumes its own canonical skill. Check bindings with `npm run goal:roles`. Do not replace independent review with the implementer's self-rating.
+- Give the evaluator only the complete inline blinded bundle and its requested review envelope. Keep source/diagnostic attribution separate. Use `npm run goal:round -- --help` for frozen round evidence and decisions; a green integrity check is not proof of conversational quality or full Goal completion.
+- Preserve the existing approval reviewer, hooks, sandbox and provider. Action approval, behavior evaluation and Goal completion are separate decisions. These project profiles do not install global roles or skills.

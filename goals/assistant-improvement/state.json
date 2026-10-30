@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "goal_id": "qq-assistant-improvement",
+  "goal_version": "2026-10-30.1",
+  "status": "not_started",
+  "current_stage": null,
+  "current_hypothesis": null,
+  "rounds": [],
+  "stages": [
+    { "id": "delivery_provenance", "status": "pending", "accepted_round": null },
+    { "id": "memory_continuity", "status": "pending", "accepted_round": null },
+    { "id": "communication_quality", "status": "pending", "accepted_round": null }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "round_id": "setup-forward-evaluation-v2",
+  "status": "reviewed",
+  "ready_to_accept": false,
+  "reasons": [
+    "baseline per-arm HTTP cap differs from the frozen allocation",
+    "baseline replay case selection differs from the round",
+    "candidate replay missing",
+    "Grade missing: coverage-observed-output-feedback/s1/baseline",
+    "Grade missing: coverage-observed-output-feedback/s2/baseline",
+    "Paired verdict missing: coverage-emotional-disclosure/s1",
+    "Paired verdict missing: coverage-emotional-disclosure/s2",
+    "Paired verdict missing: coverage-emotional-disclosure/s3",
+    "Paired verdict missing: coverage-observed-output-feedback/s1",
+    "Paired verdict missing: coverage-observed-output-feedback/s2",
+    "No target improvement is evidenced"
+  ],
+  "http_used": 17,
+  "http_remaining": 15,
+  "target_improvements": 0,
+  "semantic_truth_proven": false,
+  "stage_completed": false,
+  "goal_completed": false
+}
