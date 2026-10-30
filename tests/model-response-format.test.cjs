@@ -50,7 +50,7 @@ test('result-tool framing decodes only schema-declared containers and retains so
  assert.equal(typeof textCarrier.draftPlan,'string','plain message data is not container-decoded');
  for(const malformed of [JSON.stringify(plan)+'}',JSON.stringify(plan)+'\n'+JSON.stringify(plan),'[]','{broken']){
   const bad=parseModelJson(readModelOutput(carrier({...expected,draftPlan:malformed})).text);
-  assert.equal(bad.draftPlan,malformed);assert.throws(()=>parseAssistant(bad,'reply',payload),/拟表达内容/);
+  assert.equal(bad.draftPlan,malformed);assert.throws(()=>parseAssistant(bad,'reply',payload),error=>error.code==='draft_plan_shape_invalid'&&error.issues.length===1&&error.issues[0].path==='draftPlan');
  }
  const forbidden=parseModelJson(readModelOutput(carrier({...expected,draftPlan:JSON.stringify({...plan,guidance:{currentStep:{text:'unsupported control',sourceIds:['private:missing']}}})})).text);
  assert.throws(()=>parseAssistant(forbidden,'reply',payload),/sourceIds/,'framing does not relax control-source authority');

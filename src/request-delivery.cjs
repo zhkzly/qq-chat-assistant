@@ -5,8 +5,8 @@ const {createHash}=require('node:crypto');
 // factual evidence, disclosure permission, or proof of semantic correctness.
 const VERSION = 1;
 const editable = delivery => ['editable_message','both'].includes(delivery?.mode);
-function failure(message, delivery) {
- const error=new Error(`requestDelivery: ${message}`);error.code='request_delivery_unfulfilled';
+function failure(message, delivery,field='requestDelivery') {
+ const error=new Error(`requestDelivery: ${message}`);error.code='request_delivery_unfulfilled';error.field=field;
  if(delivery)error.requestDelivery=delivery;
  return error;
 }
@@ -61,7 +61,7 @@ function parseRequestDelivery(value,payload) {
  }
  if(value.lookup&&editable(parsed)&&policy.lookupExhausted)throw failure('lookup limit reached; supply a source-bound plan or a necessary specific private blocker rather than another lookup',parsed);
 
- if(!editable(parsed)&&value.draftPlan)throw failure('private_help must stay private; choose both only when the current request also wants wording',parsed);
+ if(!editable(parsed)&&value.draftPlan)throw failure('private_help must stay private; choose both only when the current request also wants wording',parsed,'requestDelivery.mode');
  if(editable(parsed)&&!value.lookup&&(!value.draftPlan||value.draftPlan.clarification)&&!parsed.blocker)
   throw failure('editable message still missing: supply a source-bound draftPlan, an actual lookup, or a necessary specific private blocker; strategy alone is not fulfillment',parsed);
  return parsed;

@@ -612,7 +612,7 @@ class Controller extends EventEmitter {
           // the normal input and stage manifest, never an invalid raw response.
           capturedRequests.push({purpose:input.payload.purpose,manifest:input.manifest,payload:input.payload});
           for(const extra of input.extraRequests||[]){
-            const payload=extra.payload?Object.fromEntries(['purpose','originalInput','formatError'].filter(key=>extra.payload[key]!==undefined).map(key=>[key,extra.payload[key]])):undefined;
+            const payload=extra.payload?Object.fromEntries(['purpose','originalInput','formatError','validationIssues'].filter(key=>extra.payload[key]!==undefined).map(key=>[key,extra.payload[key]])):undefined;
             capturedRequests.push({purpose:extra.purpose||extra.manifest?.purpose,manifest:extra.manifest,...(payload?{payload}:{}),...(extra.inputBytes!==undefined?{inputBytes:extra.inputBytes}:{})});
           }
           if(input.resultContext&&input.resultContext!==input)context=input.resultContext;

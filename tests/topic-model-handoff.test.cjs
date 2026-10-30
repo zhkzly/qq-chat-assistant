@@ -312,7 +312,7 @@ test('ordinary help rejects unsupported progress without repair while source-bou
     const output = strictCalls.length === 1 ? { ...invalid, draftPlan: plan } : { kind: 'discussion', text: '当前只是在准备表达，尚未观察到发送。', draftPlan: plan };
     return { ok: true, json: async () => ({ choices: [{ message: { content: JSON.stringify(output) } }] }) };
   });
-  assert.equal(strictCalls.length, 2); assert.match(strictCalls[1].formatError, /topicPatch.observationSourceIds.*progress/);
+  assert.equal(strictCalls.length,2);assert.ok(strictCalls[1].validationIssues.some(issue=>issue.path==='topicPatch.observationSourceIds'&&/progress/.test(issue.message)));
   assert.deepEqual(planned.draftPlan.guidance, plan.guidance); assert.equal(planned.topicPatch, undefined);
 });
 

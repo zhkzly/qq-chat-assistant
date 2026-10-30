@@ -10,6 +10,7 @@ const { HELP_BEHAVIOR, helpSystemForPayload, expectsReplyCandidates } = require(
 const {resolveDraftMaterial,DRAFT_MATERIAL_PROTOCOL}=require('./context/draft-material.cjs');
 const {selectEditingReference,editingReferenceBinding}=require('./context/editing-reference.cjs');
 const {SourceHandleOwner}=require('./source-handles.cjs');
+const {ValidationIssues,validationError}=require('./validation-issues.cjs');
 const {parseRequestDelivery,parseDeliveryBlocker,normalizeBlockerQuestion,blockerRenderingWitness,validateTerminalDelivery,editable}=require('./request-delivery.cjs');
 const RELATIONSHIP_PROTOCOL = `relationshipPatch is optional and contains only claims (at most 24), events (at most 12), and retire (at most 24), each an array. An empty patch is {"claims":[],"events":[],"retire":[]}.
 claims: {id?,expectedVersion?,subject,aspect,text,assertionKind,epistemicStatus,lifecycle?,validFrom?,validUntil?,context?,sourceIds,topicKeys?}. subject=${SUBJECTS.join('|')}; aspect=${ASPECTS.join('|')}; assertionKind=${ASSERTIONS.join('|')}; epistemicStatus=${EPISTEMIC.join('|')}; lifecycle=${LIFECYCLES.join('|')} (default active). Inferred claims must remain tentative, contested, or undetermined, never supported. observed requires actual QQ evidence; a private report of an event uses reported. stated means someone said it, not independent proof; contact+stated requires an actual incoming QQ source and only that contact evidence determines its date, not a user's later question. A user's interpretation or retelling of her words must be reported/inferred, never her stated feeling. Unknowns are not personality traits. stated_preference does not authorize changing user preferences.
@@ -107,44 +108,50 @@ function parseExperienceProposals(value, payload) {
     return { text: item.text.trim(), applicability: item.applicability.trim(), methodId: item.methodId, sourceIds: [...new Set(item.sourceIds)], caseIds: [...new Set(cases)] };
   });
 }
-function taskUseFor(plan, payload, patch) {
+function taskUseFor(plan, payload, patch,{bindingReady=true}={}) {
   if (plan.taskUse !== undefined && !['continue','different','uncertain'].includes(plan.taskUse))
     throw new Error('draftPlan.taskUse: choose continue, different or uncertain for this request');
+  if(!bindingReady)return undefined;
   const active=payload?.topicContext?.active;
   const rebound=patch?.operation==='create'||patch?.operation==='resume'||patch?.purposeSourceIds?.includes(payload?.intentAuthority?.sourceId||payload?.userRequest?.sourceId);
   if(active?.applicability==='requires_current_request_match'&&!rebound&&!['complete','cancel','pause'].includes(patch?.operation)&&!plan.taskUse)
     throw new Error('draftPlan.taskUse: 当前保留任务只是候选，请依据本次原话确认继续、另谈或仍不确定；不自动沿用旧目的');
   return rebound?'continue':plan.taskUse||'continue';
 }
-function parseDraftGuidance(value, payload, { taskUse='continue' }={}) {
+function parseDraftGuidance(value, payload, { taskUse='continue',issues:sharedIssues,bindingReady=true }={}) {
+  const issues=sharedIssues||new ValidationIssues(),start=issues.mark();
   if (value === undefined) return undefined;
   if (!value || typeof value !== 'object' || Array.isArray(value) || Object.keys(value).some(key => !['objective','allowedApproach','avoidances','currentStep'].includes(key)))
     throw new Error('draftPlan.guidance: only objective/allowedApproach/avoidances/currentStep are allowed');
   const available = new Map((payload?.sources || []).map(source => [source.id, source]));
   // These program-validated task references grant control provenance only.
   // Their bodies are not delivered facts and cannot authorize outbound quotes.
-  const taskRefs=new Map((taskUse==='continue'?payload?.topicContext?.controlRefs||[]:[])
+  const taskRefs=new Map((bindingReady&&taskUse==='continue'?payload?.topicContext?.controlRefs||[]:[])
     .filter(ref=>typeof ref.sourceId==='string'&&typeof ref.revision==='string'&&ref.fields?.length)
     .map(ref=>[ref.sourceId,ref]));
   const parseItem = (item, path) => {
-    if (!item || typeof item !== 'object' || Array.isArray(item) || Object.keys(item).some(key => !['text','sourceIds'].includes(key)) ||
-      typeof item.text !== 'string' || !item.text.trim() || item.text.length > 400)
-      throw new Error(`${path}.text: use a short expression control of at most 400 characters, not private rationale or outbound material`);
-    if (!Array.isArray(item.sourceIds) || !item.sourceIds.length || item.sourceIds.length > 8 || item.sourceIds.some(id => typeof id !== 'string' || !available.has(id)&&!taskRefs.has(id)) ||
+    if(!item||typeof item!=='object'||Array.isArray(item)||Object.keys(item).some(key=>!['text','sourceIds'].includes(key)))throw validationError(path,'draft_guidance_item_invalid',`${path}: expected a short control object with text/sourceIds`);
+    if(typeof item.text!=='string'||!item.text.trim()||item.text.length>400)throw validationError(`${path}.text`,'draft_guidance_text_invalid',`${path}.text: use a short expression control of at most 400 characters, not private rationale or outbound material`);
+    if(!Array.isArray(item.sourceIds)||!item.sourceIds.length||item.sourceIds.length>8||item.sourceIds.some(id=>typeof id!=='string'))
+      throw validationError(`${path}.sourceIds`,'draft_guidance_source_invalid',`${path}.sourceIds: cite delivered private user/request/feedback or explicit preference sources; QQ alone and generated artifacts cannot establish user controls`);
+    if(bindingReady||item.sourceIds.every(id=>available.has(id))){
+      if (item.sourceIds.some(id => !available.has(id)&&!taskRefs.has(id)) ||
       !item.sourceIds.some(id => {
         const source = available.get(id);
         if(!source)return taskRefs.has(id);
         return ['private','request','feedback'].includes(source.type) && source.role === 'user' || source.type === 'note' && source.kind === 'preference';
-      })) throw new Error(`${path}.sourceIds: cite delivered private user/request/feedback or explicit preference sources; QQ alone and generated artifacts cannot establish user controls`);
+      })) throw validationError(`${path}.sourceIds`,'draft_guidance_source_invalid',`${path}.sourceIds: cite delivered private user/request/feedback or explicit preference sources; QQ alone and generated artifacts cannot establish user controls`);
+    }
     return { text: item.text.trim(), sourceIds: [...new Set(item.sourceIds)] };
   };
   const result = {};
-  for (const key of ['objective','allowedApproach','currentStep']) if (value[key] !== undefined) result[key] = parseItem(value[key], `draftPlan.guidance.${key}`);
+  for(const key of ['objective','allowedApproach','currentStep'])if(value[key]!==undefined){const checked=issues.check(`draftPlan.guidance.${key}`,'draft_guidance_invalid',()=>parseItem(value[key],`draftPlan.guidance.${key}`));if(checked.ok)result[key]=checked.value;}
   if (value.avoidances !== undefined) {
-    if (!Array.isArray(value.avoidances) || value.avoidances.length > 8) throw new Error('draftPlan.guidance.avoidances: use at most 8 local controls');
-    result.avoidances = value.avoidances.map((item, index) => parseItem(item, `draftPlan.guidance.avoidances[${index}]`));
+    const shape=issues.check('draftPlan.guidance.avoidances','draft_guidance_shape_invalid',()=>{if(!Array.isArray(value.avoidances)||value.avoidances.length>8)throw new Error('draftPlan.guidance.avoidances: use at most 8 local controls');});
+    if(shape.ok)result.avoidances=value.avoidances.map((item,index)=>issues.check(`draftPlan.guidance.avoidances[${index}]`,'draft_guidance_invalid',()=>parseItem(item,`draftPlan.guidance.avoidances[${index}]`)).value);
   }
-  return result;
+  if(!sharedIssues)issues.throwIfAny();
+  return !bindingReady||issues.hasSince(start)?undefined:result;
 }
 function requireTopicGuidance(guidance, payload, patch, taskUse='continue') {
   if(taskUse!=='continue'&&!['create','resume'].includes(patch?.operation))return;
@@ -175,7 +182,7 @@ function requireDraftControlGuidance(guidance, payload) {
   if(typeof policy.intentSourceId!=='string'||!ids.includes(policy.intentSourceId))missing.push('draftPlan.guidance.sourceIds');
   if(missing.length)throw new Error(`${missing.join(', ')}: current drafting controls require a source-bound objective and approach, an explicit avoidances evaluation (use [] when none applies), and at least one guidance sourceIds reference to current intent ${policy.intentSourceId}; do not restore only old controls or copy private rationale into outbound text`);
 }
-function parseAssistantStrict(value, purpose, input) {
+function parseAssistantStrict(value, purpose, input,issues) {
   if (typeof value === 'string') value = parseModelJson(value);
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('助手返回格式不正确');
   // A final draft body is already outward wording; suggestions is only its
@@ -190,8 +197,8 @@ function parseAssistantStrict(value, purpose, input) {
     value={...value,kind:value.kind||'draft',text:value.text||value.analysis||'参考表达',suggestions:value.suggestions.map(s=>typeof s==='string'?{style:'自然',text:s}:s&&typeof s==='object'?{...s,style:s.style||'自然'}:s)};
   }
   const payload = input?.payload || input;
-  if(value.replyDisposition!==undefined&&!['wait','clarify','unavailable'].includes(value.replyDisposition))
-    throw new Error('replyDisposition: use wait, clarify, or unavailable; a reply candidate uses draftPlan/suggestions instead');
+  const checkDisposition=()=>{if(value.replyDisposition!==undefined&&!['wait','clarify','unavailable'].includes(value.replyDisposition))throw new Error('replyDisposition: use wait, clarify, or unavailable; a reply candidate uses draftPlan/suggestions instead');};
+  if(issues)issues.check('replyDisposition','reply_disposition_invalid',checkDisposition);else checkDisposition();
   // Planning and lookup are control envelopes, but their readable explanation
   // remains private help for the user. Legacy pure envelopes stay compatible.
   const readableStep = ['discussion','question','options','review','acknowledgment'].includes(value.kind) &&
@@ -204,7 +211,7 @@ function parseAssistantStrict(value, purpose, input) {
       throw new Error('methodIds: 只能使用本次 methodSelection.candidates 中的方法，并遵守本阶段数量上限');
     return [...new Set(value.methodIds)];
   };
-  const reportedMethods = methods();
+  const reportedMethods=issues?issues.check('methodIds','method_ids_invalid',methods).value:methods();
   if (purpose !== 'draft' && value.lookup) {
     const q = value.lookup;
     const handles=new Set();
@@ -232,15 +239,16 @@ function parseAssistantStrict(value, purpose, input) {
     if (q.types && (!Array.isArray(q.types) || q.types.some(t => !['qq','private','note','feedback'].includes(t)))) throw new Error('历史检索类型不正确');
     return { ...readableStep, lookup: { query: q.query || '', before: q.before, after: q.after, types: q.types, ...(q.discussionTurnIds ? { discussionTurnIds: [...new Set(q.discussionTurnIds)] } : {}),...(q.sourceIds?{sourceIds:[...new Set(q.sourceIds)]}:{}),...(q.sourceIds?.length||q.discussionTurnIds?.length?{offset:q.offset||0,maxChars:q.maxChars||4000}:{}),...(q.methodIds?{methodIds:[...new Set(q.methodIds)]}:{}),...(q.discover?{discover:true}:{}) }, ...(reportedMethods ? { methodIds: reportedMethods } : {}) };
   }
-  const extras = reportedMethods ? { methodIds: reportedMethods } : {};
+  const extras=reportedMethods?{methodIds:reportedMethods}:{};let topicValid=true;
+  const audit=(field,run)=>{if(!issues){run();return true;}const before=issues.mark(),checked=issues.check(field,`${field}_invalid`,run);if(!checked.ok||issues.hasSince(before)){delete extras[field];return false;}return true;};
   if (purpose === 'draft') for (const field of ['relationshipPatch','topicPatch','statePatch','actions','draftPlan','expressionOptions','experienceProposals'])
     if (value[field] !== undefined) throw new Error(`${field}: 受限草稿阶段只返回表达，不更新私下状态或权限`);
   if (purpose !== 'draft') {
-    if (value.actions !== undefined) { if (!Array.isArray(value.actions) || value.actions.length > 8) throw new Error('助手操作列表格式不正确'); extras.actions = value.actions; }
+    if(value.actions!==undefined)audit('actions',()=>{if(!Array.isArray(value.actions)||value.actions.length>8)throw new Error('助手操作列表格式不正确');extras.actions=value.actions;});
     if (value.expressionOptions !== undefined) extras.expressionOptions = value.expressionOptions;
     if (value.statePatch !== undefined) extras.statePatch = value.statePatch;
-    if (value.experienceProposals !== undefined) extras.experienceProposals = parseExperienceProposals(value.experienceProposals, payload);
-    if (value.topicPatch !== undefined) {
+    if(value.experienceProposals!==undefined)audit('experienceProposals',()=>{extras.experienceProposals=parseExperienceProposals(value.experienceProposals,payload);});
+    if(value.topicPatch!==undefined)topicValid=audit('topicPatch',()=>{
       extras.topicPatch = normalizeTopicPatch(value.topicPatch);
       if (payload) {
         const available = new Map((payload.sources || []).map(source => [source.id, source]));
@@ -293,8 +301,8 @@ function parseAssistantStrict(value, purpose, input) {
           }
         } else if (observationIds.length) throw new Error('topicPatch.observationSourceIds: omit observation evidence when no stage/progress/unknowns is changed');
       }
-    }
-    if (value.relationshipPatch !== undefined) {
+    });
+    if(value.relationshipPatch!==undefined)audit('relationshipPatch',()=>{
       extras.relationshipPatch = normalizeRelationshipPatch(value.relationshipPatch);
       if (payload) {
         const sourceMap = new Map((payload.sources || []).map(source => [source.id, source]));
@@ -312,23 +320,31 @@ function parseAssistantStrict(value, purpose, input) {
             throw new Error(`${path}.id/expectedVersion: 必须对应本次 relationshipContext 中的对象与版本；新记录省略这两个字段`);
         }
       }
-    }
+    });
     if (value.stateReview === 'no_change') extras.stateReview = 'no_change';
   }
   if (purpose !== 'draft' && value.draftPlan) {
     const plan = value.draftPlan;
+    if(!plan||typeof plan!=='object'||Array.isArray(plan))throw validationError('draftPlan','draft_plan_shape_invalid','draftPlan: expected a planning object');
     if (typeof plan.clarification === 'string' && plan.clarification.trim() && plan.clarification.length <= 1000) {
       return { ...extras, ...readableStep, draftPlan: { clarification: plan.clarification } };
     }
-    const editingReference=selectEditingReference(input,plan.editingReference,plan.editingReferenceBinding);
-    const editing=editingReference?{editingReference,...(editingReferenceBinding(input)?{editingReferenceBinding:editingReferenceBinding(input)}:{})}:{};
-    const taskUse=taskUseFor(plan,payload,extras.topicPatch);
-    const guidance = parseDraftGuidance(plan.guidance, payload,{taskUse});
-    requireDraftControlGuidance(guidance,payload);
-    requireTopicGuidance(guidance, payload, extras.topicPatch,taskUse);
-    // Run the same source/material contract here and at the restricted handoff.
-    // A faulty plan can then use the existing single bounded format repair.
-    if(payload?.draftMaterialPolicy)resolveDraftMaterial(payload,plan);
+    const checkpoints=issues||new ValidationIssues(),start=checkpoints.mark();
+    const edit=checkpoints.check('draftPlan.editingReference','draft_editing_reference_invalid',()=>selectEditingReference(input,plan.editingReference,plan.editingReferenceBinding));
+    const editingReference=edit.value,editing=editingReference?{editingReference,...(editingReferenceBinding(input)?{editingReferenceBinding:editingReferenceBinding(input)}:{})}:{};
+    const checkedUse=checkpoints.check('draftPlan.taskUse','draft_task_use_invalid',()=>taskUseFor(plan,payload,extras.topicPatch,{bindingReady:topicValid}));
+    const use={...checkedUse,ok:checkedUse.ok&&topicValid};
+    const taskUse=use.value;let guidance;
+    const before=checkpoints.mark();
+    const parsed=checkpoints.check('draftPlan.guidance','draft_guidance_shape_invalid',()=>parseDraftGuidance(plan.guidance,payload,{taskUse,bindingReady:use.ok,issues:checkpoints}));
+    guidance=parsed.value;
+    if(use.ok&&parsed.ok&&!checkpoints.hasSince(before)){
+      checkpoints.check('draftPlan.guidance','draft_control_guidance_missing',()=>requireDraftControlGuidance(guidance,payload));
+      checkpoints.check('draftPlan.guidance','draft_topic_guidance_missing',()=>requireTopicGuidance(guidance,payload,extras.topicPatch,taskUse));
+    }
+    if(payload?.draftMaterialPolicy)checkpoints.check('draftPlan.quotes','draft_material_invalid',()=>resolveDraftMaterial(payload,plan,{issues:checkpoints}));
+    if(!issues)checkpoints.throwIfAny();
+    if(checkpoints.hasSince(start))return undefined;
     if (plan.option && typeof plan.option.turnId === 'string' && Number.isInteger(plan.option.index))
       return { ...extras, ...readableStep, draftPlan: { ...editing,option: plan.option,taskUse, authorizationQuote: plan.authorizationQuote, quotes: plan.quotes||[], style: plan.style, language:plan.language,askFollowup:plan.askFollowup,useEmoji:plan.useEmoji, ...(guidance ? { guidance } : {}) } };
     if (!Array.isArray(plan.quotes) || (!plan.quotes.length && plan.intent !== 'reply') || plan.quotes.length > 8 ||
@@ -381,7 +397,9 @@ function parseAssistant(value, purpose, input, diagnostics) {
   const decoded=sourceWire?sourceWire.decode(raw,{isolateFields:bestEffort?fields:[],onRejected:(field,error)=>wireAuxiliaryErrors.push({field,code:'invalid_auxiliary_metadata',message:String(error.message).slice(0,500)})}):raw;
   const normalized=normalizeBlockerQuestion(decoded,value,diagnostics,purpose);
   const data=normalized.value;
-  const delivery=purpose==='draft'?undefined:parseRequestDelivery(data,payload);
+  const issues=new ValidationIssues();
+  const deliveryCheck=purpose==='draft'?{ok:true,value:undefined}:issues.check('requestDelivery','request_delivery_invalid',()=>parseRequestDelivery(data,payload));
+  const delivery=deliveryCheck.value;
   const attach=result=>{
     if(normalized.explanation)result.discussionExplanation=normalized.explanation;
     if(purpose==='draft'&&payload?.requestDeliveryObligation){
@@ -396,9 +414,10 @@ function parseAssistant(value, purpose, input, diagnostics) {
   // Only a new ordinary-help request may isolate optional bookkeeping errors.
   if (payload?.taskContext?.auxiliaryPolicy !== 'best_effort' || purpose === 'draft' || !data ||
     typeof data !== 'object' || Array.isArray(data) || data.lookup || data.draftPlan)
-    return attach(parseAssistantStrict(data,purpose,input));
+    {const checked=issues.check('$','assistant_result_invalid',()=>parseAssistantStrict(data,purpose,input,issues));issues.throwIfAny();return attach(checked.value);}
   const base = Object.fromEntries(Object.entries(data).filter(([key]) => !fields.includes(key)));
-  const result = parseAssistantStrict(base,purpose,input), errors = [...wireAuxiliaryErrors];
+  const checkedCore=issues.check('$','assistant_result_invalid',()=>parseAssistantStrict(base,purpose,input,issues));issues.throwIfAny();
+  const result=checkedCore.value,errors=[...wireAuxiliaryErrors];
   for (const field of fields) if (data[field] !== undefined) {
     try {
       if (field === 'statePatch') validateForegroundState(data[field],payload);
@@ -503,7 +522,8 @@ async function assistModel(settings, context, signal, fetchImpl = fetch) {
     let repairPayload=plainRecovery
       ? {purpose:context.payload.purpose === 'draft' ? 'plain_draft_recovery' : 'plain_help_recovery',originalInput:context.payload}
       : {purpose:context.payload.purpose,originalInput:context.payload,invalidResponse:responseContent,
-      formatError:error instanceof SyntaxError?'响应不是合法 JSON':error.message,
+      formatError:error.issues?`${error.issues.map(issue=>issue.path).join(', ')}: address every validationIssues entry atomically.`:error instanceof SyntaxError?'响应不是合法 JSON':error.message,
+      ...(error.issues?{validationIssues:error.issues}:{}),
       task: context.payload.purpose === 'draft'
         ? '当前purpose=draft，仅按originalInput受限输入修复为kind:draft、非空text及1..3条完整suggestions；确实缺少不可绕过的事实或许可时用kind:question、具体text及deliveryBlocker:{kind:missing_fact/missing_authorization,missing:具体缺项,question:对应私下核对问题}。不能返回只有策略或泛泛问题，不能新增事实或重新索取完整私下请求。'
         : structuredRepairTask(preparedRequest.wirePayload) };
