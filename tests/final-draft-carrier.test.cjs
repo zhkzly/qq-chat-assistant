@@ -1,4 +1,8 @@
 'use strict';
+function admittedQuotes(quotes){
+ return quotes.map(quote=>{assert.equal(quote.provenance?.version,1);assert.equal(quote.provenance.source.sourceId,quote.sourceId);return {sourceId:quote.sourceId,text:quote.text};});
+}
+
 const {wireSourceView,canonicalSourceView}=require('./fixtures/source-wire.cjs');
 const test=require('node:test'),assert=require('node:assert/strict'),{createHash}=require('node:crypto');
 const {parseAssistant,assistModel}=require('../src/assistant-model.cjs');
@@ -95,7 +99,7 @@ async function integrationFixture(t,{privateOnly=false}={}){
 test('the actual final text body succeeds after all four task calls are consumed without another repair',async t=>{
  const app=await integrationFixture(t),reply=await app.controller.assist({text:'回应她现在的包；只使用我明确允许分享的小经历，给我完整表达。',taskId:'final-carrier-four-call-task'});
  assert.equal(app.calls.length,4);assert.deepEqual(app.calls.map(call=>call.p.purpose),['discussion','discussion','discussion','draft']);
- const wording=app.calls[3].p,canonical=canonicalSourceView(wording,app.run().requests.at(-1).manifest.sourceHandles);assert.deepEqual(canonical.outboundQuotes,[actualQuote]);
+ const wording=app.calls[3].p,canonical=canonicalSourceView(wording,app.run().requests.at(-1).manifest.sourceHandles);assert.deepEqual(admittedQuotes(canonical.outboundQuotes),[actualQuote]);
  assert.equal(wording.userRequest,undefined);assert.equal(wording.privateConversation,undefined);assert.equal(wording.goal,undefined);assert.equal(JSON.stringify(wording).includes('PRIVATE_REASON_DO_NOT_DISCLOSE'),false);
  assert.equal(reply.suggestions.length,1);assert.equal(reply.suggestions[0].text,body);assert.equal(app.run().status,'complete');assert.equal(app.run().manifest.requestDelivery.status,'delivered');
  assert.equal(app.run().requests.some(request=>request.purpose==='delivery_repair'||request.purpose==='plain_response_recovery'),false);

@@ -1,4 +1,8 @@
 'use strict';
+function admittedQuotes(quotes){
+ return quotes.map(quote=>{assert.equal(quote.provenance?.version,1);assert.equal(quote.provenance.source.sourceId,quote.sourceId);return {sourceId:quote.sourceId,text:quote.text};});
+}
+
 const {canonicalSourceView}=require('./fixtures/source-wire.cjs');
 // Source-shaped fictional Controller/Store/model-transport handoffs. The fake
 // responses prove delivered instructions and permissions, not model quality.
@@ -56,7 +60,7 @@ for(const mode of ['guidance_only','new_material'])test(`structured repair prese
  assert.equal(repair.payload.originalInput.userRequest.text,text);assert.equal(repair.payload.originalInput.sources.find(source=>source.id===priorId).text,PRIOR);
  assert.equal(draft.purpose,'draft');assert.equal(draft.draftingGuidance.objective.text,OBJECTIVE);assert.equal(draft.draftingGuidance.allowedApproach.text,APPROACH);
  assert.deepEqual(draft.draftingGuidance.objective.sourceIds,[priorId,currentId]);assert.deepEqual(draft.draftingGuidance.allowedApproach.sourceIds,[priorId,currentId]);
- assert.deepEqual(draft.outboundQuotes,mode==='new_material'?[{sourceId:currentId,text:NEW_MATERIAL}]:[]);
+ assert.deepEqual(admittedQuotes(draft.outboundQuotes),mode==='new_material'?[{sourceId:currentId,text:NEW_MATERIAL}]:[]);
  assert.ok(draft.sources.every(source=>source.type==='qq'),'private instructions are control references, not raw composer sources');
  for(const privateBody of [PRIOR,CRITICISM,'PRIVATE_PRIOR_REASON'])assert.equal(JSON.stringify(draft).includes(privateBody),false);
  assert.equal(store.getCompanion(scope).turns.find(turn=>turn.id===priorId.slice('private:'.length)).text,PRIOR);

@@ -1,4 +1,8 @@
 'use strict';
+function admittedQuotes(quotes){
+ return quotes.map(quote=>{assert.equal(quote.provenance?.version,1);assert.equal(quote.provenance.source.sourceId,quote.sourceId);return {sourceId:quote.sourceId,text:quote.text};});
+}
+
 const {withCurrentDraftControls}=require('./fixtures/draft-controls.cjs');
 const test=require('node:test'),assert=require('node:assert/strict');
 const {Store}=require('../src/store.cjs');const {Controller}=require('./fixtures/assistant-protocol.cjs');const {scope,raw}=require('./fixtures/native.cjs');
@@ -60,7 +64,7 @@ test('source-bound draft planning still rolls back final output when Store rejec
  const app=setup(t,async(_s,input)=>{const p=input.payload;phases.push(p.purpose);
   if(p.purpose==='draft_prepare'){const topicPatch=start(p);return {kind:'discussion',text:'按你明确想问的意思组织表达。',topicPatch,
     draftPlan:{quotes:[{sourceId:intent(p),text:question}],guidance:guide(topicPatch),style:'natural'}};}
-  assert.equal(p.purpose,'draft');assert.deepEqual(p.outboundQuotes,[{sourceId:p.draftingGuidance.objective.sourceIds[0],text:question}]);
+  assert.equal(p.purpose,'draft');assert.deepEqual(admittedQuotes(p.outboundQuotes),[{sourceId:p.draftingGuidance.objective.sourceIds[0],text:question}]);
   assert.equal(p.userRequest,undefined);assert.equal(p.goal,undefined);
   return {kind:'draft',text:'一条完整参考表达',suggestions:[{style:'自然',text:question}]};
  });await app.controller.bind(scope.peerUin);t.mock.method(app.store,'applyTopicPatch',()=>({applied:false,reason:'synthetic_rejected_planning_authority'}));

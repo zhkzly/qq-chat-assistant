@@ -1,4 +1,8 @@
 'use strict';
+function admittedQuotes(quotes){
+ return quotes.map(quote=>{assert.equal(quote.provenance?.version,1);assert.equal(quote.provenance.source.sourceId,quote.sourceId);return {sourceId:quote.sourceId,text:quote.text};});
+}
+
 const test=require('node:test'),assert=require('node:assert/strict');
 const {Store}=require('../src/store.cjs'),{normalize}=require('../src/messages.cjs');
 const {buildContext,buildDraftContext}=require('../src/assistant-context.cjs');
@@ -22,7 +26,7 @@ test('an earlier explicit permission is bound to its material fragment, separate
  const {args,prepared,plan,id}=fixture(t);
  const parsed=parseAssistant({draftPlan:plan},'discussion',prepared.payload);
  const draft=buildDraftContext(prepared,parsed.draftPlan,args);
- assert.deepEqual(draft.payload.outboundQuotes,[{sourceId:id,text:FACT}]);
+ assert.deepEqual(admittedQuotes(draft.payload.outboundQuotes),[{sourceId:id,text:FACT}]);
  assert.equal(JSON.stringify(draft.payload).includes(PRIVATE),false);
  assert.equal(JSON.stringify(draft.payload).includes('愿意告诉她'),false);
  assert.equal(draft.manifest.disclosureBindings.length,1);
@@ -71,7 +75,7 @@ test('explicit UI option selection authorizes only its exact live original tuple
  const selection={turnId:proposal.id,index:0};
  const selected=buildContext({...args,companion:store.getCompanion(scope),selectedOption:selection});
  const draft=buildDraftContext(selected,{...plan,quotes:[{sourceId:id,text:PRIVATE}]},args);
- assert.deepEqual(draft.payload.outboundQuotes,[{sourceId:id,text:FACT}]);
+ assert.deepEqual(admittedQuotes(draft.payload.outboundQuotes),[{sourceId:id,text:FACT}]);
  selected.payload.expressionOptions[0].quotes[0].revision='stale';
  assert.throws(()=>buildDraftContext(selected,plan,args),/版本已变化/);
 });
@@ -93,7 +97,7 @@ test('a natural-language option reference preserves matching per-fragment eviden
  const selected={...plan,option:{turnId:'synthetic-options',index:1}};
  const parsed=parseAssistant({draftPlan:selected},'discussion',prepared.payload).draftPlan;
  assert.ok(parsed.quotes[0].authorization);
- assert.deepEqual(buildDraftContext(prepared,parsed,args).payload.outboundQuotes,[{sourceId:id,text:FACT}]);
+ assert.deepEqual(admittedQuotes(buildDraftContext(prepared,parsed,args).payload.outboundQuotes),[{sourceId:id,text:FACT}]);
  assert.throws(()=>parseAssistant({draftPlan:{...selected,quotes:[]}},'discussion',prepared.payload),/authorization/);
  const wrong={...selected,quotes:[{...selected.quotes[0],text:PRIVATE}]};
  assert.throws(()=>parseAssistant({draftPlan:wrong},'discussion',prepared.payload),/authorization/);
@@ -103,7 +107,7 @@ test('a current specific permission can resolve historical material without trea
  old.historicalOnly=true;old.continuationCoverage='later_private_sources_omitted';
  const current=prepared.payload.sources.find(source=>source.id===prepared.payload.intentAuthority.sourceId);
  const permitted={...plan,quotes:plan.quotes.map(quote=>({...quote,authorization:{...quote.authorization,permission:{sourceId:current.id,text:current.text}}}))};
- assert.deepEqual(buildDraftContext(prepared,permitted,args).payload.outboundQuotes,[{sourceId:id,text:FACT}]);
+ assert.deepEqual(admittedQuotes(buildDraftContext(prepared,permitted,args).payload.outboundQuotes),[{sourceId:id,text:FACT}]);
 });
 test('a delivered discussion-only restriction still blocks material carrying a permission reference',t=>{
  const {args,prepared,plan,id}=fixture(t);

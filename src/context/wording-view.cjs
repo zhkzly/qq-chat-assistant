@@ -8,6 +8,7 @@ const {projectRecentContext}=require('./policy.cjs');
 const {wordingControlsForContext}=require('./wording-controls.cjs');
 const {resolveDraftMaterial,assertDraftSourcesCurrent}=require('./draft-material.cjs');
 const {resolveEditingReference}=require('./editing-reference.cjs');
+const {buildMaterialProvenance}=require('./material-provenance.cjs');
 function buildDraftContext(prepared, plan, info) {
   if (!sameScopeIfPresent({ scope: prepared.manifest.scope }, info.scope)) throw new Error('当前联系人已变化，请重新组织草稿');
   const settings={...(info.settings||{model:prepared.manifest.requestModel,assistantRequestBytes:prepared.manifest.requestByteBudget}),sourceHandleOwner:info.settings?.sourceHandleOwner||prepared.sourceHandleOwner};
@@ -16,9 +17,10 @@ function buildDraftContext(prepared, plan, info) {
   const controlRefs=plan?.taskUse!=='different'&&plan?.taskUse!=='uncertain'?prepared.payload.topicContext?.controlRefs||[]:[];
   const byId = new Map([...controlRefs.map(ref=>({id:ref.sourceId,revision:ref.revision})),...prepared.payload.sources].map(s => [s.id, s]));
   const material=resolveDraftMaterial(prepared.payload,plan,{restrictions:prepared.restrictions||prepared.payload.privateRestrictions||[]});
-  const quotes=material.quotes;
+  const provenance=buildMaterialProvenance(prepared,material.quotes,info),quotes=provenance.quotes;
+  const dependencyRevisions=Object.fromEntries(provenance.dependencies.map(ref=>[ref.sourceId,ref.revision]));
   const editing=resolveEditingReference(prepared,plan,info);
-  assertDraftSourcesCurrent(prepared,material.sourceIds,info);
+  assertDraftSourcesCurrent({...prepared,manifest:{...prepared.manifest,sourceRevisions:{...prepared.manifest.sourceRevisions,...dependencyRevisions}}},[...new Set([...material.sourceIds,...provenance.dependencies.map(ref=>ref.sourceId)])],info);
   const originalOrder=new Map((prepared.fullAvailableSources||prepared.payload.sources).map((source,index)=>[source.id,index]));
   const qq = prepared.payload.sources.filter(s => s.type === 'qq').sort((a,b)=>Date.parse(a.at)-Date.parse(b.at)||(originalOrder.get(a.id)??0)-(originalOrder.get(b.id)??0));
   const selection = selectMethods({ purpose: 'draft' });
@@ -54,7 +56,7 @@ function buildDraftContext(prepared, plan, info) {
   refreshDraftImages();
   if (guidance && Object.keys(guidance).length) payload.draftingGuidance = { ...guidance,
     authority: 'expression_control_not_message_content',
-    instruction: '这些短控制只约束表达任务与用法，不是可发送原文。不要写出控制说明、私下理由或来源标识；保持outboundQuotes授权的意思，askFollowup:false不排除本来要表达的问题。' };
+    instruction: 'guidance控制组织方式，outboundQuotes提供依据，不是两段要分别复述的话。同一相关意思只说一次，不混同相关事实的主体/日期/否定/细节；无需用完或照抄全部片段，私下边界与已选动作优先。不写控制说明、私下理由、来源标识；askFollowup:false不排除已选问题。' };
   const controlIds = guidance ? [...new Set([guidance.objective,guidance.allowedApproach,...(guidance.avoidances || []),guidance.currentStep].filter(Boolean).flatMap(item => item.sourceIds))] : [];
   const essentialIds=new Set([...(prepared.essentialSourceIds||qq.map(source=>source.id)),...quotes.map(q=>q.sourceId),...controlIds,...payload.replyFocus.map(id=>`qq:${id}`),...(payload.imageContext?.attached||[]).map(image=>image.sourceId)]);
   const recentPriorityIds=new Set(prepared.manifest.recentQQContext?.admittedPrioritySourceIds||[]);
@@ -86,6 +88,10 @@ function buildDraftContext(prepared, plan, info) {
   const uniqueSources = entries => [...new Map(entries.map(source => [source.id, source])).values()];
   const safeSources=uniqueSources([...payload.sources,...referencedSources]),allSafeSources=uniqueSources([...qq,...referencedSources]);
   const context=finish(payload,safeSources,info,allSafeSources,prepared.manifest.byteBudget,budget);
+  // Root metadata does not deliver root bodies. Keep full dependencies only
+  // in canonical private revision fences/artifact input references.
+  Object.assign(context.manifest.sourceRevisions,dependencyRevisions);
+  context.manifest.materialProvenance={version:1,dependencyCount:provenance.dependencies.length,rootMetadataLimit:8};
   if(editing)context.manifest.inputArtifactRefs=[editing.dependency];
   if(material.ignoredAuthorizations?.length)context.manifest.ignoredMaterialAuthorizations=structuredClone(material.ignoredAuthorizations);
   context.manifest.disclosureBindings=material.bindings.map(binding=>({...binding,scope:{...info.scope}}));
