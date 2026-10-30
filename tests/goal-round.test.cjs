@@ -10,7 +10,7 @@ const ROOT=path.resolve(__dirname,'..');
 const baselineSnapshots=new Map();
 function materializeBaseline(directory,revision){
  if(!baselineSnapshots.has(revision)){
-  const gitOptions={cwd:ROOT,maxBuffer:32*1024*1024};
+  const gitOptions={cwd:ROOT,maxBuffer:32*1024*1024,stdio:['ignore','pipe','pipe']};
   const names=execFileSync('git',['ls-tree','-r','-z','--name-only',revision,'--','src'],gitOptions).toString('utf8').split('\0').filter(Boolean);
   assert.ok(names.length,'Frozen baseline revision must contain product source');
   baselineSnapshots.set(revision,Object.freeze(names.map(name=>Object.freeze({name,body:execFileSync('git',['show',`${revision}:${name}`],gitOptions).toString('base64')}))));
@@ -112,4 +112,18 @@ test('cross-stage countercases can be frozen without turning them into stage tar
  assert.ok(r.case_plans['conv-share-own-material']);
  assert.throws(()=>prepareRound({root:ROOT,id:'unknown',stage:'delivery_provenance',cases:['coverage-observed-output-feedback'],guardrails:['not-a-real-case'],hypothesis:'Invalid countercase',out:path.join(dir,'bad')}),/guardrail|frozen case/i);
  assert.equal(fs.existsSync(path.join(dir,'bad')),false);
+});
+test('multi-turn reviews can cite prior actual outputs but still need current evidence',async t=>{
+ const c=await compared(t),r=reviewFixture(c),e=c.packet.entries.find(item=>item.prior_entry_ids.some(id=>c.packet.entries.find(p=>p.id===id)?.actual.output)&&item.actual.output);
+ const previous=e.prior_entry_ids.map(id=>c.packet.entries.find(p=>p.id===id)).find(p=>p.actual.output),rating=r.ratings.find(g=>g.entry_id===e.id);
+ rating.evidence=[{source_id:e.actual.output.reply_id,quote:e.actual.output.text},{source_id:previous.actual.output.reply_id,quote:previous.actual.output.text}];
+ const {validateReview}=require('../scripts/goal-round.cjs');assert.doesNotThrow(()=>validateReview(c.packet,r));
+ rating.evidence.shift();assert.throws(()=>validateReview(c.packet,r),/current|visible-output/);
+});
+test('JSON execution citations are accepted only for the bound observed status and absence',async t=>{
+ const c=await compared(t),e=c.packet.entries[0];e.actual.status='execution_error';e.actual.output=null;e.output_hash=hash(e.actual);
+ const r=reviewFixture(c);r.packet_hash=hash(c.packet);r.comparisons=[];r.ratings[0]={entry_id:e.id,output_hash:e.output_hash,overall:'insufficient_evidence',hard_failures:[],evidence:[{quote:'"status": "execution_error"'},{quote:'"output": null'}]};
+ const {validateReview}=require('../scripts/goal-round.cjs');assert.doesNotThrow(()=>validateReview(c.packet,r));
+ r.ratings[0].evidence[1].quote='"output": "invented"';assert.throws(()=>validateReview(c.packet,r),/quote is absent/);
+ assert.deepEqual(c.bundle.review_values.preferred,['equivalent','inconclusive',...c.packet.systems.map(s=>s.id)]);assert.deepEqual(c.bundle.review_values.basis,['wording','delivery']);
 });
