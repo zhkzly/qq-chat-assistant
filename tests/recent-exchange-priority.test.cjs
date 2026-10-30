@@ -27,7 +27,7 @@ function assertRecent(context, records) {
   const ids = delivered(context);
   for (const record of records) assert.ok(ids.has(`qq:${record.messageId}`), `current source ${record.messageId} must precede optional old closure`);
   assert.deepEqual(context.payload.taskContext.recentExchange.map(m => m.sourceId), records.map(m => `qq:${m.messageId}`));
-  for (const entry of context.payload.taskContext.recentExchange) assert.equal(entry.text, context.payload.sources.find(s => s.id === entry.sourceId).text);
+  for (const entry of context.payload.taskContext.recentExchange) {assert.equal(entry.text,undefined);assert.ok(context.payload.sources.find(s => s.id === entry.sourceId)?.text);}
 }
 
 test('current multi-turn exchange precedes large legal old relationship evidence closures', t => {

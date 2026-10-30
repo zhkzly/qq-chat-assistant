@@ -22,7 +22,7 @@ function orderedActual(records){return records.filter(m=>m.kind==='actual'&&!m.r
 function recentExchange(records){
  const actual=orderedActual(records);let start=actual.length,bursts=0,lastDirection=null;
  const newest=actual.at(-1);
- while(start>0){
+ while(start>0&&actual.length-start<RECENT_CONTEXT_LIMITS.maxMessages){
   const message=actual[start-1],following=actual[start];
   if(following&&(following.timestamp-message.timestamp>RECENT_CONTEXT_LIMITS.maxGapMs||newest.timestamp-message.timestamp>RECENT_CONTEXT_LIMITS.maxSpanMs))break;
   if(message.direction!==lastDirection){if(bursts===2)break;bursts++;lastDirection=message.direction;}
@@ -110,8 +110,7 @@ function retrievalQuery({text,records,companion,transient=false,asOf=new Date().
  const recent=recentExchange(records),incoming=recent.filter(m=>m.direction==='incoming'),outgoing=recent.filter(m=>m.direction==='outgoing');
  const policy=recentHistoryPolicy(asOf,settings);
  const previous=(companion.turns||[]).filter(t=>t.role==='user'&&!t.memoryExcluded&&t.text!==text&&Date.parse(t.createdAt)>=Date.parse(policy.since)&&Date.parse(t.createdAt)<=Date.parse(asOf)).slice(-2);
- const topic=(companion.topics?.items||[]).find(t=>t.id===companion.topics.activeId&&t.lifecycle==='active');
- const parts=[...(!transient?[text]:[]),...incoming.map(m=>m.text),...outgoing.map(m=>m.text),...previous.map(t=>t.text),topic?.objective,topic?.direction];
+ const parts=[...(!transient?[text]:[]),...incoming.map(m=>m.text),...outgoing.map(m=>m.text),...previous.filter(t=>t.text.length<1600).map(t=>t.text),companion.goal?.text];
  // The query is a retrieval hint, not quoted evidence. Its cap never slices
  // the actual current request or the protected latest exchange in the model.
  return [...new Set(parts.filter(p=>typeof p==='string'&&p.trim()).map(redact))].join('\n').slice(0,4000)||redact(text);

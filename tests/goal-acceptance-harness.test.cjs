@@ -16,7 +16,18 @@ test('synthetic transport exercises planning, clarification, private explanation
  const indirect=report.cases.find(item=>item.id==='G3');assert.deepEqual(indirect.stages.map(stage=>stage.purpose),['discussion','draft']);assert.ok(indirect.reply.discussionExplanation.text);
  const experience=report.cases.find(item=>item.id==='G8');assert.equal(experience.guidanceSeeds.length,4);assert.ok(experience.guidanceDelivery[0].entries.every(item=>item.authority==='user_approved_assistance_guidance'));
  const contrary=report.cases.find(item=>item.id==='G8-contrary');assert.ok(contrary.controls[0].allowedApproach.text.includes('最新请求'));assert.deepEqual(contrary.controls[0].avoidances,[]);
- assert.ok(report.cases.every(item=>item.methodDelivery.every(stage=>stage.compactOperations.every(method=>method.provided&&method.locations.length))));
+ for(const item of report.cases)for(const stage of item.methodDelivery){
+  assert.ok(stage.directoryNavigation.every(method=>method.provided&&method.locations.length&&method.authority==='navigation_only'));
+  const actual=stage.instructionDelivery.filter(method=>method.provided);
+  assert.ok(actual.every(method=>method.locations.length));
+  assert.deepEqual(new Set(actual.map(method=>method.id)),new Set(stage.operationalDelivery.ids),'only actual instruction delivery counts in the trace');
+  assert.equal(stage.reportedUseAuthority,'model_report_only_not_observed_adoption');
+  if(stage.purpose!=='draft'){
+   assert.equal(stage.directoryNavigation.length,8);
+   assert.ok(stage.expandedCards.length<=1);
+   assert.ok(stage.instructionDelivery.some(method=>!method.provided),'directory entries do not imply all eight operations were delivered');
+  }
+ }
  assert.ok(!JSON.stringify(report).includes('Authorization'));assert.ok(report.sourceHashesAtStart['src/controller.cjs']);
 });
 test('targeted cases select only declared IDs and preserve the newly requested rationale and both question meanings',async()=>{

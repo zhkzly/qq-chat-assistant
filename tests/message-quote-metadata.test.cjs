@@ -122,7 +122,9 @@ test('ordering/author enrichment keeps legacy source revisions, derived memory a
   assert.equal(store.memoryStatus(scope).pending, pending);
   assert.equal(store._memoryRecords(scope).length, 1);
   assert.ok(store.getCompanion(scope).turns.some(t => t.id === answer.id));
-  assert.equal(store.getCompanion(scope).state.focus, 'Synthetic focus');
+  assert.equal(store.getCompanion(scope).state.focus, '');
+  assert.equal(store.getCompanion(scope).state.legacyTaskReviews.at(-1).focus, 'Synthetic focus');
+  assert.equal(store.getCompanion(scope).state.legacyTaskReviews.at(-1).status, 'needs_review');
   const persisted = JSON.parse(store.db.prepare('SELECT record FROM memory_sources WHERE scope_key=? AND source_id=?').get(store.scopeKey(scope), oldSource.id).record);
   assert.equal(persisted.sequence, after.sequence);
 });

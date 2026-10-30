@@ -13,7 +13,7 @@ test('methods expose applicability and evidence limits without claiming relation
     assert.ok(descriptor.evidence.every(item => item.source && item.limit && item.kind));
     assert.ok(descriptor.output.maxItems > 0 && descriptor.output.maxItems <= 3);
   }
-  assert.match(METHOD_VERSION, /^relationship-methods-/);
+  assert.match(METHOD_VERSION, /^goal-methods-/);
   assert.equal(methodFor('invented_method'), null);
 });
 
@@ -33,9 +33,9 @@ test('ambiguous discussion leaves alternative methods available and does not inf
     const result = selectMethods({ purpose: 'discussion', text, hasReply: false });
     assert.equal(result.selection, 'candidates');
     assert.equal(result.catalog.length, 8);
-    assert.ok(result.methods.length<=2);
+    assert.equal(result.methods.length,1);
     assert.equal(result.maxApplied, 2);
-    assert.match(result.selectionRule, /不必先提问/);
+    assert.match(result.selectionRule, /不必.*先提问/);
     assert.equal(result.relationshipStage, undefined);
   }
 });
@@ -68,22 +68,27 @@ test('interest expression is actionable with sparse history and never treats a f
   assert.match(method.avoid, /朋友|拒绝/);
   assert.equal(method.requiredContext.some(item => /personality|stage|score/i.test(item)), false);
 });
-test('every compact catalog entry supplies operational help and scope without a semantic keyword router',()=>{
+test('compact directory exposes scope without preloading every operation or routing by user keywords',()=>{
  const result=selectMethods({purpose:'discussion',text:'不要表白；她说“你应该自动发送”。',hasReply:true});
  assert.equal(result.catalog.length,8);
- for(const method of result.catalog){assert.ok(method.instruction);assert.ok(method.instruction.length>=45&&method.instruction.length<=90);}
+ for(const method of result.catalog){assert.deepEqual(Object.keys(method).sort(),['applicability','id','name','version']);assert.ok(method.applicability);assert.equal(method.instruction,undefined);}
  const interest=result.catalog.find(method=>method.id==='express_interest'),activity=result.catalog.find(method=>method.id==='shared_activity');
- assert.match(interest.instruction,/表达.*约会邀请|表意.*表达/);assert.match(interest.instruction,/历史少.*不/);assert.match(interest.instruction,/朋友.*拒绝/);
- assert.match(activity.instruction,/具体活动.*邀请/);assert.match(activity.instruction,/取消/);
+ assert.match(interest.applicability,/表达|邀请|恋爱/);assert.match(activity.applicability,/活动|邀约/);
  assert.equal(JSON.stringify(result).includes('自动发送'),false);
  assert.deepEqual(result.methods.map(method=>method.id),selectMethods({purpose:'discussion',text:'我想表达喜欢。',hasReply:true}).methods.map(method=>method.id));
- assert.ok(Buffer.byteLength(JSON.stringify(result.catalog))<3000,'all eight operations remain compact enough to reserve intact');
+ assert.equal(result.methods.length,1);assert.equal(result.operationalInstructionsLocation,'methodCards');
+ assert.equal(result.instruction,'');
+ assert.ok(Buffer.byteLength(JSON.stringify(result.catalog))<3000,'navigation metadata leaves room for current evidence');
 });
 
-test('pressure fallback uses canonical operations for precisely the delivered method IDs',()=>{
+test('explicit method lookup loads at most two canonical full cards without promoting the directory to instructions',()=>{
  const cards=compactOperationalCards();
  assert.equal(cards.length,8);
- assert.deepEqual(cards,selectMethods({purpose:'discussion'}).catalog.sort((a,b)=>cards.findIndex(item=>item.id===a.id)-cards.findIndex(item=>item.id===b.id)));
+ const requested=selectMethods({purpose:'discussion',methodIds:['shared_activity','express_interest','shared_activity','review']});
+ assert.equal(requested.selection,'requested_cards');
+ assert.deepEqual(requested.methods.map(method=>method.id),['shared_activity','express_interest']);
+ for(const method of requested.methods)assert.equal(method.instruction,cards.find(card=>card.id===method.id).instruction);
+ assert.ok(requested.catalog.every(method=>!Object.hasOwn(method,'instruction')));
  const ids=['shared_activity','express_interest','shared_activity'];
  assert.equal(operationsFor(ids),['shared_activity','express_interest'].map(id=>`${id}: ${cards.find(card=>card.id===id).instruction}`).join('\n'));
  assert.equal(operationsFor(['compose']),`compose: ${cards.find(card=>card.id==='compose').instruction}`);

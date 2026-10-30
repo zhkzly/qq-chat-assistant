@@ -48,8 +48,10 @@ test('the delivered auto contract asks for wording and permits honest uncertaint
  const system=prepareAssistantRequest({model:'fixture'},payload).request.messages[0].content;
  assert.match(system,/replyDisposition/);
  assert.match(system,/draftPlan/);
- assert.match(system,/不依赖未知事实/);
- assert.match(system,/实质.*差别|不同.*方向/);
+ assert.match(system,/未知花名\/缺图片\/无今日经历不妨碍其他表达/);
+ assert.match(system,/不编经历\/承诺\/心理/);
+ assert.match(system,/clarify[^。]*缺决定内容且无法绕开的用户事实/);
+ assert.match(system,/实质不同才≤3条，否则1条/);
 });
 
 test('automatic origin and delivery decisions persist only on assistant turns',()=>{

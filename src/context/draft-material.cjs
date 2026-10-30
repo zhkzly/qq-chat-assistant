@@ -3,7 +3,7 @@
 // the evidence handoff; a matching string alone is not a semantic permission.
 const plain=value=>value&&typeof value==='object'&&!Array.isArray(value);
 const usable=source=>source&&!source.deleted&&!source.excluded&&source.use!=='disabled';
-const originalUser=source=>usable(source)&&source.role==='user'&&['private','feedback'].includes(source.type)&&source.kind!=='feedback_continue';
+const originalUser=source=>usable(source)&&source.role==='user'&&['private','feedback'].includes(source.type)&&!['feedback_continue','user_control'].includes(source.kind);
 const DRAFT_MATERIAL_PROTOCOL='旧私下quote附authorization:{permission:{sourceId,text},referent:{sourceId,text}}。permission取用户愿向当前联系人分享此事的原话，referent逐字取素材sourceId且包含quote。按完整上下文、指代、已满足条件及最新限制判断；转述、引用、否定、假设、未满足条件不授权，不将“这些”移给别的材料。同源逐片分开判断；商量进guidance。撤回优先，旧permission为historicalOnly时先lookup/clarification；遗漏既非撤回也非许可。selectedOption限其原素材，authorizationQuote/生成回答不授全局许可；不明私下核对，明确分享/邀请可用。';
 const MATERIAL_POLICY={version:1};
 function resolveDraftMaterial(payload,plan,{restrictions=payload.privateRestrictions||[]}={}){
@@ -34,6 +34,7 @@ function resolveDraftMaterial(payload,plan,{restrictions=payload.privateRestrict
  };
  const quotes=planned.map(q=>{
   const source=plain(q)&&byId.get(q.sourceId);
+  if(source?.type==='request'||['feedback_continue','user_control'].includes(source?.kind))throw new Error('invocation/task control 只能作为控制依据，不能作为外发素材或披露授权');
   if(!usable(source)||!['private','request','feedback','note','qq'].includes(source.type)||
    ['private','request','feedback'].includes(source.type)&&source.role!=='user'||typeof q.text!=='string'||!q.text.trim()||q.text.length>4000||!source.text.includes(q.text))
    throw new Error('拟表达内容未能对应本次明确请求或已选分享素材，请具体说明想说哪件事');
@@ -47,6 +48,8 @@ function resolveDraftMaterial(payload,plan,{restrictions=payload.privateRestrict
    const permission=reference(auth.permission,'permission'),referent=reference(auth.referent,'referent');
    if(!originalUser(permission)||referent.id!==source.id||!auth.referent.text.includes(q.text))
     throw new Error('draftPlan.quotes.authorization.referent: 披露依据必须指向这一素材片段，不能将其他材料的许可转移过来');
+   if(permission.delivery?.status==='partial')
+    throw new Error('披露依据只是部分原文；请先取回完整许可语境，或由用户明确本次分享范围');
    if(permission.id!==intentSourceId&&permission.historicalOnly)
     throw new Error('披露依据的后续私下来源未完整提供；请检索核对后续限制或由用户明确本次分享范围');
    sourceIds.add(permission.id);sourceIds.add(referent.id);

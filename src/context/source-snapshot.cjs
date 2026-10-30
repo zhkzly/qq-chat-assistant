@@ -81,7 +81,7 @@ function sourceSnapshot({scope,records,companion,availableSources,turn}){
     :privateOrder.has(a.id)&&privateOrder.has(b.id)?privateOrder.get(a.id)-privateOrder.get(b.id):a.id.localeCompare(b.id)));
   const byId = new Map(all.map(s => [s.id, s]));
   const currentId = `private:${turn.id}`;
-  const current = byId.get(currentId) || (turn.transient || turn.memoryExcluded ? { id: `request:${turn.id}`, type: 'request', text: redact(turn.text), revision: digest(turn), role: 'user' } : null);
+  const current = byId.get(currentId) || (turn.transient || turn.memoryExcluded ? { id: `request:${turn.id}`, type: 'request', authority:'invocation_control_not_user_evidence', text: redact(turn.text), revision: digest(turn), role: 'user' } : null);
   if (!current) throw new Error('当前私下请求不存在');
   return {actualById,all,byId,current};
 }

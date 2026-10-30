@@ -2,7 +2,7 @@
 const {createHash}=require('node:crypto');
 const {sourceClosure}=require('./provenance.cjs');
 
-const DISCUSSION_COMPACTION_VERSION='discussion-compaction-2026-10-17.1';
+const DISCUSSION_COMPACTION_VERSION='discussion-compaction-2026-10-30.2';
 const LIMITS=Object.freeze({summaryBytes:8000,quoteBytes:6000,quotes:12,turns:128,turnDependencies:384,sources:1024,retained:3});
 const plain=value=>!!value&&typeof value==='object'&&!Array.isArray(value)&&[Object.prototype,null].includes(Object.getPrototypeOf(value));
 const canonical=value=>Array.isArray(value)?value.map(canonical):plain(value)?Object.fromEntries(Object.keys(value).sort().filter(key=>value[key]!==undefined).map(key=>[key,canonical(value[key])])):value;

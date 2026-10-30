@@ -60,6 +60,13 @@ test('normal, recovery and restricted wording share behavior while protocols fol
  assert.ok(!ordinary.includes('claims: {id?'),'ordinary help does not carry the full relationship write protocol');
  assert.ok(review.includes('claims: {id?'));
  assert.ok(Buffer.byteLength(ordinary)<12000,'foreground instructions have a bounded readable protocol');
+ for(const trigger of ['private_request','manual_suggestion','automatic_observation']){
+  const prompt=prepareAssistantRequest(settings,{...foreground,taskContext:{...foreground.taskContext,invocation:{trigger,requestedPurpose:'reply'}}}).request.messages[0].content;
+  assert.ok(prompt.length<4600,`${trigger} foreground protocol stays readable: ${prompt.length}`);
+  assert.match(prompt,/requires_current_request_match/);assert.match(prompt,/taskUse/);
+  assert.match(prompt,/lookup:\{methodIds/);assert.match(prompt,/lookup:\{discover:true\}/);
+  assert.match(prompt,/methodCatalog仅导航元数据/);
+ }
 });
 test('canonical examples keep unknown self facts private and preserve explicitly authorized new intent',()=>{
  const {HELP_BEHAVIOR}=require('../src/help-behavior.cjs');

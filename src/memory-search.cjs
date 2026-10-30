@@ -27,4 +27,26 @@ function rank(records,query,{limit=12,before,after,types}={}) {
   }
   return docs.filter(d=>!wanted.length||d.score>0).sort((a,b)=>b.score-a.score||Date.parse(b.r.at||b.r.lastEvidenceAt||0)-Date.parse(a.r.at||a.r.lastEvidenceAt||0)).slice(0,Math.max(1,Math.min(200,limit))).map(d=>({...d.r,retrievalScore:Number(d.score.toFixed(4))}));
 }
-module.exports={terms,rank};
+// Locate a useful raw-source window, rather than repeatedly returning the head
+// of a long matching record. This is lexical navigation, never source authority.
+function focusSourceOffset(text,query,{windowChars=4000}={}){
+ text=String(text||'');if(text.length<=windowChars)return 0;
+ const wanted=[...new Set(terms(query))].filter(term=>term.length>1).slice(0,64);
+ // NFKC and lowercasing can change string length. Keep a mapping back to
+ // original UTF-16 positions; never apply normalized offsets to raw evidence.
+ const segments=new Intl.Segmenter('en',{granularity:'grapheme'}),parts=[],positionsInOriginal=[];
+ for(const {segment,index}of segments.segment(text)){
+  const normalized=segment.normalize('NFKC').toLowerCase();parts.push(normalized);
+  for(let i=0;i<normalized.length;i++)positionsInOriginal.push(index);
+ }
+ const searchable=parts.join('');
+ const matches=[];
+ for(const term of wanted){let at=searchable.indexOf(term),positions=[];while(at>=0&&positions.length<256){positions.push(positionsInOriginal[at]);at=searchable.indexOf(term,at+term.length);}positions=[...new Set(positions)];if(positions.length)matches.push({positions,weight:1/Math.log2(positions.length+2)});}
+ if(!matches.length)return 0;
+ const starts=new Set([0,Math.max(0,text.length-windowChars)]);
+ for(const group of matches)for(const at of group.positions)starts.add(Math.max(0,Math.min(text.length-windowChars,at-Math.floor(windowChars/4))));
+ let best=0,bestScore=-1;
+ for(const start of starts){const end=start+windowChars,score=matches.reduce((n,group)=>n+(group.positions.some(at=>at>=start&&at<end)?group.weight:0),0);if(score>bestScore){bestScore=score;best=start;}}
+ return best;
+}
+module.exports={terms,rank,focusSourceOffset};

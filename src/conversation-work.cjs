@@ -1,5 +1,5 @@
 'use strict';
-const VERSION='conversation-work-2026-10-16.1';
+const VERSION='conversation-work-2026-10-30.1';
 const unique=values=>[...new Set(values.filter(value=>typeof value==='string'))];
 function buildConversationWork(payload={}){
  const sources=new Map((payload.sources||[]).map(source=>[source.id,source]));

@@ -53,7 +53,7 @@ test('active purpose and complete local correction precede unrelated optional hi
   const context = buildContext(args);
   assert.equal(context.payload.topicContext.active.id, topic.id);
   assert.equal(context.payload.topicContext.authority, 'private_direction_not_outbound_authorization');
-  for (const id of topic.sourceIds) assert.ok(context.manifest.sourceIds.includes(id));
+  for (const id of topic.sourceIds) assert.ok(context.manifest.contextSelection.taskSourceRefs.some(ref=>ref.sourceId===id&&ref.revision),'grounded task controls retain source provenance without requiring every old raw body');
   assert.equal(context.payload.sources.find(item => item.id === `private:${correction.id}`).text, correction.text);
   assert.ok(context.payload.privateConversation.some(item => item.role === 'assistant' && /轻一点表达/.test(item.text)));
 });
@@ -61,14 +61,14 @@ test('active purpose and complete local correction precede unrelated optional hi
 test('planner parser preserves grounded purpose, approach, avoidances, step and topic patch', t => {
   const { args, guidance, topic } = fixture(t), prepared = buildContext(args);
   const patch = { operation: 'update', topicId: topic.id, direction: '含蓄表达', constraints: ['不连问'], purposeSourceIds: [prepared.payload.userRequest.sourceId], intentQuote: '给我具体一句' };
-  const parsed = parseAssistant({ draftPlan: { quotes: [], intent: 'reply', guidance }, topicPatch: patch }, 'draft_prepare', prepared.payload);
+  const parsed = parseAssistant({ draftPlan: { taskUse: 'continue', quotes: [], intent: 'reply', guidance }, topicPatch: patch }, 'draft_prepare', prepared.payload);
   assert.deepEqual(parsed.draftPlan.guidance, guidance);
   assert.deepEqual(parsed.topicPatch, patch);
 });
 
 test('vague request receives grounded local controls in the serialized final draft without private history or motive', async t => {
   const { args, request, guidance } = fixture(t), prepared = buildContext(args);
-  const plan = parseAssistant({ draftPlan: { style: 'natural', quotes: [authorizedInvitation(request)], guidance, askFollowup: false } }, 'draft_prepare', prepared.payload).draftPlan;
+  const plan = parseAssistant({ draftPlan: { taskUse: 'continue', style: 'natural', quotes: [authorizedInvitation(request)], guidance, askFollowup: false } }, 'draft_prepare', prepared.payload).draftPlan;
   const draft = buildDraftContext(prepared, plan, args); let body;
   await assistModel(settings, draft, undefined, async (_, request) => {
     body = request.body;
@@ -91,7 +91,7 @@ test('vague request receives grounded local controls in the serialized final dra
 test('guidance requires delivered user control sources and cannot cite an assistant acknowledgment or wrong scope', t => {
   const { args, guidance } = fixture(t), prepared = buildContext(args);
   for (const sourceIds of [['private:missing'], ['assistant:ack'], ['qq:900719925474099899']]) {
-    assert.throws(() => parseAssistant({ draftPlan: { quotes: [], intent: 'reply', guidance: { ...guidance, objective: { text: 'invented', sourceIds } } } }, 'draft_prepare', prepared.payload), /guidance.*sourceIds/);
+    assert.throws(() => parseAssistant({ draftPlan: { taskUse: 'continue', quotes: [], intent: 'reply', guidance: { ...guidance, objective: { text: 'invented', sourceIds } } } }, 'draft_prepare', prepared.payload), /guidance.*sourceIds/);
   }
   assert.throws(() => parseAssistant({ kind: 'draft', text: '参考', suggestions: [{ style: '自然', text: '你好' }], topicPatch: { operation: 'pause' } }, 'draft', {}), /topicPatch.*草稿/);
 });
@@ -111,7 +111,7 @@ test('current explicit direction overrides prior cautious approach and topic sta
   assert.match(SYSTEM, /最新.*明确.*(?:优先|覆盖)|此次.*明确.*(?:优先|覆盖)/);
   assert.match(SYSTEM, /topicPatch/);
   assert.match(SYSTEM, /allowedApproach/);
-  assert.match(SYSTEM, /askFollowup.*(?:不.*禁止|不.*禁用)|用户本来就想问的问题仍可表达/s);
+  assert.match(SYSTEM, /askFollowup:false[^。]*不删除原本选定的问题\/邀请/);
 });
 
 test('a new explicit user direction reaches planner and final instead of restoring the earlier cautious controls', async t => {
@@ -123,7 +123,7 @@ test('a new explicit user direction reaches planner and final instead of restori
   const calls = [], plan = await assistModel(settings, prepared, undefined, async (_, request) => {
     calls.push(JSON.parse(JSON.parse(request.body).messages[1].content));
     assert.equal(calls[0].userRequest.text, changed.text);
-    return { ok: true, json: async () => ({ choices: [{ message: { content: JSON.stringify({ draftPlan: { quotes: [{ sourceId: currentId, text: '我对她有好感，想多认识她' }],
+    return { ok: true, json: async () => ({ choices: [{ message: { content: JSON.stringify({ draftPlan: { taskUse: 'continue', quotes: [{ sourceId: currentId, text: '我对她有好感，想多认识她' }],
       guidance: { objective: { text: '直接表达好感和想多认识对方', sourceIds: [currentId] }, allowedApproach: { text: '直接真诚表达，不沿用之前的含蓄方式', sourceIds: [currentId] },
         avoidances: [{ text: '不追加连续无关问题', sourceIds: topic.purposeBindings.constraints.sourceIds }] } } }) } }] }) };
   });
@@ -139,7 +139,7 @@ test('canonical feedback continuation is authoritative without duplicating its b
   const evaluated = store.appendTurn(scope, { role: 'assistant', kind: 'draft', requestId: 'synthetic-evaluated', text: '参考表达', sourceIds: [`private:${request.id}`],
     suggestions: [{ style: '自然', text: '周末有空一起走走吗？' }] });
   const feedback = store.addFeedback(scope, { targetRef: { kind: 'artifact', artifactRef: evaluated.suggestions[0].artifactRef }, text: '这次直接表达我的好感，给我具体一句。' });
-  const turn = store.appendTurn(scope, { role: 'user', kind: 'discussion', requestId: 'synthetic-feedback-continue', text: '结合我选中的这条反馈，继续商量并给出相应帮助。' });
+  const turn = store.appendTurn(scope, { role: 'user', kind: 'feedback_continue', requestId: 'synthetic-feedback-continue', text: '结合我选中的这条反馈，继续商量并给出相应帮助。' });
   Object.assign(args, { turn, companion: store.getCompanion(scope), availableSources: store.memorySources(scope), intentSourceId: feedback.sourceId,
     feedbackTargets: [store.experiences.hydrateFeedback(scope, feedback.id)], byteBudget: 12000 });
   const prepared = buildContext(args);
@@ -147,7 +147,9 @@ test('canonical feedback continuation is authoritative without duplicating its b
   assert.equal(prepared.payload.sources.find(item => item.id === feedback.sourceId).text, feedback.text);
   assert.equal(prepared.payload.feedbackTargets[0].target.body, evaluated.suggestions[0].text);
   assert.equal(prepared.payload.userRequest.text.includes(feedback.text), false);
-  const plan = parseAssistant({ draftPlan: { quotes: [authorizedInvitation(request)],
+  const currentQuote=authorizedInvitation(request);
+  currentQuote.authorization.permission={sourceId:feedback.sourceId,text:feedback.text};
+  const plan = parseAssistant({ draftPlan: { taskUse: 'continue', quotes: [currentQuote],
     guidance: { objective: { text: '按本次反馈直接表达好感', sourceIds: [feedback.sourceId] }, allowedApproach: { text: '按本次反馈直接表达', sourceIds: [feedback.sourceId] },
       avoidances: guidance.avoidances } } }, 'draft_prepare', prepared.payload).draftPlan;
   const final = buildDraftContext(prepared, plan, args);
@@ -164,7 +166,7 @@ test('bounded plain drafting repair retains guidance provenance and chosen image
   const imageId = args.records[0].messageId;
   Object.assign(args, { records: store.messages(scope), availableSources: store.memorySources(scope), imageMessageIds: [imageId] });
   const prepared = buildContext(args);
-  const plan = { quotes: [authorizedInvitation(request)], guidance };
+  const plan = { taskUse:'continue', quotes: [authorizedInvitation(request)], guidance };
   const draft = buildDraftContext(prepared, plan, args);
   const images = [{ messageId: imageId, url: 'data:image/png;base64,iVBORw0KGgo=', bytes: 8, index: 0 }];
   draft.images = images; draft.manifest.images = images.map(({ url, ...metadata }) => metadata);
@@ -196,7 +198,7 @@ test('bounded plain drafting repair retains guidance provenance and chosen image
 
 test('ordinary help drops closed-topic updates and active-topic resumes while legacy and planning stay strict', t => {
   const { args, topic, guidance } = fixture(t), prepared = buildContext(args), currentId = prepared.payload.userRequest.sourceId;
-  const plan = { quotes: [], intent: 'reply', guidance };
+  const plan = { taskUse:'continue', quotes: [], intent: 'reply', guidance };
   const rejected = (output, payload) => {
     const diagnostics = {}, result = parseAssistant({ ...output, stateReview: 'no_change' }, 'discussion', payload, diagnostics);
     assert.equal(result.text, output.text); assert.equal(result.topicPatch, undefined); assert.equal(result.stateReview, undefined);
@@ -251,12 +253,12 @@ test('old working-state navigation cannot evict the latest complete private corr
   assert.ok(context.payload.workingState.items.length < 16);
 });
 
-test('an oversized latest private exchange fails explicitly instead of silently keeping old summaries', t => {
+test('an oversized latest private exchange remains a retrievable complete group with visible omission', t => {
   const { store, args } = fixture(t);
   store.appendTurn(scope, { role: 'assistant', kind: 'discussion', text: '完整的最新讨论'.repeat(4000) });
   const turn = store.appendTurn(scope, { role: 'user', kind: 'discussion', text: '接着刚才的意思。' });
   Object.assign(args, { turn, companion: store.getCompanion(scope), availableSources: store.memorySources(scope), byteBudget: 9000 });
-  assert.throws(() => buildContext(args), /最近完整私下讨论.*预算.*没有静默截断/);
+  const context=buildContext(args);assert.equal(context.payload.deferredDiscussion.availability,'needs_lookup');assert.ok(context.payload.deferredDiscussion.turnIds.length>0);assert.equal(context.payload.userRequest.text,turn.text);assert.ok(context.manifest.inputBytes<=args.byteBudget);
 });
 
 test('recorded LIVE new-topic shape accepts current private task phase without invented observation evidence', t => {
@@ -301,7 +303,7 @@ test('ordinary help rejects unsupported progress without repair while source-bou
   const receipt = store.applyTopicPatch(scope, invalid.topicPatch, { baseRevision: options.companion.revision, baseTopicVersion: options.companion.topics.version,
     sourceIds: context.manifest.sourceIds, sourceRevisions: context.manifest.sourceRevisions, currentSourceId: currentId, origin: 'private_discussion', requestId: turn.requestId });
   assert.equal(receipt.applied, false); assert.match(receipt.detail, /progress requires explicit observation evidence/); assert.equal(JSON.stringify(store.topicView(scope)), before);
-  const plan = { quotes: [], intent: 'reply', guidance: { ...guidance, currentStep: { text: '提供一句待用户选择的参考表达', sourceIds: [currentId] } } };
+  const plan = { taskUse:'continue', quotes: [], intent: 'reply', guidance: { ...guidance, currentStep: { text: '提供一句待用户选择的参考表达', sourceIds: [currentId] } } };
   const strict = buildContext({ ...options, purpose: 'draft_prepare' });
   assert.ok(parseAssistant({ kind: 'discussion', text: '按真实意思准备', draftPlan: plan }, 'draft_prepare', strict.payload).draftPlan);
   assert.throws(() => parseAssistant({ ...invalid, draftPlan: plan }, 'draft_prepare', strict.payload), /topicPatch.observationSourceIds.*progress/);
@@ -319,7 +321,7 @@ test('a current private draft task can refresh its phase without changing object
   const turn = store.appendTurn(scope, { role: 'user', kind: 'discussion', requestId: 'stage-only-request', text: '现在按这个方向给一句。' });
   const sources = store.memorySources(scope), companion = store.getCompanion(scope), currentId = `private:${turn.id}`;
   const context = buildContext({ ...args, turn, companion, availableSources: sources, requestId: turn.requestId });
-  const output = { draftPlan: { quotes: [], intent: 'reply', guidance: { ...guidance, currentStep: { text: '提供一句待用户选择的参考表达', sourceIds: [currentId] } } },
+  const output = { draftPlan: { taskUse: 'continue', quotes: [], intent: 'reply', guidance: { ...guidance, currentStep: { text: '提供一句待用户选择的参考表达', sourceIds: [currentId] } } },
     topicPatch: { operation: 'update', topicId: topic.id, stage: '参考表达待用户选择，尚未观察实际QQ发送', purposeSourceIds: [currentId], intentQuote: turn.text } };
   const parsed = parseAssistant(output, 'discussion', context.payload);
   const prepared = prepareTopicPatch(companion, sources, parsed.topicPatch, { sourceIds: context.manifest.sourceIds, sourceRevisions: context.manifest.sourceRevisions,
@@ -333,7 +335,7 @@ test('a current private draft task can refresh its phase without changing object
 test('an active topic rejects legacy or empty guidance plans that would drop the direction again', t => {
   const { args } = fixture(t), prepared = buildContext(args);
   for (const guidance of [undefined, {}]) {
-    assert.throws(() => parseAssistant({ draftPlan: { quotes: [], intent: 'reply', style: 'natural', ...(guidance ? { guidance } : {}) } },
+    assert.throws(() => parseAssistant({ draftPlan: { taskUse: 'continue', quotes: [], intent: 'reply', style: 'natural', ...(guidance ? { guidance } : {}) } },
       'draft_prepare', prepared.payload), /draftPlan.guidance.*(?:objective|allowedApproach|avoidances)/);
   }
 });
@@ -342,14 +344,14 @@ test('removed topic restrictions stay removed while each current drafting task s
   const { args, topic, guidance } = fixture(t), prepared = buildContext(args), currentId = prepared.payload.userRequest.sourceId;
   const patch = { operation: 'update', topicId: topic.id, direction: '', constraints: [], purposeSourceIds: [currentId], intentQuote: prepared.payload.userRequest.text };
   const control=text=>({text,sourceIds:[currentId]}),currentGuidance={objective:control('组织本次获准表达'),allowedApproach:control('根据本轮明确意思自然表达'),avoidances:[]};
-  const output = { topicPatch: patch, draftPlan: { quotes: [], intent: 'reply', guidance: currentGuidance } };
+  const output = { topicPatch: patch, draftPlan: { taskUse: 'continue', quotes: [], intent: 'reply', guidance: currentGuidance } };
   assert.deepEqual(parseAssistant(output, 'draft_prepare', prepared.payload).draftPlan.guidance, currentGuidance);
   const created = { operation: 'create', objective: '此轮确认是否方便见面', direction: '直接确认', constraints: ['不追加无关问题'], purposeSourceIds: [currentId], intentQuote: prepared.payload.userRequest.text };
-  assert.throws(() => parseAssistant({ topicPatch: created, draftPlan: { quotes: [], intent: 'reply' } }, 'draft_prepare',
+  assert.throws(() => parseAssistant({ topicPatch: created, draftPlan: { taskUse: 'continue', quotes: [], intent: 'reply' } }, 'draft_prepare',
     { ...prepared.payload, topicContext: { active: null, retained: [] } }), /draftPlan.guidance/);
   const closed = { operation: 'complete', topicId: topic.id, purposeSourceIds: [currentId], intentQuote: prepared.payload.userRequest.text };
-  assert.equal(parseAssistant({ topicPatch: closed, draftPlan: { quotes: [], intent: 'reply',guidance:currentGuidance } }, 'draft_prepare', prepared.payload).draftPlan.intent, 'reply');
-  assert.equal(parseAssistant({ draftPlan: { quotes: [{ sourceId: currentId, text: '给我具体一句' }],guidance:currentGuidance } }, 'draft_prepare',
+  assert.equal(parseAssistant({ topicPatch: closed, draftPlan: { taskUse: 'continue', quotes: [], intent: 'reply',guidance:currentGuidance } }, 'draft_prepare', prepared.payload).draftPlan.intent, 'reply');
+  assert.equal(parseAssistant({ draftPlan: { taskUse: 'continue', quotes: [{ sourceId: currentId, text: '给我具体一句' }],guidance:currentGuidance } }, 'draft_prepare',
     { ...prepared.payload, topicContext: { active: null, retained: [] } }).draftPlan.quotes.length, 1);
 });
 
@@ -357,7 +359,7 @@ test('legacy active-topic draft preparation is repaired once into source-bound g
   const { args, guidance } = fixture(t), prepared = buildContext({ ...args, purpose: 'draft_prepare' }), calls = [];
   const result = await assistModel(settings, prepared, undefined, async (_, request) => {
     calls.push(JSON.parse(JSON.parse(request.body).messages[1].content));
-    const draftPlan = calls.length === 1 ? { intent: 'reply', quotes: [], style: 'natural' } : { intent: 'reply', quotes: [], style: 'natural', guidance };
+    const draftPlan = calls.length === 1 ? { taskUse:'continue', intent: 'reply', quotes: [], style: 'natural' } : { taskUse:'continue', intent: 'reply', quotes: [], style: 'natural', guidance };
     return { ok: true, json: async () => ({ choices: [{ message: { content: JSON.stringify({ draftPlan }) } }] }) };
   });
   assert.equal(calls.length, 2); assert.match(calls[1].formatError, /draftPlan.guidance/);

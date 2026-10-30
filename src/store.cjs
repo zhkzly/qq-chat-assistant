@@ -6,7 +6,7 @@ const { rank } = require('./memory-search.cjs');
 const { ExperienceStore } = require('./experience-store.cjs');
 const { assertPreferenceAuthority, sourceClosure } = require('./provenance.cjs');
 const { PROCESSOR_VERSION, prepareRelationshipPatch, writeRelationshipRecords, relationshipView } = require('./relationship-store.cjs');
-const { emptyTopics, pruneTopics, topicView, prepareTopicPatch } = require('./topic-store.cjs');
+const { emptyTopics, pruneTopics, topicView, prepareTopicPatch, normalizeTopicPatch } = require('./topic-store.cjs');
 const { DiscussionCompactionStore, validateDiscussionTurnFingerprints } = require('./discussion-compaction-store.cjs');
 const hash = value => createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const { DatabaseSync } = require('node:sqlite');
@@ -62,7 +62,8 @@ function normalizePrivateReviewReceipt(value) {
 function emptyState(version = 0) {
   return { version, focus: '', items: [], openThreads: [], unknowns: [], possiblyStale: true, coverage: { complete: false, sourceIds: [] } };
 }
-function emptyCompanion() { return { revision: 0, goal: { text: '', version: 0 }, notes: [], turns: [], state: emptyState(), topics: emptyTopics(), runs: [], feedback: [], pendingActions: [], actionReceipts: [] }; }
+const TASK_SEMANTICS_VERSION = 1;
+function emptyCompanion() { return { taskSemanticsVersion: TASK_SEMANTICS_VERSION, revision: 0, goal: { text: '', version: 0 }, notes: [], turns: [], state: emptyState(), topics: emptyTopics(), runs: [], feedback: [], pendingActions: [], actionReceipts: [] }; }
 function changedSource(record, invalidate = false) {
   record.revision++;
   if (invalidate) {
@@ -152,7 +153,8 @@ class Store {
   getCompanion(scope) {
     return this._atomic(()=>{
       const row = this.db.prepare('SELECT record FROM companion WHERE scope_key=?').get(scopeKey(scope));
-      let record=row ? { ...emptyCompanion(), ...JSON.parse(row.record) } : emptyCompanion();
+      const stored=row&&JSON.parse(row.record);
+      let record=stored ? { ...emptyCompanion(), ...stored, taskSemanticsVersion:stored.taskSemanticsVersion||0 } : emptyCompanion();
       this.experiences.migrateLegacy(scope,record);
       record=this._normalizeFeedbackReferences(scope,record);
       if(this.experiences.materializeLegacyArtifacts(scope,record))this.db.prepare('INSERT INTO companion VALUES(?,?) ON CONFLICT(scope_key) DO UPDATE SET record=excluded.record').run(scopeKey(scope),this._serializeCompanion(record));
@@ -162,11 +164,34 @@ class Store {
         changedSource(record);this.db.prepare('INSERT INTO companion VALUES(?,?) ON CONFLICT(scope_key) DO UPDATE SET record=excluded.record').run(scopeKey(scope),this._serializeCompanion(record));
         this._syncMemory(scope,record);record.feedback=this.experiences.listFeedback(scope);
       }
-      if(record.topics.items.length&&pruneTopics(record,this._rawMemorySources(scope,record)))this.db.prepare('INSERT INTO companion VALUES(?,?) ON CONFLICT(scope_key) DO UPDATE SET record=excluded.record').run(scopeKey(scope),this._serializeCompanion(record));
+      const taskMigrated=this._migrateTaskSemantics(record,this._rawMemorySources(scope,record));
+      const taskPruned=record.topics.items.length&&pruneTopics(record,this._rawMemorySources(scope,record));
+      if(taskMigrated||taskPruned){
+        this._invalidateTaskDerived(scope);
+        this.db.prepare('INSERT INTO companion VALUES(?,?) ON CONFLICT(scope_key) DO UPDATE SET record=excluded.record').run(scopeKey(scope),this._serializeCompanion(record));
+      }
       // Legacy origin is derived in scoped read views. Mutating an original
       // turn here would change fingerprints and invalidate legitimate history.
+      record.consultationTask=topicView(scope,record.topics);
       return record;
     });
+  }
+  _migrateTaskSemantics(record,sources) {
+    if(record.taskSemanticsVersion>=TASK_SEMANTICS_VERSION)return false;
+    const previous={...emptyState(),...record.state},live=new Map(sources.map(source=>[source.id,source]));
+    const hasControls=previous.focus||(previous.openThreads||[]).length||(previous.unknowns||[]).length;
+    const ids=[...new Set([...(previous.coverage?.sourceIds||[]),...(previous.openThreads||[]).flatMap(item=>item.sourceIds||[])])].filter(id=>live.has(id));
+    const review=hasControls?{status:'needs_review',reason:'legacy_controls_are_historical_not_current_intent',focus:previous.focus,openThreads:previous.openThreads,unknowns:previous.unknowns,
+      sourceIds:ids,sourceRevisions:Object.fromEntries(ids.map(id=>[id,live.get(id).revision])),observedAt:ids.map(id=>live.get(id).at).sort().at(-1)||null}:null;
+    record.state={...previous,version:previous.version+1,focus:'',openThreads:[],unknowns:[],possiblyStale:true,
+      items:(previous.items||[]).map(item=>({...item,sourceRevisions:Object.fromEntries((item.sourceIds||[]).filter(id=>live.has(id)).map(id=>[id,live.get(id).revision])),
+        observedAt:(item.sourceIds||[]).map(id=>live.get(id)?.at).filter(Boolean).sort().at(-1)||null,evidenceStatus:'legacy_needs_review'})),
+      ...(review?{legacyTaskReviews:[...(previous.legacyTaskReviews||[]),review]}:{})};
+    record.taskSemanticsVersion=TASK_SEMANTICS_VERSION;
+    return true;
+  }
+  _invalidateTaskDerived(scope) {
+    this.db.prepare('DELETE FROM discussion_compactions WHERE scope_key=?').run(scopeKey(scope));
   }
   _normalizeFeedbackReferences(scope,record) {
     const canonical=new Map(this.experiences.sourceRows(scope).map(source=>[source.id,{...source,revision:hash(source)}]));
@@ -220,7 +245,8 @@ class Store {
   _serializeCompanion(record) {
     // Feedback bodies belong to ExperienceStore. Rendered timeline text is a
     // projection; every persistence path, including state CAS, uses this shape.
-    return JSON.stringify({...record,feedback:[],turns:record.turns.map(turn=>turn.kind==='feedback_ref'?{...turn,text:undefined}:turn)});
+    const {consultationTask,...persisted}=record;
+    return JSON.stringify({...persisted,feedback:[],turns:record.turns.map(turn=>turn.kind==='feedback_ref'?{...turn,text:undefined}:turn)});
   }
   _writeCompanion(scope, record) {
     this._atomic(()=>{
@@ -262,6 +288,7 @@ class Store {
         changedSource(record);record.state=emptyState(record.state.version+1);record.runs=[];
         const active=record.topics.items.find(topic=>topic.id===record.topics.activeId&&topic.lifecycle==='active');
         if(active){active.lifecycle='paused';active.version++;active.updatedAt=new Date().toISOString();active.lifecycleEvidenceStatus='goal_changed_needs_review';active.lifecycleSourceIds=[];active.lifecycleSourceRevisions={};record.topics.activeId=null;record.topics.version++;}
+        this._invalidateTaskDerived(scope);
         record.pendingActions=record.pendingActions.filter(action=>action.action?.type!=='set_goal');
         this._writeCompanion(scope, record);
       }
@@ -424,35 +451,34 @@ class Store {
   topicView(scope) {
     return this._atomic(()=>topicView(scope,this.getCompanion(scope).topics));
   }
-  topicAction(scope,{id,expectedVersion,operation}={}) {
+  topicAction(scope,{id,expectedVersion,operation,...fields}={}) {
     return this._atomic(()=>{
-      identifier(id,'topic id');
-      if(!['complete','cancel','remove'].includes(operation))throw new Error('未知的话题操作');
-      const before=this.getCompanion(scope),topic=before.topics.items.find(item=>item.id===id);
-      if(!topic)throw new Error('这个话题已不存在，请刷新后核对');
-      if(!Number.isSafeInteger(expectedVersion)||expectedVersion!==topic.version)throw new Error('话题已经变化，请刷新后核对版本');
-      if(operation!=='remove'&&(topic.lifecycle!=='active'||before.topics.activeId!==id))throw new Error('这个话题已经结束，无需再次关闭');
-      const wasActive=before.topics.activeId===id;
-      const command={complete:'这次话题已经聊清楚了，结束它的当前目的、方向和限制。',cancel:'取消这次话题，不再沿用它的当前目的、方向和限制。',remove:'移除这次话题，不再把它作为当前或保留话题。'}[operation];
-      const requestId=randomUUID(),turn=this.appendTurn(scope,{role:'user',kind:'user_control',requestId,text:`${command}\n话题：${topic.objective||topic.direction||id}\n只操作这个讨论话题，保留原始聊天、私下历史和长期关系目标。`});
+      if(!['create','update','pause','complete','cancel','resume','remove'].includes(operation))throw new Error('未知的话题操作');
+      if(Object.keys(fields).some(key=>!['objective','direction','constraints','stage','progress','unknowns','interpretationStatus'].includes(key)))throw new Error('话题操作包含不支持的字段');
+      if(operation==='create'&&id!==undefined)throw new Error('Topic creation cannot choose an existing identifier');
+      const before=this.getCompanion(scope),topic=operation==='create'?null:before.topics.items.find(item=>item.id===identifier(id,'topic id'));
+      if(operation!=='create'&&!topic)throw new Error('这个话题已不存在，请刷新后核对');
+      if(operation!=='create'&&(!Number.isSafeInteger(expectedVersion)||expectedVersion!==topic.version)||operation==='create'&&expectedVersion!==undefined&&expectedVersion!==before.topics.version)throw new Error('话题已经变化，请刷新后核对版本');
+      const patch=operation==='remove'?null:normalizeTopicPatch({operation,...(operation==='create'?{}:{topicId:id}),...fields});
+      const command={create:'建立这次讨论任务。',update:'调整这次讨论任务。',pause:'暂停这次话题，等待我另行决定是否继续。',complete:'这次话题已经聊清楚了，结束它的当前目的、方向和限制。',cancel:'取消这次话题，不再沿用它的当前目的、方向和限制。',resume:'恢复这次话题的当前目的、方向和限制。',remove:'移除这次话题，不再把它作为当前或保留话题。'}[operation];
+      const requestId=randomUUID(),turn=this.appendTurn(scope,{role:'user',kind:'user_control',requestId,text:`${command}\n话题：${topic?.objective||fields.objective||id||''}\n${Object.keys(fields).length?JSON.stringify(fields):''}\n只操作这个讨论话题，保留原始聊天、私下历史和长期关系目标。`});
       const sourceId=`private:${turn.id}`,record=this.getCompanion(scope);
       if(operation==='remove'){
-        record.topics={...record.topics,version:record.topics.version+1,activeId:wasActive?null:record.topics.activeId,items:record.topics.items.filter(item=>item.id!==id)};
-        this._writeCompanion(scope,record);
+        this._commitTaskTransition(scope,record,{...record.topics,version:record.topics.version+1,activeId:record.topics.activeId===id?null:record.topics.activeId,items:record.topics.items.filter(item=>item.id!==id)});
       }else{
         const source=this._rawMemorySources(scope,record).find(item=>item.id===sourceId);
-        const receipt=this.applyTopicPatch(scope,{operation,topicId:id,stage:'',purposeSourceIds:[sourceId],intentQuote:command},{baseRevision:record.revision,baseTopicVersion:record.topics.version,activeId:record.topics.activeId,sourceIds:[sourceId],sourceRevisions:{[sourceId]:source.revision},currentSourceId:sourceId,origin:'user_control',requestId});
-        if(!receipt.applied)throw new Error(`话题未关闭：${receipt.detail||receipt.reason}`);
+        const receipt=this.applyTopicPatch(scope,{...patch,purposeSourceIds:[sourceId],...(patch.progress?.length?{observationSourceIds:[sourceId]}:{}),intentQuote:command},{baseRevision:record.revision,baseTopicVersion:record.topics.version,activeId:record.topics.activeId,sourceIds:[sourceId],sourceRevisions:{[sourceId]:source.revision},currentSourceId:sourceId,origin:'user_control',requestId});
+        if(!receipt.applied)throw new Error(`话题未更新：${receipt.detail||receipt.reason}`);
+        id=receipt.topicId;
       }
-      const next=this.getCompanion(scope);
-      // Focus is unsourced navigation for the active task. Preserve factual
-      // items and unresolved evidence, but require review after local closure.
-      if(wasActive&&next.state.focus){next.state={...next.state,focus:'',version:next.state.version+1};this._writeCompanion(scope,next);}
-      // Removing a retained topic may leave the active-topic binding identical;
-      // explicitly discard derived discussion summaries for this scope.
-      this.db.prepare('DELETE FROM discussion_compactions WHERE scope_key=?').run(scopeKey(scope));
-      return {applied:true,operation,topicId:id,lifecycle:operation==='remove'?'removed':operation==='complete'?'completed':'cancelled',topicVersion:next.topics.version,revision:next.revision,sourceId};
+      const next=this.getCompanion(scope),updated=next.topics.items.find(item=>item.id===id);
+      return {applied:true,operation,topicId:id,lifecycle:updated?.lifecycle||'removed',topicVersion:next.topics.version,revision:next.revision,sourceId};
     });
+  }
+  _commitTaskTransition(scope,record,topics,{invalidateDiscussion=true}={}) {
+    record.topics=topics;
+    if(invalidateDiscussion)this._invalidateTaskDerived(scope);
+    this._writeCompanion(scope,record);
   }
   getDiscussionCompaction(scope,options={}) { return this.discussionCompactions.get(scope,options); }
   saveDiscussionCompaction(scope,record,expected={}) { return this.discussionCompactions.save(scope,record,expected); }
@@ -465,7 +491,7 @@ class Store {
       if(!Number.isSafeInteger(options.baseTopicVersion)||options.baseTopicVersion!==record.topics.version)return reject('stale_topic_version');
       if(Object.hasOwn(options,'activeId')&&options.activeId!==record.topics.activeId)return reject('stale_active_topic');
       const checked=prepareTopicPatch(record,this._rawMemorySources(scope,record),patch,options);
-      if(checked.changes){record.topics=checked.topics;this._writeCompanion(scope,record);}
+      if(checked.changes)this._commitTaskTransition(scope,record,checked.topics,{invalidateDiscussion:checked.invalidateDiscussion});
       return {applied:true,changes:checked.changes,topicId:checked.topicId,revision:record.revision,topicVersion:record.topics.version,version:record.topics.version,activeId:record.topics.activeId};
     });}catch(error){return {applied:false,reason:'invalid_topic_patch',detail:error.message};}
   }
@@ -528,9 +554,11 @@ class Store {
     const rejected = (reason, detail) => ({ applied: false, reason, ...(detail ? { detail } : {}), revision: record.revision, stateVersion: record.state.version });
     if (!Number.isSafeInteger(options.baseRevision) || options.baseRevision !== record.revision) return rejected('stale_revision');
     if (options.baseStateVersion !== undefined && options.baseStateVersion !== record.state.version) return rejected('stale_state_version');
+    if (options.baseTopicVersion !== undefined && options.baseTopicVersion !== record.topics.version) return rejected('stale_topic_version');
     try {
       if (!plain(patch) || Object.keys(patch).some(key => !['focus', 'items', 'openThreads', 'unknowns'].includes(key))) throw new Error('State patch has unauthorized fields');
-      const allowed = sourceList(options.sourceIds || []), live = this._sourceIds(scope, record), allowedSet = new Set(allowed);
+      const sources=new Map(this._rawMemorySources(scope,record).map(source=>[source.id,source]));
+      const allowed = sourceList(options.sourceIds || []), live = this._sourceIds(scope,record), allowedSet = new Set(allowed);
       if (allowed.some(id => !live.has(id))) throw new Error('State patch references an unavailable or nonfactual source');
       const next = { ...record.state };
       if (patch.focus !== undefined) next.focus = textValue(patch.focus, 'state focus', 1000, true);
@@ -542,7 +570,8 @@ class Store {
           if (!plain(item) || Object.keys(item).some(field => !keys.includes(field))) throw new Error(`Unauthorized state ${key} field`);
           const ids = sourceList(item.sourceIds);
           if (!ids.length || ids.some(id => !allowedSet.has(id))) throw new Error(`Invalid state ${key} evidence`);
-          const checked = { text: textValue(item.text, `state ${key} text`, 1000), sourceIds: ids };
+          const checked = { text: textValue(item.text, `state ${key} text`, 1000), sourceIds: ids,
+            sourceRevisions:Object.fromEntries(ids.map(id=>[id,sources.get(id).revision])),observedAt:ids.map(id=>sources.get(id).at).sort().at(-1),evidenceStatus:'source_bound' };
           if (item.status !== undefined) checked.status = textValue(item.status, 'open thread status', 100);
           return checked;
         });
@@ -551,6 +580,15 @@ class Store {
         if (!Array.isArray(patch.unknowns) || patch.unknowns.length > 12) throw new Error('Invalid state unknowns: expected an array with at most 12 entries');
         next.unknowns = patch.unknowns.map(value => textValue(value, 'state unknown', 1000));
       }
+      // Legacy state-control inputs remain reviewable history. Only a grounded
+      // ConsultationTask transition can decide the persisted current task.
+      const controls={focus:next.focus,openThreads:next.openThreads,unknowns:next.unknowns};
+      if(controls.focus||controls.openThreads.length||controls.unknowns.length){
+        const sourceIds=[...allowed];
+        next.legacyTaskReviews=[...(next.legacyTaskReviews||[]),{...controls,status:'needs_review',reason:'legacy_controls_are_historical_not_current_intent',
+          sourceIds,sourceRevisions:Object.fromEntries(sourceIds.map(id=>[id,sources.get(id).revision])),observedAt:sourceIds.map(id=>sources.get(id).at).sort().at(-1)||null}];
+      }
+      next.focus='';next.openThreads=[];next.unknowns=[];
       if (!plain(options.coverage) || typeof options.coverage.complete !== 'boolean') throw new Error('A reviewed coverage descriptor is required');
       const covered = sourceList(options.coverage.sourceIds), coveredSet = new Set(covered);
       if (covered.some(id => !allowedSet.has(id))) throw new Error('Coverage exceeds reviewed sources');
@@ -562,11 +600,12 @@ class Store {
       const committed = this.db.prepare(`INSERT INTO companion VALUES(?,?)
         ON CONFLICT(scope_key) DO UPDATE SET record=excluded.record
         WHERE json_extract(companion.record,'$.revision')=?
-          AND json_extract(companion.record,'$.state.version')=?`)
-        .run(scopeKey(scope), this._serializeCompanion(record), record.revision, next.version - 1);
+          AND json_extract(companion.record,'$.state.version')=?
+          AND json_extract(companion.record,'$.topics.version')=?`)
+        .run(scopeKey(scope), this._serializeCompanion(record), record.revision, next.version - 1, record.topics.version);
       if (!committed.changes) {
         const current = this.getCompanion(scope);
-        return { applied: false, reason: current.revision === record.revision ? 'stale_state_version' : 'stale_revision', revision: current.revision, stateVersion: current.state.version };
+        return { applied: false, reason: current.revision !== record.revision ? 'stale_revision' : current.topics.version !== record.topics.version ? 'stale_topic_version' : 'stale_state_version', revision: current.revision, stateVersion: current.state.version };
       }
       return { applied: true, revision: record.revision, stateVersion: next.version };
     } catch (error) { return rejected('invalid_patch', error.message); }
@@ -589,7 +628,10 @@ class Store {
       const count=record.notes.length;record.notes=record.notes.filter(valid);removed=count!==record.notes.length;
       if(!valid(record.goal))record.goal={text:'',version:record.goal.version+1};
     }
-    if(record.topics.items.length)pruneTopics(record,this._rawMemorySources(scope,record));
+    const sources=this._rawMemorySources(scope,record),live=new Map(sources.map(source=>[source.id,source]));
+    record.state.items=(record.state.items||[]).filter(item=>item.sourceIds?.length&&item.sourceIds.every(id=>live.has(id)&&(!item.sourceRevisions||item.sourceRevisions[id]===live.get(id).revision)));
+    if(record.state.legacyTaskReviews)record.state.legacyTaskReviews=record.state.legacyTaskReviews.filter(review=>(review.sourceIds||[]).every(id=>live.has(id)&&(!review.sourceRevisions||review.sourceRevisions[id]===live.get(id).revision)));
+    if(record.topics.items.length&&pruneTopics(record,sources))this._invalidateTaskDerived(scope);
   }
   _rawMemorySources(scope, record=this.getCompanion(scope)) {
     record={...emptyCompanion(),...record};
@@ -660,6 +702,11 @@ class Store {
   }
   _memoryRecords(scope) {
     return this.db.prepare('SELECT kind,record FROM memory_records WHERE scope_key=?').all(scopeKey(scope)).map(r=>({...JSON.parse(r.record),recordType:r.kind}));
+  }
+  knowledgeDirectory(scope) {
+    // Navigation over existing derived rows. Admission still checks their
+    // revision-bound sources; this read does not scan or rank raw history.
+    return this._memoryRecords(scope);
   }
   searchMemory(scope, query='', options={}) {
     textValue(query,'memory query',100000,true);

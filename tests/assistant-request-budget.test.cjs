@@ -54,11 +54,22 @@ for(const purpose of ['discussion','draft_prepare','draft'])test(`${purpose} rec
  assert.deepEqual([...new Set(effective.manifest.sourceIds)].sort(),delivered);
  assert.deepEqual(context.extraRequests[0].manifest.methodTrace.delivered,repair.originalInput.methodCards.map(({id,version})=>({id,version})));
 });
-test('an essential exchange that cannot fit the envelope fails before transport without slicing',t=>{
- const {args}=fixture(t,{assistantRequestBytes:18000});
- // The lean foreground instructions leave more room than the old protocol.
- // Make the protected native-shaped exchange itself exceed the wire budget.
+test('oversized QQ evidence has marked source ranges while the current request remains exact',t=>{
+ const {store,args}=fixture(t,{assistantRequestBytes:18000});
  for(const record of args.records.slice(-4))record.text=record.text.repeat(12);
+ const fullLengths=new Map(args.records.map(record=>[`qq:${record.messageId}`,record.text.length]));
+ const context=buildContext(args),packet=prepareAssistantRequest(args.settings,context.payload);
+ assert.ok(packet.requestBytes<=18000);
+ assert.equal(context.payload.sources.find(source=>source.id===context.payload.userRequest.sourceId).text,args.turn.text);
+ assert.ok(context.manifest.sourceDelivery.partialSourceCount>0);
+ for(const source of context.payload.sources.filter(source=>source.delivery?.status==='partial')){
+  assert.equal(source.delivery.originalCharLength,fullLengths.get(source.id));
+  assert.equal(source.delivery.end-source.delivery.start,source.text.length);
+  assert.ok(source.delivery.end<=source.delivery.originalCharLength);
+ }
+ // Source ranges never permit a silent slice of the authoritative user input.
+ args.turn=store.appendTurn(scope,{role:'user',kind:'discussion',text:args.turn.text.repeat(400)});
+ args.companion=store.getCompanion(scope);
  assert.throws(()=>buildContext(args),/预算.*没有静默截断/);
 });
 test('automatic controller entry uses the configured envelope and persists the exact repaired evidence',async t=>{

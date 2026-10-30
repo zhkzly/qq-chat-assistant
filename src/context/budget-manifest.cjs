@@ -1,10 +1,11 @@
 'use strict';
 const {prepareAssistantRequest}=require('../assistant-model.cjs');
+const {sourceDeliveryManifest}=require('./source-delivery.cjs');
 const {PROMPT_VERSION,bytes}=require('./shared.cjs');
 function methodTrace(payload) {
   return { purpose: payload.purpose, delivered: (payload.methodCards || []).map(({ id, version }) => ({ id, version })),
     catalog:(payload.methodCatalog||[]).map(({id,version})=>({id,version:version||payload.methodSelection?.version})),
-    operationalDelivery:{location:payload.methodSelection?.operationalInstructionsLocation||'payload',ids:(payload.methodCatalog||[]).filter(method=>method.instruction||payload.methodSelection?.operationalInstructionsLocation==='system').map(method=>method.id)},reported: null };
+    operationalDelivery:{location:payload.methodSelection?.operationalInstructionsLocation||'payload',ids:[...new Set([...(payload.methodCatalog||[]).filter(method=>method.instruction||payload.methodSelection?.operationalInstructionsLocation==='system').map(method=>method.id),...(payload.methodCards||[]).filter(method=>method.instruction).map(method=>method.id)])]},reported: null };
 }
 function contextBudget(settings, byteBudget, requestMeasure) {
   const base=prepareAssistantRequest(settings,null),measure=requestMeasure||(payload=>prepareAssistantRequest(settings,payload).requestBytes);
@@ -21,11 +22,12 @@ function trimEmptyNavigation(payload){
 function finish(payload, sources, info, allSources, byteBudget, budget) {
   const inputBytes = bytes(payload);
   if (!budget.fits(payload)) throw new Error('本次必要内容超过上下文预算，请缩小所选内容或分段讨论；内容未被截断');
+  const delivery=sourceDeliveryManifest(allSources,sources,payload.evidenceDelivery?.explicitLookups||[]);
   const ids = sources.filter(s => !s.id.startsWith('request:')).map(s => s.id);
   return { payload, manifest: { requestId: info.requestId, scope: info.scope, purpose: payload.purpose,
     promptVersion: PROMPT_VERSION, contextRevision: info.companion.revision, stateVersion: info.companion.state.version,
     sourceIds: ids, sourceRevisions: Object.fromEntries(sources.map(s => [s.id, s.revision])),
-    completeReview: allSources.every(s => ids.includes(s.id)), omittedSourceCount: allSources.filter(s => !ids.includes(s.id)).length,
+    sourceDelivery:delivery,...(payload.discussionReadCoverage?{discussionReadCoverage:payload.discussionReadCoverage,discussionReads:(payload.retrievedDiscussion||[]).filter(item=>item.role==='assistant').map(item=>({turnId:item.originalTurnId,turnFingerprint:item.turnFingerprint,bodyView:item.bodyView,delivery:item.delivery}))}:{}),completeReview: allSources.every(s => ids.includes(s.id))&&!delivery.partialSourceCount, omittedSourceCount: allSources.filter(s => !ids.includes(s.id)).length,
     historyCoverage: info.coverage, inputBytes, byteBudget, tokenizerVerified: false,
     serializedTextRequestBytes:budget.measure(payload),requestByteBudget:budget.requestByteBudget,requestEnvelopeBytes:budget.envelopeBytes,
     payloadWireByteBudget:budget.payloadWireByteBudget,requestModel:budget.model,
@@ -33,12 +35,14 @@ function finish(payload, sources, info, allSources, byteBudget, budget) {
     methodTrace: methodTrace(payload), createdAt: new Date().toISOString() } };
 }
 
-function attachSelectionManifest(context,{historyPolicy,timeCandidateIds,selected,timeSegments,recentPrivateIds,foldedPrivateIds,coreItems,byId,images,payload,compacted,recentPlan,recentContextPlan,recentPriorityIds,recentInitialAdditionalBytes,optionalRawLimit,optionalRawIds,optionalRetrieved}){
+function attachSelectionManifest(context,{historyPolicy,timeCandidateIds,selected,timeSegments,recentPrivateIds,foldedPrivateIds,coreItems,byId,images,payload,compacted,recentPlan,recentContextPlan,recentPriorityIds,recentInitialAdditionalBytes,optionalRawLimit,optionalRawIds,optionalRetrieved,taskSourceIds=[]}){
   context.manifest.contextSelection={policy:historyPolicy,
-    recentQQ:{candidateSourceIds:[...timeCandidateIds],loadedSourceIds:[...timeCandidateIds].filter(id=>selected.has(id)),omittedSourceIds:[...timeCandidateIds].filter(id=>!selected.has(id)),
+    recentQQ:{candidateSourceIds:[...timeCandidateIds],loadedSourceIds:[...timeCandidateIds].filter(id=>selected.has(id)),partialSourceIds:[...timeCandidateIds].filter(id=>selected.get(id)?.delivery?.status==='partial'),omittedSourceIds:[...timeCandidateIds].filter(id=>!selected.has(id)),
       segments:timeSegments.map(segment=>({sourceIds:segment.map(m=>`qq:${m.messageId}`),loadedCount:segment.filter(m=>selected.has(`qq:${m.messageId}`)).length}))},
-    recentPrivate:{candidateSourceIds:[...recentPrivateIds],loadedSourceIds:[...recentPrivateIds].filter(id=>selected.has(id)),foldedSourceIds:[...recentPrivateIds].filter(id=>foldedPrivateIds.has(id)),omittedSourceIds:[...recentPrivateIds].filter(id=>!selected.has(id)&&!foldedPrivateIds.has(id))},
-    coreSourceRefs:[...new Set(coreItems.flatMap(item=>item.sourceIds))].map(id=>({sourceId:id,revision:byId.get(id).revision})),reasons:['current_episode_and_explicit_sources','confirmed_preferences_and_dated_core','recent_time_window','ranked_or_explicit_lookup']};
+    recentPrivate:{candidateSourceIds:[...recentPrivateIds],loadedSourceIds:[...recentPrivateIds].filter(id=>selected.has(id)),partialSourceIds:[...recentPrivateIds].filter(id=>selected.get(id)?.delivery?.status==='partial'),foldedSourceIds:[...recentPrivateIds].filter(id=>foldedPrivateIds.has(id)),omittedSourceIds:[...recentPrivateIds].filter(id=>!selected.has(id)&&!foldedPrivateIds.has(id))},
+    taskControlRefs:payload.topicContext.controlRefs||[],
+    taskSourceRefs:taskSourceIds.map(id=>({sourceId:id,revision:byId.get(id)?.revision})),
+    coreSourceRefs:[...new Set(coreItems.flatMap(item=>item.sourceIds))].map(id=>({sourceId:id,revision:byId.get(id).revision})),reasons:['bounded_current_exchange_and_explicit_sources','confirmed_preferences_and_dated_core','recent_time_window','ranked_or_explicit_lookup']};
   if(images)context.images=structuredClone(images);
   if(payload.imageContext)context.mediaContext={mode:payload.imageContext.mode,omitted:structuredClone(payload.imageContext.omitted)};
   if (compacted) context.manifest.discussionCompaction = { cacheId: compacted.id, identity: compacted.identity, reused: true,

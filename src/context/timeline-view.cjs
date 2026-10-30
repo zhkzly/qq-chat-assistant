@@ -19,20 +19,20 @@ function taskContext({records,sources,scope,coverage,generationOrigin,currentSou
  const elapsed=at=>{const timestamp=Date.parse(at),delta=Date.parse(asOf)-timestamp;return Number.isFinite(delta)?{elapsedMinutes:Math.trunc(delta/60000),...(delta<0?{clockAnomaly:'future_timestamp'}:{})}:{};};
  // Local display times are useful at the actual latest/selected anchors. The
  // other rows retain canonical UTC times without duplicating every timestamp.
- const view=m=>{const source=byId.get(`qq:${m.messageId}`),meta=qqSourceMetadata(m),result={sourceId:source.id,text:source.text,speaker:source.speaker|| (m.direction==='outgoing'?'我':'对方'),direction:m.direction,at:source.at,...(m===latest||explicitFocus.has(m.messageId)?{localAt:localAt(source.at)}:{}),...(meta.sequence?{sequence:meta.sequence}:{})};
+ const view=m=>{const source=byId.get(`qq:${m.messageId}`),meta=qqSourceMetadata(m),result={sourceId:source.id,speaker:source.speaker|| (m.direction==='outgoing'?'我':'对方'),direction:m.direction,at:source.at,...(m===latest||explicitFocus.has(m.messageId)?{localAt:localAt(source.at)}:{}),...(meta.sequence?{sequence:meta.sequence}:{})};
   if(source.historicalOnly)result.historicalOnly=true;
-  if(m.replyTo){const target=quoteTarget(m,records,byId),s=target&&byId.get(`qq:${target.messageId}`);result.quote=s?{sourceId:s.id,availability:'available',speaker:s.speaker,text:s.text,at:s.at,localAt:localAt(s.at),...(s.historicalOnly?{historicalOnly:true}:{})}:{availability:'unavailable'};}
+  if(m.replyTo){const target=quoteTarget(m,records,byId),s=target&&byId.get(`qq:${target.messageId}`);result.quote=s?{sourceId:s.id,availability:'available',speaker:s.speaker,at:s.at,localAt:localAt(s.at),...(s.historicalOnly?{historicalOnly:true}:{})}:{availability:'unavailable'};}
   return result;
  };
  const lastIncoming=available.findLastIndex(m=>m.direction==='incoming'),lastOutgoing=available.findLastIndex(m=>m.direction==='outgoing');
  const call=invocationFor(invocation,purpose);
  const focused=replyMessageIds.length?available.filter(m=>explicitFocus.has(m.messageId)):latest?[latest]:[];
- return {version:TASK_VERSION,requestOrigin:generationOrigin,currentRequestSourceId:currentSourceId,
+ return {version:TASK_VERSION,sourceTextLocation:'sources',requestOrigin:generationOrigin,currentRequestSourceId:currentSourceId,
   // The canonical UTC clock and viewer zone already live at the payload root.
   ...(invocation?{invocation:call}:{}),timeContext:{localNow:localAt(asOf)},
   consultationTask:{purpose:call.requestedPurpose,focusOrigin:replyMessageIds.length?'explicit_selection':latest?'latest_available':'none',
    // An implicit latest focus uses latestActual's clock instead of duplicating it.
-   focus:focused.map(m=>({sourceId:`qq:${m.messageId}`,...(replyMessageIds.length?{localAt:localAt(m.timestamp),...elapsed(new Date(m.timestamp).toISOString())}:{}),laterAvailableMessageCount:available.length-available.indexOf(m)-1}))},
+   focus:focused.map(m=>({sourceId:`qq:${m.messageId}`,...(replyMessageIds.length?{localAt:localAt(m.timestamp),...elapsed(new Date(m.timestamp).toISOString())}:{}),laterAvailableMessageCount:orderedActual(scoped).length-orderedActual(scoped).findIndex(item=>item.messageId===m.messageId)-1}))},
   ...(typeof responsePreference==='string'&&responsePreference.trim()?{responsePreference:redact(responsePreference)}:{}),
   latestActual:latest?{sourceId:`qq:${latest.messageId}`,direction:latest.direction,speaker:latest.direction==='outgoing'?'我':'对方',at:new Date(latest.timestamp).toISOString(),sequence:latest.sequence,
    localAt:localAt(latest.timestamp),...elapsed(new Date(latest.timestamp).toISOString()),

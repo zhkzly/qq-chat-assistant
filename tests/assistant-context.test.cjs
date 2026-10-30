@@ -60,7 +60,7 @@ test('genuinely oversized current request or essential exchange is rejected rath
   assert.throws(() => buildContext(hugeExchange.args), /上下文预算.*没有静默截断/);
 });
 
-test('new user input keeps source-backed prior state as reviewable navigation and reloads its original evidence', t => {
+test('new user input retains source-backed facts and archives legacy threads without current task authority', t => {
   const store = new Store(':memory:');
   t.after(() => store.close());
   const records = Array.from({ length: 70 }, (_, index) => message(500 + index, index % 2 === 1,
@@ -80,11 +80,21 @@ test('new user input keeps source-backed prior state as reviewable navigation an
   assert.equal(context.payload.workingState.possiblyStale, true);
   assert.equal(context.payload.workingState.authority, 'previous_summary_needs_review');
   assert.equal(context.payload.workingState.items[0].text, '她提过周末看电影');
-  assert.equal(context.payload.workingState.openThreads[0].status, 'needs_review');
-  assert.equal(context.payload.workingState.openThreads[0].previousStatus, 'open');
-  assert.deepEqual(context.payload.workingState.unknowns, ['双方具体哪天有空']);
+  assert.equal(context.payload.workingState.focus, undefined);
+  assert.equal(context.payload.workingState.openThreads, undefined);
+  assert.equal(context.payload.workingState.unknowns, undefined);
+  assert.equal(context.payload.workingState.legacyTaskReviews, undefined, 'historical controls must not enter the model as current state');
+  assert.equal(context.payload.topicContext.active, null, 'vague continuation cannot create a current task from archived threads');
   assert.equal(context.payload.sources.find(source => source.id === 'qq:500').text, records[0].text);
-  assert.equal(companion.state.openThreads[0].status, 'open', 'projection must not rewrite the persisted source state');
+  const archived = companion.state.legacyTaskReviews.at(-1);
+  assert.equal(archived.status, 'needs_review');
+  assert.deepEqual(archived.sourceIds, ['qq:500']);
+  assert.equal(archived.sourceRevisions['qq:500'], store.memorySources(scope).find(source => source.id === 'qq:500').revision);
+  assert.equal(archived.openThreads[0].text, '周末电影暂未定具体时间');
+  assert.equal(archived.openThreads[0].status, 'open', 'archive preserves the original thread status as historical data');
+  assert.deepEqual(archived.openThreads[0].sourceIds, ['qq:500']);
+  assert.deepEqual(archived.unknowns, ['双方具体哪天有空']);
+  assert.deepEqual(store.getCompanion(scope).state, companion.state, 'context projection must not rewrite persisted facts or historical controls');
 });
 
 test('retrieved old invitation remains historical until its omitted later chronology is looked up', t => {

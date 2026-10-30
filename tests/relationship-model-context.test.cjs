@@ -21,26 +21,29 @@ function fixture(t, text = '我对她有好感，想多认识她，帮我说出�
   return { store, args: { scope, records, turn, companion: store.getCompanion(scope), requestId: 'method-context', coverage: { status: 'partial' } } };
 }
 
-test('actual model request delivers meaningful romantic catalog guidance and a small applicable full-card set', async t => {
+test('actual request delivers navigable purpose-neutral metadata and one applicable instruction card', async t => {
   const { args } = fixture(t);
   const context = buildContext({ ...args, purpose: 'reply' });
   const result = await assistModel(settings, context, undefined, async (_, request) => {
     const body = JSON.parse(request.body), payload = JSON.parse(body.messages[1].content);
     const expression = payload.methodCatalog?.find(item => item.id === 'express_interest');
-    assert.ok(expression?.version && expression.name && expression.instruction, 'the serialized romantic method must carry executable guidance, not just an ID');
-    assert.match(expression.instruction, /表达|欣赏|约会/);
+    assert.ok(expression?.version && expression.name && expression.applicability, 'romantic expression stays discoverable without an operational preload');
+    assert.equal(expression.instruction,undefined);
+    assert.match(expression.applicability, /表达|邀请|恋爱/);
     assert.match(body.messages[0].content, /即使历史少/, 'shared behavior still permits truthful expression with sparse history');
-    assert.ok(payload.methodCards.length > 0 && payload.methodCards.length <= 2);
+    assert.equal(payload.methodCards.length,1);
     for (const card of payload.methodCards) for (const key of ['version', 'applicability', 'avoid', 'requiredContext', 'instruction', 'outputKinds', 'evidenceLimit']) assert.ok(card[key], key);
     assert.ok(payload.methodCards.some(card => card.id === 'respond'), 'a reply request receives full reply guidance');
     assert.equal(JSON.stringify([...payload.methodCards, ...payload.methodCatalog]).includes('https://'), false, 'paper catalog stays outside the hot path');
     assert.equal(payload.goal, '与她发展双方愿意的恋爱关系');
     assert.ok(context.manifest.methodTrace.catalog.some(item => item.id === expression.id && item.version === expression.version));
     assert.deepEqual(context.manifest.methodTrace.delivered.map(item => item.id), payload.methodCards.map(item => item.id));
+    assert.deepEqual(context.manifest.methodTrace.operationalDelivery.ids,['respond']);
     return response({ kind: 'discussion', text: '可以直接表达你想多认识她，不用先猜她是否喜欢你。', methodIds: ['express_interest'] });
   });
   assert.deepEqual(result.methodIds, ['express_interest']);
   assert.deepEqual(context.manifest.methodTrace.reported, ['express_interest']);
+  assert.equal(context.manifest.methodTrace.operationalDelivery.ids.includes('express_interest'),false,'a model report does not fabricate delivery of its instructions');
 });
 
 test('fallback QQ projection preserves actual self/contact identity independently of supplied role labels', t => {
@@ -158,14 +161,16 @@ test('only an explicitly enabled review can propose inactive local guidance from
   const output = store.appendTurn(scope, { role: 'assistant', kind: 'discussion', text: '合成的被评价表达', requestId: 'proposal-target', sourceIds: [`private:${args.turn.id}`] });
   const feedback = store.addFeedback(scope, { text: '这次连续三个问题让我觉得像采访。', targetRef: { kind: 'artifact', artifactRef: output.artifactRef } });
   const options = { ...args, companion: store.getCompanion(scope), availableSources: store.memorySources(scope), experienceContext: store.experiences.context(scope, { query: '采访' }) };
-  const review = buildContext({ ...options, purpose: 'review', allowExperienceProposals: true });
+  const review = buildContext({ ...options, purpose: 'review', allowExperienceProposals: true, methodLookupIds: ['respond'] });
   const proposal = { text: '在相似分享情境中先接住具体内容，减少连续追问。', applicability: '用户正在回应个人近况、且已有足够内容可以回应时', methodId: 'respond', sourceIds: [feedback.sourceId], caseIds: [] };
   const result = parseAssistant({ kind: 'review', text: '这次可以减少连问，保留你真正想说的部分。', experienceProposals: [proposal] }, 'review', review.payload);
   assert.deepEqual(result.experienceProposals, [proposal]);
   assert.equal(review.payload.experienceProposalPolicy.enabled, true);
   const catalogMethod = review.manifest.methodTrace.catalog.find(method => method.id === proposal.methodId);
   assert.ok(catalogMethod, 'the proposed method has a version in the actually delivered catalog');
-  const provided = [...new Map([...review.manifest.methodTrace.catalog, ...review.manifest.methodTrace.delivered].map(method => [method.id, method])).values()];
+  const operational=new Set(review.manifest.methodTrace.operationalDelivery.ids);
+  const provided=review.manifest.methodTrace.delivered.filter(method=>operational.has(method.id));
+  assert.deepEqual(provided.map(method=>method.id),['respond']);
   assert.throws(() => store.experiences.proposeFromModel(scope, result.experienceProposals[0], { allowedSourceIds: review.manifest.sourceIds,
     allowedCaseIds: [], deliveredMethods: provided.filter(method => method.id !== proposal.methodId) }), /method.*delivered/i);
   const saved = store.experiences.proposeFromModel(scope, result.experienceProposals[0], { allowedSourceIds: review.manifest.sourceIds,
@@ -188,7 +193,8 @@ test('only an explicitly enabled review can propose inactive local guidance from
   }
 });
 
-test('recorded live feedback review commits atomically without hydrated feedback changing its own revision', async t => {
+test('recorded feedback output promotes a candidate only after loading its actual instruction card', async t => {
+  for(const loadCard of [false,true]){
   const { Controller } = require('../src/controller.cjs');
   const recorded = require('./fixtures/live-feedback-response.json');
   const store = new Store(':memory:');
@@ -201,7 +207,10 @@ test('recorded live feedback review commits atomically without hydrated feedback
   for (const proposal of result.experienceProposals) proposal.sourceIds = proposal.sourceIds.map(id => id.startsWith('private:feedback-') ? feedback.sourceId : `private:${earlier.id}`);
   const controller = new Controller({ store, settings: { ...settings, auto: false,
     realChatConsent: { accountUid: scope.accountUid, peerUin: scope.peerUin, model: settings.model, baseUrl: settings.baseUrl } },
-    read: async command => command === 'bind' ? scope : { messages: [], source: 'synthetic' }, assistantModel: async () => structuredClone(result) });
+    read: async command => command === 'bind' ? scope : { messages: [], source: 'synthetic' }, assistantModel: async (_settings,context) => {
+      if(loadCard&&!context.payload.methodCards.some(card=>card.id==='respond'))return {kind:'discussion',text:'Read the relevant assistance card.',lookup:{methodIds:['respond']}};
+      return structuredClone(result);
+    } });
   controller.visible = false;
   t.after(() => { controller.close(); store.close(); });
   controller.updateStatus({ phase: 'ready', account: { uid: scope.accountUid, uin: scope.accountUin } });
@@ -215,9 +224,12 @@ test('recorded live feedback review commits atomically without hydrated feedback
   assert.equal(store.getCompanion(scope).revision, current.revision, 'normal reads must not normalize an already canonical write again');
   assert.equal(current.runs.find(run => run.id === reply.requestId).status, 'complete');
   const candidates = store.experiences.list(scope).adaptations;
-  assert.equal(candidates.length, 1);
-  assert.equal(candidates[0].status, 'candidate');
-  assert.ok(candidates[0].sourceIds.includes(feedback.sourceId));
+  assert.equal(candidates.length, loadCard?1:0, 'directory metadata alone cannot support candidate promotion');
+  if(loadCard){
+    assert.equal(candidates[0].status, 'candidate');
+    assert.ok(candidates[0].sourceIds.includes(feedback.sourceId));
+  }
+  }
 });
 
 test('an old relative-week claim without an end date reaches the model as unspecified, not a fresh current arrangement', t => {

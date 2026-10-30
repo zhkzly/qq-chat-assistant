@@ -30,7 +30,10 @@ test('72-hour candidates exceed a turn quota while immediate exchange keeps its 
   store.add(scope,records);
   const privateTurn=addPrivate(store,54,'WITHIN_72H_USER：前天商量的意思是先回应具体分享，不要把每句话都写成采访。');
   const prepared=buildContext(args()),selected=prepared.payload.sources.filter(source=>source.type==='qq');
-  assert.equal(selected.length,40,'all complete short episodes fit the unchanged request budget; a fixed 24-message quota is insufficient');
+  assert.ok(selected.length>2,'the recent-days layer admits complete older episodes beyond the immediate exchange');
+  assert.equal(prepared.manifest.contextSelection.recentQQ.candidateSourceIds.length,40);
+  assert.equal(selected.length+prepared.manifest.contextSelection.recentQQ.omittedSourceIds.length,40,'the complete corpus remains accounted for when the bounded layer defers an episode');
+  assert.ok(prepared.manifest.inputBytes<=prepared.manifest.byteBudget);
   assert.ok(prepared.payload.sources.some(source=>source.id===`private:${privateTurn.id}`),'54-hour-old proactive consultation is a default candidate');
   assert.deepEqual(prepared.payload.taskContext.recentExchange.map(source=>source.sourceId),['qq:81038','qq:81039']);
   assert.equal(prepared.payload.taskContext.latestActual.sourceId,'qq:81039');

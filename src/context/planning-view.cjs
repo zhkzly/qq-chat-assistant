@@ -12,6 +12,9 @@ const {contextBudget,finish,attachSelectionManifest}=require('./budget-manifest.
 const {selectPlanningContext}=require('./selection.cjs');
 const {buildConversationWork,CONVERSATION_WORK_VERSION}=require('../conversation-work.cjs');
 const {buildMaterialView,VERSION:MATERIAL_VERSION}=require('../conversation-materials.cjs');
+const {boundedSource}=require('./source-delivery.cjs');
+const {projectDiscussionReads}=require('./discussion-view.cjs');
+const {bytes}=require('./shared.cjs');
 const {MATERIAL_POLICY}=require('./draft-material.cjs');
 
 function reconcilePlanningViews(payload){
@@ -69,6 +72,8 @@ function buildContext(options) {
   if (!Number.isFinite(byteBudget) || byteBudget < 4000 || byteBudget > 192000) throw new Error('上下文预算不合法');
   const snapshot=sourceSnapshot({scope,records,companion,availableSources,turn});
   const {actualById,all,byId,current}=snapshot;
+  const readRequests=new Map(retrievedSources.map(source=>[source.id,source]));
+  const privateReadView=id=>{const request=readRequests.get(id);return boundedSource(byId.get(id),{maxBytes:6000,start:request?.delivery?.start??request?.offset??0,maxChars:request?.delivery?request.delivery.end-request.delivery.start:request?.maxChars??Infinity});};
   const pendingIntents = pendingPrivateReviews(companion, byId);
   const explicitTurnIds=new Set([...sourceTurnIds,...sourceLookupIds.map(id=>id.replace(/^private:/,'')),selectedOption?.turnId].filter(Boolean));
   const automaticIds=automaticDiscussionTurnIds(companion,{store:options.store,scope});
@@ -85,77 +90,78 @@ function buildContext(options) {
   if (!Array.isArray(materialIds) || materialIds.length>12 || materialIds.some(id => typeof id !== 'string' || !companion.notes.some(n => n.id === id && n.use === 'draft')))
     throw new Error('草稿素材必须是当前联系人允许分享的近况');
   const selected = new Map([[current.id, current]]);
-  for (const id of protectedPendingIds) selected.set(id, byId.get(id));
+  for (const id of protectedPendingIds) {const source=boundedSource(byId.get(id),{maxBytes:4000});if(source)selected.set(id,source);}
   // The latest user correction is cheap authoritative context. Prior assistant
   // essays and automatic outputs are loaded only when the task actually needs
   // that discussion, rather than being attached to this user turn by accident.
   const latestPrivateSource=latestPriorUser&&byId.get(`private:${latestPriorUser.id}`);
   const latestPrivateIsCurrent=latestPrivateSource&&(generationOrigin!=='qq_observation'||inRecentWindow(latestPrivateSource.at)||
     relevantTo(recentExchange([...actualById.values()]).map(m=>m.text).join('\n'),latestPrivateSource));
-  if(latestPrivateIsCurrent&&!foldedPrivateIds.has(latestPrivateSource.id))selected.set(latestPrivateSource.id,latestPrivateSource);
+  if(latestPrivateIsCurrent&&bytes(latestPrivateSource)<=6000&&!foldedPrivateIds.has(latestPrivateSource.id))selected.set(latestPrivateSource.id,latestPrivateSource);
   const validQQ = records.filter(m => eligibleQQ(m) && sameScope(m,scope) && byId.has(`qq:${m.messageId}`));
   const protectedImageIds=[...new Set([...imageMessageIds,...(images||[]).map(image=>image.messageId)])];
-  // Protect both complete sides of the latest exchange, including after the
-  // user has already replied in several bubbles. Never lose her boundary then.
-  for (const message of recentExchange(validQQ)) selected.set(`qq:${message.messageId}`, byId.get(`qq:${message.messageId}`));
-  for(const id of requiredQuoteSources(records,byId,[...replyMessageIds,...protectedImageIds]))selected.set(id,byId.get(id));
-  for (const id of materialIds) selected.set(`note:${id}`, byId.get(`note:${id}`));
-  for (const id of replyMessageIds) if (byId.has(`qq:${id}`)) selected.set(`qq:${id}`, byId.get(`qq:${id}`));
-  for (const id of protectedImageIds) if (byId.has(`qq:${id}`)) selected.set(`qq:${id}`, byId.get(`qq:${id}`));
+  // Preserve one bounded actual exchange. Source ranges disclose oversized
+  // messages; earlier bubbles remain available through the same source registry.
+  let exchangeBytes=0;const exchangeLimit=Math.min(12000,Math.floor(byteBudget*0.65));
+  for (const message of [...recentExchange(validQQ)].reverse()) {
+    const source=byId.get(`qq:${message.messageId}`),projected=boundedSource(source,{maxBytes:Math.min(8000,exchangeLimit-exchangeBytes)});
+    if(!projected||exchangeBytes+bytes(projected)>exchangeLimit)break;
+    selected.set(projected.id,projected);exchangeBytes+=bytes(projected);
+  }
+  for(const id of requiredQuoteSources(records,byId,[...replyMessageIds,...protectedImageIds])) {const source=boundedSource(byId.get(id),{maxBytes:Math.min(16000,byteBudget)});if(source)selected.set(id,source);}
+  for (const id of materialIds) selected.set(`note:${id}`, boundedSource(byId.get(`note:${id}`),{maxBytes:6000}));
+  for (const id of replyMessageIds) if (byId.has(`qq:${id}`)) selected.set(`qq:${id}`, boundedSource(byId.get(`qq:${id}`),{maxBytes:6000}));
+  for (const id of protectedImageIds) if (byId.has(`qq:${id}`)) selected.set(`qq:${id}`, boundedSource(byId.get(`qq:${id}`),{maxBytes:6000}));
   const selectedProposal = selectedOption && companion.turns.find(t => t.id === selectedOption.turnId && t.role === 'assistant')?.expressionOptions?.[selectedOption.index];
   if (selectedOption && !selectedProposal) throw new Error('选中的表达方向已变化，请重新选择');
   const proposals = companion.turns.filter(t => t.role === 'assistant' && !automaticTurn(t) && t.expressionOptions?.length).slice(-4)
     .flatMap(t => t.expressionOptions.map((o, index) => ({ ...o, turnId: t.id, index })));
   for (const proposal of selectedProposal ? [selectedProposal] : []) for (const q of proposal.quotes || [])
-    if (byId.has(q.sourceId)) { selected.set(q.sourceId, byId.get(q.sourceId)); foldedPrivateIds.delete(q.sourceId); }
+    if (byId.has(q.sourceId)) { const source=byId.get(q.sourceId),offset=source.text.indexOf(q.text);selected.set(q.sourceId, boundedSource(source,{start:Math.max(0,offset),maxBytes:6000})); foldedPrivateIds.delete(q.sourceId); }
   for (const id of sourceLookupIds) {
     const sourceId = id.startsWith('private:') ? id : `private:${id}`;
-    if (byId.has(sourceId)) { selected.set(sourceId, byId.get(sourceId)); foldedPrivateIds.delete(sourceId); }
+    if (byId.has(sourceId)) { selected.set(sourceId,privateReadView(sourceId)); foldedPrivateIds.delete(sourceId); }
   }
   for(const id of sourceTurnIds){
     const original=companion.turns.find(t=>t.id===id&&t.role==='user');
-    if(original&&byId.has(`private:${id}`)){selected.set(`private:${id}`,byId.get(`private:${id}`));foldedPrivateIds.delete(`private:${id}`);}
+    if(original&&byId.has(`private:${id}`)){selected.set(`private:${id}`,privateReadView(`private:${id}`));foldedPrivateIds.delete(`private:${id}`);}
   }
   const intentSource = intentSourceId ? byId.get(intentSourceId) : current;
   if (!intentSource || !['private','request','feedback'].includes(intentSource.type) || intentSource.role !== 'user')
     throw new Error('当前意图来源已变化，请重新提交');
-  selected.set(intentSource.id, intentSource);
-  const topicView = topicContext || companion.topics || { version: 0, activeId: null, items: [] };
+  selected.set(intentSource.id,intentSource);
+  const topicView = topicContext || companion.topics || companion.consultationTask || { version: 0, activeId: null, items: [] };
   const activeTopic = sameScopeIfPresent(topicView, scope) && (topicView.active || (topicView.items || []).find(item => item.id === topicView.activeId));
   const groundedTopic = activeTopic?.lifecycle === 'active' && supportedByAvailable(activeTopic, byId, scope) ? activeTopic : null;
-  if (groundedTopic) for (const id of groundedTopic.sourceIds) if (!foldedPrivateIds.has(id)) selected.set(id, byId.get(id));
-  const essentialIds = new Set(selected.keys());
+  // A grounded current task is a bounded control view, not a raw-source floor.
+  // Original task evidence remains addressable and enters through relevance/read admission.
+  const essentialIds = new Set([...selected.keys()].filter(id=>id!==latestPrivateSource?.id||id===current.id||protectedPendingIds.includes(id)||id===intentSource.id));
   const recentPlan=planRecentContext(validQQ,{replyMessageIds,imageMessageIds:protectedImageIds,byteBudget});
   const timeSegments=recentHistorySegments(validQQ,historyPolicy),timeCandidateIds=new Set(timeSegments.flat().map(m=>`qq:${m.messageId}`)),timePriorityIds=new Set();
   const recentPrivateIds=new Set(eligibleTurns.filter(t=>t.role==='user'&&t.id!==turn.id&&inRecentWindow(t.createdAt)&&byId.has(`private:${t.id}`)).map(t=>`private:${t.id}`));
   const reviewing=purpose==='review';
   const privateRequest=generationOrigin!=='qq_observation';
   const queryText=[turn.transient?'':current.text,...validQQ.filter(m=>recentPlan.candidateMessageIds.includes(m.messageId)).map(m=>m.text),
-    ...(privateRequest&&latestPriorUser?[latestPriorUser.text]:[]),groundedTopic?.objective,groundedTopic?.direction].filter(Boolean).join('\n');
+    ...(privateRequest&&latestPrivateSource&&selected.has(latestPrivateSource.id)?[latestPrivateSource.text]:[])].filter(Boolean).join('\n');
   const relevantRecord=record=>reviewing||record.sourceIds?.some(id=>essentialIds.has(id))||relevantTo(queryText,record)||
     (record.sourceIds||[]).some(id=>relevantTo(queryText,byId.get(id)||{}));
-  const state = { ...companion.state, authority: companion.state.possiblyStale ? 'previous_summary_needs_review' : 'reviewed_summary_not_independent_evidence' };
-  const originalStateCount=['items','openThreads','unknowns'].reduce((n,key)=>n+(state[key]||[]).length,0);
-  for(const key of ['items','openThreads']){
+  const state = { ...pick(companion.state,['version','items','possiblyStale','lastReviewedAt','updatedAt']), ownership:'evidence_only_task_controls_in_topicContext', authority: companion.state.possiblyStale ? 'previous_summary_needs_review' : 'reviewed_summary_not_independent_evidence' };
+  const originalStateCount=(state.items||[]).length;
+  for(const key of ['items']){
     const relevant=(state[key]||[]).filter(relevantRecord);
     state[key]=(relevant.length||!privateRequest?relevant:(state[key]||[]).slice(-2)).slice(0,reviewing?16:4);
   }
-  const relevantUnknowns=(state.unknowns||[]).filter(text=>reviewing||relevantTo(queryText,{text}));
-  state.unknowns=(relevantUnknowns.length||!privateRequest?relevantUnknowns:(state.unknowns||[]).slice(-2)).slice(0,reviewing?12:4);
-  if(!reviewing&&!groundedTopic&&!relevantTo(queryText,{text:state.focus}))state.focus='';
-  if (state.possiblyStale) state.openThreads = (state.openThreads || []).map(item => ({ ...item,
-    previousStatus: item.status || 'open', status: 'needs_review' }));
-  const methodSelection = selectMethods({ purpose, text: current.text, focus: state.focus, hasReply: validQQ.at(-1)?.direction === 'incoming' });
+  const methodSelection = selectMethods({ purpose, hasReply: validQQ.at(-1)?.direction === 'incoming',methodIds:options.methodLookupIds });
   const restrictions = companion.notes.filter(n => n.use === 'discussion' && n.kind !== 'preference').map(n => ({ sourceId: `note:${n.id}`, text: redact(n.text), evidenceSourceIds: n.evidenceSourceIds || [] }));
   const payload = { promptVersion: PROMPT_VERSION, purpose, method: METHODS[purpose], methodCards: [],methodCatalog:methodSelection.catalog, methodSelection: {
     version: methodSelection.version, selection: methodSelection.selection, candidates: [],
-    maxApplied: methodSelection.maxApplied, selectionRule: methodSelection.selectionRule, feedbackRule: methodSelection.feedbackRule }, asOf,viewerTimeZone,
+    maxApplied: methodSelection.maxApplied,...(methodSelection.operationalInstructionsLocation?{operationalInstructionsLocation:methodSelection.operationalInstructionsLocation}:{}), selectionRule: methodSelection.selectionRule, feedbackRule: methodSelection.feedbackRule }, asOf,viewerTimeZone,
     userRequest: { sourceId: current.id, text: current.text }, goal: redact(companion.goal.text || ''),
     intentAuthority: { sourceId: intentSource.id },draftMaterialPolicy:{...MATERIAL_POLICY},
     generationOrigin,
     currentObservationSourceId: generationOrigin === 'qq_observation' ? currentObservationSourceId || (validQQ.at(-1) && `qq:${validQQ.at(-1).messageId}`) : null,
     topicContext: { version: topicView.version || 0, activeId: groundedTopic?.id || null,
-      active: groundedTopic ? modelTopic(pick(groundedTopic, ['id','version','lifecycle','objective','direction','constraints','stage','progress','unknowns','interpretationStatus','purposeBindings','observationBindings','observationAuthorities','purposeSourceIds','observationSourceIds','lifecycleSourceIds','sourceIds'])) : null,
+      active: groundedTopic ? modelTopic({...pick(groundedTopic, ['id','version','lifecycle','objective','direction','constraints','stage','progress','unknowns','interpretationStatus','purposeBindings','observationBindings','observationAuthorities','purposeSourceIds','observationSourceIds','lifecycleSourceIds','sourceIds']),sourceAvailability:groundedTopic.sourceIds.every(id=>selected.has(id))?'delivered':'lookup_required',sourceRefs:groundedTopic.sourceIds.map(id=>({sourceId:id,revision:byId.get(id).revision})),authority:'source_bound_task_control_not_outbound_permission'}) : null,
       retained: [], authority: 'private_direction_not_outbound_authorization' },
     workingState: state, coverage, selectedMaterialIds: materialIds.map(id => `note:${id}`),
     allowedMaterialIds: [],
@@ -168,7 +174,24 @@ function buildContext(options) {
     evidenceRule: 'historicalOnly=true 的消息仅为历史提及，后续可能有未读的更改，不可据此断言当前约定有效。possiblyStale 的状态只作需要核查的上次理解，新原话与用户纠正优先。',
     contextPolicy:{recentHours:historyPolicy.recentHours,since:historyPolicy.since},
     deferredContext:{lookupAvailable:true,qqSourceCount:0,privateTurnCount:0,relationshipClaimCount:0,recentQQSourceCount:0,recentPrivateSourceCount:0},
-    omittedStateEntries: originalStateCount-['items','openThreads','unknowns'].reduce((n,key)=>n+state[key].length,0) };
+    omittedStateEntries: originalStateCount-state.items.length };
+  if(payload.topicContext.active){
+    const bindings=groundedTopic.purposeBindings||{};let refs=new Map(),currentConfirmed=false;const omittedControlFields=[];
+    for(const field of ['objective','direction','constraints']){
+      const binding=bindings[field];
+      if(payload.topicContext.active[field]===undefined||!binding?.sourceIds?.length||!binding.sourceIds.every(id=>{
+        const source=byId.get(id);return source&&source.role==='user'&&['private','feedback'].includes(source.type)&&source.kind!=='feedback_continue'&&binding.sourceRevisions?.[id]===source.revision;
+      }))continue;
+      currentConfirmed ||= binding.sourceIds.includes(intentSource.id);
+      const candidate=new Map([...refs].map(([id,ref])=>[id,{...ref,fields:[...ref.fields]}]));
+      for(const id of binding.sourceIds){const ref=candidate.get(id)||{sourceId:id,revision:byId.get(id).revision,fields:[]};ref.fields.push(field);candidate.set(id,ref);}
+      if(bytes([...candidate.values()])<=2000)refs=candidate;else omittedControlFields.push(field);
+    }
+    payload.topicContext.controlRefs=[...refs.values()];
+    if(omittedControlFields.length)payload.topicContext.omittedControlFields=omittedControlFields;
+    payload.topicContext.active.applicability=currentConfirmed?'current_user_confirmed':'requires_current_request_match';
+    payload.topicContext.active.applicabilityRule='current_request_wins_choose_continue_different_or_uncertain_before_using_prior_task_controls';
+  }
   if (pendingIntents.length) {
     const recent = pendingIntents.slice(-8);
     const refs = recent.map(source => {
@@ -189,7 +212,10 @@ function buildContext(options) {
     if (payload.topicContext.active && payload.topicContext.active.sourceIds.some(id => foldedPrivateIds.has(id))) Object.assign(payload.topicContext.active, {
       authority: 'derived_private_discussion_needs_sources', foldedSourceIds: payload.topicContext.active.sourceIds.filter(id => foldedPrivateIds.has(id)), sourceAvailability: 'folded_originals_require_lookup' });
   }
-  if (retrievedDiscussion.length) payload.retrievedDiscussion = retrievedDiscussion.map(item => ({ ...sanitize(pick(item, ['id','role','kind','text','discussionExplanation','suggestions','expressionOptions','artifactRef'])), authority: 'generated_discussion_not_outbound_authorization' }));
+  if(retrievedDiscussion.length){
+    const projection=projectDiscussionReads(retrievedDiscussion,{sources:selected,byteBudget});
+    payload.retrievedDiscussion=projection.entries;payload.discussionReadCoverage={...pick(projection,['bodyView','offsetUnit','byteLimit','omittedTurnIds']),requestedTurnIds:retrievedDiscussion.map(item=>item.id)};
+  }
   const manualAlternative=candidateAlternative===true&&invocation?.origin==='user'&&invocation?.trigger==='manual_suggestion';
   const implicitAnchor=(privateRequest||manualAlternative)&&!sourceTurnIds.length&&!selectedOption?currentCandidateAnchor(companion,currentCandidateRef):null;
   const candidatePool = candidatesForCompaction(compacted, companion, { sourceTurnIds, selectedOption, sourceLookupIds,store:options.store,scope }).filter(candidate=>
@@ -206,7 +232,7 @@ function buildContext(options) {
   const currentRequest=payload.userRequest,position=payload.taskContext;delete payload.userRequest;delete payload.taskContext;
   payload.taskContext=position;payload.userRequest=currentRequest;
   const context=finish(payload, payload.sources, { scope, requestId, companion, coverage }, all, byteBudget, budget);
-  attachSelectionManifest(context,{historyPolicy,timeCandidateIds,selected,timeSegments,recentPrivateIds,foldedPrivateIds,coreItems,byId,images,payload,compacted,recentPlan,recentContextPlan,recentPriorityIds,recentInitialAdditionalBytes,optionalRawLimit,optionalRawIds,optionalRetrieved});
+  attachSelectionManifest(context,{historyPolicy,timeCandidateIds,selected,timeSegments,recentPrivateIds,foldedPrivateIds,coreItems,byId,images,payload,compacted,recentPlan,recentContextPlan,recentPriorityIds,recentInitialAdditionalBytes,optionalRawLimit,optionalRawIds,optionalRetrieved,taskSourceIds:groundedTopic?.sourceIds||[]});
   context.manifest.planningViews={workVersion:payload.work?.version||CONVERSATION_WORK_VERSION,materialVersion:payload.materialView?.version||MATERIAL_VERSION,
     materialRefs:(payload.materialView?.items||[]).map(({kind,sourceIds})=>({kind,sourceIds})),projection:payload.materialView?payload.materialView.projection||'full':'omitted_for_required_evidence'};
   if(implicitAnchor){const delivered=payload.privateCandidates?.find(item=>item.selection==='implicit_discussion_anchor'&&item.turnId===implicitAnchor.turnId);

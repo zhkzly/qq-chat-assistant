@@ -102,18 +102,33 @@ function parseExperienceProposals(value, payload) {
     return { text: item.text.trim(), applicability: item.applicability.trim(), methodId: item.methodId, sourceIds: [...new Set(item.sourceIds)], caseIds: [...new Set(cases)] };
   });
 }
-function parseDraftGuidance(value, payload) {
+function taskUseFor(plan, payload, patch) {
+  if (plan.taskUse !== undefined && !['continue','different','uncertain'].includes(plan.taskUse))
+    throw new Error('draftPlan.taskUse: choose continue, different or uncertain for this request');
+  const active=payload?.topicContext?.active;
+  const rebound=patch?.operation==='create'||patch?.operation==='resume'||patch?.purposeSourceIds?.includes(payload?.intentAuthority?.sourceId||payload?.userRequest?.sourceId);
+  if(active?.applicability==='requires_current_request_match'&&!rebound&&!['complete','cancel','pause'].includes(patch?.operation)&&!plan.taskUse)
+    throw new Error('draftPlan.taskUse: 当前保留任务只是候选，请依据本次原话确认继续、另谈或仍不确定；不自动沿用旧目的');
+  return rebound?'continue':plan.taskUse||'continue';
+}
+function parseDraftGuidance(value, payload, { taskUse='continue' }={}) {
   if (value === undefined) return undefined;
   if (!value || typeof value !== 'object' || Array.isArray(value) || Object.keys(value).some(key => !['objective','allowedApproach','avoidances','currentStep'].includes(key)))
     throw new Error('draftPlan.guidance: only objective/allowedApproach/avoidances/currentStep are allowed');
   const available = new Map((payload?.sources || []).map(source => [source.id, source]));
+  // These program-validated task references grant control provenance only.
+  // Their bodies are not delivered facts and cannot authorize outbound quotes.
+  const taskRefs=new Map((taskUse==='continue'?payload?.topicContext?.controlRefs||[]:[])
+    .filter(ref=>typeof ref.sourceId==='string'&&typeof ref.revision==='string'&&ref.fields?.length)
+    .map(ref=>[ref.sourceId,ref]));
   const parseItem = (item, path) => {
     if (!item || typeof item !== 'object' || Array.isArray(item) || Object.keys(item).some(key => !['text','sourceIds'].includes(key)) ||
       typeof item.text !== 'string' || !item.text.trim() || item.text.length > 400)
       throw new Error(`${path}.text: use a short expression control of at most 400 characters, not private rationale or outbound material`);
-    if (!Array.isArray(item.sourceIds) || !item.sourceIds.length || item.sourceIds.length > 8 || item.sourceIds.some(id => typeof id !== 'string' || !available.has(id)) ||
+    if (!Array.isArray(item.sourceIds) || !item.sourceIds.length || item.sourceIds.length > 8 || item.sourceIds.some(id => typeof id !== 'string' || !available.has(id)&&!taskRefs.has(id)) ||
       !item.sourceIds.some(id => {
         const source = available.get(id);
+        if(!source)return taskRefs.has(id);
         return ['private','request','feedback'].includes(source.type) && source.role === 'user' || source.type === 'note' && source.kind === 'preference';
       })) throw new Error(`${path}.sourceIds: cite delivered private user/request/feedback or explicit preference sources; QQ alone and generated artifacts cannot establish user controls`);
     return { text: item.text.trim(), sourceIds: [...new Set(item.sourceIds)] };
@@ -126,7 +141,8 @@ function parseDraftGuidance(value, payload) {
   }
   return result;
 }
-function requireTopicGuidance(guidance, payload, patch) {
+function requireTopicGuidance(guidance, payload, patch, taskUse='continue') {
+  if(taskUse!=='continue'&&!['create','resume'].includes(patch?.operation))return;
   let effective = payload?.topicContext?.active || null;
   if (patch?.operation === 'create') effective = { lifecycle: 'active', ...patch };
   else if (patch && ['pause','complete','cancel'].includes(patch.operation)) effective = null;
@@ -181,14 +197,30 @@ function parseAssistantStrict(value, purpose, input) {
   const reportedMethods = methods();
   if (purpose !== 'draft' && value.lookup) {
     const q = value.lookup;
+    const handles=new Set();
+    const collect=node=>{
+      if(!node||typeof node!=='object')return;
+      if(Array.isArray(node)){node.forEach(collect);return;}
+      for(const [key,item]of Object.entries(node)){
+        if(['sourceId','id'].includes(key)&&typeof item==='string'&&/^(qq|private|note|feedback):/.test(item))handles.add(item);
+        if(key==='sourceIds'&&Array.isArray(item))for(const id of item)if(typeof id==='string')handles.add(id);
+        if(item&&typeof item==='object')collect(item);
+      }
+    };
+    collect(payload);
+    if(q.sourceIds!==undefined&&(!Array.isArray(q.sourceIds)||!q.sourceIds.length||q.sourceIds.length>8||q.sourceIds.some(id=>typeof id!=='string'||!handles.has(id))))throw new Error('lookup.sourceIds: use 1..8 delivered source handles');
+    for(const [key,maximum]of [['offset',10000000],['maxChars',8000]])if(q[key]!==undefined&&(!Number.isSafeInteger(q[key])||q[key]<(key==='offset'?0:1)||q[key]>maximum))throw new Error(`lookup.${key}: invalid bounded source range`);
+    if((q.offset!==undefined||q.maxChars!==undefined)&&!q.sourceIds?.length&&!q.discussionTurnIds?.length)throw new Error('lookup ranges require explicit sourceIds or discussionTurnIds');
+    if(q.methodIds!==undefined&&(!Array.isArray(q.methodIds)||!q.methodIds.length||q.methodIds.length>2||q.methodIds.some(id=>!methodFor(id)||payload?.methodSelection?.candidates&&!payload.methodSelection.candidates.includes(id))))throw new Error('lookup.methodIds: use up to two available method IDs');
+    if(q.discover!==undefined&&typeof q.discover!=='boolean')throw new Error('lookup.discover: use a boolean');
     const allowedTurns = new Set([...(payload?.discussionCompaction?.sourceTurnIds || []), ...(payload?.discussionCompaction?.coveredTurnIds || []),
-      ...(payload?.discussionCompaction?.lookupTurnIds || []), ...(payload?.pendingPrivateReview?.lookupTurnIds || []), ...(payload?.privateCandidates || []).map(item => item.turnId), ...(payload?.retrievedDiscussion || []).map(item => item.id)]);
+      ...(payload?.discussionCompaction?.lookupTurnIds || []), ...(payload?.pendingPrivateReview?.lookupTurnIds || []), ...(payload?.deferredDiscussion?.turnIds||[]), ...(payload?.discussionReadCoverage?.requestedTurnIds||[]), ...(payload?.privateCandidates || []).map(item => item.turnId), ...(payload?.retrievedDiscussion || []).map(item => item.id)]);
     if (q.discussionTurnIds !== undefined && (!Array.isArray(q.discussionTurnIds) || !q.discussionTurnIds.length || q.discussionTurnIds.length > 8 ||
       q.discussionTurnIds.some(id => typeof id !== 'string' || !allowedTurns.has(id)))) throw new Error('lookup.discussionTurnIds: use 1..8 delivered private discussion IDs');
-    if ((!q.discussionTurnIds?.length && (typeof q.query !== 'string' || !q.query.trim())) || q.query !== undefined && (typeof q.query !== 'string' || q.query.length > 2000)) throw new Error('历史检索需有明确查询或已提供的讨论ID');
+    if ((!q.discussionTurnIds?.length&&!q.sourceIds?.length&&!q.methodIds?.length&&!q.discover && (typeof q.query !== 'string' || !q.query.trim())) || q.query !== undefined && (typeof q.query !== 'string' || q.query.length > 2000)) throw new Error('历史检索需有明确查询、已提供的讨论／来源／方法ID，或请求发现谈资');
     for (const key of ['before','after']) if (q[key] !== undefined && !Number.isFinite(Date.parse(q[key]))) throw new Error('历史检索时间不正确');
     if (q.types && (!Array.isArray(q.types) || q.types.some(t => !['qq','private','note','feedback'].includes(t)))) throw new Error('历史检索类型不正确');
-    return { ...readableStep, lookup: { query: q.query || '', before: q.before, after: q.after, types: q.types, ...(q.discussionTurnIds ? { discussionTurnIds: [...new Set(q.discussionTurnIds)] } : {}) }, ...(reportedMethods ? { methodIds: reportedMethods } : {}) };
+    return { ...readableStep, lookup: { query: q.query || '', before: q.before, after: q.after, types: q.types, ...(q.discussionTurnIds ? { discussionTurnIds: [...new Set(q.discussionTurnIds)] } : {}),...(q.sourceIds?{sourceIds:[...new Set(q.sourceIds)]}:{}),...(q.sourceIds?.length||q.discussionTurnIds?.length?{offset:q.offset||0,maxChars:q.maxChars||4000}:{}),...(q.methodIds?{methodIds:[...new Set(q.methodIds)]}:{}),...(q.discover?{discover:true}:{}) }, ...(reportedMethods ? { methodIds: reportedMethods } : {}) };
   }
   const extras = reportedMethods ? { methodIds: reportedMethods } : {};
   if (purpose === 'draft') for (const field of ['relationshipPatch','topicPatch','statePatch','actions','draftPlan','expressionOptions','experienceProposals'])
@@ -278,17 +310,18 @@ function parseAssistantStrict(value, purpose, input) {
     if (typeof plan.clarification === 'string' && plan.clarification.trim() && plan.clarification.length <= 1000) {
       return { ...extras, ...readableStep, draftPlan: { clarification: plan.clarification } };
     }
-    const guidance = parseDraftGuidance(plan.guidance, payload);
+    const taskUse=taskUseFor(plan,payload,extras.topicPatch);
+    const guidance = parseDraftGuidance(plan.guidance, payload,{taskUse});
     requireDraftControlGuidance(guidance,payload);
-    requireTopicGuidance(guidance, payload, extras.topicPatch);
+    requireTopicGuidance(guidance, payload, extras.topicPatch,taskUse);
     // Run the same source/material contract here and at the restricted handoff.
     // A faulty plan can then use the existing single bounded format repair.
     if(payload?.draftMaterialPolicy)resolveDraftMaterial(payload,plan);
     if (plan.option && typeof plan.option.turnId === 'string' && Number.isInteger(plan.option.index))
-      return { ...extras, ...readableStep, draftPlan: { option: plan.option, authorizationQuote: plan.authorizationQuote, quotes: plan.quotes||[], style: plan.style, language:plan.language,askFollowup:plan.askFollowup,useEmoji:plan.useEmoji, ...(guidance ? { guidance } : {}) } };
+      return { ...extras, ...readableStep, draftPlan: { option: plan.option,taskUse, authorizationQuote: plan.authorizationQuote, quotes: plan.quotes||[], style: plan.style, language:plan.language,askFollowup:plan.askFollowup,useEmoji:plan.useEmoji, ...(guidance ? { guidance } : {}) } };
     if (!Array.isArray(plan.quotes) || (!plan.quotes.length && plan.intent !== 'reply') || plan.quotes.length > 8 ||
         plan.quotes.some(q => !q || typeof q.sourceId !== 'string' || typeof q.text !== 'string')) throw new Error('拟表达内容格式不正确');
-    return { ...extras, ...readableStep, draftPlan: { quotes: plan.quotes, style: plan.style, intent: plan.intent, authorizationQuote: plan.authorizationQuote,language:plan.language,askFollowup:plan.askFollowup,useEmoji:plan.useEmoji, ...(guidance ? { guidance } : {}) } };
+    return { ...extras, ...readableStep, draftPlan: { quotes: plan.quotes,taskUse, style: plan.style, intent: plan.intent, authorizationQuote: plan.authorizationQuote,language:plan.language,askFollowup:plan.askFollowup,useEmoji:plan.useEmoji, ...(guidance ? { guidance } : {}) } };
   }
   const kinds = purpose === 'draft' ? ['draft','discussion','question'] : ['discussion', 'question', 'options', 'review', 'acknowledgment'];
   if (purpose !== 'draft' && value.kind === 'draft') throw new Error(`kind: purpose=${purpose}不能直接返回draft/suggestions；需要source-bound draftPlan（quotes/intent和当前topic所需guidance）或discussion/question，随后程序会进入受限draft阶段`);

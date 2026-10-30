@@ -2,7 +2,7 @@
 const {redact}=require('../model.cjs');
 const {sanitize,pick,bytes}=require('./shared.cjs');
 const {supportedByAvailable}=require('./source-snapshot.cjs');
-function modelTopic(record) {
+function modelTopic(record,{maxBytes=4000}={}) {
   const projected = sanitize(record);
   // Revisions have already been checked against full sources. Keep source IDs
   // and field authority in the model view; the manifest owns the exact hashes.
@@ -11,6 +11,25 @@ function modelTopic(record) {
     Object.entries(projected[key]).map(([field, binding]) => {
       const copy = { ...binding }; delete copy.sourceRevisions; return [field, copy];
     }));
+  if(bytes(projected)<=maxBytes)return projected;
+  const omittedFields=[];
+  // These are complete derived control fields, never substrings of raw source
+  // evidence. Mark deferred fields rather than making a large task mandatory.
+  for(const key of ['sourceRefs','observationBindings','observationAuthorities','progress','unknowns','stage']){
+    if(bytes(projected)<=maxBytes)break;
+    if(projected[key]!==undefined){delete projected[key];omittedFields.push(key);}
+  }
+  if(bytes(projected)>maxBytes){
+    for(const key of ['purposeBindings','purposeSourceIds','observationSourceIds','lifecycleSourceIds','constraints','direction','objective']){
+      if(bytes(projected)<=maxBytes)break;
+      if(projected[key]!==undefined){delete projected[key];omittedFields.push(key);}
+    }
+  }
+  if(bytes(projected)>maxBytes){
+    const refs=(projected.sourceIds||[]);projected.sourceIds=refs.slice(0,8);projected.omittedSourceRefCount=refs.length-projected.sourceIds.length;
+  }
+  projected.projection='bounded_task_view';projected.omittedFields=omittedFields;
+  projected.controlCoverage='partial_requires_original_lookup';
   return projected;
 }
 function relevantTo(text, item) {
@@ -45,9 +64,19 @@ function projectObservations(observations, byId, scope) {
 }
 const actionSources = items => items.flatMap(item => item.sourceIds || [item.sourceId]).filter(Boolean);
 
-function coreCatalog(inventory,byId,scope){
+function coreCatalog(inventory,byId,scope,{queryText='',asOf=''}={}){
   const result=[],coreSeen=new Set();let coreBytes=0;
-  for(const item of inventory){
+  const ranked=[...inventory].map((item,index)=>({item,index,score:(relevantTo(queryText,item)?100:0)+(item.currentApplicability==='current'?10:0),at:Date.parse(item.lastEvidenceAt||item.validFrom||0)||0}))
+    .sort((a,b)=>b.score-a.score||b.at-a.at||a.index-b.index);
+  // Relevance precedes diversity; within each relevance tier, represent more
+  // than the first six rows of one aspect before repeating that aspect.
+  const ordered=[];
+  for(const score of [...new Set(ranked.map(entry=>entry.score))]){
+    const group=ranked.filter(entry=>entry.score===score),seen=new Set();
+    ordered.push(...group.filter(({item})=>{const key=`${item.subject||'self'}:${item.aspect||item.kind||'memory'}`;if(seen.has(key))return false;seen.add(key);return true;}));
+    ordered.push(...group.filter(entry=>!ordered.includes(entry)));
+  }
+  for(const {item} of ordered){
     if(result.length>=6)break;
     const typed=!!item.subject;
     const stable=typed?item.lifecycle==='active'&&item.assertionKind==='stated'&&item.epistemicStatus==='supported':
@@ -55,6 +84,7 @@ function coreCatalog(inventory,byId,scope){
     if(!stable||item.reviewComplete===false||!supportedByAvailable(item,byId,scope)||coreSeen.has(item.id))continue;
     const summary=sanitize(pick(item,['id','version','kind','recordType','status','certainty','lifecycle','reviewComplete','subject','aspect','text','assertionKind','epistemicStatus','sourceIds','firstEvidenceAt','lastEvidenceAt','validFrom','validUntil','context','applicability','currentApplicability']));
     summary.authority='validated_historical_summary_originals_available_by_lookup';
+    summary.sourceRefs=item.sourceIds.map(sourceId=>({sourceId,revision:byId.get(sourceId).revision}));
     summary.currentStatus=summary.currentApplicability||summary.applicability||'not_established_by_old_evidence';
     if(coreBytes+bytes(summary)>4000)continue;
     result.push(summary);coreSeen.add(item.id);coreBytes+=bytes(summary);

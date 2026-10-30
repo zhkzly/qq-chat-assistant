@@ -114,17 +114,26 @@ function packetPayload(request){const content=request.messages?.[1]?.content;if(
 function redacted(value,key){return JSON.stringify(value,(_name,item)=>typeof item==='string'&&key?item.split(key).join('[redacted]'):item,2);}
 function methodDelivery(stage,wire){
  const entries=wire.filter(entry=>{const payload=packetPayload(entry.request);return (payload.originalInput||payload).purpose===stage.purpose;});
- const operations=(stage.effectivePayload.methodCatalog||[]).map(method=>{
+ const directoryNavigation=(stage.effectivePayload.methodCatalog||[]).map(method=>{
+  const locations=[];
+  for(const entry of entries){const input=packetPayload(entry.request),payload=input.originalInput||input;
+   if(payload.methodCatalog?.some(item=>item.id===method.id&&item.version===method.version))locations.push({sequence:entry.sequence,location:'payload.methodCatalog.metadata'});
+  }
+  return {id:method.id,version:method.version,provided:locations.length>0,locations,authority:'navigation_only'};
+ });
+ const methods=[...new Map([...(stage.effectivePayload.methodCatalog||[]),...(stage.effectivePayload.methodCards||[])].map(method=>[method.id,method])).values()];
+ const instructionDelivery=methods.map(method=>{
   const expected=operationsFor([method.id]),locations=[];
   for(const entry of entries){const input=packetPayload(entry.request),payload=input.originalInput||input;
    if(payload.methodCatalog?.some(item=>item.id===method.id&&item.instruction))locations.push({sequence:entry.sequence,location:'payload.methodCatalog.instruction'});
+   if(payload.methodCards?.some(item=>item.id===method.id&&item.instruction))locations.push({sequence:entry.sequence,location:'payload.methodCards.instruction'});
    if(expected&&entry.request.messages[0].content.includes(expected))locations.push({sequence:entry.sequence,location:'system.canonicalOperations'});
   }
   return {id:method.id,version:method.version,provided:locations.length>0,locations};
  });
- return {purpose:stage.purpose,compactOperations:operations,operationalDelivery:stage.effectiveManifest.methodTrace?.operationalDelivery||null,
+ return {purpose:stage.purpose,directoryNavigation,instructionDelivery,operationalDelivery:stage.effectiveManifest.methodTrace?.operationalDelivery||null,
   expandedCards:(stage.effectivePayload.methodCards||[]).map(method=>({id:method.id,version:method.version,location:'payload.methodCards.instruction',provided:!!method.instruction})),
-  reportedApplied:stage.effectiveManifest.methodTrace?.reported||null};
+  reportedApplied:stage.effectiveManifest.methodTrace?.reported||null,reportedUseAuthority:'model_report_only_not_observed_adoption'};
 }
 async function runHarness(options={}){
  if(options.live!==undefined&&typeof options.live!=='boolean')throw Error('Live mode requires an explicit boolean');

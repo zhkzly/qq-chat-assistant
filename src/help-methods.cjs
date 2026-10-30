@@ -2,7 +2,7 @@
 
 // These are fallible assistance methods, not inferred facts or relationship stages.
 // Research references were checked in the local context-memory research package.
-const METHOD_VERSION = 'relationship-methods-2026-10-17.2';
+const METHOD_VERSION = 'goal-methods-2026-10-30.1';
 const sources = {
   listening: { kind: 'human-study', source: 'https://doi.org/10.1177/0146167217747874',
     limit: '倾听与态度清晰度的实验，未检验 AI 恋爱咨询；清楚不等于正确。' },
@@ -19,7 +19,7 @@ const sources = {
   memory: { kind: 'engineering-reference', source: 'https://arxiv.org/abs/2410.10813',
     limit: '长期记忆问答评测，支持时间、更新、拒答检查，不是关系效果验证。' },
   userGoal: { kind: 'user-requirement', source: 'docs/context-management_CN.md',
-    limit: '服务双方愿意发展的恋爱目标；了解、友好回复和活动完成不是恋爱成功，不能保证她的选择。' },
+    limit: '服务用户当前明确目的；恋爱是适用场景之一，不能擅自替换朋友、工作或学习目的，也不保证对方的选择。' },
   interest: { kind: 'human-study', source: 'https://doi.org/10.1016/j.chb.2018.04.023',
     limit: '脚本在线互动中的兴趣和不确定性实验；性吸引不是长期承诺，不支持忽冷忽热策略。' },
   development: { kind: 'human-study', source: 'https://doi.org/10.1177/08902070221085877',
@@ -32,7 +32,7 @@ const operations={
  choose_next_step:'想联系时，从她的生活细节、未跟进旧事或用户真实材料选一个具体切口，说明这句增加什么；可回应、了解、分享、活动或表意，末条自己发不等于等待。',
  respond:'先回应她实际强调的细节或意思，选贴切反应、相关后续或获准的真实分享；认可贴着具体事情，不替她打分或擅自叮嘱收尾；有内容的问题照常可问，明确忙或告别按当轮收住。',
  compose:'把选好的具体意思、事实与局部分寸写成一条能直接改用的话，保留有内容的细节、问题或邀请；短guidance只控表达，不抄私下理由，不编自己的经历。',
- review:'按时间找回实际来往与更正，指出已了解什么、还有哪个具体细节或共同事项可接；友好、活动与恋爱意愿分开，兼顾反证，不用回复数或好感分判进展。',
+ review:'按当前目的和时间找回实际来往与更正，区分事实、意愿和计划，指出可接续事项；兼顾反证与未知，不用回复数或好感分代替进展。',
  shared_activity:'想一起做事时，按本轮意思选聊兴趣、轻松试探或具体活动与邀请；明确邀约保留对象与力度，未知安排留选择。提议、发出、接受、发生分开，取消不复活，不编共同喜好。',
  correction:'按反馈改被否定部分，保留用户仍确认的目的、方式与轻松趣味；嫌做作不自动改成直问或取消邀请，助手旧建议不算用户确认。局部改稿不升长期偏好，保存须有回执。',
  express_interest:'用户想表意时，按真实意思表达具体欣赏、想多认识或约会邀请，保留所要的力度和选择空间；历史少不阻止表达，朋友边界或拒绝不解释成隐藏喜欢。'
@@ -71,7 +71,7 @@ const definitions = [
     avoid: '把私人动机写给她、编造经历/感情/约定、强制给三条稿、将复制当发送。',
     requiredContext: ['authorizedOutboundMaterial', 'actualQQContext', 'applicableExpressionPreferences', 'currentTopicAndLocalCorrection'],
     evidence: [sources.userGoal, sources.ambiguity], output: { kinds: ['draft'], maxItems: 3 } },
-  { id: 'review', name: '找回与回顾', goalContribution: '判断实际相处及浪漫方向的变化，帮助选择继续、表意、修复或收束。',
+  { id: 'review', name: '找回与回顾', goalContribution: '回顾实际进展及当前目的，帮助选择继续、调整、修复或收束；恋爱方向仅在用户确有此目的时适用。',
     applicability: '问以前说过什么、约定进展，或希望回顾一段时间的互动。',
     avoid: '只找积极证据、关系好感分、把回复率或草稿采纳率当亲近、从空检索断言没发生。',
     requiredContext: ['currentRequest', 'goal', 'timeOrderedEvidence', 'corrections', 'coverage', 'applicableFeedback'],
@@ -117,30 +117,20 @@ function runtimeCard(method) {
     outputKinds: [...item.output.kinds], evidenceLimit: item.evidence.filter(source => source.kind === 'human-study').map(source => source.limit).join(' ') || item.evidence.at(-1).limit };
 }
 
-function selectMethods({ purpose = 'discussion', text = '', focus = '', hasReply = false, memory = null } = {}) {
-  // Arbitrary user text stays in the data channel. No keyword detector assigns
-  // a psychological state, sharing permission, or durable preference here.
-  void text; void focus; void memory;
-  const transportHint = ['reply','suggest'].includes(purpose) ? 'respond' : null;
-  const aliases = { draft: 'compose', draft_prepare: 'compose', recall: 'review', respond: 'respond',
-    clarify: 'clarify', choose_next_step: 'choose_next_step', shared_activity: 'shared_activity', correction: 'correction', review: 'review', compose: 'compose', express_interest: 'express_interest' };
-  const explicit = aliases[purpose];
-  const preferred = explicit || transportHint;
-  const order = hasReply ? ['respond', 'choose_next_step', 'express_interest', 'shared_activity', 'clarify', 'compose', 'review', 'correction']
-    : ['choose_next_step', 'express_interest', 'shared_activity', 'clarify', 'respond', 'compose', 'review', 'correction'];
-  // Transport purposes prioritize help; only the restricted drafting stage
-  // limits available methods. A reply can still express interest or invite.
-  const ids = purpose === 'draft' ? ['compose'] : preferred ? [preferred, ...order.filter(id => id !== preferred)] : order;
-  const fullIds=purpose==='draft'?['compose']:preferred?[preferred,...(preferred==='compose'?['clarify']:preferred==='review'?['correction']:['choose_next_step'])]
-    : hasReply?['respond','choose_next_step']:['choose_next_step', 'clarify'];
-  const methods = [...new Set(fullIds)].slice(0,purpose==='draft'?1:2).map(methodFor);
-  const compactCards=compactOperationalCards();
-  const catalog=ids.map(id=>compactCards.find(item=>item.id===id));
-  return { version: METHOD_VERSION, selection: explicit ? 'explicit' : transportHint ? 'transport_hint' : 'candidates',
-    methods, catalog, maxApplied: purpose === 'draft' ? 1 : 2,
-    instruction: methods.map(method => `${method.id}: ${method.instruction}`).join('\n'),
-    selectionRule: '用户此次明确意图优先于旧 topic、focus、purpose和候选顺序；模糊续问承接仍有效的商量方向与局部纠正，明确改方向立即替换。候选不是必走步骤，可选择零至两个已载入方法或直接回答，不必先提问。缺方法卡不等于缺用户信息，不要求用户选择方法或固定关系阶段。',
-    feedbackRule: '只使用来源有效且适用于当前场景的反馈；单次纠正不自动升级为长期偏好，不自动演化方法。论文提供有限机制参考，不能保证这段关系的结果。' };
+function selectMethods({ purpose='discussion', hasReply=false, methodIds=[] }={}) {
+  const aliases={draft:'compose',draft_prepare:'compose',recall:'review',respond:'respond',clarify:'clarify',choose_next_step:'choose_next_step',shared_activity:'shared_activity',correction:'correction',review:'review',compose:'compose',express_interest:'express_interest'};
+  const requested=[...new Set(Array.isArray(methodIds)?methodIds:[])].filter(id=>methodFor(id)).slice(0,2);
+  const preferred=aliases[purpose]||(['reply','suggest'].includes(purpose)?'respond':hasReply?'respond':'choose_next_step');
+  const full=purpose==='draft'?['compose']:requested.length?requested:[preferred];
+  const methods=full.map(methodFor);
+  const ids=purpose==='draft'?['compose']:[preferred,...definitions.map(item=>item.id).filter(id=>id!==preferred)];
+  // Directory metadata supports selection; full instructions are delivered once
+  // in methodCards. Requesting a card does not classify the other person's mind.
+  const catalog=ids.map(id=>{const method=methodFor(id);return {id,version:method.version,name:method.name,applicability:method.applicability};});
+  return {version:METHOD_VERSION,selection:requested.length?'requested_cards':aliases[purpose]?'explicit':['reply','suggest'].includes(purpose)?'transport_hint':'candidates',methods,catalog,maxApplied:purpose==='draft'?1:2,
+    instruction:'',operationalInstructionsLocation:'methodCards',
+    selectionRule:'以当前用户目的和本次意思选择零至两个方法；目录不是必走步骤，也不表示对方的心理。完整卡按需用lookup.methodIds读取，已有足够依据可以直接帮助，不必多查或先提问。',
+    feedbackRule:'局部反馈只用于对应情境，稳定偏好须有用户明确依据。方法及论文只是有适用范围的参考，不保证交流或关系结果。'};
 }
 
 module.exports = { METHOD_VERSION, methodFor, listMethods, selectMethods, compactOperationalCards, operationsFor, runtimeCard };

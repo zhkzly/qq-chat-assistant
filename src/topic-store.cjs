@@ -29,8 +29,7 @@ function bindFields(topic,kind,fields,patch,sourceIds,sourceRevisions,authoritie
 }
 function bound(topics) {
   const active=topics.items.find(topic=>topic.id===topics.activeId&&topic.lifecycle==='active');
-  const retained=topics.items.filter(topic=>topic!==active).slice(-TOPIC_LIMITS.retained);
-  topics.items=active?[...retained,active]:retained;
+  // Read views are bounded; persistence retains source-valid task history.
   topics.activeId=active?.id||null;
   return topics;
 }
@@ -65,7 +64,9 @@ function pruneTopics(record,sources) {
 function topicView(scope,topics=emptyTopics()) {
   const state=JSON.parse(JSON.stringify(topics));
   const active=state.items.find(topic=>topic.id===state.activeId&&topic.lifecycle==='active')||null;
-  return {...state,scope:{...scope},active,retained:state.items.filter(topic=>topic.id!==active?.id),authority:'private_direction_not_outbound_authorization'};
+  const history=state.items.filter(topic=>topic.id!==active?.id),retained=history.slice(-TOPIC_LIMITS.retained);
+  return {...state,items:active?[...retained,active]:retained,scope:{...scope},active,retained,
+    retainedCount:history.length,authority:'private_direction_not_outbound_authorization',semanticOwner:'consultation_task'};
 }
 function directPrivate(source) {
   return source?.type==='private'&&source.role==='user'||source?.type==='feedback'&&source.role==='user'&&source.kind==='local'&&!!source.canonicalFeedbackId;
@@ -177,6 +178,6 @@ function prepareTopicPatch(record,sources,input,options={}) {
   if(topic.lifecycle==='active')items=items.map(item=>item.lifecycle==='active'?aggregate({...item,lifecycle:'paused',version:item.version+1,updatedAt:now,lastRequestId:options.requestId,origin:options.origin,lifecycleSourceIds:[...patch.purposeSourceIds],lifecycleSourceRevisions:{...purposeRevisions},lifecycleEvidenceStatus:'replaced_by_current_private_intent'}):item);
   items.push(topic);
   const next=bound({version:topics.version+1,activeId:topic.lifecycle==='active'?topic.id:topics.activeId===topic.id?null:topics.activeId,items});
-  return {topics:next,changes:1,topicId:topic.id};
+  return {topics:next,changes:1,topicId:topic.id,invalidateDiscussion:privateControlChange||lifecycleChanged||observationsChanged&&PRIVATE_ORIGINS.has(options.origin)};
 }
 module.exports={emptyTopics,pruneTopics,topicView,prepareTopicPatch,normalizeTopicPatch,TOPIC_LIMITS,TOPIC_PROTOCOL};

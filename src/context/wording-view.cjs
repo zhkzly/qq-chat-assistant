@@ -11,14 +11,15 @@ function buildDraftContext(prepared, plan, info) {
   if (!sameScopeIfPresent({ scope: prepared.manifest.scope }, info.scope)) throw new Error('当前联系人已变化，请重新组织草稿');
   const settings=info.settings||{model:prepared.manifest.requestModel,assistantRequestBytes:prepared.manifest.requestByteBudget};
   const budget=contextBudget(settings,prepared.manifest.byteBudget,info.requestMeasure);
-  const byId = new Map(prepared.payload.sources.map(s => [s.id, s]));
+  const controlRefs=plan?.taskUse!=='different'&&plan?.taskUse!=='uncertain'?prepared.payload.topicContext?.controlRefs||[]:[];
+  const byId = new Map([...controlRefs.map(ref=>({id:ref.sourceId,revision:ref.revision})),...prepared.payload.sources].map(s => [s.id, s]));
   const material=resolveDraftMaterial(prepared.payload,plan,{restrictions:prepared.restrictions||prepared.payload.privateRestrictions||[]});
   const quotes=material.quotes;
   assertDraftSourcesCurrent(prepared,material.sourceIds,info);
   const originalOrder=new Map((prepared.fullAvailableSources||prepared.payload.sources).map((source,index)=>[source.id,index]));
   const qq = prepared.payload.sources.filter(s => s.type === 'qq').sort((a,b)=>Date.parse(a.at)-Date.parse(b.at)||(originalOrder.get(a.id)??0)-(originalOrder.get(b.id)??0));
   const selection = selectMethods({ purpose: 'draft' });
-  const guidance = parseDraftGuidance(plan.guidance, prepared.payload);
+  const guidance = parseDraftGuidance(plan.guidance, prepared.payload,{taskUse:plan.taskUse||'continue'});
   requireDraftControlGuidance(guidance,prepared.payload);
   const projectedControls=wordingControlsForContext(prepared,{...info,expressionPlan:plan}),safeWordingControls=projectedControls.controls;
   const style=['natural','short','casual'].includes(projectedControls.style)?projectedControls.style:'natural';
@@ -75,12 +76,13 @@ function buildDraftContext(prepared, plan, info) {
     payload.sources.splice(removable,1);
   }
   // Do not serialize the private request, goal, assistant summary or excluded-source negatives.
-  const referencedSources=[...new Set([...material.sourceIds, ...controlIds])].map(id=>({id,revision:byId.get(id).revision}))
+  const referencedSources=[...new Set([...material.sourceIds, ...controlIds])].map(id=>({id,revision:byId.get(id)?.revision}))
     .concat(projectedControls.sourceRefs.map(ref=>({id:ref.sourceId,revision:ref.revision})));
   const uniqueSources = entries => [...new Map(entries.map(source => [source.id, source])).values()];
   const safeSources=uniqueSources([...payload.sources,...referencedSources]),allSafeSources=uniqueSources([...qq,...referencedSources]);
   const context=finish(payload,safeSources,info,allSafeSources,prepared.manifest.byteBudget,budget);
   context.manifest.disclosureBindings=material.bindings.map(binding=>({...binding,scope:{...info.scope}}));
+  context.manifest.taskBinding={use:plan.taskUse||'continue',topicId:prepared.payload.topicContext?.active?.id||null,topicVersion:prepared.payload.topicContext?.active?.version||null,controlRefs:controlRefs.filter(ref=>controlIds.includes(ref.sourceId))};
   context.manifest.wordingControlEvidence={sourceRefs:projectedControls.sourceRefs,preferenceRefs:projectedControls.preferenceRefs};
   if(prepared.images)context.images=structuredClone(prepared.images);
   if(prepared.mediaContext||prepared.payload.imageContext)context.mediaContext={mode:payload.imageContext.mode,omitted:structuredClone(payload.imageContext.omitted)};

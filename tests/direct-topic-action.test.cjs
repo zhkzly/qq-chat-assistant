@@ -64,7 +64,9 @@ test('subsequent vague consultation sees local closure and a stale old summary r
  const control=f.store.getCompanion(scope).turns.at(-1),turn=f.store.appendTurn(scope,{role:'user',kind:'discussion',text:'怎么继续？'});
  const payload=require('../src/assistant-context.cjs').buildContext({scope,records:f.store.messages(scope),companion:f.store.getCompanion(scope),turn,availableSources:f.store.memorySources(scope),coverage:f.store.coverage(scope)}).payload;
  assert.equal(payload.topicContext.active,null);assert.equal(payload.topicContext.retained[0].lifecycle,'completed');assert.equal(payload.topicContext.retained[0].authority,'closed_topic_navigation_not_active_control');
- assert.equal(payload.workingState.focus,'');assert.equal(payload.workingState.authority,'previous_summary_needs_review');
+ assert.equal(payload.workingState.focus,undefined);assert.equal(payload.workingState.authority,'previous_summary_needs_review');
  assert.ok(payload.sources.some(source=>source.id===`private:${control.id}`&&source.kind==='user_control'&&source.text===control.text));
- assert.match(require('../src/help-behavior.cjs').HELP_BEHAVIOR,/模糊的.*不单独授权恢复旧任务/);
+ const behavior=require('../src/help-behavior.cjs').HELP_BEHAVIOR;
+ assert.match(behavior,/模糊[^。]*不恢复旧任务/);
+ assert.match(behavior,/明确重选后才恢复/);
 });

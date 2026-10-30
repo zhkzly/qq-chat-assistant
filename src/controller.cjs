@@ -3,7 +3,10 @@ const { EventEmitter } = require('node:events');
 const { normalize, sameScope, compare } = require('./messages.cjs');
 const {publicRecord}=require('./media.cjs');
 const {selectVisionContext}=require('./vision-context.cjs');
-const { generate, replyFocusFor } = require('./model.cjs');
+const { generate, replyFocusFor, redact } = require('./model.cjs');
+const {boundedSourceView}=require('./context/source-delivery.cjs');
+const {discoverConversationEvidence}=require('./conversation-discovery.cjs');
+const {focusSourceOffset}=require('./memory-search.cjs');
 const { randomUUID, createHash } = require('node:crypto');
 const {TaskLedger}=require('./request-budget.cjs');
 const {maintenanceDecision}=require('./memory-scheduler.cjs');
@@ -13,7 +16,7 @@ const { buildContext, buildDraftContext, expressionOptionsFor, PROMPT_VERSION } 
 const { planDiscussionCompaction, assistDiscussionCompaction } = require('./discussion-compaction.cjs');
 const { discussionTopicBinding, discussionModelBinding, DISCUSSION_COMPACTION_VERSION,automaticDiscussionTurnIds } = require('./discussion-compaction-store.cjs');
 const { normalizeResponseRecovery } = require('./store.cjs');
-const {retrievalQuery}=require('./context-task.cjs');
+const {retrievalQuery,recentExchange}=require('./context-task.cjs');
 const { maintainMemory: runMemoryMaintenance } = require('./memory-engine.cjs');
 const { applyUserActions, confirmUserAction, undoUserAction } = require('./assistant-actions.cjs');
 const { methodFor } = require('./help-methods.cjs');
@@ -448,7 +451,7 @@ class Controller extends EventEmitter {
       binding === `${this.settings.baseUrl}\n${this.settings.model}\n${this.settings.activeModelProfileId || ''}` &&
       this.store.getCompanion(scope).revision === baseRevision && (!this.store.contextGeneration||this.store.contextGeneration(scope)===baseGeneration);
     this.assistantBusy = true; this.assistantError = ''; this.changed();
-    let context, receipts=[], actionsHandled=false, lookups=0, lookupHistory=[], retrievedSources=[], query=text, reviewRange;
+    let context, receipts=[], actionsHandled=false, lookups=0, lookupHistory=[], retrievedSources=[], methodLookupIds=[], discoveryRequested=false, query=text, reviewRange;
     const capturedRequests=[],relationshipProposals=[],experienceProposals=[],topicProposals=[];let stagedReview=null;
     let activeCompaction=null,compactionAttempted=false,sourceLookupIds=[],retrievedDiscussion=[];
     try {
@@ -466,11 +469,19 @@ class Controller extends EventEmitter {
         const experienceContext=this.store.experiences?.context(scope,{query,limit:4});
         if(experienceContext&&explicitFeedbackIds.length){const chosen=explicitFeedbackIds.map(id=>this.store.experiences.hydrateFeedback(scope,id)).filter(Boolean);experienceContext.evaluationTargets=[...new Map([...chosen,...experienceContext.evaluationTargets].map(target=>[target.feedback.id,target])).values()].slice(0,4);}
         const topicContext=this.store.topicView?.(scope);
+        const discoveryRecords=this.store.knowledgeDirectory?.(scope)||[...(memoryResult.items||[]),...(memoryResult.episodes||[])];
+        const liveIds=new Set(availableSources.map(source=>source.id));
+        const anchorRecords=(this.replyMessageIds.length?records.filter(record=>this.replyMessageIds.includes(record.messageId)):recentExchange(records))
+          .filter(record=>liveIds.has(`qq:${record.messageId}`));
+        const recentAnchor=anchorRecords.some(record=>Date.parse(asOf)-record.timestamp<=Math.max(1,Number(settings.assistantRecentHours)||72)*3600000);
+        const mode=discoveryRequested||!transient&&purpose!=='reply'&&!materialIds.length&&!sourceTurnIds.length&&!selectedOption&&!recentAnchor?'broad':'anchored';
+        const discoveryQuery=mode==='broad'?query:[text,...anchorRecords.map(record=>record.text)].join('\n');
+        const memoryDiscovery=discoverConversationEvidence({sources:availableSources,records:discoveryRecords,query:discoveryQuery,goal:companion.goal.text,asOf,mode});
         const intentSourceId=feedbackIntentId?`private:feedback-${feedbackIntentId}`:undefined;
         if(intentSourceId&&!explicitFeedbackIds.includes(feedbackIntentId))throw new Error('本次反馈意图未绑定选中的反馈对象');
         return { scope, records, companion, turn, purpose: purpose === 'draft' ? 'draft_prepare' : purpose, asOf, viewerTimeZone, invocation,
           materialIds, coverage, requestId, settings, images:liveImages,mediaContext:liveMediaContext, byteBudget: settings.assistantContextBytes || 48000,availableSources,memoryResult,
-          memoryIndex:[...index.items,...index.episodes],retrievedSources,sourceTurnIds,selectedOption,currentCandidateRef,candidateAlternative:candidateAlternative===true&&invocation.origin==='user',replyMessageIds:[...this.replyMessageIds],imageMessageIds:liveImages.map(image=>image.messageId),
+          memoryIndex:[...index.items,...index.episodes],memoryDiscovery,retrievedSources,methodLookupIds,sourceTurnIds,selectedOption,currentCandidateRef,candidateAlternative:candidateAlternative===true&&invocation.origin==='user',replyMessageIds:[...this.replyMessageIds],imageMessageIds:liveImages.map(image=>image.messageId),
           actionReceipts:receipts,lookupHistory,reviewRange,
           relationshipContext:this.store.relationshipView?.(scope,{query,limit:16}),
           experienceContext,allowExperienceProposals:purpose==='review'||explicitFeedbackIds.length>0,topicContext,intentSourceId,
@@ -576,12 +587,24 @@ class Controller extends EventEmitter {
           if(requestedTurns.length){
             const ids=new Set(requestedTurns),originals=this.store.getCompanion(scope).turns.filter(item=>ids.has(item.id)&&!item.memoryExcluded);
             if(originals.length!==ids.size)throw new Error('要取回的原讨论已经变化；输入已保留，请重新核对。');
-            retrievedDiscussion=[...new Map([...retrievedDiscussion,...originals].map(item=>[item.id,item])).values()];
+            retrievedDiscussion=[...new Map([...retrievedDiscussion,...originals.map(item=>({...item,requestedOffset:result.lookup.offset||0,requestedMaxChars:result.lookup.maxChars||4000}))].map(item=>[item.id,item])).values()];
             sourceLookupIds=[...new Set([...sourceLookupIds,...originals.filter(item=>item.role==='user').map(item=>`private:${item.id}`)])];
           }
           const found=result.lookup.query?this.store.searchMemory(scope,result.lookup.query,{limit:24,before:result.lookup.before,after:result.lookup.after,types:result.lookup.types}):{sources:[],coverage:{retrieval:'exact-private-discussion-ids',complete:false}};
-          retrievedSources=[...new Map([...retrievedSources,...found.sources].map(source=>[source.id,source])).values()];
-          lookupHistory.push({query:result.lookup.query,found:found.sources.length,discussionTurns:requestedTurns.length,coverage:found.coverage});if(result.lookup.query)query=result.lookup.query;
+          const liveSources=new Map(this.store.memorySources(scope).map(source=>[source.id,source]));
+          const exactIds=[...new Set([...(result.lookup.sourceIds||[]),...requestedTurns.filter(id=>liveSources.has(`private:${id}`)).map(id=>`private:${id}`)])];
+          const direct=exactIds.map(id=>{
+            const original=liveSources.get(id);
+            if(!original||original.deleted||original.excluded||original.use==='disabled')throw new Error('要读取的来源已变化或不在当前会话中，请重新核对。');
+            const projected=boundedSourceView({...original,text:redact(original.text)},{offset:result.lookup.offset||0,maxChars:result.lookup.maxChars||4000,maxBytes:Number(settings.assistantContextBytes)||48000});
+            if(!projected)throw new Error('来源片段超出本次可读范围，请选择有效位置。');
+            return {...projected,requestedRange:{offset:result.lookup.offset||0,maxChars:result.lookup.maxChars||4000}};
+          });
+          const queryReads=found.sources.map(source=>({...source,focusOffset:focusSourceOffset(redact(source.text),result.lookup.query)}));
+          retrievedSources=[...new Map([...retrievedSources,...queryReads,...direct].map(source=>[source.id,source])).values()];
+          if(result.lookup.methodIds?.length)methodLookupIds=[...result.lookup.methodIds];
+          if(result.lookup.discover)discoveryRequested=true;
+          lookupHistory.push({query:result.lookup.query,found:found.sources.length+direct.length,discussionTurns:requestedTurns.length,sourceIds:direct.map(source=>source.id),...(direct.length?{requestedRange:{offset:result.lookup.offset||0,maxChars:result.lookup.maxChars||4000}}:{}),methodIds:result.lookup.methodIds||[],coverage:found.coverage,delivery:'check_sourceDelivery_not_found_count'});if(result.lookup.query)query=result.lookup.query;
           reviewRange={before:result.lookup.before,after:result.lookup.after,types:result.lookup.types};lookups++;continue;
         }
         if(result.actions?.length&&!actionsHandled&&!transient){
@@ -662,7 +685,7 @@ class Controller extends EventEmitter {
         }
         const review=stagedReview;
         if(review&&review.result.kind!=='question'&&(review.result.statePatch||review.result.stateReview==='no_change')){
-          patchReceipt=this.store.applyState(scope,review.result.statePatch||{},{baseRevision,baseStateVersion:companion.state.version,
+          patchReceipt=this.store.applyState(scope,review.result.statePatch||{},{baseRevision,baseStateVersion:companion.state.version,baseTopicVersion:topicReceipt?.applied?topicReceipt.topicVersion:companion.topics?.version,
             sourceIds:review.context.manifest.sourceIds,coverage:{complete:review.context.manifest.completeReview,sourceIds:review.context.manifest.sourceIds}});
           recordRejection('statePatch',patchReceipt);
         }
@@ -670,7 +693,8 @@ class Controller extends EventEmitter {
           const experience=candidate.payload.experienceContext||candidate.payload.experiences||{};
           const allowedSourceIds=candidate.manifest.sourceIds||[];
           const allowedCaseIds=(experience.cases||[]).map(item=>item.id);
-          const provided=[...(candidate.manifest.methodTrace?.delivered||[]),...(candidate.manifest.methodTrace?.catalog||[])];
+          const trace=candidate.manifest.methodTrace||{},operational=new Set(trace.operationalDelivery?.ids||trace.delivered?.map(method=>method.id)||[]);
+          const provided=[...(trace.delivered||[]),...(trace.catalog||[])].filter(method=>operational.has(method.id));
           try{this.store.experiences.proposeFromModel(scope,candidate.proposal,{allowedSourceIds,allowedCaseIds,deliveredMethods:[...new Map(provided.map(m=>[m.id,m])).values()]});}
           catch(error){receipts.push({status:'rejected',reason:`经验候选未保存：${error.message}`});rejectedAux.push({field:'experienceProposals',code:'rejected_auxiliary_metadata',message:String(error.message).slice(0,500)});}
         }
@@ -688,7 +712,7 @@ class Controller extends EventEmitter {
           sourceIds:[...new Set([...context.manifest.sourceIds,...capturedRequests.flatMap(r=>r.manifest?.sourceIds||[])])],expressionOptions,methodIds,actionReceipts:receipts,generationStages,responseRecovery,privateReviewReceipt,metadataReviewPending,
           artifactMetadata:{generationStages,goalVersion:companion.goal.version,inputSourceRefs:
             [...new Map(capturedRequests.flatMap(request=>Object.entries({...request.manifest?.discussionCompaction?.sourceRevisions,...request.manifest?.sourceRevisions}))).entries()].filter(([sourceId])=>/^(qq|private|note):/.test(sourceId)).map(([sourceId,revision])=>({sourceId,revision})),
-            discussionTurnFingerprints:Object.assign({},...capturedRequests.map(request=>request.manifest?.discussionCompaction?.turnFingerprints||{})),model:settings.model,promptVersion:context.payload.promptVersion}});
+            discussionTurnFingerprints:Object.assign({},...capturedRequests.map(request=>({...request.manifest?.discussionCompaction?.turnFingerprints,...Object.fromEntries((request.manifest?.discussionReads||[]).filter(read=>['delivered','partial'].includes(read.delivery?.status)&&read.turnFingerprint).map(read=>[read.turnId,read.turnFingerprint]))}))),model:settings.model,promptVersion:context.payload.promptVersion}});
         this.store.saveRun(scope,{id:requestId,baseRevision,purpose:context.payload.purpose,status:'complete',payload:context.payload,manifest:context.manifest,
           requests:capturedRequests,replyId:saved.id,patchReceipt,relationshipReceipt,topicReceipt,actionReceipts:receipts,privateReviewReceipt:saved.privateReviewReceipt,
           auxiliaryErrors:rejectedAux,maintenance:metadataReviewPending?'partial_rejected':patchReceipt?.applied?(stagedReview?.result.statePatch?'applied':'reviewed_no_change'):patchReceipt?'rejected':'deferred'});

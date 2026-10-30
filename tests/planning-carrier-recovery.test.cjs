@@ -40,7 +40,9 @@ for(const mode of ['guidance_only','new_material'])test(`structured repair prese
  const {store,controller,requests,priorId}=fixture(t,mode),taskId=`carrier-repair-${mode}`,text=CRITICISM+(mode==='new_material'?`另外${NEW_MATERIAL}，愿意告诉她这点。`:'');
  const answer=await controller.assist({taskId,text});assert.equal(answer.kind,'draft');assert.equal(requests.length,3);
  const normal=requests[0],repair=requests[1],draft=requests[2].payload,currentId=normal.payload.userRequest.sourceId;
- assert.match(normal.wire.messages[0].content,/求助要求、交流目的和口吻用guidance承接，不作quotes/);
+ assert.match(normal.wire.messages[0].content,/quotes[^。]*逐字可外发事实\/素材/);
+ assert.match(normal.wire.messages[0].content,/提问、邀请、表意动作和口吻归短guidance/);
+ assert.match(normal.wire.messages[0].content,/不必将每个交流目的当事实quote/);
  assert.match(repair.payload.task,/求助要求、交流目的和口吻用guidance承接，不作quotes/);
  assert.match(repair.payload.task,/旧私下quote附authorization:\{permission:\{sourceId,text\},referent:\{sourceId,text\}\}/);
  assert.match(repair.payload.task,/完整上下文、指代、已满足条件及最新限制/);

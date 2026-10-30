@@ -66,10 +66,17 @@ test('a later private discussion can retrieve the explanation as generated help,
   const turn = store.appendTurn(scope, { role: 'user', kind: 'discussion', text: '刚才为什么这样接？再讨论一下' });
   const context = buildContext({ scope, records: store.messages(scope), companion: store.getCompanion(scope), turn, requestId: 'synthetic-explanation-recall',
     availableSources: store.memorySources(scope), retrievedDiscussion: [reply], coverage: { status: 'partial' } });
-  const recent = context.payload.privateConversation.find(item => item.id === reply.id);
-  assert.equal(recent.discussionExplanation.text, explanation); assert.match(recent.authority, /assistant/);
-  assert.equal(context.payload.retrievedDiscussion.find(item => item.id === reply.id).discussionExplanation.text, explanation);
-  assert.ok(!context.payload.sources.some(source => source.id === `private:${reply.id}`));
+  const recent=context.payload.privateConversation.find(item=>item.id===reply.id),read=context.payload.retrievedDiscussion.find(item=>item.id===reply.id);
+  const {discussionReadBody}=require('../src/context/discussion-view.cjs'),{discussionTurnFingerprint}=require('../src/discussion-compaction-store.cjs');
+  const original=store.getCompanion(scope).turns.find(item=>item.id===reply.id),body=discussionReadBody(original);
+  assert.equal(recent.text,undefined);assert.equal(recent.discussionExplanation,undefined);assert.equal(recent.bodyLocation,'retrievedDiscussion');
+  assert.match(recent.authority,/assistant/);assert.equal(recent.generatedReadRef.turnId,read.originalTurnId);
+  assert.equal(read.text,body.text);assert.ok(read.text.includes(explanation));assert.equal(read.turnFingerprint,discussionTurnFingerprint(original));
+  assert.equal(recent.generatedReadRef.turnFingerprint,read.turnFingerprint);assert.equal(read.bodyView,'discussion-body-v1');
+  assert.equal(read.delivery.status,'delivered');assert.equal(read.delivery.start,0);assert.equal(read.delivery.end,body.text.length);
+  assert.equal(read.delivery.offsetUnit,'utf16_redacted_discussion_body_v1');assert.equal(original.discussionExplanation.text,explanation);
+  assert.equal(JSON.stringify(context.payload).split(explanation).length-1,1,'one canonical generated explanation body');
+  assert.ok(!context.payload.sources.some(source=>source.id===`private:${reply.id}`));
 });
 test('a clarification retains its private explanation separately without starting the composer', async t => {
   const { store, controller, inputs } = setup(t);

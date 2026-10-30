@@ -22,12 +22,12 @@ test('QQ shortcut retrieves available self context for her current question rath
 test('current task carries actual exchange position without a mandatory wait policy',t=>{
  const f=setup(t,{text:'我还想分享刚学会做的那道菜',records:[msg(8001,false,'这款游戏太占空间了'),msg(8002,true,'我也有抽歪的时候'),msg(8003,true,'我找到工作了')]});const p=buildContext(f.args).payload;
  assert.equal(p.taskContext.latestActual.sourceId,'qq:8003');assert.equal(p.taskContext.latestActual.direction,'outgoing');assert.deepEqual(p.taskContext.selfMessagesAfterLastContact,['qq:8002','qq:8003']);
- assert.ok(p.taskContext.recentExchange.some(x=>x.sourceId==='qq:8001'&&x.text==='这款游戏太占空间了'));assert.ok(p.taskContext.selfEvidenceSourceIds.includes('qq:8003'));assert.equal(p.taskContext.mustWait,undefined);assert.equal(Object.keys(p).at(-1),'userRequest');
+ assert.ok(p.taskContext.recentExchange.some(x=>x.sourceId==='qq:8001'&&p.sources.find(s=>s.id===x.sourceId)?.text==='这款游戏太占空间了'));assert.ok(p.taskContext.selfEvidenceSourceIds.includes('qq:8003'));assert.equal(p.taskContext.mustWait,undefined);assert.equal(Object.keys(p).at(-1),'userRequest');
 });
-test('recent private discussion has inline user text, source, time and request association',t=>{
+test('recent private discussion references canonical user text with source, time and request association',t=>{
  const f=setup(t);const older=f.store.appendTurn(scope,{role:'user',kind:'discussion',text:'表达含蓄些，暂时不邀请',requestId:'synthetic-old-request'});const reply=f.store.appendTurn(scope,{role:'assistant',kind:'discussion',text:'先了解她分享的内容',requestId:'synthetic-old-request'});const current=f.store.appendTurn(scope,{role:'user',kind:'discussion',text:'就这个方向，给完整一句',requestId:'synthetic-new-request'});
  const p=buildContext({...f.args,turn:current,companion:f.store.getCompanion(scope)}).payload;const user=p.privateConversation.find(x=>x.id===older.id),assistant=p.privateConversation.find(x=>x.id===reply.id);
- assert.equal(user.text,older.text);assert.equal(user.sourceId,`private:${older.id}`);assert.equal(user.at,older.createdAt);assert.equal(user.requestId,'synthetic-old-request');assert.equal(assistant.at,reply.createdAt);assert.equal(assistant.requestId,'synthetic-old-request');assert.match(assistant.authority,/assistant/);
+ assert.equal(user.text,undefined);assert.equal(p.sources.find(s=>s.id===user.sourceId).text,older.text);assert.equal(user.sourceId,`private:${older.id}`);assert.equal(user.at,older.createdAt);assert.equal(user.requestId,'synthetic-old-request');assert.equal(assistant.at,reply.createdAt);assert.equal(assistant.requestId,'synthetic-old-request');assert.match(assistant.authority,/assistant/);
 });
 test('same-second QQ source order follows actual sequence rather than lexical message ID',t=>{
  const f=setup(t,{records:[msg('72057594037927940',true,'较早那句',{msgSeq:'1'}),msg('72057594037927939',false,'较晚那句',{msgSeq:'2'})]});const p=buildContext(f.args).payload,qq=p.sources.filter(s=>s.type==='qq');
@@ -37,7 +37,7 @@ test('latest reply includes its available actual quote target with scoped metada
  const target=msg(9001,false,'我在考虑周末去逛展'),middle=Array.from({length:65},(_,i)=>msg(9002+i,i%2===0,'后来的普通消息'));
  const quoted=msg(9100,true,'听起来不错',{elements:[{replyElement:{replayMsgId:'9001',replayMsgSeq:'9001',senderUidStr:scope.peerUid,senderUin:scope.peerUin}},{textElement:{content:'听起来不错'}}]});
  const f=setup(t,{records:[target,...middle,quoted]}),p=buildContext(f.args).payload,last=p.taskContext.recentExchange.find(x=>x.sourceId==='qq:9100');
- assert.equal(last.quote.sourceId,'qq:9001');assert.equal(last.quote.availability,'available');assert.equal(last.quote.text,target.text);assert.ok(p.sources.some(s=>s.id==='qq:9001'));
+ assert.equal(last.quote.sourceId,'qq:9001');assert.equal(last.quote.availability,'available');assert.equal(last.quote.text,undefined);assert.equal(p.sources.find(s=>s.id===last.quote.sourceId).text,target.text);assert.ok(p.sources.some(s=>s.id==='qq:9001'));
 });
 test('quote targets excluded from evidence do not return through the current task view',t=>{
  const f=setup(t,{records:[msg(9201,false,'被移除的原文'),msg(9202,true,'接过这句',{elements:[{replyElement:{replayMsgId:'9201',replayMsgSeq:'9201',senderUidStr:scope.peerUid,senderUin:scope.peerUin}},{textElement:{content:'接过这句'}}]})]});

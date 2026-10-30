@@ -10,7 +10,7 @@ const materialReference=object({sourceId:string,text:string},['sourceId','text']
 const quote=object({sourceId:string,text:string,authorization:object({permission:materialReference,referent:materialReference},['permission','referent'])},['sourceId','text']);
 const guidance=object({objective:reference,allowedApproach:reference,avoidances:array(reference),currentStep:reference});
 const draftPlan=object({quotes:array(quote),intent:choice(['reply']),authorizationQuote:string,style:choice(['natural','short','casual']),language:string,
- askFollowup:boolean,useEmoji:boolean,clarification:string,option:object({turnId:string,index:integer},['turnId','index']),guidance});
+ askFollowup:boolean,useEmoji:boolean,taskUse:choice(['continue','different','uncertain']),clarification:string,option:object({turnId:string,index:integer},['turnId','index']),guidance});
 const stateItem=object({text:string,sourceIds:strings,status:choice(['open','resolved','cancelled'])},['text','sourceIds']);
 const statePatch=object({focus:string,items:array(reference),openThreads:array(stateItem),unknowns:strings});
 const action=object({type:choice(['set_goal','save_note','update_note','set_preference','correct_source','forget']),evidenceQuote:string,text:string,
@@ -34,7 +34,7 @@ const episode=object({id:string,text:string,sourceIds:strings,topicKeys:strings}
 const memoryRetirement=object({id:string,sourceIds:strings,status:choice(['resolved','cancelled','superseded'])},['id','sourceIds','status']);
 const schemas={
  assistant_result:object({kind:choice(['discussion','question','options','review','acknowledgment']),text:string,methodIds:strings,draftPlan,replyDisposition:choice(['wait','clarify','unavailable']),
- lookup:object({query:string,discussionTurnIds:strings,before:string,after:string,types:array(choice(['qq','private','note','feedback']))}),
+ lookup:object({query:string,discussionTurnIds:strings,sourceIds:strings,offset:integer,maxChars:integer,methodIds:strings,discover:boolean,before:string,after:string,types:array(choice(['qq','private','note','feedback']))}),
     actions:array(action),stateReview:choice(['no_change']),statePatch,topicPatch,relationshipPatch,experienceProposals:array(experienceProposal),expressionOptions:array(expressionOption)},['kind','text']),
  draft_result:object({kind:choice(['draft','discussion','question']),text:string,suggestions:array(object({style:string,text:string},['style','text'])),methodIds:strings,replyDisposition:choice(['wait','clarify','unavailable'])},['kind','text']),
  discussion_compaction_result:object({summary:string,reviewedTurnIds:strings,quoteRefs:array(quoteRef)},['summary','reviewedTurnIds','quoteRefs']),
@@ -52,6 +52,7 @@ function responseEnvelope(settings,purpose,payload) {
  if(name==='assistant_result'&&payload){
   const taskPayload=payload.originalInput||payload;
   const properties={...schema.properties};
+  if(taskPayload.workingState?.ownership==='evidence_only_task_controls_in_topicContext')properties.statePatch=object({items:array(reference)});
   if(!auxiliaryReview({...taskPayload,purpose}))delete properties.relationshipPatch;
   if(taskPayload.experienceProposalPolicy?.enabled!==true)delete properties.experienceProposals;
   if(taskPayload.generationOrigin==='qq_observation')delete properties.actions;

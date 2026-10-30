@@ -144,7 +144,9 @@ test('SQLite state CAS rejects a second connection committing after the initial 
     return readSources(...args);
   };
   assert.equal(first.applyState(scope, { focus: 'Late overwrite' }, options).reason, 'stale_state_version');
-  assert.equal(first.getCompanion(scope).state.focus, 'Already committed');
+  assert.equal(first.getCompanion(scope).state.focus, '');
+  assert.equal(first.getCompanion(scope).state.legacyTaskReviews.at(-1).focus, 'Already committed');
+  assert.equal(first.getCompanion(scope).state.legacyTaskReviews.length, 1, 'late state CAS cannot overwrite committed historical controls');
 });
 
 test('run completion replaces its pending record and retention removes only old derived runs', t => {

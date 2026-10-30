@@ -33,7 +33,7 @@ function authorizedInvitation(user) {
 }
 test('cached discussion folds a long prior assistant while preserving exact user correction and original candidates', t => {
   const { args, record, user, assistant, first, second } = fixture(t);
-  assert.throws(() => buildContext(args), /最近完整私下讨论.*预算/);
+  const deferred=buildContext(args);assert.equal(deferred.payload.deferredDiscussion.availability,'needs_lookup');assert.ok(deferred.payload.deferredDiscussion.turnIds.includes(assistant.id));assert.equal(deferred.payload.userRequest.text,args.turn.text);
   const context = buildContext({ ...args, discussionCompaction: record });
   assert.equal(context.payload.discussionCompaction.authority, 'derived_private_discussion_needs_sources');
   assert.equal(context.payload.sources.find(source => source.id === `private:${user.id}`).text, user.text);
@@ -50,11 +50,11 @@ test('cached discussion folds a long prior assistant while preserving exact user
   for (const key of ['discussionCompaction','privateCandidates','privateConversation']) assert.equal(draft.payload[key], undefined);
   assert.equal(JSON.stringify(draft.payload).includes('PRIVATE_CACHE_SUMMARY_'), false); assert.equal(JSON.stringify(draft.payload).includes('PRIVATE_MOTIVE_'), false);
 });
-test('foreign or changed original cache cannot replace the required private exchange', t => {
+test('foreign or changed original cache is rejected while the complete oversized private group remains retrievable', t => {
   const { args, record } = fixture(t);
   for (const changed of [{ scope: { ...scope, peerUid: 'other' } }, { turnFingerprints: { ...record.turnFingerprints, [record.sourceTurnIds[0]]: 'stale' } },
     { sourceRevisions: Object.fromEntries(Object.keys(record.sourceRevisions).map(id => [id, 'stale'])) }])
-    assert.throws(() => buildContext({ ...args, discussionCompaction: { ...record, ...changed } }), /最近完整私下讨论.*预算/);
+    {const context=buildContext({ ...args, discussionCompaction: { ...record, ...changed } });assert.equal(context.payload.discussionCompaction,undefined);assert.equal(context.payload.deferredDiscussion.availability,'needs_lookup');}
 });
 test('covered older user bodies and topic ancestors stay folded until an explicit raw-source lookup', t => {
   const store = new Store(':memory:'); t.after(() => store.close());
@@ -79,7 +79,10 @@ test('covered older user bodies and topic ancestors stay folded until an explici
   assert.ok(context.payload.topicContext.active.foldedSourceIds.includes(`private:${old.id}`));
   assert.equal(context.manifest.discussionCompaction.sourceRevisions[`private:${old.id}`], record.sourceRevisions[`private:${old.id}`]);
   const loaded = buildContext({ ...args, sourceLookupIds: [old.id] });
-  assert.equal(loaded.payload.sources.find(source => source.id === `private:${old.id}`).text, old.text);
+  const delivered=loaded.payload.sources.find(source => source.id === `private:${old.id}`);
+  assert.equal(delivered.delivery.status,'partial');assert.equal(delivered.text,old.text.slice(delivered.delivery.start,delivered.delivery.end));
+  assert.equal(loaded.fullAvailableSources.find(source=>source.id===delivered.id).text,old.text);
+  assert.equal(loaded.manifest.sourceDelivery.explicitLookups.find(item=>item.sourceId===delivered.id).status,'partial');
 });
 test('planner uses only significant recent uncovered private text, never optional QQ or distant history pressure', t => {
   const { store, args } = fixture(t);

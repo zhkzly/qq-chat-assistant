@@ -9,6 +9,6 @@ function withCurrentDraftControls(plan,payload,overrides={}){
  const guidance=plan.guidance?structuredClone(plan.guidance):{objective:item(overrides.objective||'表达已选意思或回应实际QQ'),allowedApproach:item(overrides.allowedApproach||'依照已商量的分寸自然组织完整表达'),avoidances:(overrides.avoidances||[]).map(item)};
  const controls=[guidance.objective,guidance.allowedApproach,guidance.currentStep,...(guidance.avoidances||[])].filter(Boolean);
  if(!controls.some(control=>control.sourceIds?.includes(sourceId)))guidance.currentStep=item('按这次明确请求组织表达');
- return {...plan,guidance};
+ return {...plan,...(payload.topicContext?.active?.applicability==='requires_current_request_match'&&!plan.taskUse?{taskUse:'continue'}:{}),guidance};
 }
 module.exports={withCurrentDraftControls};
