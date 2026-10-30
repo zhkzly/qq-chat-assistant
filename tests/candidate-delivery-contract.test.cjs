@@ -46,11 +46,11 @@ test('legacy automatic output is filtered by scoped task identity beyond retaine
 
 test('the delivered auto contract asks for wording and permits honest uncertainty and closure',()=>{
  const system=prepareAssistantRequest({model:'fixture'},payload).request.messages[0].content;
- assert.match(system,/自动\/手动QQ建议也选择同一operation/);assert.match(system,/advise解释暂缓/);
+ assert.match(system,/QQ建议：有用表达用prepare_message/);assert.match(system,/无须新话语可advise/);
  assert.match(system,/draftPlan/);
- assert.match(system,/无候选|无必要新话语/);
+ assert.match(system,/无候选|无须新话语/);
  assert.match(system,/不编经历|不编.*情绪|不编经历\/情绪/);
- assert.match(system,/真缺关键事实才clarify/);
+ assert.match(system,/缺关键事实才clarify/);
  const final=prepareAssistantRequest({model:'fixture'},{...payload,purpose:'draft'}).request.messages[0].content;assert.match(final,/实质不同才≤3条，否则1条/);
 });
 

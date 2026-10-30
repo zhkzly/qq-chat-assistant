@@ -18,8 +18,8 @@ function setup(t, { composerRecovery = false } = {}) {
   const controller = new Controller({ store, settings, read: async () => ({ messages: [], source: 'synthetic' }), assistantModel: async (_, input) => {
     inputs.push(structuredClone(input.payload));
     if (input.payload.purpose === 'draft') {
-      if (composerRecovery) input.manifest.responseRecovery = { kind: 'restricted_draft', reasonCode: 'structured_output_invalid', metadataApplied: false, intentSourceIds: [] };
-      return { kind: 'draft', text: summary, suggestions: [{ style: '自然', text: wording }] };
+      if (composerRecovery) input.manifest.formatRepair = { attempts: 1, reason: 'synthetic complete prepared response' };
+      return { kind: 'draft', text: summary, privateExplanation: explanation, suggestions: [{ style: '自然', text: wording }] };
     }
     const sourceId = input.payload.intentAuthority?.sourceId || input.payload.userRequest.sourceId;
     return { kind: 'discussion', text: explanation, draftPlan: { intent: 'reply', quotes: [], guidance: {
@@ -40,7 +40,7 @@ test('readable planning and lookup steps retain their explanation while legacy p
     assert.equal(legacy.kind, undefined); assert.equal(legacy.text, undefined);
   }
 });
-for (const composerRecovery of [false, true]) test(`private explanation survives composer${composerRecovery ? ' recovery' : ''} without entering outgoing material`, async t => {
+for (const composerRecovery of [false, true]) test(`explicit final explanation survives composer${composerRecovery ? ' structured-repair metadata' : ''} without entering outgoing material`, async t => {
   const { store, controller, inputs } = setup(t, { composerRecovery });
   const reply = await controller.assist({ text: '先接吐槽，暂时不直接问游戏名；给我一句，也解释为什么这样接', purpose: 'discussion' });
   assert.deepEqual(inputs.map(input => input.purpose), ['discussion', 'draft']);

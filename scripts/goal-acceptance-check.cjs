@@ -97,7 +97,7 @@ function fakeResult(payload,definition){
    G4:'这周六下午我有空，要不要一起去公园走走？你不方便的话也可以另约时间。',G5:'和你聊天还挺舒服的，想再多了解你一点。',
    G8:definition.twoQuestions?'辛苦啦，这个项目大概要忙多久呀，你现在吃饭了吗？':definition.contrary?'辛苦啦，你这个项目大概还要忙到什么时候呀？':'辛苦啦，终于忙完可以歇一会儿了',
    G9:'哦哦，回合制PVE呀，跟PVP是另一种画风了哈哈'}[id];
-  return {kind:'draft',text:'根据这次商量组织一条参考表达。',suggestions:[{style:'自然',text}]};
+  return {kind:'draft',text:'根据这次商量组织一条参考表达。',privateExplanation:id==='G9'?'她明确说不怎么玩PVP、玩点回合制PVE；你的长期目标是自然发展关系，但这轮已经明确不问名字也不邀约。因此先接她分享的内容，给她自然展开空间；这种回复不能证明关系一定会更亲近。':'这是合成最终答复夹具提供的解释，只证明完整准备答复的交接和展示，不证明模型理解或恋爱效果。',suggestions:[{style:'自然',text}]};
  }
  if(id==='G2')return {kind:'question',text:'还不知道你现在离她那边大概多远，这会改变怎么回答。',draftPlan:{clarification:'你现在离她那边大概多远？'}};
  if(id==='G6')return {kind:'discussion',text:definition.id==='G6-weak'?'这条普通回应不足以判断恋爱意愿。可以按你的真实想法分享近况，不必先猜她的态度。':'她有回应和主动联系的具体表现，但还不能据此确定恋爱意愿。可以考虑分享一点近况或一个方便她选择的邀请。',methodIds:['choose_next_step','express_interest']};

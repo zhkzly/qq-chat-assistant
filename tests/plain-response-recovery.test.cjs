@@ -106,21 +106,21 @@ test('structured help repair retains explicitly selected image evidence and sour
   assert.deepEqual(context.extraRequests[0].manifest.images, context.manifest.images);
 });
 
-test('restricted final draft uses only its validated payload for a one-sentence plain repair', async t => {
+test('restricted final draft repairs the whole typed reply using only its validated payload', async t => {
   const { args, context, turn } = fixture(t), quote = '直接邀请一起散步';
   const draft = buildDraftContext(context, { quotes: [{ sourceId: `private:${turn.id}`, text: quote }],
     guidance: { ...walkingControls(`private:${turn.id}`),currentStep: { text: '按本次明确意思邀请一起散步', sourceIds: [`private:${turn.id}`] } } }, args), calls = [];
   const result = await assistModel(settings, draft, undefined, async (_url, request) => {
-    calls.push(JSON.parse(request.body)); return response(calls.length === 1 ? '{bad final json' : '这周有空一起出去走走吗？');
+    calls.push(JSON.parse(request.body)); return response(calls.length === 1 ? '{bad final json' : JSON.stringify({kind:'draft',text:'这周有空一起出去走走吗？'}));
   });
   assert.equal(calls.length, 2); assert.equal(result.kind, 'draft'); assert.equal(result.suggestions.length, 1);
   assert.equal(result.suggestions[0].text, '这周有空一起出去走走吗？');
   assert.deepEqual(Object.keys(result).sort(), ['kind', 'suggestions', 'text']);
-  const repair = requestPayload(calls[1]); assert.equal(repair.purpose, 'plain_draft_recovery'); assert.deepEqual(canonicalSourceView(repair.originalInput,draft.extraRequests[0].manifest.sourceHandles,draft.payload),draft.payload);
+  const repair = requestPayload(calls[1]); assert.equal(repair.purpose, 'draft'); assert.deepEqual(canonicalSourceView(repair.originalInput,draft.extraRequests[0].manifest.sourceHandles,draft.payload),draft.payload);
   for (const forbidden of ['PRIVATE_GOAL_SENTINEL', 'PRIVATE_MOTIVE_SENTINEL', 'pendingPrivateReview', 'privateConversation', 'discussionCompaction'])
     assert.equal(JSON.stringify(calls).includes(forbidden), false, `${forbidden} must never enter final transport`);
-  assert.deepEqual(draft.manifest.responseRecovery.intentSourceIds, []); assert.equal(draft.manifest.responseRecovery.kind, 'restricted_draft');
-  assert.equal(calls[1].response_format, undefined); assert.equal(calls[1].tools, undefined);
+  assert.equal(draft.manifest.responseRecovery,undefined);assert.equal(draft.manifest.preparedResponse.privateExplanation,'absent');
+  assert.equal(calls[1].response_format, undefined); assert.equal(calls[1].tool_choice.function.name,'draft_result');
 });
 
 test('draft_prepare still requires structured source-bound plans, including after repair', async t => {
@@ -176,7 +176,7 @@ test('invalid structured help receives no second recovery, and each call remains
   }
 });
 
-test('structured core and plain final recovery reject malformed, truncated and multi-paragraph final output', async t => {
+test('structured core and final whole-response repair reject malformed, truncated and untyped multi-paragraph output', async t => {
   const { args, context, turn } = fixture(t);
   const draft = buildDraftContext(context, { quotes: [{ sourceId: `private:${turn.id}`, text: '直接邀请一起散步' }],guidance:walkingControls(`private:${turn.id}`) }, args);
   for (const [input, second] of [[context, response('以下是结果：\n{"actions":[]}')],

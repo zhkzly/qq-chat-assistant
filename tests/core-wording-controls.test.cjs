@@ -101,7 +101,7 @@ test('lookup-style reassembly, request rebuilding and restricted-wording recover
  for(const output of outputs.slice(1))assert.deepEqual(output.payload.wordingControls,outputs[0].payload.wordingControls);
  const requests=[];const result=await assistModel({anonymous:true,baseUrl:'http://fixture.invalid/v1',model:'synthetic'},outputs[0],undefined,async(_url,options)=>{
   const body=JSON.parse(options.body),input=JSON.parse(body.messages[1].content);requests.push(input);
-  return {ok:true,json:async()=>({choices:[{message:{content:requests.length===1?'malformed synthetic response':'小苗又有新进展啦。'}}]})};
+  return {ok:true,json:async()=>({choices:[{message:{content:requests.length===1?'malformed synthetic response':JSON.stringify({kind:'draft',text:'小苗又有新进展啦。'})}}]})};
  });
  assert.equal(result.suggestions.length,1);assert.equal(requests.length,2);assert.deepEqual(requests[1].originalInput.wordingControls,requests[0].wordingControls);assert.equal(JSON.stringify(requests).includes('PRIVATE_CORE_REASON'),false);
 });

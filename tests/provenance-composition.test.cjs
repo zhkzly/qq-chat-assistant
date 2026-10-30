@@ -37,7 +37,7 @@ test('restricted repair and measured rebuild retain essential provenance without
   assert.equal(p.outboundQuotes[0].provenance.source.recordedAt,OLD);assert.equal(p.outboundQuotes[0].text,FACT);
   const other=withoutCurrentControl(p,f.prepared.payload.sources.find(source=>source.id===f.prepared.payload.intentAuthority.sourceId).text);
   assert.equal(JSON.stringify(other).includes('PRIVATE_BODY_MUST_NOT_CROSS'),false);assert.equal(JSON.stringify(other).includes('我愿把网页的用途和查找进展告诉她'),false);
-  return new Response(JSON.stringify({choices:[{message:{content:calls.length===1?'invalid-json':'查找功能已经能按标题找回自己的摘记了。'}}]}),{status:200});
+  return new Response(JSON.stringify({choices:[{message:{content:calls.length===1?'invalid-json':JSON.stringify({kind:'draft',text:'查找功能已经能按标题找回自己的摘记了。'})}}]}),{status:200});
  });
  assert.equal(calls.length,2);assert.equal(result.kind,'draft');assert.equal(draft.extraRequests.length,1);assert.equal(draft.extraRequests[0].payload.originalInput.outboundQuotes[0].provenance.source.recordedAt,OLD);
  const rebuilt=draft.rebuildForRequest(payload=>prepareAssistantRequest(f.args.settings,payload,[]).requestBytes);

@@ -5,6 +5,7 @@ const fs=require('node:fs'),os=require('node:os'),path=require('node:path'),asse
 const {spawn}=require('node:child_process');
 const {Store}=require('../src/store.cjs'),{Controller}=require('../src/controller.cjs'),{createServer}=require('../src/server.cjs');
 const {scope,raw}=require('../tests/fixtures/native.cjs'),{CDP}=require('./cdp.cjs'),{actions}=require('./browser-actions.cjs');
+const {withRequestDelivery}=require('./synthetic-request-delivery.cjs');
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 async function until(check,label){for(let n=0;n<120;n++){if(await check())return;await sleep(100);}throw Error(`Timed out: ${label}`);}
 
@@ -31,8 +32,10 @@ async function until(check,label){for(let n=0;n<120;n++){if(await check())return
   }
   assert.equal(requests.length,2,'only one planning and one wording stage');assert.equal(input.payload.purpose,'draft');
   assert.equal(JSON.stringify(input.payload).includes('PRIVATE_PLANNER_SENTINEL'),false,'private explanation cannot enter the restricted outbound context');
-  return {kind:'draft',text:summary,suggestions:[{style:'自然',text:wording}],methodIds:['compose']};
+  return {kind:'draft',text:summary,privateExplanation:explanation,suggestions:[{style:'自然',text:wording}],methodIds:['compose']};
  },memoryModel:null});
+ const syntheticAssistantModel=controller.assistantModel;
+ controller.assistantModel=async(...args)=>withRequestDelivery(await syntheticAssistantModel(...args),args[1].payload);
  controller.updateStatus({phase:'ready',account:{uid:scope.accountUid,uin:scope.accountUin}});
  const server=createServer({controller,token:'synthetic-explanation-ui',uiDir:path.join(root,'ui'),saveSettings(){},modelFetch:async()=>({ok:true,json:async()=>({data:[{id:'synthetic-explanation'}]})})});
  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
@@ -54,7 +57,7 @@ async function until(check,label){for(let n=0;n<120;n++){if(await check())return
   await until(()=>requests.length===1&&!!releasePlanner,'planning stage');await ui.fill('#assistant-input',nextPrivateInput);releasePlanner();releasePlanner=null;
   await until(()=>cdp.evaluate('!assistantPending&&!state?.assistantBusy&&state?.companion.turns.some(turn=>turn.role==="assistant")'),'draft with private explanation');
   const answer=store.getCompanion(scope).turns.filter(turn=>turn.role==='assistant').at(-1),selector=`[data-turn-id="${answer.id}"]`;
-  assert.equal(answer.discussionExplanation?.text,explanation,'the real controller preserves the original planner explanation');
+  assert.equal(answer.discussionExplanation?.text,explanation,'the real controller displays only the explicit final-composer explanation');
   assert.equal(await cdp.evaluate(`document.querySelector(${JSON.stringify(selector+' [data-discussion-explanation]')})?.textContent`),explanation);
   assert.equal(await cdp.evaluate(`(()=>{const turn=document.querySelector(${JSON.stringify(selector)}),r=turn.querySelector('[data-discussion-explanation]'),summary=turn.querySelector(':scope > .turn-text'),draft=turn.querySelector('.assistant-suggestion');return !!r&&!!summary&&!!draft&&!!(r.compareDocumentPosition(summary)&Node.DOCUMENT_POSITION_FOLLOWING)&&!!(summary.compareDocumentPosition(draft)&Node.DOCUMENT_POSITION_FOLLOWING)})()`),true,'rationale is displayed before the final summary and suggestion');
   assert.equal(await cdp.evaluate(`document.querySelectorAll(${JSON.stringify(selector+' [data-discussion-explanation] button')}).length`),0,'rationale has no adoption controls');
@@ -66,7 +69,7 @@ async function until(check,label){for(let n=0;n<120;n++){if(await check())return
   await preserved();assert.equal(await cdp.evaluate("document.querySelector('#draft').value"),unsentDraft);await ui.composer('explanation preserves composer');
   const rationale=await ui.inspect(selector+' [data-discussion-explanation]',{scroll:true});assert.ok(rationale.ok,'private explanation is reachable in the normal conversation scroll area');await ui.composer('visible private explanation');
   const image=await cdp.call('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});fs.writeFileSync(path.join(evidence,'private-explanation.png'),Buffer.from(image.data,'base64'));
-  checks.push('Real controller planning explanation is visible before the editable wording, with no adoption shortcut; independently edited input, draft, goal, mode and actual QQ are preserved');
+  checks.push('Explicit final-composer explanation is visible before the editable wording, with no adoption shortcut; independently edited input, draft, goal, mode and actual QQ are preserved');
 
   await ui.openDetails(selector+' .method-basis');
   assert.equal(await cdp.evaluate(`document.querySelector(${JSON.stringify(selector+' .method-basis summary')}).textContent`),'本次参考');
@@ -92,7 +95,7 @@ async function until(check,label){for(let n=0;n<120;n++){if(await check())return
   await until(()=>cdp.evaluate(`!!document.querySelector('[data-turn-id="${duplicate.id}"]')`),'duplicate explanation fixture');
   assert.equal(await cdp.evaluate(`document.querySelectorAll('[data-turn-id="${duplicate.id}"] .turn-text').length`),1);
   assert.equal(store.experiences.artifact(scope,duplicate.artifactRef).body,'同一段说明只显示一次。');await preserved();
-  checks.push('Identical planner/composer text is displayed and evaluated once');
+  checks.push('Identical explicit final explanation and summary are displayed and evaluated once');
 
   await ui.click('#contact-button');await ui.fill('#qq-number','2222222222');await ui.click('#contact-form button[type=submit]');
   await until(()=>cdp.evaluate('state?.scope?.peerUin==="2222222222"&&!loadingHistory'),'other contact');

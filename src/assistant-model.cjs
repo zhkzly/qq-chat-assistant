@@ -13,6 +13,7 @@ const {SourceHandleOwner}=require('./source-handles.cjs');
 const {preparePrimaryFrame,compilePrimaryFrame,primaryValidationFeedback}=require('./primary-frame.cjs');
 const {projectPrimaryOperationInput,normalizePrimaryOperation,rememberPrimaryOperation,primaryOperationFor,operationValidationFeedback}=require('./primary-operation.cjs');
 const {ValidationIssues,validationError}=require('./validation-issues.cjs');
+const {readPreparedExplanation,rememberPreparedResponse}=require('./prepared-response.cjs');
 const {parseRequestDelivery,parseDeliveryBlocker,normalizeBlockerQuestion,blockerRenderingWitness,validateTerminalDelivery,editable}=require('./request-delivery.cjs');
 const RELATIONSHIP_PROTOCOL = `relationshipPatch is optional and contains only claims (at most 24), events (at most 12), and retire (at most 24), each an array. An empty patch is {"claims":[],"events":[],"retire":[]}.
 claims: {id?,expectedVersion?,subject,aspect,text,assertionKind,epistemicStatus,lifecycle?,validFrom?,validUntil?,context?,sourceIds,topicKeys?}. subject=${SUBJECTS.join('|')}; aspect=${ASPECTS.join('|')}; assertionKind=${ASSERTIONS.join('|')}; epistemicStatus=${EPISTEMIC.join('|')}; lifecycle=${LIFECYCLES.join('|')} (default active). Inferred claims must remain tentative, contested, or undetermined, never supported. observed requires actual QQ evidence; a private report of an event uses reported. stated means someone said it, not independent proof; contact+stated requires an actual incoming QQ source and only that contact evidence determines its date, not a user's later question. A user's interpretation or retelling of her words must be reported/inferred, never her stated feeling. Unknowns are not personality traits. stated_preference does not authorize changing user preferences.
@@ -424,6 +425,12 @@ function parseAssistant(value, purpose, input, diagnostics) {
     }
     if(operationState?.blocker){result.deliveryBlocker=operationState.blocker;result.replyDisposition='clarify';}
     const canonicalResult=delivery?{...result,requestDelivery:delivery}:result;
+    if(purpose==='draft'){
+      const binding=sourceWire||input,explanation=readPreparedExplanation(data,canonicalResult,binding);
+      if(explanation!==undefined)canonicalResult.discussionExplanation={kind:'discussion',text:explanation};
+      rememberPreparedResponse(canonicalResult,explanation,binding);
+      if(input?.manifest&&canonicalResult.kind==='draft')input.manifest.preparedResponse={owner:'final_composer',message:'provided',privateExplanation:explanation===undefined?'absent':'provided'};
+    }
     if(operationState){rememberPrimaryOperation(canonicalResult,operationState,primary);if(input?.manifest)input.manifest.primaryOperation={operation:operationState.operation,...(operationState.continuation?{continuation:operationState.continuation}:{}),...(operationState.messageRequired?{requiredArtifact:'message'}:{})};}
     input?.primaryFrameSnapshot?.markCanonical(canonicalResult);
     return sourceWire?sourceWire.markCanonical(canonicalResult):canonicalResult;
@@ -541,14 +548,14 @@ async function assistModel(settings, context, signal, fetchImpl = fetch) {
       try{planningCarrierRepair=Object.hasOwn(parseModelJson(responseContent),'draftPlan');}catch{ /* No recoverable planning envelope was present. */ }
     }
     const terminalRepair=editable(context.payload.requestDeliveryObligation);
-    const deliveryRepair=!!context.primaryFrameSnapshot||!!context.payload.requestDeliveryPolicy||terminalRepair;
+    const deliveryRepair=context.payload.purpose==='draft'||!!context.primaryFrameSnapshot||!!context.payload.requestDeliveryPolicy||terminalRepair;
     if(deliveryRepair&&settings.requestBudget?.task?.snapshot().requests.some(request=>request.purpose==='delivery_repair')){
       const exhausted=new Error('本次结构化交付修复已使用一次，仍未得到合规交付；输入已保留');exhausted.code='request_delivery_repair_exhausted';throw exhausted;
     }
     const obligation=editable(error.requestDelivery)?error.requestDelivery:context.payload.requestDeliveryPolicy?.obligation;
     const bindObligation=payload=>payload&&obligation&&payload.purpose!=='draft'?{...payload,requestDeliveryPolicy:{version:1,...payload.requestDeliveryPolicy,obligation:{mode:obligation.mode}}}:payload;
     context.payload=bindObligation(context.payload);
-    const plainRecovery = !context.primaryFrameSnapshot&&!context.payload.requestDeliveryPolicy&&!planningCarrierRepair&&(!terminalRepair||error.code!=='request_delivery_unfulfilled')&&['discussion','review','reply','draft'].includes(context.payload.purpose);
+    const plainRecovery = context.payload.purpose!=='draft'&&!context.primaryFrameSnapshot&&!context.payload.requestDeliveryPolicy&&!planningCarrierRepair&&(!terminalRepair||error.code!=='request_delivery_unfulfilled')&&['discussion','review','reply','draft'].includes(context.payload.purpose);
     const formatFailure = error instanceof SyntaxError ? '响应不是合法 JSON' : error.message;
     // Structural correction keeps the configured/selected result carrier.
     // Only the intentional natural-language recovery requests plain output.
@@ -559,7 +566,7 @@ async function assistModel(settings, context, signal, fetchImpl = fetch) {
       formatError:error.issues?`${error.issues.map(issue=>issue.path).join(', ')}: address every validationIssues entry atomically.`:error instanceof SyntaxError?'响应不是合法 JSON':error.message,
       ...(error.issues?{validationIssues:error.issues}:{}),
       task: context.payload.purpose === 'draft'
-        ? '当前purpose=draft，仅按originalInput受限输入修复为kind:draft、非空text及1..3条完整suggestions；确实缺少不可绕过的事实或许可时用kind:question、具体text及deliveryBlocker:{kind:missing_fact/missing_authorization,missing:具体缺项,question:对应私下核对问题}。不能返回只有策略或泛泛问题，不能新增事实或重新索取完整私下请求。'
+        ? '当前purpose=draft，按originalInput一次修复完整准备答复：kind:draft，text只写对外话语，可选privateExplanation只写最终私下解释（最多6000字，空白即缺失），二者事实/时间必须一致；非空legacy suggestions仍为对外候选。不从主规划文字补解释，不能把私下理由混入text或候选。若未给privateExplanation就保持缺失，不宣称解释已恢复。真缺不可绕过信息才kind:question+deliveryBlocker的唯一question及可选why-only explanation，不附privateExplanation。保持同一结构化载体，不改用消息专用纯文本恢复、不增加HTTP调用；不新增事实/许可。'
         : structuredRepairTask(preparedRequest.wirePayload) };
     const retainImages=plainRecovery||planningCarrierRepair||deliveryRepair;
     let repairedInput = context, preparedRepair = prepareAssistantRequest(repairSettings, repairPayload, retainImages ? repairedInput.images : [],wireOptionsFor(repairedInput));

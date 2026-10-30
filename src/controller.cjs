@@ -708,10 +708,12 @@ class Controller extends EventEmitter {
         result={...result,kind:'question',text:blocker?clarificationBody(blocker):result.draftPlan.clarification,...(purpose==='reply'?{replyDisposition:'clarify'}:{})};
       }
       else if(result.draftPlan){
-        if(typeof result.text==='string'&&result.text.trim())discussionExplanation={kind:result.kind,text:result.text};
+        // A primary planning comment is not an answer owner. Only the final
+        // composer may supply the prepared reply's private explanation.
+        discussionExplanation=undefined;
         const allowedImages=context.images;
         context=buildDraftContext(context,result.draftPlan,{scope,requestId,companion,coverage,settings,store:this.store});context.images=allowedImages;context.payload.imageContext=imageContextFor(context.payload,allowedImages,vision);context.manifest.imageContext=context.payload.imageContext;
-        result=await invoke(context);if(!current())return;reviewed=null;if(result.discussionExplanation)discussionExplanation=result.discussionExplanation;
+        result=await invoke(context);if(!current())return;reviewed=null;discussionExplanation=result.discussionExplanation;
       } else if(purpose==='draft'&&!['question','discussion'].includes(result.kind))throw new Error('模型尚未明确拟表达内容，请继续说明或选择一个方向');
       if(!current())return;
       if(result.requestDelivery?.blocker||result.deliveryBlocker)discussionExplanation=undefined;

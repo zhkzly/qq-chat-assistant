@@ -161,7 +161,7 @@ test('canonical feedback continuation is authoritative without duplicating its b
   assert.ok(final.manifest.sourceIds.includes(feedback.sourceId));
 });
 
-test('bounded plain drafting repair retains guidance provenance and chosen image sources', async t => {
+test('bounded whole-response drafting repair retains guidance provenance and chosen image sources', async t => {
   const { store, args, request, guidance } = fixture(t);
   const more = Array.from({ length: 100 }, (_, index) => normalize(raw(String(900719925474200000n + BigInt(index)), index % 2 === 1,
     { msgTime: String(1791792000 + index), elements: [{ textElement: { content: `合成历史${index}：${'普通背景，不代表新的表达目的。'.repeat(20)}` } }] }), scope));
@@ -176,13 +176,13 @@ test('bounded plain drafting repair retains guidance provenance and chosen image
   const calls = [], invalid = 'INVALID_' + '原响应需要完整修复。'.repeat(1200);
   const result = await assistModel(settings, draft, undefined, async (_, request) => {
     calls.push(request.body);
-    return { ok: true, json: async () => ({ choices: [{ message: { content: calls.length === 1 ? invalid : '周末有空一起散步吗？' } }] }) };
+    return { ok: true, json: async () => ({ choices: [{ message: { content: calls.length === 1 ? invalid : JSON.stringify({kind:'draft',text:'周末有空一起散步吗？'}) } }] }) };
   });
   assert.equal(calls.length, 2); assert.ok(calls.every(body => Buffer.byteLength(body) < 64000 + JSON.stringify(images).length));
   assert.equal(result.suggestions[0].text, '周末有空一起散步吗？');
   const repaired = draft.resultContext || draft;
-  // The smaller plain recovery envelope no longer includes the invalid output;
-  // reassembly is unnecessary when the validated final input already fits.
+  // The complete structured repair retains the exact invalid output as
+  // diagnostics and rebuilds only within the existing evidence budget.
   assert.deepEqual(repaired.payload.draftingGuidance, draft.payload.draftingGuidance);
   assert.deepEqual(repaired.images, images);
   assert.ok(repaired.payload.sources.some(item => item.id === `qq:${imageId}`));
@@ -192,7 +192,9 @@ test('bounded plain drafting repair retains guidance provenance and chosen image
   }
   assert.equal(draft.extraRequests[0].manifest.imageCount, 1); assert.deepEqual(draft.extraRequests[0].manifest.images, draft.manifest.images);
   const recoveryRequest = JSON.parse(calls[1]), recoveryPayload = JSON.parse(recoveryRequest.messages[1].content[0].text);
-  assert.equal(recoveryPayload.invalidResponse, undefined); assert.deepEqual(canonicalSourceView(recoveryPayload.originalInput,draft.extraRequests[0].manifest.sourceHandles).draftingGuidance,draft.payload.draftingGuidance);
+  assert.equal(recoveryPayload.invalidResponse, invalid); assert.deepEqual(canonicalSourceView(recoveryPayload.originalInput,draft.extraRequests[0].manifest.sourceHandles).draftingGuidance,draft.payload.draftingGuidance);
+  for(const field of ['tools','tool_choice','response_format'])assert.deepEqual(recoveryRequest[field],JSON.parse(calls[0])[field],'whole-response repair retains the selected structured carrier');
+  assert.equal(draft.manifest.responseRecovery,undefined);
   assert.equal(recoveryRequest.messages[1].content[1].image_url.url, images[0].url);
   recoveryRequest.messages[1].content = JSON.stringify(recoveryPayload);
   assert.equal(draft.extraRequests[0].inputBytes, Buffer.byteLength(JSON.stringify(recoveryRequest)));

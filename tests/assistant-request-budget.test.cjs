@@ -40,9 +40,9 @@ for(const purpose of ['discussion','draft_prepare','draft'])test(`${purpose} rec
  const prepared=buildContext({...args,purpose:purpose==='draft_prepare'?'draft_prepare':'discussion'}),context=purpose==='draft'?buildDraftContext(prepared,{quotes:[{sourceId:prepared.payload.userRequest.sourceId,text:args.turn.text}],guidance:currentControls(prepared.payload)},args):prepared;
  // Lazy context no longer fills the 64KB window. Tighten the fixture around
  // its actual ordinary request so the repair wrapper still exercises eviction.
- if(purpose==='draft_prepare')args.settings.assistantRequestBytes=prepareAssistantRequest(args.settings,context.payload).requestBytes+200;
+ if(purpose==='draft_prepare')args.settings.assistantRequestBytes=Math.min(64000,prepareAssistantRequest(args.settings,context.payload).requestBytes+200);
  const invalid='INVALID_RESPONSE_'+('"\\\\\n原本的输出仍需完整修复。'.repeat(purpose==='draft'?700:purpose==='draft_prepare'?140:350)),calls=[];
- const repaired=purpose==='draft_prepare'?JSON.stringify({draftPlan:{quotes:[{sourceId:prepared.payload.userRequest.sourceId,text:args.turn.text}],guidance:currentControls(prepared.payload)}}):purpose==='draft'?'我想多认识你一点。':JSON.stringify({kind:'discussion',text:'先自然回应她实际提到的安排。'});
+ const repaired=purpose==='draft_prepare'?JSON.stringify({draftPlan:{quotes:[{sourceId:prepared.payload.userRequest.sourceId,text:args.turn.text}],guidance:currentControls(prepared.payload)}}):purpose==='draft'?JSON.stringify({kind:'draft',text:'我想多认识你一点。',privateExplanation:'保留这次明确表达想多认识她的意思。'}):JSON.stringify({kind:'discussion',text:'先自然回应她实际提到的安排。'});
  await assistModel(args.settings,context,undefined,async(_,request)=>{
   calls.push(request.body);
   if(calls.length===1)return ok(invalid);
@@ -55,9 +55,9 @@ for(const purpose of ['discussion','draft_prepare','draft'])test(`${purpose} rec
  if(purpose!=='draft'){
   assert.equal(repair.invalidResponse,invalid);if(purpose==='draft_prepare')assert.ok(repair.originalInput.sources.length<first.sources.length,'mandatory structural repair evicts optional whole sources to fit its full envelope');
  }else{
-  assert.equal(repair.invalidResponse,undefined,'fresh natural-language recovery never reuses the malformed output as authority');
-  assert.equal(repair.originalInput.sources.length,first.sources.length,'smaller recovery contract retains all originally delivered evidence');
-  assert.equal(JSON.parse(calls[1]).tools,undefined);assert.equal(JSON.parse(calls[1]).response_format,undefined);
+  assert.equal(repair.invalidResponse,invalid,'structured repair retains the exact invalid output only as diagnostics');
+  assert.ok(repair.originalInput.sources.length<=first.sources.length,'structured whole-response repair may evict only optional source rows');
+  for(const field of ['tools','tool_choice','response_format'])assert.deepEqual(JSON.parse(calls[1])[field],JSON.parse(calls[0])[field],'whole-response repair retains the selected structured carrier');assert.equal(context.manifest.responseRecovery,undefined);
  }
  if(purpose==='draft'){for(const key of ['userRequest','goal','privateConversation'])assert.equal(repair.originalInput[key],undefined);}
  assert.equal(context.extraRequests[0].inputBytes,Buffer.byteLength(calls[1]));

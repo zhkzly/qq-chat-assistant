@@ -39,7 +39,7 @@ for(const declared of [false,true])test(`actual005 strategy-only ${declared?'pre
    assert.equal(p.goal,undefined);assert.equal(p.privateConversation,undefined);assert.equal(p.userRequest,undefined);
    assert.equal(JSON.stringify(p).includes('私人担忧_MARKER'),false);
    assert.deepEqual(p.outboundQuotes.map(q=>q.text),['这是我给自己记读书笔记的小网页。','昨天第一次把查找功能弄好了，我挺开心。']);
-   return {kind:'draft',text:'回应为什么做',suggestions:[{style:'自然',text:'就是给自己留读书笔记的，昨天终于能查找了，还挺开心。你平时怎么留住读到的东西？'}]};
+   return {kind:'draft',text:'回应为什么做',privateExplanation:'可以保留你的真实进展，再问她的习惯。',suggestions:[{style:'自然',text:'就是给自己留读书笔记的，昨天终于能查找了，还挺开心。你平时怎么留住读到的东西？'}]};
   }
   assert.match(p.userRequest.text,/能改着发/);
   if(!wrapper.originalInput)return declared?{operation:'prepare_message',text:actual005.text}:actual005;
