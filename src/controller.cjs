@@ -14,6 +14,16 @@ const fingerprint=value=>createHash('sha256').update(JSON.stringify(value)).dige
 const FORGOTTEN_REQUEST='所选来源已从助手参考中移除。仅使用仍可用的信息继续本次帮助，不复述已移除内容。';
 const {SourceHandleOwner}=require('./source-handles.cjs');
 const {editable,validateTerminalDelivery,blockerRenderingWitness,deliveryStatus,clarificationBody}=require('./request-delivery.cjs');
+function inFlightMessageRequirement(owner,scope){
+  if(!owner||!sameScope(owner.scope,scope))return undefined;
+  const existing=owner.args?.requestDeliveryObligation;
+  if(editable(existing))return {mode:existing.mode,...(typeof existing.sourceId==='string'?{sourceId:existing.sourceId}:{}),...(typeof existing.sourceRevision==='string'?{sourceRevision:existing.sourceRevision}:{})};
+  const input=owner.inflightInput,policy=input?.payload?.requestDeliveryPolicy;
+  if(!editable(policy?.obligation)||policy.version!==1||input.manifest?.requestId!==owner.taskId||!sameScope(input.manifest?.scope,scope))return undefined;
+  const sourceId=input.payload.intentAuthority?.sourceId,source=input.payload.sources?.find(item=>item.id===sourceId),revision=input.manifest.sourceRevisions?.[sourceId];
+  if(typeof revision!=='string'||source?.revision!==revision||source.role!=='user'||!['private','request','feedback'].includes(source.type)||source.deleted||source.excluded||source.use==='disabled')return undefined;
+  return {mode:policy.obligation.mode,sourceId,sourceRevision:revision};
+}
 const { assistModel, parseAssistant, imageContextFor } = require('./assistant-model.cjs');
 const { buildContext, buildDraftContext, expressionOptionsFor, PROMPT_VERSION } = require('./assistant-context.cjs');
 const { planDiscussionCompaction, assistDiscussionCompaction } = require('./discussion-compaction.cjs');
@@ -125,6 +135,8 @@ class Controller extends EventEmitter {
     const count = this.store.add(scope, normalized);
     if (count) {
       const pending=this.activeAssist||this.pendingAssist,automatic=pending?.args?.origin==='automatic';
+      const requirement=inFlightMessageRequirement(pending,this.scope);
+      if(requirement)pending.args={...pending.args,requestDeliveryObligation:requirement};
       const resume=pending&&(!automatic||this.auto&&this.automaticEligible());
       this.memoryLastActivityAt=Date.now();this.invalidateAssistant({preserveTask:!!resume});if(automatic&&!resume)this.busy=false;this.advice=null;this.candidateReason=this.automaticEligible()?'qq_changed':'answered';clearTimeout(this.timer);this.revision++; this.changed(); this.scheduleMemory(15000);
       if(resume&&pending.resumes<2&&sameScope(pending.scope,this.scope)){
@@ -553,6 +565,7 @@ class Controller extends EventEmitter {
         return this.store.experiences.assertInputArtifactsCurrent(scope,[...references.values()]);
       };
       const invoke=async(input)=>{
+        if(this.activeAssist?.taskId===budget.id)Object.defineProperty(this.activeAssist,'inflightInput',{value:input,writable:true,configurable:true});
         if(input.payload.requestDeliveryPolicy){
           const sourceId=input.payload.intentAuthority?.sourceId,sourceRevision=input.manifest.sourceRevisions[sourceId];
           if(requestDeliveryObligation?.sourceId&&(requestDeliveryObligation.sourceId!==sourceId||requestDeliveryObligation.sourceRevision!==sourceRevision)){
@@ -620,30 +633,12 @@ class Controller extends EventEmitter {
       for(let pass=0;pass<5;pass++) {
         context=await assemble();if(!context||!current())return;baseGeneration=this.store.contextGeneration?.(scope);result=await invoke(context);if(!current())return;
         if(result.lookup){
-          if(lookups>=2){result={kind:'question',text:'已经查过相关历史，但仍缺少能确认这件事的依据。你可以指出具体那次交流，或者我们先根据目前确定的信息讨论。'};break;}
-          const requestedTurns=result.lookup.discussionTurnIds||[];
-          if(requestedTurns.length){
-            const ids=new Set(requestedTurns),originals=this.store.getCompanion(scope).turns.filter(item=>ids.has(item.id)&&!item.memoryExcluded);
-            if(originals.length!==ids.size)throw new Error('要取回的原讨论已经变化；输入已保留，请重新核对。');
-            retrievedDiscussion=[...new Map([...retrievedDiscussion,...originals.map(item=>({...item,requestedOffset:result.lookup.offset||0,requestedMaxChars:result.lookup.maxChars||4000}))].map(item=>[item.id,item])).values()];
-            sourceLookupIds=[...new Set([...sourceLookupIds,...originals.filter(item=>item.role==='user').map(item=>`private:${item.id}`)])];
-          }
-          const found=result.lookup.query?this.store.searchMemory(scope,result.lookup.query,{limit:24,before:result.lookup.before,after:result.lookup.after,types:result.lookup.types}):{sources:[],coverage:{retrieval:'exact-private-discussion-ids',complete:false}};
-          const liveSources=new Map(this.store.memorySources(scope).map(source=>[source.id,source]));
-          const exactIds=[...new Set([...(result.lookup.sourceIds||[]),...requestedTurns.filter(id=>liveSources.has(`private:${id}`)).map(id=>`private:${id}`)])];
-          const direct=exactIds.map(id=>{
-            const original=liveSources.get(id);
-            if(!original||original.deleted||original.excluded||original.use==='disabled')throw new Error('要读取的来源已变化或不在当前会话中，请重新核对。');
-            const projected=boundedSourceView({...original,text:redact(original.text)},{offset:result.lookup.offset||0,maxChars:result.lookup.maxChars||4000,maxBytes:Number(settings.assistantContextBytes)||48000});
-            if(!projected)throw new Error('来源片段超出本次可读范围，请选择有效位置。');
-            return {...projected,requestedRange:{offset:result.lookup.offset||0,maxChars:result.lookup.maxChars||4000}};
-          });
-          const queryReads=found.sources.map(source=>({...source,focusOffset:focusSourceOffset(redact(source.text),result.lookup.query)}));
-          retrievedSources=[...new Map([...retrievedSources,...queryReads,...direct].map(source=>[source.id,source])).values()];
-          if(result.lookup.methodIds?.length)methodLookupIds=[...result.lookup.methodIds];
-          if(result.lookup.discover)discoveryRequested=true;
-          lookupHistory.push({query:result.lookup.query,found:found.sources.length+direct.length,discussionTurns:requestedTurns.length,sourceIds:direct.map(source=>source.id),...(direct.length?{requestedRange:{offset:result.lookup.offset||0,maxChars:result.lookup.maxChars||4000}}:{}),methodIds:result.lookup.methodIds||[],coverage:found.coverage,delivery:'check_sourceDelivery_not_found_count'});if(result.lookup.query)query=result.lookup.query;
-          reviewRange={before:result.lookup.before,after:result.lookup.after,types:result.lookup.types};lookups++;continue;
+          // Reading can change the meaning of an earlier snapshot even when
+          // its source revisions remain current. Require terminal reproposal.
+          const deferred=[...(relationshipProposals.length?['relationshipPatch']:[]),...(topicProposals.length?['topicPatch']:[]),...(experienceProposals.length?['experienceProposals']:[]),
+            ...(result.statePatch?['statePatch']:[]),...(result.stateReview?['stateReview']:[])];
+          if(deferred.length)context.manifest.deferredProposals={fields:[...new Set(deferred)],reason:'lookup_requires_terminal_reproposal'};
+          relationshipProposals.length=0;topicProposals.length=0;experienceProposals.length=0;stagedReview=null;
         }
         if(result.actions?.length&&!actionsHandled&&!transient){
           const applied=applyUserActions(this.store,scope,result.actions,{turn,baseRevision});
@@ -670,11 +665,38 @@ class Controller extends EventEmitter {
             query=turn.text;retrievedSources=[];retrievedDiscussion=[];sourceLookupIds=[];lookupHistory=[];methodLookupIds=[];reviewRange=undefined;
             feedbackIntentId=undefined;sourceTurnIds=[];selectedOption=undefined;currentCandidateRef=undefined;
             if(this.activeAssist?.taskId===budget.id)this.activeAssist.args={...this.activeAssist.args,text:FORGOTTEN_REQUEST,feedbackIntentId:undefined,sourceTurnIds:[],selectedOption:undefined,currentCandidateRef:undefined,requestDeliveryObligation};
+            if(this.activeAssist?.taskId===budget.id)this.activeAssist.inflightInput=null;
             capturedRequests.length=0;relationshipProposals.length=0;experienceProposals.length=0;topicProposals.length=0;this.usage.redactInputs(scope);
             receipts=forgotten.map(({undo,...r})=>({...r,evidenceQuote:'用户明确要求不再使用此来源'}));
           }
           baseRevision=this.store.getCompanion(scope).revision;baseGeneration=this.store.contextGeneration?.(scope);
           continue;
+        }
+        if(result.lookup){
+          if(lookups>=2){result={kind:'question',text:'已经查过相关历史，但仍缺少能确认这件事的依据。你可以指出具体那次交流，或者我们先根据目前确定的信息讨论。'};break;}
+          const requestedTurns=result.lookup.discussionTurnIds||[];
+          if(requestedTurns.length){
+            const ids=new Set(requestedTurns),originals=this.store.getCompanion(scope).turns.filter(item=>ids.has(item.id)&&!item.memoryExcluded);
+            if(originals.length!==ids.size)throw new Error('要取回的原讨论已经变化；输入已保留，请重新核对。');
+            retrievedDiscussion=[...new Map([...retrievedDiscussion,...originals.map(item=>({...item,requestedOffset:result.lookup.offset||0,requestedMaxChars:result.lookup.maxChars||4000}))].map(item=>[item.id,item])).values()];
+            sourceLookupIds=[...new Set([...sourceLookupIds,...originals.filter(item=>item.role==='user').map(item=>`private:${item.id}`)])];
+          }
+          const found=result.lookup.query?this.store.searchMemory(scope,result.lookup.query,{limit:24,before:result.lookup.before,after:result.lookup.after,types:result.lookup.types}):{sources:[],coverage:{retrieval:'exact-private-discussion-ids',complete:false}};
+          const liveSources=new Map(this.store.memorySources(scope).map(source=>[source.id,source]));
+          const exactIds=[...new Set([...(result.lookup.sourceIds||[]),...requestedTurns.filter(id=>liveSources.has(`private:${id}`)).map(id=>`private:${id}`)])];
+          const direct=exactIds.map(id=>{
+            const original=liveSources.get(id);
+            if(!original||original.deleted||original.excluded||original.use==='disabled')throw new Error('要读取的来源已变化或不在当前会话中，请重新核对。');
+            const projected=boundedSourceView({...original,text:redact(original.text)},{offset:result.lookup.offset||0,maxChars:result.lookup.maxChars||4000,maxBytes:Number(settings.assistantContextBytes)||48000});
+            if(!projected)throw new Error('来源片段超出本次可读范围，请选择有效位置。');
+            return {...projected,requestedRange:{offset:result.lookup.offset||0,maxChars:result.lookup.maxChars||4000}};
+          });
+          const queryReads=found.sources.map(source=>({...source,focusOffset:focusSourceOffset(redact(source.text),result.lookup.query)}));
+          retrievedSources=[...new Map([...retrievedSources,...queryReads,...direct].map(source=>[source.id,source])).values()];
+          if(result.lookup.methodIds?.length)methodLookupIds=[...result.lookup.methodIds];
+          if(result.lookup.discover)discoveryRequested=true;
+          lookupHistory.push({query:result.lookup.query,found:found.sources.length+direct.length,discussionTurns:requestedTurns.length,sourceIds:direct.map(source=>source.id),...(direct.length?{requestedRange:{offset:result.lookup.offset||0,maxChars:result.lookup.maxChars||4000}}:{}),methodIds:result.lookup.methodIds||[],coverage:found.coverage,delivery:'check_sourceDelivery_not_found_count'});if(result.lookup.query)query=result.lookup.query;
+          reviewRange={before:result.lookup.before,after:result.lookup.after,types:result.lookup.types};lookups++;continue;
         }
         break;
       }
@@ -781,7 +803,10 @@ class Controller extends EventEmitter {
       this.usage.finish(scope,budget.id,'failed',error.code||'assistant_failed');
       this.candidateSession.finish(candidateTicket,'generation_failed');
       this.assistantError=error.message;
-      if(context)this.store.saveRun(scope,{id:requestId,baseRevision,purpose:context.payload.purpose,status:'failed',payload:context.payload,manifest:context.manifest,requests:capturedRequests,error:error.message,maintenance:'failed'});
+      // A later producer failure does not undo an independently applied user
+      // action. An unavailable post-forget context must not revive old inputs.
+      this.store.saveRun(scope,{id:requestId,baseRevision,purpose:context?.payload.purpose||purpose,status:'failed',payload:context?.payload||{purpose},manifest:context?.manifest||{scope,requestId,purpose},requests:capturedRequests,
+        actionReceipts:receipts.filter(receipt=>receipt.status==='applied'),error:error.message,maintenance:'failed'});
       throw error;
     } finally {
       if(this.assistantAbort===abort){

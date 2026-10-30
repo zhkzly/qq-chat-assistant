@@ -1,5 +1,5 @@
 'use strict';
-const {withRequestDelivery,withCurrentStatementAuthority}=require('./synthetic-request-delivery.cjs');
+const {withRequestDelivery,withCurrentStatementAuthority,withPrimaryOperation}=require('./synthetic-request-delivery.cjs');
 // Fictional production-path probes. Semantic judgments are deliberately not automated.
 const fs = require('node:fs'), path = require('node:path'), crypto = require('node:crypto');
 const vm = require('node:vm'), { createRequire } = require('node:module');
@@ -140,7 +140,7 @@ function stopError(message, code='verification_stopped') {
 }
 function syntheticResult(payload, definition) {
   const step=definition.activeStep;
-  if(step?.syntheticClarification)return {kind:'question',text:step.syntheticClarification,replyDisposition:'clarify'};
+  if(step?.syntheticClarification)return payload.operationProtocol?{operation:'clarify',blocker:{kind:'missing_fact',missing:'这轮表达不可绕过的真实信息',question:step.syntheticClarification}}:{kind:'question',text:step.syntheticClarification,replyDisposition:'clarify'};
   if(step && payload.purpose==='draft')return {kind:'draft',text:'Synthetic transport wording; independent semantic review remains required.',
     suggestions:[{style:'自然',text:step.syntheticWording}]};
   if(step){
@@ -150,7 +150,7 @@ function syntheticResult(payload, definition) {
   }
   if (definition.invocation) return {kind:'discussion',text:'合成触发路径示例，不提供实际语义质量结论。',replyDisposition:'wait'};
   if (payload.purpose === 'draft') return {kind:'draft',text:'Synthetic transport summary; no quality verdict.',suggestions:[{style:'自然',text:'合成运输示例，仅验证完整交接，不作为建议质量证据。'}]};
-  if (definition.id === 'Q3-unknown') return {kind:'question',text:'合成运输示例：缺少实际近况，请提供一个你愿意分享的真实事件。'};
+  if (definition.id === 'Q3-unknown') return payload.operationProtocol?{operation:'clarify',blocker:{kind:'missing_fact',missing:'尚未提供愿意分享的实际近况',question:'合成运输示例：缺少实际近况，请提供一个你愿意分享的真实事件。'}}:{kind:'question',text:'合成运输示例：缺少实际近况，请提供一个你愿意分享的真实事件。'};
   if (definition.id === 'Q7-boundary') return {kind:'discussion',text:'合成运输示例：这段文本不是实际模型建议，不提供语义质量结论。'};
   const currentId = payload.intentAuthority?.sourceId || payload.userRequest?.sourceId;
   const control = text => ({text,sourceIds:[currentId]});
@@ -228,7 +228,8 @@ async function runHarness(options={}) {
     try {
       if (options.live) response=await (options.fetchImpl || fetch)(url,args);
       else {
-        const result=withRequestDelivery(await (options.syntheticResponder || syntheticResult)(payload,current.definition),payload.originalInput||payload);
+        const produced=await (options.syntheticResponder || syntheticResult)(payload,current.definition);
+        const result=withRequestDelivery(options.syntheticResponder?produced:withPrimaryOperation(produced,payload),payload);
         response=result instanceof Response ? result : new Response(JSON.stringify({model:provider.model,
           choices:[{finish_reason:'stop',message:{content:typeof result === 'string' ? result : JSON.stringify(result)}}],
           usage:{prompt_tokens:1,completion_tokens:1,total_tokens:2}}),{status:200});

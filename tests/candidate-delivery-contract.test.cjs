@@ -46,12 +46,12 @@ test('legacy automatic output is filtered by scoped task identity beyond retaine
 
 test('the delivered auto contract asks for wording and permits honest uncertainty and closure',()=>{
  const system=prepareAssistantRequest({model:'fixture'},payload).request.messages[0].content;
- assert.match(system,/replyDisposition/);
+ assert.match(system,/自动\/手动QQ建议也选择同一operation/);assert.match(system,/advise解释暂缓/);
  assert.match(system,/draftPlan/);
- assert.match(system,/未知花名\/缺图片\/无今日经历不妨碍其他表达/);
- assert.match(system,/不编经历\/承诺\/心理/);
- assert.match(system,/clarify[^。]*缺决定内容且无法绕开的用户事实/);
- assert.match(system,/实质不同才≤3条，否则1条/);
+ assert.match(system,/无候选|无必要新话语/);
+ assert.match(system,/不编经历|不编.*情绪|不编经历\/情绪/);
+ assert.match(system,/真缺关键事实才clarify/);
+ const final=prepareAssistantRequest({model:'fixture'},{...payload,purpose:'draft'}).request.messages[0].content;assert.match(final,/实质不同才≤3条，否则1条/);
 });
 
 test('automatic origin and delivery decisions persist only on assistant turns',()=>{

@@ -20,7 +20,7 @@ function responder(payload,definition){
   plan.useEmoji=true;
   plan.guidance.allowedApproach=control('正常说完整一句，不刻意压成碎短句，可以用一个表情');
  }
- const reply={kind:'discussion',text:'Synthetic planning verifies carriers only.',draftPlan:plan};
+ const reply={operation:'prepare_message',text:'Synthetic planning verifies carriers only.',draftPlan:plan};
  if(step.id==='save-defaults'){
   const text=step.request.slice(step.request.indexOf('以后'),step.request.indexOf('。'));
   reply.actions=[{type:'set_preference',text,evidenceQuote:step.request}];

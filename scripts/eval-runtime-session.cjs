@@ -92,6 +92,7 @@ function makeSyntheticTransport() {
           objective: control('回应当前提供的实际交流内容'), allowedApproach: control('遵守当前有效的用户选择'), avoidances: [] } };
       }
     }
+    if(p.operationProtocol&&result&&typeof result==='object'){const {kind,replyDisposition,...fields}=result;result={operation:result.draftPlan?'prepare_message':'advise',...fields};}
     if(p.requestDeliveryPolicy&&result&&typeof result==='object'&&p.purpose!=='draft'){
       const sourceId=p.intentAuthority?.sourceId||p.userRequest?.sourceId,source=p.sources.find(item=>item.id===sourceId);
       const mode=result.draftPlan?'editable_message':'private_help';

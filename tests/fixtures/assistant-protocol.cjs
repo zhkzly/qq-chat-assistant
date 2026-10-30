@@ -6,16 +6,17 @@ const model=require('../../src/assistant-model.cjs');
 const {parseModelJson}=require('../../src/model-json.cjs');
 const {Controller:ProductController}=require('../../src/controller.cjs');
 const {withRequestDelivery}=require('../../scripts/synthetic-request-delivery.cjs');
+const withLegacyDelivery=(value,payload)=>value&&typeof value==='object'&&Object.hasOwn(value,'operation')?value:withRequestDelivery(value,payload);
 
 class Controller extends ProductController {
  get assistantModel(){return this.fixtureModel;}
- set assistantModel(producer){this.fixtureModel=producer&& (async(...args)=>withRequestDelivery(await producer(...args),args[1].payload));}
+ set assistantModel(producer){this.fixtureModel=producer&& (async(...args)=>withLegacyDelivery(await producer(...args),args[1].payload));}
 
 }
 function parseAssistant(value,purpose,input,...args){
  let data=value;
  if(typeof data==='string'){try{data=parseModelJson(data);}catch{ /* Preserve malformed JSON. */ }}
- return model.parseAssistant(withRequestDelivery(data,input?.payload||input),purpose,input,...args);
+ return model.parseAssistant(withLegacyDelivery(data,input?.payload||input),purpose,input,...args);
 }
 const {canonicalSourceView,wireSourceView}=require('./source-wire.cjs');
 async function assistModel(settings,context,signal,fetchImpl=fetch){
@@ -31,7 +32,7 @@ async function assistModel(settings,context,signal,fetchImpl=fetch){
   const primaryReceipt=(wrapper.originalInput?context.extraRequests?.at(-1)?.manifest?.primaryReferences:undefined)||context.manifest?.primaryReferences;
   const captured=wrapper.originalInput?context.extraRequests?.at(-1)?.payload?.originalInput||context.payload:context.payload;
   const canonicalPayload=canonicalSourceView(payload,receipt,captured);
-  const upgradeValue=data=>wireSourceView(withRequestDelivery(data,canonicalPayload),receipt,primaryReceipt,canonicalPayload);
+  const upgradeValue=data=>wireSourceView(withLegacyDelivery(data,canonicalPayload),receipt,primaryReceipt,canonicalPayload);
   const upgrade=text=>{try{return JSON.stringify(upgradeValue(JSON.parse(text)));}catch{return text;}};
   for(const choice of json.choices||[]){
    if(typeof choice.message?.content==='string')choice.message.content=upgrade(choice.message.content);

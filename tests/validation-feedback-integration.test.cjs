@@ -20,24 +20,24 @@ async function setup(t,producer){
 }
 const request='记住：今天我完成了查找功能。也愿意告诉她这个进展，给我完整表达。';
 const delivery=p=>({mode:'editable_message'});
-// Missing legacy authorization is no longer a representable admitted frame.
-// Keep the HTTP multiissue test at the business-admission layer with valid
-// exact refs, a mode/plan contradiction and an independent QQ-only control.
-function bad(p){const current=p.intentAuthority.sourceId,qq=p.sources.find(source=>source.type==='qq');return withCurrentStatementAuthority({kind:'discussion',text:'准备表达',requestDelivery:{mode:'private_help'},actions:[{type:'save_note',evidenceQuote:'记住：今天我完成了查找功能',text:'今天我完成了查找功能'}],stateReview:'no_change',draftPlan:{quotes:[{sourceId:current,text:'今天我完成了查找功能'}],guidance:{objective:{text:'分享实际进展',sourceIds:[current]},allowedApproach:{text:'按本轮意思自然说明',sourceIds:[current]},avoidances:[],currentStep:{text:'立即写出这次内容',sourceIds:[qq.id]}}}},p);}
+// Redundant audience/kind contradictions no longer exist in valid operation
+// payloads. Keep this HTTP test at active business admission: valid exact refs,
+// an invalid task-use and an independent QQ-only control. Canonical negatives remain below.
+function bad(p){const current=p.intentAuthority.sourceId,qq=p.sources.find(source=>source.type==='qq');return withCurrentStatementAuthority({operation:'prepare_message',text:'准备表达',actions:[{type:'save_note',evidenceQuote:'记住：今天我完成了查找功能',text:'今天我完成了查找功能'}],stateReview:'no_change',draftPlan:{quotes:[{sourceId:current,text:'今天我完成了查找功能'}],taskUse:'invalid_use',guidance:{objective:{text:'分享实际进展',sourceIds:[current]},allowedApproach:{text:'按本轮意思自然说明',sourceIds:[current]},avoidances:[],currentStep:{text:'立即写出这次内容',sourceIds:[qq.id]}}}},p);}
 
 test('valid actions and state review inside a bad core never partially execute or buy another repair',async t=>{
  const app=await setup(t,p=>bad(p)),before=app.store.getCompanion(scope);
- await assert.rejects(app.controller.assist({text:request,taskId:'atomic-bad-core'}),/private_help|currentStep/);
+ await assert.rejects(app.controller.assist({text:request,taskId:'atomic-bad-core'}),/taskUse|currentStep/);
  assert.equal(app.calls.length,2);const after=app.store.getCompanion(scope);assert.equal(after.notes.length,before.notes.length);assert.equal(after.state.version,before.state.version);
  assert.equal(after.turns.some(turn=>turn.role==='assistant'),false);assert.equal(app.run().status,'failed');
- const repair=app.calls[1].wrapper;assert.ok(repair.validationIssues.some(issue=>issue.path==='requestDelivery.mode'));
+ const repair=app.calls[1].wrapper;assert.ok(repair.validationIssues.some(issue=>issue.path==='draftPlan.taskUse'));
  assert.ok(repair.validationIssues.some(issue=>issue.path==='draftPlan.guidance.currentStep.sourceIds'));
  assert.ok(repair.validationIssues.every(issue=>Object.keys(issue).sort().join(',')==='code,message,path'));
 });
 test('a valid editable interpretation remains sticky when core validation fails',async t=>{
- const app=await setup(t,(p,w,index)=>{if(index===0){const value=bad(p);value.requestDelivery.mode='editable_message';return value;}return {kind:'discussion',text:'只讨论，不再给表达。',requestDelivery:{mode:'private_help'}};});
- await assert.rejects(app.controller.assist({text:request,taskId:'sticky-atomic-core'}),/cannot be downgraded/);
- assert.equal(app.calls.length,2);assert.equal(app.calls[1].p.requestDeliveryPolicy.obligation.mode,'editable_message');
+ const app=await setup(t,(p,w,index)=>index===0?bad(p):{operation:'advise',text:'只讨论，不再给表达。'});
+ await assert.rejects(app.controller.assist({text:request,taskId:'sticky-atomic-core'}),/still requires a message artifact/);
+ assert.equal(app.calls.length,2);assert.equal(app.calls[1].p.operationProtocol.requiredArtifact,'message');
  assert.equal(app.store.getCompanion(scope).notes.length,0);
 });
 test('the one existing repair receives all issues and can return one fully validated safe plan',async t=>{
@@ -48,7 +48,7 @@ test('the one existing repair receives all issues and can return one fully valid
   }
   if(index===0){const value=bad(p);delete value.actions;return value;}
   assert.equal(w.validationIssues.length,2);const id=p.intentAuthority.sourceId,control=text=>({text,sourceIds:[id]});
-  return withCurrentStatementAuthority({kind:'discussion',text:'按完整错误集重新组织。',requestDelivery:delivery(p),draftPlan:{quotes:[{sourceId:id,text:'今天我完成了查找功能'}],guidance:{objective:control('分享实际进展'),allowedApproach:control('只用本次明确内容'),avoidances:[]}}},p);
+  return withCurrentStatementAuthority({operation:'prepare_message',text:'按完整错误集重新组织。',draftPlan:{quotes:[{sourceId:id,text:'今天我完成了查找功能'}],guidance:{objective:control('分享实际进展'),allowedApproach:control('只用本次明确内容'),avoidances:[]}}},p);
  });
  const answer=await app.controller.assist({text:request,taskId:'atomic-repair-success'});assert.equal(answer.kind,'draft');assert.equal(app.calls.length,3);
  assert.equal(app.run().requests.filter(item=>item.purpose==='delivery_repair').length,1);assert.equal(app.run().manifest.requestDelivery.status,'delivered');
@@ -66,13 +66,13 @@ test('enabled experience proposals retain the original 64-source and case contra
  const result=parseAssistant({kind:'review',text:'先保留为待审经验。',experienceProposals:[proposal]},'review',payload);
  assert.deepEqual(result.experienceProposals,[proposal]);assert.equal(result.experienceProposals[0].sourceIds.length,12);
 });
-test('a composite failure retains only the validated inner editable declaration for repair',async t=>{
+test('a malformed active prepare payload retains its bound message promise before repair',async t=>{
  const app=await setup(t,(p,w,index)=>{
-  if(index>0)return {kind:'discussion',text:'只私下说说。',requestDelivery:{mode:'private_help'}};
-  const value=bad(p);delete value.actions;value.kind='wrong-kind';value.text='';value.requestDelivery.mode='both';return value;
+  if(index>0)return {operation:'advise',text:'只私下说说。'};
+  const value=bad(p);delete value.actions;value.text='';return value;
  });
- await assert.rejects(app.controller.assist({text:request,taskId:'validated-inner-binding'}),/cannot be downgraded/);
- assert.equal(app.calls.length,2);assert.equal(app.calls[1].p.requestDeliveryPolicy.obligation.mode,'both');assert.equal(app.store.getCompanion(scope).turns.some(turn=>turn.role==='assistant'),false);
+ await assert.rejects(app.controller.assist({text:request,taskId:'validated-inner-binding'}),/still requires a message artifact/);
+ assert.equal(app.calls.length,2);assert.equal(app.calls[1].p.operationProtocol.requiredArtifact,'message');assert.equal(app.store.getCompanion(scope).turns.some(turn=>turn.role==='assistant'),false);
 });
 test('raw mode with invalid current authority never manufactures an editable declaration',()=>{
  const {parseAssistant}=require('../src/assistant-model.cjs');

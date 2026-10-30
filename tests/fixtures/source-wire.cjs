@@ -5,6 +5,38 @@ const {mapSourceReferences}=require('../../src/source-handles.cjs');
 const {createHash}=require('node:crypto');
 const digest=text=>createHash('sha256').update(JSON.stringify(text)).digest('hex');
 const plain=value=>value&&typeof value==='object'&&!Array.isArray(value);
+const primaryExcluded=new Set(['draft','memory','discussion_compaction','plain_help_recovery','plain_draft_recovery']);
+const legacyKinds=new Set(['discussion','question','options','review','acknowledgment']);
+function legacyPrimaryOperation(value,payload,declarationValid){
+ if(Object.hasOwn(value,'operation'))return value;
+ if(Object.hasOwn(value,'kind')&&!legacyKinds.has(value.kind)||Object.hasOwn(value,'text')&&(typeof value.text!=='string'||!value.text.trim()||value.text.length>6000)||
+  Object.hasOwn(value,'replyDisposition')&&!['wait','clarify','unavailable'].includes(value.replyDisposition))return value;
+ const delivery=value.requestDelivery,hasDelivery=Object.hasOwn(value,'requestDelivery'),hasPlan=Object.hasOwn(value,'draftPlan'),hasLookup=Object.hasOwn(value,'lookup');
+ const pureClarification=plain(value.draftPlan)&&Object.keys(value.draftPlan).length===1&&Object.hasOwn(value.draftPlan,'clarification');
+ if((payload.requestDeliveryPolicy||hasDelivery)&&!declarationValid)return value;
+ if(!hasDelivery&&!pureClarification&&(hasPlan||hasLookup))return value;
+ if(!hasDelivery&&!pureClarification&&(!legacyKinds.has(value.kind)||typeof value.text!=='string'))return value;
+ const result={...value};delete result.kind;delete result.requestDelivery;delete result.replyDisposition;
+ const hasBlocker=plain(delivery)&&Object.hasOwn(delivery,'blocker');
+ if(delivery?.mode==='private_help'){
+  // Preserve every contradictory private core before considering a legacy
+  // clarification carrier. Neither a plan nor a blocker changes its workflow.
+  result.operation=hasLookup&&!hasPlan&&!hasBlocker?'lookup':'advise';
+  if(hasBlocker)result.blocker=delivery.blocker;
+  if(result.operation==='lookup')result.continuation='advise';
+ }else if(hasBlocker||pureClarification&&!payload.requestDeliveryPolicy){
+  result.operation='clarify';delete result.text;
+  result.blocker=hasBlocker?delivery.blocker:{kind:'missing_fact',missing:value.draftPlan.clarification,question:value.draftPlan.clarification};
+  if(pureClarification)delete result.draftPlan;
+ }else if(!hasDelivery){
+  result.operation=hasLookup&&!hasPlan?'lookup':'advise';
+  if(result.operation==='lookup')result.continuation='advise';
+ }else{
+  result.operation=hasPlan?'prepare_message':hasLookup?'lookup':'prepare_message';
+  if(result.operation==='lookup')result.continuation='prepare_message';
+ }
+ return result;
+}
 function restoreSource(source,revisions,originals){
  if(!Array.isArray(source?.segments))return source;
  const start=source.delivery?.start??0;
@@ -30,26 +62,34 @@ function restoreSource(source,revisions,originals){
  }
  return result;
 }
-function restorePayload(payload,revisions,originals){
+function restorePayload(payload,revisions,originals,captured){
  if(!plain(payload))return payload;
  delete payload.sourceReferenceProtocol;
  delete payload.primaryReferenceProtocol;
+ if(Object.hasOwn(payload,'operationProtocol')){
+  delete payload.operationProtocol;
+  if(!Object.hasOwn(payload,'requestDeliveryPolicy')&&plain(captured)&&Object.hasOwn(captured,'requestDeliveryPolicy'))payload.requestDeliveryPolicy=structuredClone(captured.requestDeliveryPolicy);
+  for(const card of payload.methodCards||[]){
+   const original=captured?.methodCards?.find(item=>item.id===card.id&&item.version===card.version&&item.instruction===card.instruction);
+   if(original&&!Object.hasOwn(card,'outputKinds')&&Object.hasOwn(original,'outputKinds'))card.outputKinds=structuredClone(original.outputKinds);
+  }
+ }
  if(Array.isArray(payload.sources))payload.sources=payload.sources.map(source=>restoreSource(source,revisions,originals));
- if(payload.originalInput)restorePayload(payload.originalInput,revisions,originals);
+ if(payload.originalInput)restorePayload(payload.originalInput,revisions,originals,captured?.originalInput||captured);
  return payload;
 }
 function canonicalSourceView(value,receipt,canonicalPayload){
  const refs=new Map((receipt?.bindings||[]).map(item=>[item.handle,item.sourceId]));
  const result=mapSourceReferences(value,id=>refs.get(id)||id);
  const revisions=new Map((receipt?.bindings||[]).map(item=>[item.sourceId,item.revision])),original=canonicalPayload?.originalInput||canonicalPayload;
- return restorePayload(result,revisions,new Map((original?.sources||[]).map(source=>[source.id,source])));
+ return restorePayload(result,revisions,new Map((original?.sources||[]).map(source=>[source.id,source])),canonicalPayload);
 }
 function wireSourceView(value,receipt,primaryReceipt,canonicalPayload){
  const canonicalRefs=new Map((receipt?.bindings||[]).map(item=>[item.handle,item.sourceId]));
- const data=mapSourceReferences(value,id=>canonicalRefs.get(id)||id);
- if(primaryReceipt?.version==='primary-reference-choices-v1'&&plain(data)){
+ let data=mapSourceReferences(value,id=>canonicalRefs.get(id)||id);
+ const payload=canonicalPayload?.originalInput||canonicalPayload;
+ if(primaryReceipt?.version==='primary-reference-choices-v1'&&plain(data)&&!Object.hasOwn(data,'operation')&&plain(payload)&&!primaryExcluded.has(canonicalPayload?.purpose)&&!primaryExcluded.has(payload.purpose)){
   const materials=primaryReceipt.materials||[],authorities=primaryReceipt.authorities||[];
-  const payload=canonicalPayload?.originalInput||canonicalPayload;
   // Legacy tuples lack occurrence offsets. Match only identical offered
   // source/text witnesses; never widen a quote to a surrounding sentence.
   const materialFor=(ref,allowRefinement=true)=>{
@@ -89,13 +129,17 @@ function wireSourceView(value,receipt,primaryReceipt,canonicalPayload){
   if(plain(data.draftPlan)&&Array.isArray(data.draftPlan.quotes))data.draftPlan.quotes=data.draftPlan.quotes.map(quote);
   if(Array.isArray(data.expressionOptions))for(const option of data.expressionOptions)if(plain(option)&&Array.isArray(option.quotes))option.quotes=option.quotes.map(quote);
   const delivery=data.requestDelivery;
-  if(payload&&plain(delivery)&&Object.keys(delivery).every(key=>['mode','sourceId','quote','blocker'].includes(key))&&
-   Object.hasOwn(delivery,'sourceId')&&Object.hasOwn(delivery,'quote')){
-   const currentId=payload.intentAuthority?.sourceId||payload.userRequest?.sourceId,current=payload.sources?.find(source=>source.id===currentId);
-   if(delivery.sourceId===currentId&&current&&typeof delivery.quote==='string'&&delivery.quote.trim()&&delivery.quote.length<=1000&&current.text?.includes(delivery.quote)){
-    const {sourceId,quote:currentQuote,...mode}=delivery;data.requestDelivery=mode;
-   }
+  let declarationValid=false;
+  if(plain(delivery)&&Object.keys(delivery).every(key=>['mode','sourceId','quote','blocker'].includes(key))&&['private_help','editable_message','both'].includes(delivery.mode)){
+   const currentId=payload.intentAuthority?.sourceId,current=payload.sources?.find(source=>source.id===currentId);
+   const currentValid=current&&current.role==='user'&&['private','request','feedback'].includes(current.type)&&!current.deleted&&!current.excluded&&current.use!=='disabled'&&typeof current.revision==='string'&&typeof current.text==='string'&&current.text.trim();
+   const hasSource=Object.hasOwn(delivery,'sourceId'),hasQuote=Object.hasOwn(delivery,'quote');
+   if(hasSource||hasQuote){
+    declarationValid=!!(currentValid&&hasSource&&hasQuote&&delivery.sourceId===currentId&&typeof delivery.quote==='string'&&delivery.quote.trim()&&delivery.quote.length<=1000&&current.text.includes(delivery.quote));
+   }else declarationValid=!!currentValid||!payload.requestDeliveryPolicy&&delivery.mode==='private_help'&&!Object.hasOwn(data,'draftPlan')&&!Object.hasOwn(data,'lookup');
+   if(declarationValid){const {sourceId,quote:currentQuote,...mode}=delivery;data.requestDelivery=mode;}
   }
+  data=legacyPrimaryOperation(data,payload,declarationValid);
  }
  const refs=new Map((receipt?.bindings||[]).map(item=>[item.sourceId,item.handle]));
  return mapSourceReferences(data,id=>refs.get(id)||id);

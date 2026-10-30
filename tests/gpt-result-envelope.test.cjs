@@ -38,10 +38,10 @@ test('retaining a result tool does not admit missing historical private authoriz
  const bad={...valid,draftPlan:{quotes:[{sourceId:'private:old',text:'OLD_PRIVATE_FACT'}]}};let calls=0;const context={payload:structuredClone(p),manifest:{}};
  await assert.rejects(assistModel(settings,context,undefined,async(_url,args)=>{calls++;assert.equal(JSON.parse(args.body).tool_choice.function.name,'assistant_result');return calls===1?packet(malformedActual015):tool(bad,context.sourceWireSnapshot.receipt,context.primaryFrameSnapshot.receipt,context.payload);}),/quotes\[0\]\.authorityRef/);assert.equal(calls,2);
 });
-test('intentional natural private recovery remains plain despite GPT auto tools',async()=>{
+test('private primary recovery retains the GPT operation carrier without adding an outward artifact',async()=>{
  const calls=[],legacy={purpose:'discussion',sources:[],userRequest:{text:'私下帮我理清想法。'}};
- const result=await assistModel(settings,{payload:legacy,manifest:{}},undefined,async(_url,args)=>{calls.push(JSON.parse(args.body));return calls.length===1?packet('bad-json'):packet('可以先从你最在意的那部分说起。');});
- assert.equal(result.kind,'discussion');assert.equal(calls[0].tool_choice.function.name,'assistant_result');assert.equal(calls[1].tools,undefined);assert.equal(calls[1].response_format,undefined);
+ const result=await assistModel(settings,{payload:legacy,manifest:{}},undefined,async(_url,args)=>{calls.push(JSON.parse(args.body));return calls.length===1?packet('bad-json'):packet({operation:'advise',text:'可以先从你最在意的那部分说起。'});});
+ assert.equal(result.kind,'discussion');assert.equal(calls[0].tool_choice.function.name,'assistant_result');assert.equal(calls[1].tool_choice.function.name,'assistant_result');assert.equal(calls[1].response_format,undefined);assert.equal(result.suggestions,undefined);
 });
 test('provider unsupported result tools fails visibly without silently retrying a weaker carrier',async()=>{
  let calls=0;await assert.rejects(assistModel(settings,{payload:structuredClone(p),manifest:{}},undefined,async()=>{calls++;return {ok:false,status:400,json:async()=>({error:{message:'unsupported tool_choice'}})};}),error=>error.code==='model_http_400_provider');assert.equal(calls,1);

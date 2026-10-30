@@ -11,14 +11,14 @@ function fixture(){
  const settings={model:'gpt-6-luna',anonymous:true,baseUrl:'http://fixture.invalid/v1',sourceHandleOwner:new SourceHandleOwner({scope,taskId:'reference-primary'})};
  return {payload,settings};
 }
-test('whole-primary wire advertises only reference quotes and mode-only current delivery',()=>{
+test('whole-primary wire advertises explicit operations and exact material references',()=>{
  const {payload,settings}=fixture(),prepared=prepareAssistantRequest(settings,payload,[]),wire=prepared.wirePayload;
  assert.equal(wire.primaryReferenceProtocol.version,'primary-reference-choices-v1');
  const old=wire.sources.find(source=>source.type==='private'&&source.at.startsWith('2026-08'));
  assert.equal(old.text,undefined);assert.equal(body(old),TEXT);
  const schema=prepared.request.tools[0].function.parameters;
  assert.deepEqual(Object.keys(schema.properties.draftPlan.properties.quotes.items.properties).sort(),['authorityRef','materialRef']);
- assert.deepEqual(Object.keys(schema.properties.requestDelivery.properties).sort(),['blocker','mode']);
+ assert.deepEqual(schema.properties.operation.enum,['advise','prepare_message','lookup','clarify']);assert.deepEqual(schema.required,['operation']);assert.equal(schema.properties.kind,undefined);assert.equal(schema.properties.requestDelivery,undefined);assert.equal(wire.operationProtocol.version,'primary-operation-v1');assert.equal(wire.requestDeliveryPolicy,undefined);
  assert.equal(schema.properties.draftPlan.properties.authorizationQuote,undefined);
  assert.match(prepared.request.messages[0].content,/ORIGINALUSERSTATEMENTCANDIDATE/);
  assert.equal(payload.sources[0].text,TEXT,'canonical payload is not rewritten');
@@ -28,7 +28,7 @@ function whole(source){const first=source.segments[0].materialRef,last=source.se
 function planFrom(wire){
  const old=wire.sources.find(source=>source.type==='private'&&source.at.startsWith('2026-08')),current=wire.sources.find(source=>source.id===wire.intentAuthority.sourceId);
  const materialRef=whole(old),permission=whole(current),authorityRef=current.authorityChoices.originalUserStatementCandidates.find(choice=>choice.materialRef===permission).authorityRef;
- return {kind:'discussion',text:'按本轮范围分享已知进展。',requestDelivery:{mode:'editable_message'},draftPlan:{quotes:[{materialRef,authorityRef}]}};
+ return {operation:'prepare_message',text:'按本轮范围分享已知进展。',draftPlan:{quotes:[{materialRef,authorityRef}]}};
 }
 function response(value){return new Response(JSON.stringify({choices:[{message:{content:JSON.stringify(value)}}]}),{status:200});}
 test('actual primary refs reconstruct the exact semicolon/body/permission and second parse stays canonical',async()=>{
@@ -39,26 +39,26 @@ test('actual primary refs reconstruct the exact semicolon/body/permission and se
  assert.equal(result.draftPlan.quotes[0].authorization.referent.text,TEXT);
  assert.equal(result.requestDelivery.sourceId,'private:current');assert.equal(result.requestDelivery.quote,payload.userRequest.text);
  assert.deepEqual(parseAssistant(result,'discussion',context),result);
- assert.equal(raw[0].draftPlan.quotes[0].text,undefined);assert.equal(raw[0].requestDelivery.sourceId,undefined);
+ assert.equal(raw[0].draftPlan.quotes[0].text,undefined);assert.equal(raw[0].requestDelivery,undefined);assert.equal(raw[0].operation,'prepare_message');
  assert.equal(context.payload.sources[0].text,TEXT);assert.ok(context.manifest.primaryReferences.materials.every(ref=>!Object.hasOwn(ref,'text')));
 });
-test('mode-only private help remains one call and an unoffered optional state field is wholly rejected',async()=>{
+test('explicit private advice remains one call and an unoffered optional state field is wholly rejected',async()=>{
  const {payload,settings}=fixture();payload.taskContext={auxiliaryPolicy:'best_effort'};
  const context={payload,manifest:{scope,requestId:'private-help'}},calls=[];
- const result=await assistModel(settings,context,undefined,async(_url,args)=>{calls.push(JSON.parse(args.body));return response({kind:'discussion',text:'先私下分析这件事。',requestDelivery:{mode:'private_help'},statePatch:{items:[{text:'不能写入',sourceIds:['s999']}]}});});
+ const result=await assistModel(settings,context,undefined,async(_url,args)=>{calls.push(JSON.parse(args.body));return response({operation:'advise',text:'先私下分析这件事。',statePatch:{items:[{text:'不能写入',sourceIds:['s999']}]}});});
  assert.equal(calls.length,1);assert.equal(result.kind,'discussion');assert.equal(result.draftPlan,undefined);assert.equal(result.statePatch,undefined);
  assert.equal(context.manifest.auxiliaryErrors[0].field,'statePatch');assert.equal(result.requestDelivery.mode,'private_help');
 });
-test('unknown material ref uses one structured repair and cannot downgrade validated editable mode',async()=>{
+test('unknown material ref uses one structured repair and cannot abandon the declared message artifact',async()=>{
  const {payload,settings}=fixture(),context={payload,manifest:{scope,requestId:'sticky-ref'}},calls=[];
  await assert.rejects(assistModel(settings,context,undefined,async(_url,args)=>{
   const wrapper=JSON.parse(JSON.parse(args.body).messages[1].content);calls.push(wrapper);
   if(calls.length===1){const output=planFrom(wrapper);output.draftPlan.quotes[0].materialRef='m999';return response(output);}
-  return response({kind:'discussion',text:'只给策略。',requestDelivery:{mode:'private_help'}});
- }),/cannot be downgraded/);
- assert.equal(calls.length,2);assert.equal(calls[1].originalInput.requestDeliveryPolicy.obligation.mode,'editable_message');
+  return response({operation:'advise',text:'只给策略。'});
+ }),/still requires a message artifact/);
+ assert.equal(calls.length,2);assert.equal(calls[1].originalInput.operationProtocol.requiredArtifact,'message');assert.equal(calls[1].originalInput.requestDeliveryPolicy,undefined);
  assert.equal(calls[1].validationIssues[0].path,'draftPlan.quotes[0].materialRef');assert.equal(calls[1].validationIssues[0].code,'unknown_material_reference');
- assert.match(calls[1].task,/materialRef,authorityRef/);assert.equal(calls[1].invalidResponse.includes('m999'),true);
+ assert.match(calls[1].task,/materialRef.*authorityRef/);assert.equal(calls[1].invalidResponse.includes('m999'),true);
 });
 test('canonical local API retains exact legacy current bindings and rejects wrong supplied authority',()=>{
  const {payload}=fixture();
@@ -118,7 +118,7 @@ test('expressionOptions use the same exact ref compiler and never retain a permi
  const {payload,settings}=fixture(),context={payload,manifest:{scope,requestId:'reference-options'}};
  const result=await assistModel(settings,context,undefined,async(_url,args)=>{
   const p=JSON.parse(JSON.parse(args.body).messages[1].content),output=planFrom(p);
-  return response({kind:'options',text:'这个方向可以再商量。',requestDelivery:{mode:'private_help'},expressionOptions:[{label:'分享真实进展',quotes:output.draftPlan.quotes}]});
+  return response({operation:'advise',text:'这个方向可以再商量。',expressionOptions:[{label:'分享真实进展',quotes:output.draftPlan.quotes}]});
  });
  assert.equal(result.expressionOptions[0].quotes[0].text,TEXT);
  const {expressionOptionsFor}=require('../src/context/wording-view.cjs'),stored=expressionOptionsFor(context,result.expressionOptions);
@@ -150,7 +150,7 @@ test('already allowed note uses its target-bound program choice without counterf
  const result=await assistModel(settings,context,undefined,async(_url,args)=>{
   const p=JSON.parse(JSON.parse(args.body).messages[1].content),note=p.sources.find(source=>source.type==='note');
   assert.equal(note.authorityChoices.originalUserStatementCandidates?.length||0,0);
-  return response({kind:'discussion',text:'只采用已选笔记。',requestDelivery:{mode:'editable_message'},draftPlan:{quotes:[{materialRef:whole(note),authorityRef:note.authorityChoices.program[0].authorityRef}]}});
+  return response({operation:'prepare_message',text:'只采用已选笔记。',draftPlan:{quotes:[{materialRef:whole(note),authorityRef:note.authorityChoices.program[0].authorityRef}]}});
  });
  assert.equal(result.draftPlan.quotes[0].sourceId,'note:allowed');assert.equal(result.draftPlan.quotes[0].text,TEXT);assert.equal(result.draftPlan.quotes[0].authorization,undefined);
 });
@@ -182,7 +182,7 @@ test('raw primary producer selects a relevant interior phrase across clauses wit
   const p=JSON.parse(JSON.parse(args.body).messages[1].content),current=p.sources.find(source=>source.id===p.intentAuthority.sourceId);calls.push(p);
   assert.equal(current.authorityChoices.program?.length||0,0,'a current input is not an automatic program sharing grant');
   const authorityRef=current.authorityChoices.originalUserStatementCandidates.find(choice=>choice.materialRef===whole(current)).authorityRef;
-  return response({kind:'discussion',text:'保留本轮直接表达的意思。',requestDelivery:{mode:'editable_message'},draftPlan:{quotes:[{materialRef:interior(current,meaning),authorityRef}]}});
+  return response({operation:'prepare_message',text:'保留本轮直接表达的意思。',draftPlan:{quotes:[{materialRef:interior(current,meaning),authorityRef}]}});
  });
  assert.equal(calls.length,1);assert.equal(result.draftPlan.quotes[0].text,meaning);assert.equal(result.draftPlan.quotes[0].authorization.permission.text,request);
  assert.equal(result.draftPlan.quotes[0].authorization.referent.text,meaning);assert.equal(result.draftPlan.quotes[0].text.includes('我现在想直接说'),false);

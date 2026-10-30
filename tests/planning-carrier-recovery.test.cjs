@@ -53,15 +53,15 @@ for(const mode of ['guidance_only','new_material'])test(`structured repair prese
  assert.match(normal.wire.messages[0].content,/quotes:\[\{materialRef,authorityRef\}\]/);
  assert.match(normal.wire.messages[0].content,/quotes≤8，两项必需/);
  assert.match(normal.wire.messages[0].content,/动作\/提问\/口吻入guidance/);
- assert.match(repair.payload.task,/求助要求、交流目的和口吻用短guidance承接，不作素材/);
+ assert.match(repair.payload.task,/guidance只是有来源的动作\/方式提议/);assert.match(repair.payload.task,/不能把私人理由当外发素材/);
  assert.match(repair.payload.task,/原始用户发言候选不是许可/);
  assert.match(repair.payload.task,/完整上下文的指代、否定、引用、条件和最新限制/);
  assert.match(normal.wire.messages[0].content,/不切许可条件\/否定/);
  assert.match(normal.wire.messages[0].content,/UI只原精确范围/);
  assert.match(normal.wire.messages[0].content,/目录、模式、助手产物不授权/);
- assert.match(repair.payload.task,/不填sourceId\/text\/authorization\/authorizationQuote/);
+ assert.match(repair.payload.task,/不抄sourceId\/text\/authorization\/authorizationQuote/);
  assert.doesNotMatch(repair.payload.task,/只回应实际QQ时才可quotes:\[\]/);
- assert.ok(repair.payload.task.includes('选最小相关对外片段'),'repair must retain actual newly authorized meaning without forwarding the whole private source');
+ assert.ok(repair.payload.task.includes('选最小相关获准素材'),'repair must retain actual newly authorized meaning without forwarding the whole private source');
  assert.equal(repair.payload.originalInput.userRequest.text,text);assert.equal(repair.payload.originalInput.sources.find(source=>source.id===priorId).text,PRIOR);
  assert.equal(draft.purpose,'draft');assert.equal(draft.draftingGuidance.objective.text,OBJECTIVE);assert.equal(draft.draftingGuidance.allowedApproach.text,APPROACH);
  assert.deepEqual(draft.draftingGuidance.objective.sourceIds,[priorId,currentId]);assert.deepEqual(draft.draftingGuidance.allowedApproach.sourceIds,[priorId,currentId]);

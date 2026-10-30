@@ -32,7 +32,8 @@ test('actual request delivers navigable purpose-neutral metadata and one applica
     assert.match(expression.applicability, /表达|邀请|恋爱/);
     assert.match(body.messages[0].content, /即使历史少/, 'shared behavior still permits truthful expression with sparse history');
     assert.equal(payload.methodCards.length,1);
-    for (const card of payload.methodCards) for (const key of ['version', 'applicability', 'avoid', 'requiredContext', 'instruction', 'outputKinds', 'evidenceLimit']) assert.ok(card[key], key);
+    for (const card of payload.methodCards) for (const key of ['version', 'applicability', 'avoid', 'requiredContext', 'instruction', 'evidenceLimit']) assert.ok(card[key], key);
+    assert.ok(payload.methodCards.every(card=>card.outputKinds===undefined),'old output-kind metadata stays in canonical clients, not the operation producer wire');
     assert.ok(payload.methodCards.some(card => card.id === 'respond'), 'a reply request receives full reply guidance');
     assert.equal(JSON.stringify([...payload.methodCards, ...payload.methodCatalog]).includes('https://'), false, 'paper catalog stays outside the hot path');
     assert.equal(payload.goal, '与她发展双方愿意的恋爱关系');

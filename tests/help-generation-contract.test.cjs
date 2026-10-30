@@ -9,7 +9,7 @@ const foreground={purpose:'reply',generationOrigin:'private_discussion',userRequ
 test('ordinary model envelopes require readable help and expose auxiliary writes only for their task',()=>{
  for(const purpose of ['discussion','reply','draft_prepare','review']){
   const schema=responseEnvelope(settings,purpose,{...foreground,purpose}).tools[0].function.parameters;
-  assert.deepEqual(schema.required,['kind','text']);assert.ok(schema.properties.lookup&&schema.properties.draftPlan);
+  assert.deepEqual(schema.required,['operation']);assert.deepEqual(schema.properties.operation.enum,['advise','prepare_message','lookup','clarify']);assert.equal(schema.properties.kind,undefined);assert.equal(schema.properties.requestDelivery,undefined);assert.ok(schema.properties.lookup&&schema.properties.draftPlan);
  }
  const ordinary=responseEnvelope(settings,'reply',foreground).tools[0].function.parameters.properties;
  assert.equal(ordinary.relationshipPatch,undefined);assert.equal(ordinary.experienceProposals,undefined);
@@ -140,14 +140,13 @@ test('generic planning repair teaches valid escaping and only requires necessary
     {kind:'discussion',text:'准备表达',draftPlan:'{malformed planning container'}:{kind:'question',text:'需要先核对一个会改变表达的事实。'})}}]})};
   });
   assert.equal(bodies.length,2);const repair=JSON.parse(bodies[1].messages[1].content),task=repair.task;
-  assert.match(task,/从originalInput重新生成/);assert.match(task,/invalidResponse只用于诊断/);
+  assert.match(task,/从originalInput重新生成/);assert.match(task,/invalidResponse仅诊断/);assert.match(task,/选择advise\+text、prepare_message\+draftPlan/);assert.doesNotMatch(task,/先保证kind\/text|private_help|editable_message/);
   assert.match(task,/双引号.*反斜线.*转义/);assert.match(task,/不增加HTTP调用/);
-  assert.match(task,/仅保留当前表达必要的字段/);assert.match(task,/当前明确的表达控制/);
+  assert.match(task,/只保留选中操作的核心字段/);assert.match(task,/draftControlPolicy和当前有效topic/);
   for(const secret of ['PRIVATE_OBJECTIVE_SENTINEL','PRIVATE_DIRECTION_SENTINEL','PRIVATE_CONSTRAINT_SENTINEL','PRIVATE_GOAL_SENTINEL'])assert.equal(task.includes(secret),false);
   const example=JSON.parse(task.split('字符串转义格式示例（只示范格式，不作本次事实）：')[1]);
-  assert.equal(example.kind,'discussion');assert.ok(example.text.includes('"'));assert.ok(example.text.includes('\\'));
-  assert.equal(parseAssistant(example,'discussion',payload).text,example.text,'the format example passes the same phase parser');
-  if(active)assert.match(task,/当前有效话题需要guidance字段：objective、allowedApproach、avoidances/);
-  else assert.match(task,/没有当前有效话题，不强制guidance/);
+  assert.equal(example.operation,'advise');assert.ok(example.text.includes('"'));assert.ok(example.text.includes('\\'));
+  assert.equal(parseAssistant(require('../src/primary-operation.cjs').normalizePrimaryOperation(example,payload).value,'discussion',payload).text,example.text,'the operation example passes the same normalization and canonical admission stages');
+  assert.deepEqual(repair.originalInput.topicContext.active,active);assert.match(bodies[1].messages[0].content,/有效topic的objective\/direction\/constraints对应保留/);assert.match(task,/提供必要短字段/);
  }
 });

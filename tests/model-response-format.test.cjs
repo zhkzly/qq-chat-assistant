@@ -59,7 +59,7 @@ test('Claude response envelope still passes local phase validation and the full 
  const settings={model:'claude-sonnet-4-6',baseUrl:'http://fixture.invalid/v1',anonymous:true},context={payload:{purpose:'review',userRequest:{sourceId:'request:x',text:'先回顾，不写新句子'},sources:[]},manifest:{}};
  let request;
  const result=await assistModel(settings,context,undefined,async(_url,args)=>{request=JSON.parse(args.body);return {ok:true,json:async()=>({choices:[{finish_reason:'tool_calls',message:{content:null,tool_calls:[{function:{name:'assistant_result',arguments:JSON.stringify({kind:'review',text:'用户选择的是先接话，暂不邀约；“之后”仍未决定。'})}}]}}]})};});
- assert.equal(result.kind,'review');assert.equal(request.tool_choice.function.name,'assistant_result');
+ assert.equal(result.kind,'discussion');assert.equal(result.suggestions,undefined);assert.equal(request.tool_choice.function.name,'assistant_result');
  assert.equal(context.manifest.serializedTextRequestBytes,Buffer.byteLength(JSON.stringify(request)));
  assert.ok(context.manifest.serializedTextRequestBytes<=prepareAssistantRequest(settings,null).byteLimit);
 });
@@ -69,12 +69,12 @@ test('malformed nested tool arguments get one same-carrier repair without weaken
  const context={payload:{purpose:'draft_prepare',userRequest:{sourceId:id,text:source.text},sources:[source],topicContext:{active:{id:'topic',lifecycle:'active',objective:'接住游戏分享',direction:'保留反差',constraints:['不邀约']}}},manifest:{}};
  const control=text=>({text,sourceIds:[id]}),valid={draftPlan:{quotes:[],intent:'reply',guidance:{objective:control('接住游戏分享'),allowedApproach:control('保留人与关卡的反差'),avoidances:[control('不邀约')]}}};
  const bodies=[];
- const transport=async(_url,args)=>{const body=JSON.parse(args.body);bodies.push(body);return {ok:true,json:async()=>({choices:[{message:bodies.length===1?{content:null,tool_calls:[{function:{name:'assistant_result',arguments:JSON.stringify({draftPlan:'<parameter name="_">true',kind:'draft',text:'invalid'})}}]}:{content:JSON.stringify(valid)}}]})};};
+ const transport=async(_url,args)=>{const body=JSON.parse(args.body);bodies.push(body);return {ok:true,json:async()=>({choices:[{message:bodies.length===1?{content:null,tool_calls:[{function:{name:'assistant_result',arguments:JSON.stringify({draftPlan:'<parameter name="_">true',kind:'draft',text:'invalid'})}}]}:{content:JSON.stringify({operation:'prepare_message',draftPlan:valid.draftPlan})}}]})};};
  const result=await assistModel(settings,context,undefined,transport);
  assert.deepEqual(result.draftPlan.guidance,valid.draftPlan.guidance);assert.equal(bodies.length,2);
  assert.equal(bodies[0].tool_choice.function.name,'assistant_result');assert.equal(bodies[1].tool_choice.function.name,'assistant_result');assert.equal(bodies[1].response_format,undefined);
  assert.deepEqual(canonicalSourceView(JSON.parse(bodies[1].messages[1].content).originalInput,context.extraRequests[0].manifest.sourceHandles,context.resultContext?.payload||context.payload),context.payload);assert.equal(context.manifest.formatRepair.responseMode,'model_default');
  const bad={payload:context.payload,manifest:{}};let calls=0;
- await assert.rejects(assistModel(settings,bad,undefined,async()=>{calls++;return {ok:true,json:async()=>({choices:[{message:calls===1?{content:null,tool_calls:[{function:{name:'assistant_result',arguments:'{"draftPlan":"broken"}'}}]}:{content:JSON.stringify({draftPlan:{quotes:[],intent:'reply'}})}}]})};}),/current effective topic requires/);
+ await assert.rejects(assistModel(settings,bad,undefined,async()=>{calls++;return {ok:true,json:async()=>({choices:[{message:calls===1?{content:null,tool_calls:[{function:{name:'assistant_result',arguments:'{"draftPlan":"broken"}'}}]}:{content:JSON.stringify({operation:'prepare_message',draftPlan:{quotes:[],intent:'reply'}})}}]})};}),/current effective topic requires/);
  assert.equal(calls,2,'the alternate carrier is still exactly one format repair');
 });

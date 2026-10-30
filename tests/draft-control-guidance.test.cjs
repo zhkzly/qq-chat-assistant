@@ -1,9 +1,9 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
 const {parseAssistant,requireDraftControlGuidance,assistModel}=require('./fixtures/assistant-protocol.cjs');
-const current={id:'private:current',type:'private',role:'user',text:'先接游戏吐槽，暂时不要问游戏名，给完整的一句'},
-  previous={id:'private:previous',type:'private',role:'user',text:'上次想了解游戏名字'},
-  incoming={id:'qq:72057594037927937',type:'qq',role:'contact',text:'我不怎么玩PVP，玩点回合制PVE'};
+const current={id:'private:current',type:'private',role:'user',revision:'current-control-r1',text:'先接游戏吐槽，暂时不要问游戏名，给完整的一句'},
+  previous={id:'private:previous',type:'private',role:'user',revision:'previous-control-r1',text:'上次想了解游戏名字'},
+  incoming={id:'qq:72057594037927937',type:'qq',role:'contact',revision:'qq-control-r1',text:'我不怎么玩PVP，玩点回合制PVE'};
 const payload={sources:[previous,incoming,current],userRequest:{sourceId:current.id,text:current.text},intentAuthority:{sourceId:current.id},
   topicContext:{active:null},taskContext:{draftControlPolicy:{version:1,required:true,requiredFields:['objective','allowedApproach','avoidances'],intentSourceId:current.id}}};
 const ref=text=>({text,sourceIds:[current.id]}),complete={objective:ref('回应她的游戏习惯'),allowedApproach:ref('先接吐槽，自然接话'),avoidances:[ref('暂时不直接问游戏名')]};
@@ -32,9 +32,9 @@ test('legacy replay keeps its prior planning contract and a clarification does n
 });
 test('one structural repair teaches the same required current-control contract even without an active topic',async()=>{
   const context={payload:{...payload,purpose:'discussion'},manifest:{}},requests=[],settings={model:'synthetic',anonymous:true,baseUrl:'http://synthetic.invalid/v1'};
-  const result=await assistModel(settings,context,undefined,async(_,request)=>{requests.push(JSON.parse(request.body));return {ok:true,json:async()=>({choices:[{message:{content:JSON.stringify(requests.length===1?envelope():envelope(complete))}}]})};});
+  const result=await assistModel(settings,context,undefined,async(_,request)=>{requests.push(JSON.parse(request.body));return {ok:true,json:async()=>({choices:[{message:{content:JSON.stringify({operation:'prepare_message',text:envelope().text,draftPlan:(requests.length===1?envelope():envelope(complete)).draftPlan})}}]})};});
   assert.equal(requests.length,2);assert.deepEqual(result.draftPlan.guidance,complete);
   const repair=JSON.parse(requests[1].messages[1].content);
-  assert.ok(repair.task.includes('guidance.objective'));assert.ok(repair.task.includes('allowedApproach'));assert.ok(repair.task.includes('avoidances'));
-  assert.ok(repair.task.includes(`intentSourceId=${repair.originalInput.intentAuthority.sourceId}`));assert.ok(!repair.task.includes('没有当前有效话题，不强制guidance'));
+  assert.match(requests[1].messages[0].content,/draftControlPolicy.required须objective\/allowedApproach\/avoidances/);assert.ok(repair.task.includes('draftControlPolicy'));
+  assert.equal(repair.originalInput.taskContext.draftControlPolicy.intentSourceId,repair.originalInput.intentAuthority.sourceId);assert.deepEqual(result.draftPlan.guidance,complete);assert.ok(!repair.task.includes('没有当前有效话题，不强制guidance'));
 });

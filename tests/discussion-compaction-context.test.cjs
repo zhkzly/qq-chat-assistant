@@ -120,7 +120,7 @@ test('wrapped early draft preparation is repaired into a plan and still uses the
     const plan={...planned.draftPlan,quotes:[{materialRef:materialRefForText(material,planned.draftPlan.quotes[0].text),authorityRef}]};
     return response(JSON.stringify({draftPlan:withCurrentDraftControls(plan,prepared.payload)}));
   });
-  assert.equal(calls.length, 2); assert.match(calls[1].task, /不能直接draft\/suggestions/); assert.equal(result.suggestions, undefined);
+  assert.equal(calls.length, 2); assert.match(calls[1].task,/prepare_message\+draftPlan/);assert.doesNotMatch(calls[1].task,/先保证kind\/text/); assert.equal(result.suggestions, undefined);
   const draft = buildDraftContext(prepared.resultContext || prepared, result.draftPlan, args);
   await assistModel(settings, draft, undefined, async (_, request) => { calls.push(JSON.parse(JSON.parse(request.body).messages[1].content)); return response(JSON.stringify({ kind: 'draft', text: '参考表达', suggestions: [{ style: '自然', text: '周末一起散步吗？' }] })); });
   assert.equal(calls.length, 3); assert.equal(calls[2].purpose, 'draft'); assert.equal(JSON.stringify(calls[2]).includes('PRIVATE_MOTIVE_'), false);

@@ -1,5 +1,5 @@
 'use strict';
-const {withRequestDelivery,withCurrentStatementAuthority}=require('./synthetic-request-delivery.cjs');
+const {withRequestDelivery,withCurrentStatementAuthority,withPrimaryOperation}=require('./synthetic-request-delivery.cjs');
 // Fictional goal cases exercise the production Controller and model protocol.
 // Synthetic transport demonstrates plumbing only; semantic judgments stay open.
 const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
@@ -162,7 +162,7 @@ async function runHarness(options={}){
   report.requests.push(entry);current.httpAttempts++;save();
   options.onProgress?.({event:'model_request',caseId:current.id,sequence:entry.sequence,purpose:payload.purpose});
   let response;
-  try{if(options.live)response=await (options.fetchImpl||fetch)(url,args);else{const value=withRequestDelivery(await (options.syntheticResponder||fakeResult)(payload.originalInput||payload,current.definition),payload.originalInput||payload);
+  try{if(options.live)response=await (options.fetchImpl||fetch)(url,args);else{const original=payload.originalInput||payload,produced=await (options.syntheticResponder||fakeResult)(original,current.definition);const value=withRequestDelivery(options.syntheticResponder?produced:withPrimaryOperation(produced,original),original);
    response=new Response(JSON.stringify({model:provider.model,choices:[{finish_reason:'stop',message:{content:typeof value==='string'?value:JSON.stringify(value)}}],usage:{prompt_tokens:1,completion_tokens:1,total_tokens:2}}),{status:200});}}
   catch(error){entry.failure={name:error.name,code:error.code||null};stopped={reason:'transport_failure',caseId:current.id};save();throw stopError('Model transport failed; bounded acceptance stopped');}
   entry.httpStatus=response.status;

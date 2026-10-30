@@ -58,6 +58,6 @@ function buildMaterialView({sources=[],taskContext={},coreMemory={},relationship
  }
  const intent=byId.get(work.request?.sourceId);
  return {version:VERSION,items,...(intent?{currentIntent:{sourceId:intent.id,trigger:work.request.trigger,authority:'current_source_pointer_not_material_or_permission'}}:{}),authority:'evidence_navigation_not_a_script',
-  instruction:'从实际原话选本轮可聊一点，核对主体、日期、已表达内容和后续限制；未知不逐项追问。此视图的类别/指针非素材或许可；sources原始用户话可含事实、任务和范围明确的分享意思，须结合当前QQ指代、否定、条件判断。视图和requestDelivery本身不授分享许可。'};
+  instruction:'从实际原话选本轮可聊一点，核对主体、日期、已表达内容和后续限制；未知不逐项追问。此视图的类别/指针非素材或许可；sources原始用户话可含事实、任务和范围明确的分享意思，须结合当前QQ指代、否定、条件判断。视图和所选操作本身不授分享许可。'};
 }
 module.exports={VERSION,buildMaterialView};

@@ -9,7 +9,7 @@ const reference=object({text:string,sourceIds:strings},['text','sourceIds']);
 const quote=object({materialRef:{...string,description:'Exact offered material m#; when a smaller span is needed, m#@bSTART:bEND selects its explicitly displayed word-boundary labels. Never count character offsets or copy source text. Choose only the relevant outward fragment.'},authorityRef:{...string,description:'Required separate offered authority choice a#. Original user statement candidates require full-context permission interpretation; they are not grants and cannot be boundary-refined.'}},['materialRef','authorityRef']);
 const guidance=object({objective:reference,allowedApproach:reference,avoidances:array(reference),currentStep:reference});
 const draftPlan=object({editingReference:object({choice:{...string,description:'Choose the offered short handle, such as e1. Do not reconstruct artifact IDs or versions.'},artifactId:string,version:integer}),quotes:array(quote),intent:choice(['reply']),style:choice(['natural','short','casual']),language:string,
- askFollowup:boolean,useEmoji:boolean,taskUse:choice(['continue','different','uncertain']),clarification:string,option:object({turnId:string,index:integer},['turnId','index']),guidance});
+ askFollowup:boolean,useEmoji:boolean,taskUse:choice(['continue','different','uncertain']),option:object({turnId:string,index:integer},['turnId','index']),guidance});
 const stateItem=object({text:string,sourceIds:strings,status:choice(['open','resolved','cancelled'])},['text','sourceIds']);
 const statePatch=object({focus:string,items:array(reference),openThreads:array(stateItem),unknowns:strings});
 const action=object({type:choice(['set_goal','save_note','update_note','set_preference','correct_source','forget']),evidenceQuote:string,text:string,
@@ -37,9 +37,13 @@ const memoryRecordFields=Object.freeze(Object.fromEntries(Object.entries({items:
  .map(([name,schema])=>[name,Object.freeze(Object.keys(schema.properties))])));
 const deliveryBlocker=object({kind:choice(['missing_fact','missing_authorization']),missing:string,question:{...string,description:'The sole canonical private clarification question.'},explanation:{...string,description:'Optional explicit why-only explanation, at most 1000 characters; do not repeat or paraphrase the question here.'}},['kind','missing','question']);
 const schemas={
- assistant_result:object({kind:choice(['discussion','question','options','review','acknowledgment']),text:string,methodIds:strings,requestDelivery:object({mode:choice(['private_help','editable_message','both']),blocker:deliveryBlocker},['mode']),draftPlan,replyDisposition:choice(['wait','clarify','unavailable']),
+ assistant_result:object({operation:choice(['advise','prepare_message','lookup','clarify']),
+ text:{...string,description:'Required readable private help for advise; optional private explanation for prepare_message/lookup; absent for clarify.'},
+ draftPlan:{...draftPlan,description:'Only prepare_message: admitted material choices and generated planning controls. Do not use clarification here.'},
  lookup:object({query:string,discussionTurnIds:strings,sourceIds:strings,offset:integer,maxChars:integer,methodIds:strings,discover:boolean,before:string,after:string,types:array(choice(['qq','private','note','feedback']))}),
-    actions:array(action),stateReview:choice(['no_change']),statePatch,topicPatch,relationshipPatch,experienceProposals:array(experienceProposal),expressionOptions:array(expressionOption)},['kind','text']),
+ continuation:{...choice(['advise','prepare_message']),description:'Required only for lookup: the workflow to continue after reading.'},
+ blocker:{...deliveryBlocker,description:'Required only for clarify: one specific missing fact/permission question with optional why-only explanation.'},
+ methodIds:strings,actions:array(action),stateReview:choice(['no_change']),statePatch,topicPatch,relationshipPatch,experienceProposals:array(experienceProposal),expressionOptions:array(expressionOption)},['operation']),
  draft_result:object({kind:choice(['draft','discussion','question']),text:{...string,description:'For kind=draft, the complete outward message body, 1..1200 characters. For kind=question, private clarification.'},deliveryBlocker,suggestions:array(object({style:string,text:string},['style','text'])),methodIds:strings,replyDisposition:choice(['wait','clarify','unavailable'])},['kind','text']),
  discussion_compaction_result:object({summary:string,reviewedTurnIds:strings,quoteRefs:array(quoteRef)},['summary','reviewedTurnIds','quoteRefs']),
  memory_result:object({batchId:string,reviewedAll:boolean,items:array(memoryItem),episodes:array(episode),retire:array(memoryRetirement),relationshipPatch},['batchId','reviewedAll','items','episodes','retire'])
@@ -67,10 +71,9 @@ function responseEnvelope(settings,purpose,payload) {
   if(!auxiliaryReview({...taskPayload,purpose}))delete properties.relationshipPatch;
   if(taskPayload.experienceProposalPolicy?.enabled!==true)delete properties.experienceProposals;
   if(taskPayload.generationOrigin==='qq_observation')delete properties.actions;
-  if(!taskPayload.requestDeliveryPolicy)delete properties.requestDelivery;
-  schema={...schema,properties,required:[...schema.required,...(taskPayload.requestDeliveryPolicy?['requestDelivery']:[])]};
+  schema={...schema,properties};
  }
- return {tools:[{type:'function',function:{name,description:'Return readable kind/text for this phase, with only useful optional data. This function is not executed and performs no external action. Follow source and phase rules.',parameters:schema}}],
+ return {tools:[{type:'function',function:{name,description:name==='assistant_result'?'Select exactly one primary operation and only its active core payload. Optional independently supported proposals are not executed by this inert result tool.':'Return readable kind/text for this phase, with only useful optional data. This function is not executed and performs no external action. Follow source and phase rules.',parameters:schema}}],
   tool_choice:{type:'function',function:{name}},parallel_tool_calls:false};
 }
 function normalizeResultPadding(value,name) {

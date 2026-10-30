@@ -71,10 +71,12 @@ for(const restricted of [false,true])test(`${restricted?'restricted final':'actu
  assert.equal(reply.suggestions,undefined);assert.equal(app.run().status,'complete');assert.equal(app.run().manifest.requestDelivery.status,'blocked');
  assert.deepEqual(app.run().manifest.requestDelivery.blocker,repairResponse.requestDelivery.blocker);
  const rawContent=app.calls.at(-1).content;
- assert.equal(JSON.parse(rawContent).text,rationale,'the real producer rationale reaches parsing unchanged and remains audit-only');
- assert.deepEqual(app.contexts.at(-1).manifest.blockerRendering,{question,rawResponseSha256:sha(rawContent)});
- assert.deepEqual(app.run().manifest.blockerRendering,{question,rawResponseSha256:sha(rawContent)});
- assert.deepEqual(app.run().requests.at(-1).manifest.blockerRendering,{question,rawResponseSha256:sha(rawContent)});
+ if(restricted)assert.equal(JSON.parse(rawContent).text,rationale,'restricted legacy carrier remains raw audit data');else{const operation=JSON.parse(rawContent);assert.equal(operation.operation,'clarify');assert.equal(operation.text,undefined);assert.deepEqual(operation.blocker,repairResponse.requestDelivery.blocker);}
+ if(restricted){
+  assert.deepEqual(app.contexts.at(-1).manifest.blockerRendering,{question,rawResponseSha256:sha(rawContent)});
+  assert.deepEqual(app.run().manifest.blockerRendering,{question,rawResponseSha256:sha(rawContent)});
+  assert.deepEqual(app.run().requests.at(-1).manifest.blockerRendering,{question,rawResponseSha256:sha(rawContent)});
+ }else{assert.equal(app.run().manifest.primaryOperation.operation,'clarify');assert.equal(app.run().manifest.primaryOperation.requiredArtifact,undefined);assert.equal(app.run().manifest.blockerRendering,undefined,'new operation has no untyped second body to normalize');}
  assert.equal(app.calls.length,restricted?2:1,'a complete structured blocker must not spend a fulfillment repair on text duplication');
  assert.equal(app.run().requests.some(request=>request.purpose==='delivery_repair'),false);
  const saved=app.store.getCompanion(scope).turns.at(-1);assert.equal(saved.text,question);assert.equal(saved.discussionExplanation,undefined);

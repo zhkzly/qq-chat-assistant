@@ -8,9 +8,6 @@ const {scope,raw}=require('./fixtures/native.cjs');
 const {withCurrentDraftControls}=require('./fixtures/draft-controls.cjs');
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
 async function until(check,label){for(let i=0;i<120;i++){if(check())return;await new Promise(resolve=>setTimeout(resolve,25));}assert.fail(label);}
-function interpretation(p,mode='editable_message'){
- return {mode};
-}
 function plan(p){return withCurrentDraftControls({quotes:[],intent:'reply'},p);}
 async function fixture(t,producer){
  const store=new Store(':memory:'),calls=[],invocations=[];
@@ -23,7 +20,7 @@ async function fixture(t,producer){
     const request=JSON.parse(args.body),wrapper=JSON.parse(request.messages[1].content),p=wrapper.originalInput||wrapper;
     const entry={request,wrapper,p,taskId:configured.requestBudget.task.id};calls.push(entry);
     const value=await producer(p,wrapper,entry,calls.length-1),manifest=(wrapper.originalInput?context.extraRequests?.at(-1)?.manifest:undefined)||context.manifest;
-    const receipt=manifest.sourceHandles,canonicalPayload=canonicalSourceView(p,receipt);
+    const receipt=manifest.sourceHandles,canonicalPayload=canonicalSourceView(p,receipt,wrapper.originalInput?context.extraRequests.at(-1).payload.originalInput:context.payload);
     return new Response(JSON.stringify({choices:[{message:{content:JSON.stringify(wireSourceView(value,receipt,manifest.primaryReferences,canonicalPayload))}}]}),{status:200});
    });
   }});
@@ -35,11 +32,11 @@ async function fixture(t,producer){
 test('literal forget removes secret-bearing delivery state from the next pass and persistent request diagnostics',async t=>{
  const secret='FICTIONAL_FORGET_DELIVERY_SENTINEL_20261030';let targetId,requestText,afterForgetArgs;
  const app=await fixture(t,(p,wrapper,entry,index)=>{
-  if(index===0)return {kind:'discussion',text:'先执行你明确要求的移除，再组织当前表达。',requestDelivery:interpretation(p),
+  if(index===0)return {operation:'prepare_message',text:'先执行你明确要求的移除，再组织当前表达。',
    actions:[{type:'forget',sourceId:targetId,targetQuote:secret,evidenceQuote:`忘记${secret}`}],draftPlan:plan(p)};
   afterForgetArgs=structuredClone(app.controller.activeAssist?.args);
   return p.purpose==='draft'?{kind:'draft',text:'参考表达',suggestions:[{style:'自然',text:'书架装好这一下挺有成就感吧。'}]}:
-   {kind:'discussion',text:'已按当前可用内容继续。',requestDelivery:interpretation(p),draftPlan:plan(p)};
+   {operation:'prepare_message',text:'已按当前可用内容继续。',draftPlan:plan(p)};
  });
  targetId=`note:${app.store.saveNote(scope,{text:secret,use:'discussion'}).id}`;
  requestText=`忘记${secret}这条笔记，然后给我一句不涉及它的可改发表达。`;
@@ -55,10 +52,10 @@ test('QQ-triggered same-task resume preserves the editable obligation and origin
  let finishPending,pendingArgs;
  const app=await fixture(t,(p,wrapper,entry,index)=>{
   if(p.purpose==='draft')return {kind:'draft',text:'参考表达',suggestions:[{style:'自然',text:'装好之后打算先放哪些书呀？'}]};
-  if(wrapper.originalInput)return {kind:'discussion',text:'保留本次明确要表达的要求。',requestDelivery:interpretation(p),draftPlan:plan(p)};
-  if(index===0)return {kind:'discussion',text:'先核对已提供的原话。',requestDelivery:interpretation(p),lookup:{sourceIds:[p.sources.find(source=>source.type==='qq').id]}};
-  if(index===1)return new Promise(resolve=>{finishPending=()=>resolve({kind:'discussion',text:'按已有原话准备表达。',requestDelivery:interpretation(p),draftPlan:plan(p)});});
-  return {kind:'discussion',text:'只提供策略，不提供完整表达。',requestDelivery:interpretation(p,'private_help')};
+  if(wrapper.originalInput)return {operation:'prepare_message',text:'保留本次明确要表达的要求。',draftPlan:plan(p)};
+  if(index===0)return {operation:'lookup',continuation:'prepare_message',text:'先核对已提供的原话。',lookup:{sourceIds:[p.sources.find(source=>source.type==='qq').id]}};
+  if(index===1)return new Promise(resolve=>{finishPending=()=>resolve({operation:'prepare_message',text:'按已有原话准备表达。',draftPlan:plan(p)});});
+  return {operation:'advise',text:'只提供策略，不提供完整表达。'};
  });
  const pending=app.controller.assist({text:'帮我给她一条完整能改着发的表达。',taskId:'resume-delivery-lifecycle'});
  await until(()=>!!finishPending,'the initial editable lookup must reach its second pending call');
@@ -66,7 +63,7 @@ test('QQ-triggered same-task resume preserves the editable obligation and origin
  pendingArgs=structuredClone(app.controller.pendingAssist?.args);finishPending();await pending;
  await until(()=>!app.controller.pendingAssist&&!app.controller.assistantBusy&&app.run()?.status==='complete','the actual QQ-triggered resume must finish');
  const resumed=app.calls.find((call,index)=>index>=2&&!call.wrapper.originalInput&&call.p.purpose!=='draft');
- assert.equal(resumed.p.requestDeliveryPolicy.obligation?.mode,'editable_message','same task cannot drop its declared delivery obligation after QQ arrival');
+ assert.equal(resumed.p.operationProtocol.requiredArtifact,'message','same task cannot drop its declared delivery obligation after QQ arrival');
  assert.equal(pendingArgs.requestDeliveryObligation?.mode,'editable_message','the resume owner must carry the request-local obligation');
  assert.equal(app.calls.length,5,'the resumed private-help downgrade must consume one repair before the restricted composer');
  assert.equal(new Set(app.calls.map(call=>call.taskId)).size,1,'resume and repair must retain the original task');
@@ -80,9 +77,9 @@ test('same-task resume reinterprets an authority revision changed away and back 
  let finishPending;
  const text='帮我给她一条完整能改着发的表达。';
  const app=await fixture(t,(p,wrapper,entry,index)=>{
-  if(index===0)return {kind:'discussion',text:'先取回原话。',requestDelivery:interpretation(p),lookup:{sourceIds:[p.sources.find(source=>source.type==='qq').id]}};
-  if(index===1)return new Promise(resolve=>{finishPending=()=>resolve({kind:'discussion',text:'先前准备结果',requestDelivery:interpretation(p),draftPlan:plan(p)});});
-  return {kind:'discussion',text:'依据本次重新提供的原话讨论。',requestDelivery:interpretation(p,'private_help')};
+  if(index===0)return {operation:'lookup',continuation:'prepare_message',text:'先取回原话。',lookup:{sourceIds:[p.sources.find(source=>source.type==='qq').id]}};
+  if(index===1)return new Promise(resolve=>{finishPending=()=>resolve({operation:'prepare_message',text:'先前准备结果',draftPlan:plan(p)});});
+  return {operation:'advise',text:'依据本次重新提供的原话讨论。'};
  });
  const original=app.controller.assist({text,taskId:'changed-authority-delivery-lifecycle'});
  await until(()=>!!finishPending,'the original editable request must reach its pending continuation');
@@ -97,18 +94,18 @@ test('same-task resume reinterprets an authority revision changed away and back 
  app.controller.pendingAssist=null;
  await app.controller.assist({...retry.args,taskId:retry.taskId,resumeTurnId:retry.turnId,resumes:retry.resumes+1});
  const resumed=app.calls.at(-1);
- assert.equal(resumed.taskId,'changed-authority-delivery-lifecycle');assert.equal(resumed.p.requestDeliveryPolicy.obligation,undefined,'a changed authority revision must trigger fresh interpretation, even when its text is restored');
+ assert.equal(resumed.taskId,'changed-authority-delivery-lifecycle');assert.equal(resumed.p.operationProtocol.requiredArtifact,undefined,'a changed authority revision must trigger fresh interpretation, even when its text is restored');
  assert.equal(app.calls.length,3);assert.equal(app.controller.usage.get(scope,retry.taskId).attempts,3);assert.equal(app.run().manifest.requestDelivery.interpretation.mode,'private_help');
 });
 test('QQ resume after applied forget restores only the sanitized request and nontext delivery binding',async t=>{
  const secret='FICTIONAL_FORGET_THEN_RESUME_SENTINEL_20261030';let targetId,finishPostForget,resumeArgs;
  const app=await fixture(t,(p,wrapper,entry,index)=>{
   if(p.purpose==='draft')return {kind:'draft',text:'参考表达',suggestions:[{style:'自然',text:'装好了就能慢慢把喜欢的书放进去啦。'}]};
-  if(index===0)return {kind:'discussion',text:'先移除，再仅根据仍可用的信息帮助。',requestDelivery:interpretation(p),
+  if(index===0)return {operation:'prepare_message',text:'先移除，再仅根据仍可用的信息帮助。',
    actions:[{type:'forget',sourceId:targetId,targetQuote:secret,evidenceQuote:`忘记${secret}`}],draftPlan:plan(p)};
-  if(index===1)return new Promise(resolve=>{finishPostForget=()=>resolve({kind:'discussion',text:'继续安全的当前表达。',requestDelivery:interpretation(p),draftPlan:plan(p)});});
-  if(wrapper.originalInput)return {kind:'discussion',text:'按仍有效的表达义务组织。',requestDelivery:interpretation(p),draftPlan:plan(p)};
-  return {kind:'discussion',text:'这里只给策略。',requestDelivery:interpretation(p,'private_help')};
+  if(index===1)return new Promise(resolve=>{finishPostForget=()=>resolve({operation:'prepare_message',text:'继续安全的当前表达。',draftPlan:plan(p)});});
+  if(wrapper.originalInput)return {operation:'prepare_message',text:'按仍有效的表达义务组织。',draftPlan:plan(p)};
+  return {operation:'advise',text:'这里只给策略。'};
  });
  targetId=`note:${app.store.saveNote(scope,{text:secret,use:'discussion'}).id}`;
  const original=app.controller.assist({text:`忘记${secret}这条笔记，然后给我一句不涉及它的可改发表达。`,taskId:'forget-then-resume-delivery-lifecycle'});
@@ -124,7 +121,7 @@ test('QQ resume after applied forget restores only the sanitized request and non
  assert.equal(app.calls.length,5,'the resumed downgrade must still repair and compose under the same obligation');
  for(const call of app.calls.slice(1)){
   assert.equal(JSON.stringify(call).includes(secret),false,'no post-forget transport field may restore forgotten content');
-  if(call.p.purpose!=='draft')assert.deepEqual(call.p.requestDeliveryPolicy.obligation,{mode:'editable_message'},'the wire receives only the nontext mode obligation');
+  if(call.p.purpose!=='draft')assert.equal(call.p.operationProtocol.requiredArtifact,'message','the wire receives only the message artifact requirement');
  }
  const resumed=app.calls[2];assert.equal(resumed.p.userRequest.text,resumeArgs.text);assert.equal(canonicalSourceView(resumed.p,app.run().requests.find(request=>request.payload?.userRequest?.text===resumeArgs.text)?.manifest?.sourceHandles||app.invocations[2].manifest.sourceHandles).userRequest.sourceId,resumeArgs.requestDeliveryObligation.sourceId);
  assert.equal(app.calls.every(call=>call.taskId==='forget-then-resume-delivery-lifecycle'),true);

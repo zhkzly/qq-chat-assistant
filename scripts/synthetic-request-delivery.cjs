@@ -35,4 +35,25 @@ function withCurrentStatementAuthority(value,payload){
   throw new Error('Synthetic positive fact has no exact offered selector');
  })}};
 }
-module.exports={withRequestDelivery,withCurrentStatementAuthority};
+// Used only by explicit default synthetic producers, never custom negative
+// responders or the live provider forwarding path.
+function withPrimaryOperation(value,payload){
+ if(!payload.operationProtocol||!value||typeof value!=='object'||Array.isArray(value)||Object.hasOwn(value,'operation')||Object.hasOwn(value,'continuation')||Object.hasOwn(value,'blocker'))return value;
+ const delivery=value.requestDelivery;
+ if(delivery&&Object.keys(delivery).some(key=>!['mode','blocker'].includes(key)))return value;
+ if(value.kind!==undefined&&!['discussion','question','options','review','acknowledgment'].includes(value.kind))return value;
+ if(delivery&&!['private_help','editable_message','both'].includes(delivery.mode))return value;
+ const {kind,requestDelivery,replyDisposition,...fields}=value;
+ if(replyDisposition!==undefined&&!['wait','clarify','unavailable'].includes(replyDisposition))return value;
+ if(delivery?.mode==='private_help'&&value.draftPlan)return {operation:'advise',...fields};
+ if(value.lookup)return {operation:'lookup',continuation:delivery?.mode==='private_help'?'advise':'prepare_message',...fields};
+ const question=value.draftPlan?.clarification;
+ if(delivery?.blocker||question){
+  if(value.draftPlan&&Object.keys(value.draftPlan).some(key=>key!=='clarification'))return {operation:'clarify',...fields,blocker:delivery?.blocker};
+  const {text,draftPlan,...aux}=fields;
+  return {operation:'clarify',...aux,blocker:delivery?.blocker||{kind:'missing_fact',missing:question,question}};
+ }
+ if(value.draftPlan||delivery&&delivery.mode!=='private_help')return {operation:'prepare_message',...fields};
+ return {operation:'advise',...fields};
+}
+module.exports={withRequestDelivery,withCurrentStatementAuthority,withPrimaryOperation};
