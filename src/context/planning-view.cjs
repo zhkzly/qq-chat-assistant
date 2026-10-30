@@ -16,6 +16,7 @@ const {boundedSource}=require('./source-delivery.cjs');
 const {projectDiscussionReads}=require('./discussion-view.cjs');
 const {bytes}=require('./shared.cjs');
 const {MATERIAL_POLICY}=require('./draft-material.cjs');
+const {offerEditingReferences}=require('./editing-reference.cjs');
 
 function reconcilePlanningViews(payload){
   const sources=new Map(payload.sources.map(source=>[source.id,source])),available=new Set(sources.keys());
@@ -217,7 +218,7 @@ function buildContext(options) {
     payload.retrievedDiscussion=projection.entries;payload.discussionReadCoverage={...pick(projection,['bodyView','offsetUnit','byteLimit','omittedTurnIds']),requestedTurnIds:retrievedDiscussion.map(item=>item.id)};
   }
   const manualAlternative=candidateAlternative===true&&invocation?.origin==='user'&&invocation?.trigger==='manual_suggestion';
-  const implicitAnchor=(privateRequest||manualAlternative)&&!sourceTurnIds.length&&!selectedOption?currentCandidateAnchor(companion,currentCandidateRef):null;
+  const implicitAnchor=(privateRequest||manualAlternative)&&!sourceTurnIds.length&&!selectedOption?currentCandidateAnchor(companion,currentCandidateRef,{store:options.store,scope}):null;
   const candidatePool = candidatesForCompaction(compacted, companion, { sourceTurnIds, selectedOption, sourceLookupIds,store:options.store,scope }).filter(candidate=>
     !automaticTurn(companion.turns.find(t=>t.id===candidate.turnId)||{})&&(privateRequest||compacted||explicitTurnIds.has(candidate.turnId)));
   if(implicitAnchor){
@@ -229,6 +230,8 @@ function buildContext(options) {
   const candidates={selected,automaticTurn,eligibleTurns,explicitTurnIds,inRecentWindow,validQQ,foldedPrivateIds,essentialIds,recentPlan,timeSegments,timeCandidateIds,timePriorityIds,recentPrivateIds,reviewing,privateRequest,relevantRecord,queryText,protectedPendingIds,selectedProposal,proposals,intentSource,topicView,compacted,coveredTurnIds,candidatePool,preferredCandidateTurnIds};
   const coreInventory=[...(options.coreMemory||options.store?._memoryRecords?.(scope)||[]),...(memoryResult?.items||[]),...memoryIndex,...(relationshipContext?.claims||[])];
   const {coreItems,optionalRawLimit,optionalRawIds,optionalRetrieved,recentContextPlan,recentPriorityIds,recentInitialAdditionalBytes}=selectPlanningContext({options:{...options,asOf,viewerTimeZone},snapshot,candidates,view:{payload,state,methodSelection,restrictions},budget,coreInventory,projectPlanningViews,reconcilePlanningViews,compactPlanningViews});
+  const editingReferences=offerEditingReferences({payload,companion,sourceTurnIds,currentCandidateRef:implicitAnchor?currentCandidateRef:undefined,store:options.store,scope});
+  if(editingReferences.length){payload.editingReferences=editingReferences;if(!fits(payload)){delete payload.editingReferences;if(editingReferences.some(item=>item.selection.startsWith('explicit_')))throw new Error('选定改稿原句超过上下文预算；没有静默截断');}}
   const currentRequest=payload.userRequest,position=payload.taskContext;delete payload.userRequest;delete payload.taskContext;
   payload.taskContext=position;payload.userRequest=currentRequest;
   const context=finish(payload, payload.sources, { scope, requestId, companion, coverage }, all, byteBudget, budget);
@@ -237,9 +240,13 @@ function buildContext(options) {
     materialRefs:(payload.materialView?.items||[]).map(({kind,sourceIds})=>({kind,sourceIds})),projection:payload.materialView?payload.materialView.projection||'full':'omitted_for_required_evidence'};
   if(implicitAnchor){const delivered=payload.privateCandidates?.find(item=>item.selection==='implicit_discussion_anchor'&&item.turnId===implicitAnchor.turnId);
     context.manifest.implicitDiscussionAnchor={turnId:implicitAnchor.turnId,artifactRef:implicitAnchor.artifactRef,field:implicitAnchor.field,...(implicitAnchor.index!==undefined?{index:implicitAnchor.index}:{}),availability:delivered?.availability||'omitted_for_budget'};}
+  if(payload.editingReferences)context.manifest.inputArtifactRefs=payload.editingReferences.map(({text,selection,authority,...dependency})=>dependency);
   context.essentialSourceIds=[...essentialIds];
   Object.defineProperty(context, 'fullAvailableSources', { value: all });
-  Object.defineProperty(context,'rebuildForRequest',{value:measure=>buildContext({...options,asOf,viewerTimeZone,invocation,requestMeasure:measure})});
+  Object.defineProperty(context,'rebuildForRequest',{value:measure=>{
+    options.store?.experiences.assertInputArtifactsCurrent(scope,context.manifest.inputArtifactRefs||[]);
+    return buildContext({...options,asOf,viewerTimeZone,invocation,requestMeasure:measure});
+  }});
   context.restrictions=restrictions;
   return context;
 }

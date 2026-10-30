@@ -37,6 +37,32 @@ class ExperienceStore {
   _refs(scope, ids) { const live = this._sources(scope); return unique(ids || []).map(id => { const source = live.get(id); if (!source) throw new Error('Experience evidence is unavailable in this conversation'); return { sourceId: id, revision: source.revision }; }); }
   _transaction(fn) { return this.store._atomic(fn); }
   artifact(scope, reference) { const checked = ref(reference); return this._get(scope, 'artifact', refKey(checked)); }
+  resolveMessageCandidate(scope, selection) {
+    const fail=()=>{throw new Error('Editing reference artifact changed or is unavailable in this conversation');};
+    if(!plain(selection)||typeof selection.turnId!=='string'||!Number.isSafeInteger(selection.suggestionIndex)||selection.suggestionIndex<0) return fail();
+    const reference=ref(selection.artifactRef),artifact=this.artifact(scope,reference);
+    const turn=this._raw(scope).turns.find(item=>item.id===selection.turnId&&item.role==='assistant'&&!item.memoryExcluded);
+    const item=turn?.suggestions?.[selection.suggestionIndex];
+    const state=this.artifactStates(scope,[reference])[0];
+    if(!artifact||!artifact.ref||refKey(artifact.ref)!==refKey(reference)||artifact.kind!=='message_candidate'||artifact.assistantTurnId!==selection.turnId||
+      !item?.artifactRef||refKey(item.artifactRef)!==refKey(reference)||
+      !artifact.parentRef||!turn.artifactRef||refKey(artifact.parentRef)!==refKey(turn.artifactRef)||
+      state.availability!=='active'||typeof artifact.body!=='string'||!artifact.body.trim()||artifact.body.length>1200||
+      item.text!==artifact.body||artifact.bodyDigest!==digest(artifact.body))return fail();
+    const dependency={artifactRef:reference,turnId:selection.turnId,suggestionIndex:selection.suggestionIndex,
+      kind:artifact.kind,bodyDigest:artifact.bodyDigest,
+      witness:digest({ref:reference,turnId:selection.turnId,index:selection.suggestionIndex,kind:artifact.kind,
+        parentRef:artifact.parentRef,bodyDigest:artifact.bodyDigest,stateWitness:state.witness})};
+    return {text:artifact.body,dependency};
+  }
+  assertInputArtifactsCurrent(scope, references=[]) {
+    if(!Array.isArray(references)||references.length>8)throw new Error('Invalid editing reference dependencies');
+    return references.map(expected=>{
+      const current=this.resolveMessageCandidate(scope,expected).dependency;
+      if(digest(current)!==digest(expected))throw new Error('Editing reference artifact changed before commit');
+      return current;
+    });
+  }
   artifactsForRequest(scope, requestId) { return this._all(scope, 'artifact').filter(a => a.requestId === requestId && a.kind === 'response'); }
   refsForTurn(scope, turnId) {
     const refs=this._all(scope,'artifact').filter(a=>a.assistantTurnId===turnId).map(a=>a.ref);
@@ -77,6 +103,7 @@ class ExperienceStore {
     return this._transaction(() => {
       if (turn.role !== 'assistant') throw new Error('Only assistant output creates assistance artifacts');
       text(turn.id, 'assistant turn id', 256);
+      const inputArtifactRefs=this.assertInputArtifactsCurrent(scope,metadata.inputArtifactRefs||[]);
       const requestedRefs=metadata.inputSourceRefs||[];
       const sourceRefs = this._refs(scope,requestedRefs.length?requestedRefs.map(r=>r.sourceId):turn.sourceIds || []), raw = this._raw(scope);
       if(requestedRefs.some(r=>sourceRefs.find(s=>s.sourceId===r.sourceId)?.revision!==r.revision))throw new Error('Artifact generation-stage evidence changed before commit');
@@ -85,12 +112,12 @@ class ExperienceStore {
       const delivered = clone(metadata.deliveredMethodRefs || [...new Map(stages.flatMap(s => s.deliveredMethodRefs || []).map(m => [`${m.methodId}:${m.version}`, m])).values()]);
       const stageReports=stages.flatMap(s=>s.reportedUsedMethodRefs||[]);
       const reported = clone(metadata.reportedUsedMethodRefs || (stageReports.length?stageReports:(turn.methodIds || []).map(id => ({ methodId: id, version: delivered.find(m => m.methodId === id)?.version || 'unknown' }))));
-      const common = { requestId: turn.requestId || null, assistantTurnId: turn.id, sourceRefs, sourceIds: sourceRefs.map(s => s.sourceId),
+      const common = { requestId: turn.requestId || null, assistantTurnId: turn.id, inputArtifactRefs, sourceRefs, sourceIds: sourceRefs.map(s => s.sourceId),
         goalVersion: metadata.goalRef?.version ?? metadata.goalVersion ?? raw.goal?.version ?? 0, deliveredMethodRefs: delivered, reportedUsedMethodRefs: reported,
         generationStages: clone(stages), modelRef: metadata.modelRef || metadata.model || null, promptVersion: metadata.promptVersion || metadata.manifest?.promptVersion || null };
       const save = (id, kind, body, extra = {}) => {
         const previous = this._all(scope, 'artifact').filter(a => a.ref.artifactId === id).at(-1);
-        const signature = digest({ kind, body, sourceRefs, delivered, reported, extra });
+        const signature = digest({ kind, body, sourceRefs, inputArtifactRefs, delivered, reported, extra });
         if (previous?.signature === signature && previous.availability === 'active') return previous.ref;
         const reference = { artifactId: id, version: (previous?.ref.version || 0) + 1 };
         this._put(scope, 'artifact', refKey(reference), { ...common, ...extra, ref: reference, kind, body: text(body, 'artifact body', 100000, true), bodyDigest: digest(body), signature, createdAt: now(), availability: 'active' });
@@ -445,7 +472,7 @@ class ExperienceStore {
       while(advanced){
         const before=changed.size+affected.size;
         for(const alias of aliases)if(changed.has(alias.canonicalId)||(alias.possibleDuplicates||[]).some(id=>changed.has(`private:feedback-${id}`)))changed.add(alias.sourceId);
-        for(const artifact of artifacts)if(artifact.availability!=='redacted'&&(affected.has(refKey(artifact.ref))||artifact.parentRef&&affected.has(refKey(artifact.parentRef))||(artifact.sourceIds||[]).some(id=>changed.has(id)))){
+        for(const artifact of artifacts)if(artifact.availability!=='redacted'&&(affected.has(refKey(artifact.ref))||artifact.parentRef&&affected.has(refKey(artifact.parentRef))||(artifact.inputArtifactRefs||[]).some(input=>affected.has(refKey(input.artifactRef)))||(artifact.sourceIds||[]).some(id=>changed.has(id)))){
           affected.add(refKey(artifact.ref));const target=mode==='forget'?'redacted':'stale';
           if(artifact.availability!==target){artifact.availability=target;artifact.invalidatedAt=now();if(mode==='forget'){artifact.body='';artifact.label='';delete artifact.bodyDigest;delete artifact.signature}this._put(scope,'artifact',refKey(artifact.ref),artifact);}
         }

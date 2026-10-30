@@ -8,6 +8,7 @@ const { parseModelJson, readModelOutput } = require('./model-json.cjs');
 const { responseEnvelope } = require('./model-response-format.cjs');
 const { HELP_BEHAVIOR, helpSystemForPayload, expectsReplyCandidates } = require('./help-behavior.cjs');
 const {resolveDraftMaterial,DRAFT_MATERIAL_PROTOCOL}=require('./context/draft-material.cjs');
+const {selectEditingReference}=require('./context/editing-reference.cjs');
 const RELATIONSHIP_PROTOCOL = `relationshipPatch is optional and contains only claims (at most 24), events (at most 12), and retire (at most 24), each an array. An empty patch is {"claims":[],"events":[],"retire":[]}.
 claims: {id?,expectedVersion?,subject,aspect,text,assertionKind,epistemicStatus,lifecycle?,validFrom?,validUntil?,context?,sourceIds,topicKeys?}. subject=${SUBJECTS.join('|')}; aspect=${ASPECTS.join('|')}; assertionKind=${ASSERTIONS.join('|')}; epistemicStatus=${EPISTEMIC.join('|')}; lifecycle=${LIFECYCLES.join('|')} (default active). Inferred claims must remain tentative, contested, or undetermined, never supported. observed requires actual QQ evidence; a private report of an event uses reported. stated means someone said it, not independent proof; contact+stated requires an actual incoming QQ source and only that contact evidence determines its date, not a user's later question. A user's interpretation or retelling of her words must be reported/inferred, never her stated feeling. Unknowns are not personality traits. stated_preference does not authorize changing user preferences.
 events: {id?,expectedVersion?,activityKey,eventKind,actor,text,occurredAt?,sourceIds,topicKeys?}. eventKind=${EVENT_KINDS.join('|')}; actor=self|contact|both|unknown. activityKey is a short, stable label for the same activity (up to 120 characters), not a relationship stage; use a new label for a genuinely new activity. Distinguish invitation, acceptance, reschedule, cancellation and occurred. A copied draft is none of these actual actions. User-reported activities stay reported; do not invent actual QQ messages.
@@ -310,6 +311,8 @@ function parseAssistantStrict(value, purpose, input) {
     if (typeof plan.clarification === 'string' && plan.clarification.trim() && plan.clarification.length <= 1000) {
       return { ...extras, ...readableStep, draftPlan: { clarification: plan.clarification } };
     }
+    const editingReference=selectEditingReference(payload,plan.editingReference);
+    const editing=editingReference?{editingReference}:{};
     const taskUse=taskUseFor(plan,payload,extras.topicPatch);
     const guidance = parseDraftGuidance(plan.guidance, payload,{taskUse});
     requireDraftControlGuidance(guidance,payload);
@@ -318,10 +321,10 @@ function parseAssistantStrict(value, purpose, input) {
     // A faulty plan can then use the existing single bounded format repair.
     if(payload?.draftMaterialPolicy)resolveDraftMaterial(payload,plan);
     if (plan.option && typeof plan.option.turnId === 'string' && Number.isInteger(plan.option.index))
-      return { ...extras, ...readableStep, draftPlan: { option: plan.option,taskUse, authorizationQuote: plan.authorizationQuote, quotes: plan.quotes||[], style: plan.style, language:plan.language,askFollowup:plan.askFollowup,useEmoji:plan.useEmoji, ...(guidance ? { guidance } : {}) } };
+      return { ...extras, ...readableStep, draftPlan: { ...editing,option: plan.option,taskUse, authorizationQuote: plan.authorizationQuote, quotes: plan.quotes||[], style: plan.style, language:plan.language,askFollowup:plan.askFollowup,useEmoji:plan.useEmoji, ...(guidance ? { guidance } : {}) } };
     if (!Array.isArray(plan.quotes) || (!plan.quotes.length && plan.intent !== 'reply') || plan.quotes.length > 8 ||
         plan.quotes.some(q => !q || typeof q.sourceId !== 'string' || typeof q.text !== 'string')) throw new Error('拟表达内容格式不正确');
-    return { ...extras, ...readableStep, draftPlan: { quotes: plan.quotes,taskUse, style: plan.style, intent: plan.intent, authorizationQuote: plan.authorizationQuote,language:plan.language,askFollowup:plan.askFollowup,useEmoji:plan.useEmoji, ...(guidance ? { guidance } : {}) } };
+    return { ...extras, ...readableStep, draftPlan: { ...editing,quotes: plan.quotes,taskUse, style: plan.style, intent: plan.intent, authorizationQuote: plan.authorizationQuote,language:plan.language,askFollowup:plan.askFollowup,useEmoji:plan.useEmoji, ...(guidance ? { guidance } : {}) } };
   }
   const kinds = purpose === 'draft' ? ['draft','discussion','question'] : ['discussion', 'question', 'options', 'review', 'acknowledgment'];
   if (purpose !== 'draft' && value.kind === 'draft') throw new Error(`kind: purpose=${purpose}不能直接返回draft/suggestions；需要source-bound draftPlan（quotes/intent和当前topic所需guidance）或discussion/question，随后程序会进入受限draft阶段`);

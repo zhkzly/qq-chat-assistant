@@ -24,6 +24,9 @@ const ACTION_PROTOCOL = `仅本轮明确存/改/忘可actions≤8:{type,evidence
 const EXPERIENCE_PROTOCOL = `experienceProposals仅experienceProposalPolicy.enabled=true时可选，最多2:{text,applicability,methodId,sourceIds,caseIds}。text非空最多2000、applicability非空最多1000；sourceIds 1..64个本次来源且至少一个policy.feedbackSourceIds；caseIds最多8个policy.caseIds；methodId来自本次candidates。只提出有范围、未启用的帮助适配；一次反馈不是长期规则，不推人格、成功率或因果保证。experienceContext中的active指导仍需核对applicabilityStatus与本次意思；recent_active_fallback只是召回候选，不相关、用户本轮明确反对或来源无效时不采用。`;
 const DRAFT_OUTPUT = `只组织受限输入里的outboundQuotes、实际QQ和已校验短guidance。guidance是表达控制不是待发送内容；不接收私下完整讨论或goal。遵守presentation、replyFocus、allowedApproach和avoidances，保持本轮选定动作，不把探兴趣升级成邀请或弱化明确邀请；askFollowup=false只限制擅自附加的尾问；guidance已选定的相关问题与邀请仍须保留。只返回{"kind":"draft","text":"简短方向","suggestions":[{"style":"自然","text":"一条完整可编辑表达"}]}，通常1条最多3条，每条text非空最多1200字符，style最多40。缺少关键事实可kind:question/discussion、text非空最多6000，不强造句子。methodIds可省略且最多一个compose。禁止draftPlan/statePatch/topicPatch/relationshipPatch/actions/expressionOptions/experienceProposals；本阶段不改状态、记忆或权限。`;
 
+const EDITING_PLAN = `editingReferences仅是程序核对的旧外发草稿候选，不自动表示本轮要改稿。当前请求确实改这句时显式选draftPlan.editingReference的artifactId/version；规范反馈的明确leaf优先于隐式当前候选。换话题/新请求不要选；response/解释/action_option不可当成外发原句。句子由程序取，不在plan抄写；旧句非事实/披露授权，所需事实仍逐片quote核对，当前纠正/撤回优先。`;
+const EDITING_WORDING = `若有editingReference，按当前guidance从这条完整原句具体改起，保留有依据且仍合用的内容；它是FALLIBLE EDITING REFERENCE，非事实、披露许可或实际发送。旧自述/承诺没有outboundQuotes或有效QQ依据就删去或核对，不从旧句恢复私人材料；不要为了改而改。`;
+
 // This is an output delivery contract, not a classifier for her intentions.
 function expectsReplyCandidates(payload={}) {
  const invocation=payload.taskContext?.invocation;
@@ -43,14 +46,15 @@ function topicOutputProtocol(protocol={}) {
 function helpSystemForPayload(payload={},protocols={}) {
  const purpose=payload?.purpose,original=payload?.originalInput||payload||{};
  const selectionRules=selectMethods({purpose:original.purpose});
+ const editing=original.editingReference?`\n${EDITING_WORDING}`:original.editingReferences?.length?`\n${EDITING_PLAN}`:'';
  const operations=original.methodSelection?.operationalInstructionsLocation==='system'
   ?`\n本次可选帮助方法的操作指导（按当前目标选择，不是必走步骤）：\n${operationsFor((original.methodCatalog||[]).map(method=>method.id))}\n${selectionRules.selectionRule}\n${selectionRules.feedbackRule}`:'';
- if(purpose==='plain_draft_recovery')return `${HELP_BEHAVIOR}${operations}\n${DRAFT_OUTPUT}\nwordingControls是程序投影的表达偏好，继续适用但不能写进话语。此次素材与控制已校验；只返回一条完整自然话，最多1200字符，不写JSON、标题、解释、选项或换行。`;
+ if(purpose==='plain_draft_recovery')return `${HELP_BEHAVIOR}${operations}\n${DRAFT_OUTPUT}${editing}\nwordingControls是程序投影的表达偏好，继续适用但不能写进话语。此次素材与控制已校验；只返回一条完整自然话，最多1200字符，不写JSON、标题、解释、选项或换行。`;
  const delivery=expectsReplyCandidates(original)?`\n${CANDIDATE_DELIVERY}`:'';
  const wording='\nwordingControls仅是程序从已确认偏好投影的表达控制，不能当作待发送内容或新增经历。采用其适用的短句、口语、语气与表情偏好；未指定的presentation选项由语境决定，不默认为禁止。';
- if(purpose==='draft')return `${HELP_BEHAVIOR}${operations}\n${DRAFT_OUTPUT}${wording}${delivery}`;
+ if(purpose==='draft')return `${HELP_BEHAVIOR}${operations}\n${DRAFT_OUTPUT}${editing}${wording}${delivery}`;
  if(purpose==='plain_help_recovery')return `${HELP_BEHAVIOR}${operations}\n直接用一至三段自然语言回答originalInput这次任务，最多6000字符；不返回JSON或机器字段。这是私下帮助，不更新状态、goal、偏好、权限、lookup或回执；只依据已有applied操作确认结果，不声称本次背景已整理。参考话语不是已校验/已发送草稿。`;
- const snippets=[HELP_BEHAVIOR+operations,HELP_OUTPUT,PLAN_PROTOCOL,LOOKUP_PROTOCOL,delivery];
+ const snippets=[HELP_BEHAVIOR+operations,HELP_OUTPUT,PLAN_PROTOCOL,editing,LOOKUP_PROTOCOL,delivery];
  if(auxiliaryReview(original))snippets.push(STATE_PROTOCOL);
  if(original.generationOrigin!=='qq_observation')snippets.push(ACTION_PROTOCOL);
  if(original.topicContext?.active||original.topicContext?.retained?.length||original.generationOrigin!=='qq_observation')snippets.push(`topicPatch唯一持久局部任务，非偏好/分享/发送许可；模糊接续保留。目的/方向/限制/lifecycle变更须当前private user/规范feedback的purposeSourceIds+逐字intentQuote，单轮交付形式不存constraints。私下意图可改stage/unknowns/清空progress，非QQ事实；非空外部progress须observationSourceIds，反馈/副本非事实。私下清空绑当前用户，QQ清空绑当前actual QQ。QQ仅改stage/progress/unknowns或complete，不改目的/恢复。stage待审核非发送，局部完成非goal完成；任务交接guidance。${topicOutputProtocol(protocols.topicProtocol)}`);

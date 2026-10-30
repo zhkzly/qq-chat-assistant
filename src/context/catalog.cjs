@@ -91,7 +91,7 @@ function coreCatalog(inventory,byId,scope,{queryText='',asOf=''}={}){
   }
   return result;
 }
-function currentCandidateAnchor(companion,reference){
+function currentCandidateAnchor(companion,reference,{store,scope}={}){
   if(!reference||typeof reference.turnId!=='string')return null;
   const turn=(companion.turns||[]).find(item=>item.id===reference.turnId&&item.role==='assistant'&&!item.memoryExcluded);
   if(!turn)return null;
@@ -100,6 +100,7 @@ function currentCandidateAnchor(companion,reference){
   const item=hasIndex?turn.suggestions?.[reference.suggestionIndex]:turn;
   const expected=item?.artifactRef,actual=reference.artifactRef;
   if(!expected||!actual||expected.artifactId!==actual.artifactId||expected.version!==actual.version||typeof item.text!=='string'||!item.text.trim())return null;
+  if(store?.experiences){try{if(hasIndex)store.experiences.resolveMessageCandidate(scope,{turnId:turn.id,suggestionIndex:reference.suggestionIndex,artifactRef:actual});else if(store.experiences.artifactStates(scope,[actual])[0].availability!=='active')return null;}catch{return null;}}
   // The program captured this one generated discussion target. This is neither
   // explicit source selection nor permission to expose its former inputs.
   return {turnId:turn.id,field:hasIndex?'suggestions':'text',...(hasIndex?{index:reference.suggestionIndex}:{}),

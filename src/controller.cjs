@@ -537,12 +537,23 @@ class Controller extends EventEmitter {
         input=buildContext({...assemblyOptions(),discussionCompaction:activeCompaction});
         return attachImages(input);
       };
+      const assertArtifactInputs=(input)=>{
+        const references=new Map();
+        for(const item of [...capturedRequests.flatMap(request=>request.manifest?.inputArtifactRefs||[]),...(input?.manifest?.inputArtifactRefs||[])]){
+          const key=item.artifactRef.artifactId+'@'+item.artifactRef.version,previous=references.get(key);
+          if(previous&&fingerprint(previous)!==fingerprint(item))throw new Error('Editing reference artifact changed between generation stages');
+          references.set(key,item);
+        }
+        return this.store.experiences.assertInputArtifactsCurrent(scope,[...references.values()]);
+      };
       const invoke=async(input)=>{
+        assertArtifactInputs(input);
         const stage=budget.forStage(input.payload.purpose);settings.requestBudget=stage;input.manifest.stageId=stage.stageId;
         input.manifest.candidateSession={qqRevision:revision,privateInputSeq:candidateTicket.privateInputSeq};
         this.store.saveRun(scope,{id:requestId,baseRevision,purpose:input.payload.purpose,status:'pending',payload:input.payload,manifest:input.manifest});
         try{
           const output=await this.assistantModel(settings,input,abort.signal),resultInput=input.resultContext||input;
+          assertArtifactInputs(input);assertArtifactInputs(resultInput);
           const recoveryValue=resultInput.manifest?.responseRecovery||input.manifest?.responseRecovery,recovery=recoveryValue&&normalizeResponseRecovery(recoveryValue);
           if(recovery?.kind==='private_help'&&!['discussion','review','reply'].includes(resultInput.payload.purpose)||recovery?.kind==='restricted_draft'&&resultInput.payload.purpose!=='draft')throw new Error('Response recovery is unavailable for this assistance phase');
           const diagnostics={};
@@ -657,12 +668,14 @@ class Controller extends EventEmitter {
       let patchReceipt=null,relationshipReceipt=null,topicReceipt=null;
       const recoveryValue=context.manifest?.responseRecovery,responseRecovery=recoveryValue&&normalizeResponseRecovery(recoveryValue);
       const validatedPlanDigest=fingerprint({purpose:context.payload.purpose,outboundQuotes:context.payload.outboundQuotes,
+        editingReference:context.payload.editingReference,inputArtifactRefs:context.manifest.inputArtifactRefs,
         draftingGuidance:context.payload.draftingGuidance,wordingControls:context.payload.wordingControls,replyFocus:context.payload.replyFocus,
         sourceRevisions:context.manifest.sourceRevisions,replyDisposition:result.replyDisposition});
       if(!this.candidateSession.bindPlan(candidateTicket,validatedPlanDigest))return;
       context.manifest.candidateSession={qqRevision:revision,privateInputSeq:candidateTicket.privateInputSeq,validatedPlanDigest};
       const reply=this.store._atomic(()=>{
         if(!current())return null;
+        assertArtifactInputs(context);
         const rejectedAux=capturedRequests.flatMap(r=>r.manifest?.auxiliaryErrors||[]);
         const bestEffort=context.payload.purpose!=='draft'&&context.payload.taskContext?.auxiliaryPolicy==='best_effort';
         const recordRejection=(field,receipt)=>{if(receipt&&receipt.applied===false)rejectedAux.push({field,code:'rejected_auxiliary_metadata',message:String(receipt.detail||receipt.reason||'metadata rejected').slice(0,500)});};
@@ -710,7 +723,7 @@ class Controller extends EventEmitter {
         const privateReviewReceipt=!metadataReviewPending&&responseRecovery?.kind!=='private_help'&&privateReviewed.length?{applied:true,sourceIds:privateReviewed}:undefined;
         const saved=this.store.appendTurn(scope,{role:'assistant',kind:result.kind,text:result.text,discussionExplanation,requestId,suggestions:result.suggestions,origin:invocation.origin,replyDisposition:result.replyDisposition||(purpose==='reply'&&!result.suggestions?.length?'unavailable':undefined),
           sourceIds:[...new Set([...context.manifest.sourceIds,...capturedRequests.flatMap(r=>r.manifest?.sourceIds||[])])],expressionOptions,methodIds,actionReceipts:receipts,generationStages,responseRecovery,privateReviewReceipt,metadataReviewPending,
-          artifactMetadata:{generationStages,goalVersion:companion.goal.version,inputSourceRefs:
+          artifactMetadata:{generationStages,goalVersion:companion.goal.version,inputArtifactRefs:assertArtifactInputs(context),inputSourceRefs:
             [...new Map(capturedRequests.flatMap(request=>Object.entries({...request.manifest?.discussionCompaction?.sourceRevisions,...request.manifest?.sourceRevisions}))).entries()].filter(([sourceId])=>/^(qq|private|note):/.test(sourceId)).map(([sourceId,revision])=>({sourceId,revision})),
             discussionTurnFingerprints:Object.assign({},...capturedRequests.map(request=>({...request.manifest?.discussionCompaction?.turnFingerprints,...Object.fromEntries((request.manifest?.discussionReads||[]).filter(read=>['delivered','partial'].includes(read.delivery?.status)&&read.turnFingerprint).map(read=>[read.turnId,read.turnFingerprint]))}))),model:settings.model,promptVersion:context.payload.promptVersion}});
         this.store.saveRun(scope,{id:requestId,baseRevision,purpose:context.payload.purpose,status:'complete',payload:context.payload,manifest:context.manifest,

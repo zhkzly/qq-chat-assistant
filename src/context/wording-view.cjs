@@ -7,6 +7,7 @@ const {contextBudget,finish}=require('./budget-manifest.cjs');
 const {projectRecentContext}=require('./policy.cjs');
 const {wordingControlsForContext}=require('./wording-controls.cjs');
 const {resolveDraftMaterial,assertDraftSourcesCurrent}=require('./draft-material.cjs');
+const {resolveEditingReference}=require('./editing-reference.cjs');
 function buildDraftContext(prepared, plan, info) {
   if (!sameScopeIfPresent({ scope: prepared.manifest.scope }, info.scope)) throw new Error('当前联系人已变化，请重新组织草稿');
   const settings=info.settings||{model:prepared.manifest.requestModel,assistantRequestBytes:prepared.manifest.requestByteBudget};
@@ -15,6 +16,7 @@ function buildDraftContext(prepared, plan, info) {
   const byId = new Map([...controlRefs.map(ref=>({id:ref.sourceId,revision:ref.revision})),...prepared.payload.sources].map(s => [s.id, s]));
   const material=resolveDraftMaterial(prepared.payload,plan,{restrictions:prepared.restrictions||prepared.payload.privateRestrictions||[]});
   const quotes=material.quotes;
+  const editing=resolveEditingReference(prepared,plan,info);
   assertDraftSourcesCurrent(prepared,material.sourceIds,info);
   const originalOrder=new Map((prepared.fullAvailableSources||prepared.payload.sources).map((source,index)=>[source.id,index]));
   const qq = prepared.payload.sources.filter(s => s.type === 'qq').sort((a,b)=>Date.parse(a.at)-Date.parse(b.at)||(originalOrder.get(a.id)??0)-(originalOrder.get(b.id)??0));
@@ -26,6 +28,7 @@ function buildDraftContext(prepared, plan, info) {
   const payload = { promptVersion: PROMPT_VERSION, purpose: 'draft', method: METHODS.draft, methodCards: selection.methods.map(runtimeCard),
     methodSelection: { version: selection.version, candidates: ['compose'], maxApplied: 1 }, style, asOf: prepared.payload.asOf,
     viewerTimeZone:prepared.payload.viewerTimeZone||Intl.DateTimeFormat().resolvedOptions().timeZone,
+    ...(editing?{editingReference:editing.reference}:{}),
     outboundQuotes: quotes, sources: [...qq], coverage: prepared.payload.coverage,
     ...(safeWordingControls.items.length?{wordingControls:safeWordingControls}:{}),
     replyFocus: prepared.payload.replyFocus || [],
@@ -81,6 +84,7 @@ function buildDraftContext(prepared, plan, info) {
   const uniqueSources = entries => [...new Map(entries.map(source => [source.id, source])).values()];
   const safeSources=uniqueSources([...payload.sources,...referencedSources]),allSafeSources=uniqueSources([...qq,...referencedSources]);
   const context=finish(payload,safeSources,info,allSafeSources,prepared.manifest.byteBudget,budget);
+  if(editing)context.manifest.inputArtifactRefs=[editing.dependency];
   context.manifest.disclosureBindings=material.bindings.map(binding=>({...binding,scope:{...info.scope}}));
   context.manifest.taskBinding={use:plan.taskUse||'continue',topicId:prepared.payload.topicContext?.active?.id||null,topicVersion:prepared.payload.topicContext?.active?.version||null,controlRefs:controlRefs.filter(ref=>controlIds.includes(ref.sourceId))};
   context.manifest.wordingControlEvidence={sourceRefs:projectedControls.sourceRefs,preferenceRefs:projectedControls.preferenceRefs};
