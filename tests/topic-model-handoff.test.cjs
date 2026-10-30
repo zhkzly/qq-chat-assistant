@@ -37,6 +37,14 @@ function fixture(t) {
   return { store, args, topic, request, correction, guidance };
 }
 
+function authorizedInvitation(request) {
+  const sourceId = `private:${request.id}`, text = '周末是否方便一起散步';
+  return { sourceId, text, authorization: {
+    permission: { sourceId, text: '这次想确认周末是否方便一起散步' },
+    referent: { sourceId, text }
+  } };
+}
+
 test('active purpose and complete local correction precede unrelated optional history', t => {
   const { store, args, topic, correction } = fixture(t);
   args.byteBudget = 9000;
@@ -60,7 +68,7 @@ test('planner parser preserves grounded purpose, approach, avoidances, step and 
 
 test('vague request receives grounded local controls in the serialized final draft without private history or motive', async t => {
   const { args, request, guidance } = fixture(t), prepared = buildContext(args);
-  const plan = parseAssistant({ draftPlan: { style: 'natural', authorizationQuote: '给我具体一句', quotes: [{ sourceId: `private:${request.id}`, text: '周末是否方便一起散步' }], guidance, askFollowup: false } }, 'draft_prepare', prepared.payload).draftPlan;
+  const plan = parseAssistant({ draftPlan: { style: 'natural', quotes: [authorizedInvitation(request)], guidance, askFollowup: false } }, 'draft_prepare', prepared.payload).draftPlan;
   const draft = buildDraftContext(prepared, plan, args); let body;
   await assistModel(settings, draft, undefined, async (_, request) => {
     body = request.body;
@@ -139,7 +147,7 @@ test('canonical feedback continuation is authoritative without duplicating its b
   assert.equal(prepared.payload.sources.find(item => item.id === feedback.sourceId).text, feedback.text);
   assert.equal(prepared.payload.feedbackTargets[0].target.body, evaluated.suggestions[0].text);
   assert.equal(prepared.payload.userRequest.text.includes(feedback.text), false);
-  const plan = parseAssistant({ draftPlan: { authorizationQuote: '给我具体一句', quotes: [{ sourceId: `private:${request.id}`, text: '周末是否方便一起散步' }],
+  const plan = parseAssistant({ draftPlan: { quotes: [authorizedInvitation(request)],
     guidance: { objective: { text: '按本次反馈直接表达好感', sourceIds: [feedback.sourceId] }, allowedApproach: { text: '按本次反馈直接表达', sourceIds: [feedback.sourceId] },
       avoidances: guidance.avoidances } } }, 'draft_prepare', prepared.payload).draftPlan;
   const final = buildDraftContext(prepared, plan, args);
@@ -156,7 +164,7 @@ test('bounded plain drafting repair retains guidance provenance and chosen image
   const imageId = args.records[0].messageId;
   Object.assign(args, { records: store.messages(scope), availableSources: store.memorySources(scope), imageMessageIds: [imageId] });
   const prepared = buildContext(args);
-  const plan = { quotes: [{ sourceId: `private:${request.id}`, text: '周末是否方便一起散步' }], authorizationQuote: '给我具体一句', guidance };
+  const plan = { quotes: [authorizedInvitation(request)], guidance };
   const draft = buildDraftContext(prepared, plan, args);
   const images = [{ messageId: imageId, url: 'data:image/png;base64,iVBORw0KGgo=', bytes: 8, index: 0 }];
   draft.images = images; draft.manifest.images = images.map(({ url, ...metadata }) => metadata);

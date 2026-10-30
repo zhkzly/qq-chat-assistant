@@ -6,33 +6,15 @@ const {sameScopeIfPresent}=require('./source-snapshot.cjs');
 const {contextBudget,finish}=require('./budget-manifest.cjs');
 const {projectRecentContext}=require('./policy.cjs');
 const {wordingControlsForContext}=require('./wording-controls.cjs');
+const {resolveDraftMaterial,assertDraftSourcesCurrent}=require('./draft-material.cjs');
 function buildDraftContext(prepared, plan, info) {
   if (!sameScopeIfPresent({ scope: prepared.manifest.scope }, info.scope)) throw new Error('当前联系人已变化，请重新组织草稿');
   const settings=info.settings||{model:prepared.manifest.requestModel,assistantRequestBytes:prepared.manifest.requestByteBudget};
   const budget=contextBudget(settings,prepared.manifest.byteBudget,info.requestMeasure);
-  const optionRef = prepared.payload.selectedOption || plan?.option;
-  const option = optionRef && prepared.payload.expressionOptions?.find(o => o.turnId === optionRef.turnId && o.index === optionRef.index);
-  if (optionRef && !option) throw new Error('先前选择的方向已变化，请重新选择');
-  const plannedQuotes = option ? option.quotes : plan?.quotes;
-  const replyOnly = plan?.intent === 'reply' && prepared.payload.sources.some(s => s.type === 'qq');
-  if (!plan || !Array.isArray(plannedQuotes) || (!plannedQuotes.length && !replyOnly) || plannedQuotes.length > 8)
-    throw new Error('需要明确这次想表达的内容，才能组织草稿');
-  const allowed = new Set([prepared.payload.userRequest.sourceId, prepared.payload.intentAuthority?.sourceId,
-    ...(prepared.payload.allowedMaterialIds || prepared.payload.selectedMaterialIds)]);
   const byId = new Map(prepared.payload.sources.map(s => [s.id, s]));
-  const authorizationText = byId.get(prepared.payload.intentAuthority?.sourceId)?.text || prepared.payload.userRequest.text;
-  const explicitlyReferenced = !!prepared.payload.selectedOption || typeof plan.authorizationQuote === 'string' &&
-    plan.authorizationQuote.trim().length > 1 && authorizationText.includes(plan.authorizationQuote);
-  const quotes = plannedQuotes.map(q => {
-    const source = byId.get(q.sourceId);
-    const priorUserAuthorized = explicitlyReferenced && source?.type === 'private' && source.role === 'user';
-    if ((!allowed.has(q.sourceId) && !priorUserAuthorized && source?.type !== 'qq') || !source || typeof q.text !== 'string' || !q.text.trim() ||
-        q.text.length > 4000 || !source.text.includes(q.text)) throw new Error('拟表达内容未能对应本次明确请求或已选分享素材，请具体说明想说哪件事');
-    if ((prepared.restrictions || prepared.payload.privateRestrictions || []).some(r => r.sourceId === q.sourceId ||
-        r.text?.length > 2 && (q.text.includes(r.text) || r.text.includes(q.text)) && q.text.length > 2))
-      throw new Error('这段内容仍标记为仅供私下讨论，请先明确更改它的分享范围');
-    return { sourceId: q.sourceId, text: q.text };
-  });
+  const material=resolveDraftMaterial(prepared.payload,plan,{restrictions:prepared.restrictions||prepared.payload.privateRestrictions||[]});
+  const quotes=material.quotes;
+  assertDraftSourcesCurrent(prepared,material.sourceIds,info);
   const originalOrder=new Map((prepared.fullAvailableSources||prepared.payload.sources).map((source,index)=>[source.id,index]));
   const qq = prepared.payload.sources.filter(s => s.type === 'qq').sort((a,b)=>Date.parse(a.at)-Date.parse(b.at)||(originalOrder.get(a.id)??0)-(originalOrder.get(b.id)??0));
   const selection = selectMethods({ purpose: 'draft' });
@@ -93,11 +75,12 @@ function buildDraftContext(prepared, plan, info) {
     payload.sources.splice(removable,1);
   }
   // Do not serialize the private request, goal, assistant summary or excluded-source negatives.
-  const referencedSources=[...new Set([...quotes.map(q => q.sourceId), ...controlIds])].map(id=>({id,revision:byId.get(id).revision}))
+  const referencedSources=[...new Set([...material.sourceIds, ...controlIds])].map(id=>({id,revision:byId.get(id).revision}))
     .concat(projectedControls.sourceRefs.map(ref=>({id:ref.sourceId,revision:ref.revision})));
   const uniqueSources = entries => [...new Map(entries.map(source => [source.id, source])).values()];
   const safeSources=uniqueSources([...payload.sources,...referencedSources]),allSafeSources=uniqueSources([...qq,...referencedSources]);
   const context=finish(payload,safeSources,info,allSafeSources,prepared.manifest.byteBudget,budget);
+  context.manifest.disclosureBindings=material.bindings.map(binding=>({...binding,scope:{...info.scope}}));
   context.manifest.wordingControlEvidence={sourceRefs:projectedControls.sourceRefs,preferenceRefs:projectedControls.preferenceRefs};
   if(prepared.images)context.images=structuredClone(prepared.images);
   if(prepared.mediaContext||prepared.payload.imageContext)context.mediaContext={mode:payload.imageContext.mode,omitted:structuredClone(payload.imageContext.omitted)};
@@ -115,6 +98,8 @@ function expressionOptionsFor(context, options = []) {
       if (!source || !['private','note','qq'].includes(source.type) || typeof q.text !== 'string' || !q.text.trim() || !source.text.includes(q.text)) throw new Error('表达方向引用的来源无效');
       if (source.type === 'note' && source.use !== 'draft') throw new Error('私下素材不能作为可直接分享的方向');
       if ((context.restrictions || context.payload.privateRestrictions || []).some(r => r.text?.length > 2 && q.text.length > 2 && (r.text.includes(q.text) || q.text.includes(r.text)))) throw new Error('表达方向包含仅供私下的内容');
+      // A generated direction retains its original tuple, never an enduring
+      // permission decision. A later model selection must rebind evidence.
       return { sourceId: q.sourceId, text: q.text, revision: source.revision };
     });
     return { label: option.label, quotes, style: ['short','casual'].includes(option.style) ? option.style : 'natural' };

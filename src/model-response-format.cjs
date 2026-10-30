@@ -6,7 +6,8 @@ const string={type:'string'},integer={type:'integer'},boolean={type:'boolean'};
 const array=items=>({type:'array',items}),strings=array(string),choice=values=>({type:'string',enum:values});
 const object=(properties,required=[])=>({type:'object',properties,...(required.length?{required}:{}),additionalProperties:false});
 const reference=object({text:string,sourceIds:strings},['text','sourceIds']);
-const quote=object({sourceId:string,text:string},['sourceId','text']);
+const materialReference=object({sourceId:string,text:string},['sourceId','text']);
+const quote=object({sourceId:string,text:string,authorization:object({permission:materialReference,referent:materialReference},['permission','referent'])},['sourceId','text']);
 const guidance=object({objective:reference,allowedApproach:reference,avoidances:array(reference),currentStep:reference});
 const draftPlan=object({quotes:array(quote),intent:choice(['reply']),authorizationQuote:string,style:choice(['natural','short','casual']),language:string,
  askFollowup:boolean,useEmoji:boolean,clarification:string,option:object({turnId:string,index:integer},['turnId','index']),guidance});

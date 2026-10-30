@@ -42,7 +42,11 @@ for(const mode of ['guidance_only','new_material'])test(`structured repair prese
  const normal=requests[0],repair=requests[1],draft=requests[2].payload,currentId=normal.payload.userRequest.sourceId;
  assert.match(normal.wire.messages[0].content,/求助要求、交流目的和口吻用guidance承接，不作quotes/);
  assert.match(repair.payload.task,/求助要求、交流目的和口吻用guidance承接，不作quotes/);
- assert.match(repair.payload.task,/旧私下分享素材.*authorizationQuote.*selectedOption/);
+ assert.match(repair.payload.task,/旧私下quote附authorization:\{permission:\{sourceId,text\},referent:\{sourceId,text\}\}/);
+ assert.match(repair.payload.task,/完整上下文、指代、已满足条件及最新限制/);
+ assert.match(repair.payload.task,/historicalOnly时先lookup\/clarification/);
+ assert.match(repair.payload.task,/selectedOption限其原素材/);
+ assert.match(repair.payload.task,/authorizationQuote\/生成回答不授全局许可/);
  assert.doesNotMatch(repair.payload.task,/只回应实际QQ时才可quotes:\[\]/);
  assert.ok(repair.payload.task.includes('当前明确的新分享、邀请或表意'),'repair must retain actual newly authorized meaning');
  assert.equal(repair.payload.originalInput.userRequest.text,text);assert.equal(repair.payload.originalInput.sources.find(source=>source.id===priorId).text,PRIOR);

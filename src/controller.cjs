@@ -622,7 +622,7 @@ class Controller extends EventEmitter {
       else if(result.draftPlan){
         if(typeof result.text==='string'&&result.text.trim())discussionExplanation={kind:result.kind,text:result.text};
         const allowedImages=context.images;
-        context=buildDraftContext(context,result.draftPlan,{scope,requestId,companion,coverage,settings});context.images=allowedImages;context.payload.imageContext=imageContextFor(context.payload,allowedImages,vision);context.manifest.imageContext=context.payload.imageContext;
+        context=buildDraftContext(context,result.draftPlan,{scope,requestId,companion,coverage,settings,store:this.store});context.images=allowedImages;context.payload.imageContext=imageContextFor(context.payload,allowedImages,vision);context.manifest.imageContext=context.payload.imageContext;
         result=await invoke(context);if(!current())return;reviewed=null;
       } else if(purpose==='draft'&&!['question','discussion'].includes(result.kind))throw new Error('模型尚未明确拟表达内容，请继续说明或选择一个方向');
       if(!current())return;

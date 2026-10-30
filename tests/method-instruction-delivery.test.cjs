@@ -38,8 +38,8 @@ test('selected examples reach the actual request, count toward bytes and never b
   const withoutExamples=structuredClone(prepared.payload);for(const card of withoutExamples.methodCards)delete card.examples;
   assert.ok(packet.requestBytes>prepareAssistantRequest(args.settings,withoutExamples).requestBytes);
   const forged=withCurrentDraftControls({intent:'reply',quotes:[{sourceId:'method-example:fictional',text:examples[0].wording}]},prepared.payload);
-  const parsed=parseAssistant({kind:'discussion',text:'Synthetic invalid example-as-material probe.',draftPlan:forged},'reply',prepared.payload);
-  assert.throws(()=>buildDraftContext(prepared,parsed.draftPlan,args),/拟表达内容未能对应本次明确请求或已选分享素材/);
+  assert.throws(()=>parseAssistant({kind:'discussion',text:'Synthetic invalid example-as-material probe.',draftPlan:forged},'reply',prepared.payload),/拟表达内容未能对应本次明确请求或已选分享素材/);
+  assert.throws(()=>buildDraftContext(prepared,forged,args),/拟表达内容未能对应本次明确请求或已选分享素材/);
 });
 
 test('real request pressure can omit full examples while canonical selected operations remain available',t=>{

@@ -24,6 +24,13 @@ function fixture(t) {
   const args = { scope, records: [], store, companion, turn, settings, availableSources: store.memorySources(scope), purpose: 'discussion', requestId: 'compaction-context', coverage: { status: 'empty' }, byteBudget: 10000, promptVersion: PROMPT_VERSION };
   return { store, args, record, user, assistant, first, second };
 }
+function authorizedInvitation(user) {
+  const sourceId = `private:${user.id}`, text = '周末是否方便一起散步';
+  return { sourceId, text, authorization: {
+    permission: { sourceId, text: '想确认周末是否方便一起散步' },
+    referent: { sourceId, text }
+  } };
+}
 test('cached discussion folds a long prior assistant while preserving exact user correction and original candidates', t => {
   const { args, record, user, assistant, first, second } = fixture(t);
   assert.throws(() => buildContext(args), /最近完整私下讨论.*预算/);
@@ -37,7 +44,7 @@ test('cached discussion folds a long prior assistant while preserving exact user
   assert.deepEqual(context.manifest.discussionCompaction.turnFingerprints, record.turnFingerprints);
   assert.equal(parseAssistant({ lookup: { discussionTurnIds: [assistant.id] } }, 'discussion', context.payload).lookup.discussionTurnIds[0], assistant.id);
   assert.throws(() => parseAssistant({ lookup: { discussionTurnIds: ['foreign-turn'] } }, 'discussion', context.payload), /discussionTurnIds/);
-  const plan = { quotes: [{ sourceId: `private:${user.id}`, text: '周末是否方便一起散步' }], authorizationQuote: args.turn.text,
+  const plan = { quotes: [authorizedInvitation(user)],
     guidance: { currentStep: { text: '按用户选中的第二个方向表达', sourceIds: [context.payload.userRequest.sourceId] } } };
   const draft = buildDraftContext(context, withCurrentDraftControls({...plan,guidance:undefined},context.payload,{objective:'按选中的第二个方向表达散步邀请',allowedApproach:'轻松组织邀请'}), args);
   for (const key of ['discussionCompaction','privateCandidates','privateConversation']) assert.equal(draft.payload[key], undefined);
@@ -99,7 +106,7 @@ test('wrapped early draft preparation is repaired into a plan and still uses the
   const { args, user } = fixture(t), prepared = buildContext({ ...args, purpose: 'draft_prepare', byteBudget: 48000 }), calls = [];
   const early = '先这样表达：\n```json\n' + JSON.stringify({ kind: 'draft', text: '表达', suggestions: [{ style: '自然', text: '周末一起散步吗？' }] }) + '\n```';
   assert.throws(() => parseAssistant(early, 'draft_prepare', prepared.payload), /purpose=draft_prepare.*draftPlan/);
-  const planned = { draftPlan: { authorizationQuote: args.turn.text, quotes: [{ sourceId: `private:${user.id}`, text: '周末是否方便一起散步' }] } };
+  const planned = { draftPlan: { quotes: [authorizedInvitation(user)] } };
   const result = await assistModel(settings, prepared, undefined, async (_, request) => { calls.push(JSON.parse(JSON.parse(request.body).messages[1].content)); return response(calls.length === 1 ? early : JSON.stringify({...planned,draftPlan:withCurrentDraftControls(planned.draftPlan,prepared.payload)})); });
   assert.equal(calls.length, 2); assert.match(calls[1].task, /不能直接draft\/suggestions/); assert.equal(result.suggestions, undefined);
   const draft = buildDraftContext(prepared.resultContext || prepared, result.draftPlan, args);

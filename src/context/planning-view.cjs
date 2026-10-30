@@ -12,6 +12,7 @@ const {contextBudget,finish,attachSelectionManifest}=require('./budget-manifest.
 const {selectPlanningContext}=require('./selection.cjs');
 const {buildConversationWork,CONVERSATION_WORK_VERSION}=require('../conversation-work.cjs');
 const {buildMaterialView,VERSION:MATERIAL_VERSION}=require('../conversation-materials.cjs');
+const {MATERIAL_POLICY}=require('./draft-material.cjs');
 
 function reconcilePlanningViews(payload){
   const sources=new Map(payload.sources.map(source=>[source.id,source])),available=new Set(sources.keys());
@@ -150,7 +151,7 @@ function buildContext(options) {
     version: methodSelection.version, selection: methodSelection.selection, candidates: [],
     maxApplied: methodSelection.maxApplied, selectionRule: methodSelection.selectionRule, feedbackRule: methodSelection.feedbackRule }, asOf,viewerTimeZone,
     userRequest: { sourceId: current.id, text: current.text }, goal: redact(companion.goal.text || ''),
-    intentAuthority: { sourceId: intentSource.id },
+    intentAuthority: { sourceId: intentSource.id },draftMaterialPolicy:{...MATERIAL_POLICY},
     generationOrigin,
     currentObservationSourceId: generationOrigin === 'qq_observation' ? currentObservationSourceId || (validQQ.at(-1) && `qq:${validQQ.at(-1).messageId}`) : null,
     topicContext: { version: topicView.version || 0, activeId: groundedTopic?.id || null,

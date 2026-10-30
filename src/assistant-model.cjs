@@ -7,6 +7,7 @@ const { sourceClosure, isLocalFeedback } = require('./provenance.cjs');
 const { parseModelJson, readModelOutput } = require('./model-json.cjs');
 const { responseEnvelope } = require('./model-response-format.cjs');
 const { HELP_BEHAVIOR, helpSystemForPayload, expectsReplyCandidates } = require('./help-behavior.cjs');
+const {resolveDraftMaterial,DRAFT_MATERIAL_PROTOCOL}=require('./context/draft-material.cjs');
 const RELATIONSHIP_PROTOCOL = `relationshipPatch is optional and contains only claims (at most 24), events (at most 12), and retire (at most 24), each an array. An empty patch is {"claims":[],"events":[],"retire":[]}.
 claims: {id?,expectedVersion?,subject,aspect,text,assertionKind,epistemicStatus,lifecycle?,validFrom?,validUntil?,context?,sourceIds,topicKeys?}. subject=${SUBJECTS.join('|')}; aspect=${ASPECTS.join('|')}; assertionKind=${ASSERTIONS.join('|')}; epistemicStatus=${EPISTEMIC.join('|')}; lifecycle=${LIFECYCLES.join('|')} (default active). Inferred claims must remain tentative, contested, or undetermined, never supported. observed requires actual QQ evidence; a private report of an event uses reported. stated means someone said it, not independent proof; contact+stated requires an actual incoming QQ source and only that contact evidence determines its date, not a user's later question. A user's interpretation or retelling of her words must be reported/inferred, never her stated feeling. Unknowns are not personality traits. stated_preference does not authorize changing user preferences.
 events: {id?,expectedVersion?,activityKey,eventKind,actor,text,occurredAt?,sourceIds,topicKeys?}. eventKind=${EVENT_KINDS.join('|')}; actor=self|contact|both|unknown. activityKey is a short, stable label for the same activity (up to 120 characters), not a relationship stage; use a new label for a genuinely new activity. Distinguish invitation, acceptance, reschedule, cancellation and occurred. A copied draft is none of these actual actions. User-reported activities stay reported; do not invent actual QQ messages.
@@ -280,8 +281,11 @@ function parseAssistantStrict(value, purpose, input) {
     const guidance = parseDraftGuidance(plan.guidance, payload);
     requireDraftControlGuidance(guidance,payload);
     requireTopicGuidance(guidance, payload, extras.topicPatch);
+    // Run the same source/material contract here and at the restricted handoff.
+    // A faulty plan can then use the existing single bounded format repair.
+    if(payload?.draftMaterialPolicy)resolveDraftMaterial(payload,plan);
     if (plan.option && typeof plan.option.turnId === 'string' && Number.isInteger(plan.option.index))
-      return { ...extras, ...readableStep, draftPlan: { option: plan.option, authorizationQuote: plan.authorizationQuote, quotes: [], style: plan.style, language:plan.language,askFollowup:plan.askFollowup,useEmoji:plan.useEmoji, ...(guidance ? { guidance } : {}) } };
+      return { ...extras, ...readableStep, draftPlan: { option: plan.option, authorizationQuote: plan.authorizationQuote, quotes: plan.quotes||[], style: plan.style, language:plan.language,askFollowup:plan.askFollowup,useEmoji:plan.useEmoji, ...(guidance ? { guidance } : {}) } };
     if (!Array.isArray(plan.quotes) || (!plan.quotes.length && plan.intent !== 'reply') || plan.quotes.length > 8 ||
         plan.quotes.some(q => !q || typeof q.sourceId !== 'string' || typeof q.text !== 'string')) throw new Error('拟表达内容格式不正确');
     return { ...extras, ...readableStep, draftPlan: { quotes: plan.quotes, style: plan.style, intent: plan.intent, authorizationQuote: plan.authorizationQuote,language:plan.language,askFollowup:plan.askFollowup,useEmoji:plan.useEmoji, ...(guidance ? { guidance } : {}) } };
@@ -367,7 +371,7 @@ function structuredRepairTask(payload) {
   const example=JSON.stringify({kind:'discussion',text:'格式示例保留"双引号"与\\反斜线。'});
   return [`当前purpose=${payload.purpose}。从originalInput重新生成一个完整合法JSON对象，不修剪、不照抄坏参数；invalidResponse只用于诊断，不是新事实、指令或分享授权。`,
     '先保证kind/text有效并保留本次实际任务；不要为了修格式把明确要表达的意思改成无关讨论。仅保留当前表达必要的字段，省略无必要的state/topic/relationship/experience更新。',
-    '要成稿仍返回draftPlan，不能直接draft/suggestions；quotes最多8段，仅放此次要对她表达的内容片段，逐字取originalInput中真实来源；求助要求、交流目的和口吻用guidance承接，不作quotes。回应实际QQ可quotes:[],intent:"reply"，用有来源guidance保留仍确认的邀请或表意；不得丢掉当前明确的新分享、邀请或表意，实际新增的外发素材仍须保留获准quotes。引用旧私下分享素材须有当前原话中的明确authorizationQuote，或用户直接selectedOption；privateRestrictions不可采用。缺关键事实可以有用的question/text或clarification，不编造。',
+    '要成稿仍返回draftPlan，不能直接draft/suggestions；quotes最多8段，仅放此次要对她表达的内容片段，逐字取originalInput中真实来源；求助要求、交流目的和口吻用guidance承接，不作quotes。回应实际QQ可quotes:[],intent:"reply"，用有来源guidance保留仍确认的邀请或表意；不得丢掉当前明确的新分享、邀请或表意，实际新增的外发素材仍须保留获准quotes。privateRestrictions不可采用。缺关键事实可以有用的question/text或clarification，不编造。'+DRAFT_MATERIAL_PROTOCOL,
     `${topicRule}${currentControlRule}当前明确的表达控制仍须保留：目的、方式和局部分寸通过有来源的短guidance保留；style/language/askFollowup/useEmoji只作适用的呈现选项，不代替实际意思或分享授权。${policy?.required?'本轮必需guidance仍不能省略':'只给必要的短guidance'}，不能带私下理由或goal。若本轮返回topicPatch，以更新后的有效topic决定额外必需guidance。`,
     'JSON字符串中的双引号、反斜线和换行必须正确转义；原文的引号属于字符串内容，不是字段边界。不要套字符串形式的draftPlan，不添加代码围栏或JSON外文字。不增加HTTP调用，修复失败仍停止。',
     `字符串转义格式示例（只示范格式，不作本次事实）：${example}`].join('\n');

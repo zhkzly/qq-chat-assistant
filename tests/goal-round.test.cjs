@@ -3,7 +3,23 @@ const test=require('node:test'),assert=require('node:assert/strict'),fs=require(
 const {prepareRound,attachReplay,buildPacket,recordReview,checkRound,decideRound,hash}=require('../scripts/goal-round.cjs');
 const {runEpisode,reviewPacket}=require('../scripts/eval-replay.cjs');
 const {implementationIdentity}=require('../scripts/eval-qq-adapter.cjs');
+const {execFileSync}=require('node:child_process');
 const ROOT=path.resolve(__dirname,'..');
+// Cache immutable Git bytes, not a mutable checkout shared between tests. Each
+// baseline fixture receives its own tree at the round's frozen source revision.
+const baselineSnapshots=new Map();
+function materializeBaseline(directory,revision){
+ if(!baselineSnapshots.has(revision)){
+  const gitOptions={cwd:ROOT,maxBuffer:32*1024*1024};
+  const names=execFileSync('git',['ls-tree','-r','-z','--name-only',revision,'--','src'],gitOptions).toString('utf8').split('\0').filter(Boolean);
+  assert.ok(names.length,'Frozen baseline revision must contain product source');
+  baselineSnapshots.set(revision,Object.freeze(names.map(name=>Object.freeze({name,body:execFileSync('git',['show',`${revision}:${name}`],gitOptions).toString('base64')}))));
+ }
+ for(const {name,body}of baselineSnapshots.get(revision)){
+  const file=path.join(directory,name);fs.mkdirSync(path.dirname(file),{recursive:true});fs.writeFileSync(file,Buffer.from(body,'base64'));
+ }
+ return directory;
+}
 function directory(t){const dir=fs.mkdtempSync(path.join(os.tmpdir(),'qq-goal-round-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));return dir;}
 function prepare(t){const dir=directory(t),out=path.join(dir,'round');return {dir,out,round:prepareRound({root:ROOT,id:'source-fix',stage:'delivery_provenance',cases:['coverage-observed-output-feedback'],hypothesis:'PRIVATE_HYPOTHESIS_SENTINEL',out})};}
 test('round preparation freezes actual contracts, cases, standards and role bindings without running models',t=>{
@@ -27,8 +43,11 @@ test('rejected and inconclusive decisions preserve the reason and do not accept 
 // They validate the gate, never claim an actual live experiment or improvement.
 async function replayFixture(directory,round,variant,{live=true,http=1}={}){
  fs.mkdirSync(directory);const rubric=JSON.parse(fs.readFileSync(path.join(ROOT,'evals/assistant/rubric.json'))),identity={dataset_hash:round.dataset_hash,rubric_version:round.rubric_version,adapter_hash:hash(fs.readFileSync(path.join(ROOT,'scripts/eval-qq-adapter.cjs')))};
- let sourceRoot=ROOT;if(variant==='candidate'){sourceRoot=path.join(directory,'candidate-checkout');fs.cpSync(path.join(ROOT,'src'),path.join(sourceRoot,'src'),{recursive:true});fs.appendFileSync(path.join(sourceRoot,'src/controller.cjs'),'\n// Isolated provenance fixture version.\n');}
+ let sourceRoot;
+ if(variant==='candidate'){sourceRoot=path.join(directory,'candidate-checkout');fs.cpSync(path.join(ROOT,'src'),path.join(sourceRoot,'src'),{recursive:true});fs.appendFileSync(path.join(sourceRoot,'src/controller.cjs'),'\n// Isolated provenance fixture version.\n');}
+ else sourceRoot=materializeBaseline(path.join(directory,'baseline-checkout'),round.baseline_implementation.revision);
  const adapterIdentity={evidence:live?'live_model_synthetic_events_product_integration':'synthetic_transport_product_integration',source_root:sourceRoot,implementation_hash:implementationIdentity({sourceRoot}).hash,max_http:round.per_variant_http,model:'functional-fixture',destination:{origin:'http://fictional.invalid',path:'/v1'},settings_hash:'fixed',prefix_preparation:'unit-fixture'};
+ if(variant==='baseline')assert.equal(adapterIdentity.implementation_hash,round.baseline_implementation.hash,'Fixture baseline must match the frozen revision, even when the working source changes');
  const manifest={identity,adapter:adapterIdentity,selected_cases:round.case_ids,episodes:[],status:'executed_review_required'};
  for(const id of round.case_ids){const plan=round.case_plans[id];const sut={protocol_version:1,identity:adapterIdentity,async open(){},async advanceTo(){},async observe(){},async observePrivate(){return [];},async configure(){},async withdrawSources(){},async respond(request){return {reply_id:`actual-${variant}-${request.id}`,text:`${variant} observed response to ${request.id}`,suggestions:[],disposition:'discussion'};},async currentOutput(){return null;},async close(){}};
   const run=await runEpisode({plan,adapter:sut,identity});fs.writeFileSync(path.join(directory,`${id}.run.json`),JSON.stringify(run));fs.writeFileSync(path.join(directory,`${id}.review.json`),JSON.stringify(reviewPacket(plan,run,rubric)));manifest.episodes.push({id,status:run.status});}
