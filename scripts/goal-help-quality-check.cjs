@@ -1,5 +1,5 @@
 'use strict';
-const {withRequestDelivery}=require('./synthetic-request-delivery.cjs');
+const {withRequestDelivery,withCurrentStatementAuthority}=require('./synthetic-request-delivery.cjs');
 // Fictional production-path probes. Semantic judgments are deliberately not automated.
 const fs = require('node:fs'), path = require('node:path'), crypto = require('node:crypto');
 const vm = require('node:vm'), { createRequire } = require('node:module');
@@ -154,10 +154,22 @@ function syntheticResult(payload, definition) {
   if (definition.id === 'Q7-boundary') return {kind:'discussion',text:'合成运输示例：这段文本不是实际模型建议，不提供语义质量结论。'};
   const currentId = payload.intentAuthority?.sourceId || payload.userRequest?.sourceId;
   const control = text => ({text,sourceIds:[currentId]});
-  const quotes = (definition.quoteFragments || []).map(text => ({sourceId:currentId,text}));
-  return {kind:'discussion',text:'合成运输解释，只验证私下解释与成稿交接，不证明实际帮助质量。',
+  let quotes = (definition.quoteFragments || []).map(text => ({sourceId:currentId,text}));
+  if(definition.id==='Q3-material'&&payload.primaryReferenceProtocol){
+    // This positive fixture selects the actual offered single-fact sentence.
+    // Its old punctuation-free substring lies beyond the bounded anchors;
+    // neither the source nor the general adapter is normalized or widened.
+    const source=payload.sources.find(item=>item.id===currentId),atoms=[];let offset=0,body='';
+    for(const segment of source.segments){const start=offset,text=segment.text??segment.parts.map(part=>part[1]).join('');body+=text;offset+=text.length;atoms.push({ref:segment.materialRef,start,end:offset});}
+    const parents=[...atoms,...source.materialChoices.map(choice=>({ref:choice.materialRef,start:atoms.find(atom=>atom.ref===choice.from)?.start,end:atoms.find(atom=>atom.ref===choice.to)?.end}))];
+    const fact=definition.quoteFragments[0],sentence=parents.find(parent=>{const text=body.slice(parent.start,parent.end);return text.startsWith(fact)&&text.slice(fact.length)==='。';});
+    const whole=parents.find(parent=>parent.start===0&&parent.end===body.length),authority=source.authorityChoices.originalUserStatementCandidates.find(choice=>choice.materialRef===whole?.ref);
+    if(!sentence||!authority)throw new Error('Synthetic single-fact sentence and current statement candidate must actually be offered');
+    quotes=[{materialRef:sentence.ref,authorityRef:authority.authorityRef}];
+  }
+  return withCurrentStatementAuthority({kind:'discussion',text:'合成运输解释，只验证私下解释与成稿交接，不证明实际帮助质量。',
     draftPlan:{quotes,...(quotes.length ? {} : {intent:'reply'}),guidance:{
-      objective:control('按用户本次意思提供表达帮助'),allowedApproach:control('保留本次明确方向'),avoidances:[]}}};
+      objective:control('按用户本次意思提供表达帮助'),allowedApproach:control('保留本次明确方向'),avoidances:[]}}},payload);
 }
 function nativeMessage(scope,index,own,text,stamp,options={}) {
   return {chatType:1,peerUid:scope.peerUid,peerUin:scope.peerUin,senderUid:own?scope.accountUid:scope.peerUid,

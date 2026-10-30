@@ -29,7 +29,7 @@ function userPayload(body) { const content = JSON.parse(body).messages[1].conten
 test('image order, source attribution and missing-cache boundaries are model visible before budgeting', t => {
   const { prepared, images, args } = fixture(t);
   const request = prepareAssistantRequest(settings, { ...prepared.payload, mediaContext: prepared.mediaContext }, images);
-  const payload = userPayload(request.serialized), packet = request.request,canonical=canonicalSourceView(payload,request.sourceWire.receipt);
+  const payload = userPayload(request.serialized), packet = request.request,canonical=canonicalSourceView(payload,request.sourceWire.receipt,request.payload);
   assert.equal(payload.imageContext.version, 1); assert.equal(payload.imageContext.mode, 'automatic');
   assert.deepEqual(canonical.imageContext.attached, images.map((image, index) => ({ ordinal: index + 1, sourceId: `qq:${image.messageId}`, index: 0,
     speaker: args.records.find(record => record.messageId === image.messageId).direction === 'outgoing' ? '我' : '对方',

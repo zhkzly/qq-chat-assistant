@@ -2,6 +2,18 @@
 const test=require('node:test'),assert=require('node:assert/strict');
 const fs=require('node:fs'),os=require('node:os'),path=require('node:path');
 const {runHarness,definitions,declarations,selectedDefinitions}=require('../scripts/goal-acceptance-check.cjs');
+const credentialSentinel='SYNTHETIC_AUTH_CREDENTIAL_SENTINEL';
+function assertNoCredentials(value){
+ const visit=(item,parent='')=>{if(typeof item==='string')assert.doesNotMatch(item,/\bBearer\s+\S+/i);if(item&&typeof item==='object')for(const [key,child]of Object.entries(item)){
+  if(key.toLowerCase()==='authorization'){
+   assert.notEqual(parent.toLowerCase(),'headers');
+   assert.ok(child&&typeof child==='object'&&!Array.isArray(child),'an HTTP authorization header is not a material permission object');
+   assert.deepEqual(Object.keys(child).sort(),['permission','referent']);
+  }
+  visit(child,key);
+ }};
+ visit(value);assert.equal(JSON.stringify(value).includes(credentialSentinel),false,'scan all keys and values, including material authorization diagnostics');
+}
 test('acceptance criteria come from eight predeclared scenarios and extended cases keep their semantic review open',()=>{
  const source=declarations();assert.equal(Object.keys(source.criteria).length,10);assert.equal(definitions().length,8);assert.equal(definitions(true).length,13);
  assert.equal(source.originalBoundarySha256,'cc1bef9a1272e7248eba16f3aaa896574cd0d9a652511194de2a76880135a1f1');
@@ -28,7 +40,7 @@ test('synthetic transport exercises planning, clarification, private explanation
    assert.ok(stage.instructionDelivery.some(method=>!method.provided),'directory entries do not imply all eight operations were delivered');
   }
  }
- assert.ok(!JSON.stringify(report).includes('Authorization'));assert.ok(report.sourceHashesAtStart['src/controller.cjs']);
+ assertNoCredentials(report);assert.ok(report.sourceHashesAtStart['src/controller.cjs']);
 });
 test('targeted cases select only declared IDs and preserve the newly requested rationale and both question meanings',async()=>{
  const cases=['G3','G8','G9','G8-two-questions'];assert.deepEqual(selectedDefinitions({cases}).map(item=>item.id),cases);
@@ -61,4 +73,10 @@ test('report writes cannot overwrite settings or an existing file, and fictional
  assert.equal(JSON.parse(fs.readFileSync(out,'utf8')).semanticVerdict,report.semanticVerdict);assert.equal(fs.statSync(out).mode&0o777,0o600);
  await assert.rejects(runHarness({out}),/new JSON path/);
  await assert.rejects(runHarness({out:'/home/zhkzly/pycodes/qq-chat-assistant/data/settings.json'}),/private data/);
+});
+
+test('credential scan allows disclosure-diagnostic names but never hides their keys or values',()=>{
+ assertNoCredentials({ignoredMaterialAuthorizations:[{sourceId:'private:fictional'}]});
+ assertNoCredentials({quote:{authorization:{permission:{sourceId:'private:fictional',text:'ordinary'},referent:{sourceId:'private:fact',text:'ordinary'}}}});
+ for(const value of [{Authorization:'fictional'}, {headers:{aUtHoRiZaTiOn:'fictional'}}, {headers:{Authorization:{permission:{},referent:{}}}}, {quote:{authorization:{permission:{text:'Bearer fictional-secret'},referent:{}}}}, {materialAuthorization:{text:'Bearer fictional-secret'}}, {ignoredMaterialAuthorizations:{text:credentialSentinel}}, {[credentialSentinel]:'ordinary'}])assert.throws(()=>assertNoCredentials(value));
 });

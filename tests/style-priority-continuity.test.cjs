@@ -3,6 +3,7 @@
 const test=require('node:test'),assert=require('node:assert/strict');
 const {definitions}=require('../scripts/style-priority-cases.cjs');
 const {runHarness,continuousDefinitions}=require('../scripts/goal-help-quality-check.cjs');
+const {withCurrentStatementAuthority}=require('./fixtures/current-statement-authority.cjs');
 const selected=id=>definitions().filter(item=>item.id===id);
 const stages=(item,stepId,purpose)=>item.stages.filter(stage=>stage.stepId===stepId&&(!purpose||stage.purpose===purpose));
 function responder(payload,definition){
@@ -24,7 +25,7 @@ function responder(payload,definition){
   const text=step.request.slice(step.request.indexOf('以后'),step.request.indexOf('。'));
   reply.actions=[{type:'set_preference',text,evidenceQuote:step.request}];
  }
- return reply;
+ return step.id==='invite-now'?withCurrentStatementAuthority(reply,payload):reply;
 }
 const run=cases=>runHarness({continuousCases:cases,maxHttp:18,syntheticResponder:responder});
 

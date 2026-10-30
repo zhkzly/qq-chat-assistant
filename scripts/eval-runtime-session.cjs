@@ -94,7 +94,8 @@ function makeSyntheticTransport() {
     }
     if(p.requestDeliveryPolicy&&result&&typeof result==='object'&&p.purpose!=='draft'){
       const sourceId=p.intentAuthority?.sourceId||p.userRequest?.sourceId,source=p.sources.find(item=>item.id===sourceId);
-      result.requestDelivery={mode:result.draftPlan?'editable_message':'private_help',sourceId,quote:source.text.slice(0,1000)};
+      const mode=result.draftPlan?'editable_message':'private_help';
+      result.requestDelivery=p.primaryReferenceProtocol?{mode}:{mode,sourceId,quote:source.text.slice(0,1000)};
     }
     return new Response(JSON.stringify({ model: request.model, choices: [{ finish_reason: 'stop',
       message: { content: typeof result === 'string' ? result : JSON.stringify(result) } }],

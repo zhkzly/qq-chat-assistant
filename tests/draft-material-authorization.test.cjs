@@ -8,6 +8,7 @@ const {Store}=require('../src/store.cjs'),{normalize}=require('../src/messages.c
 const {buildContext,buildDraftContext}=require('../src/assistant-context.cjs');
 const {parseAssistant,assistModel,prepareAssistantRequest}=require('./fixtures/assistant-protocol.cjs');
 const {withCurrentDraftControls}=require('./fixtures/draft-controls.cjs');
+const {materialRefForText}=require('./fixtures/current-statement-authority.cjs');
 const {scope,raw}=require('./fixtures/native.cjs');
 const FACT='今天做的陶杯终于烧好了';
 const PRIVATE='家人的检查结果只在这里聊';
@@ -42,7 +43,12 @@ test('missing permission is rejected by the planning parser, within its existing
  const {prepared,plan}=fixture(t),invalid={...plan,quotes:plan.quotes.map(({authorization,...quote})=>quote)};
  assert.throws(()=>parseAssistant({draftPlan:invalid},'discussion',prepared.payload),/authorization|披露依据/);
  const calls=[],result=await assistModel({model:'synthetic',baseUrl:'http://synthetic.invalid/v1',anonymous:true},prepared,undefined,async(_url,args)=>{
-  calls.push(JSON.parse(args.body));return {ok:true,json:async()=>({choices:[{message:{content:JSON.stringify({draftPlan:calls.length===1?invalid:plan})}}]})};
+  const request=JSON.parse(args.body),wrapper=JSON.parse(request.messages[1].content),input=wrapper.originalInput||wrapper;calls.push(request);
+  const receipt=(wrapper.originalInput?prepared.extraRequests.at(-1).manifest.sourceHandles:prepared.manifest.sourceHandles),id=receipt.bindings.find(binding=>binding.sourceId===plan.quotes[0].sourceId).handle;
+  const material=input.sources.find(source=>source.id===id),body=material.segments.map(segment=>segment.text??segment.parts.map(part=>part[1]).join('')).join('');
+  const authorityRef=material.authorityChoices.originalUserStatementCandidates.find(choice=>choice.materialRef===materialRefForText(material,body)).authorityRef;
+  const quote={materialRef:materialRefForText(material,FACT),...(calls.length===1?{}:{authorityRef})};
+  return {ok:true,json:async()=>({choices:[{message:{content:JSON.stringify({draftPlan:{...plan,quotes:[quote]}})}}]})};
  });
  assert.equal(calls.length,2);assert.ok(result.draftPlan.quotes[0].authorization);
  assert.equal(prepared.manifest.formatRepair.attempts,1);
@@ -64,10 +70,10 @@ test('authorization and referent require delivered original user sources and cur
  store.updateTurn(scope,id.slice('private:'.length),`${FACT}，现在不分享了。`);
  assert.throws(()=>buildDraftContext(prepared,plan,args),/变化|revision/);
 });
-test('provider result schema accepts the same per-fragment authorization references as the parser',t=>{
+test('provider schema advertises required selectors while canonical legacy admission remains available',t=>{
  const {prepared}=fixture(t),request=prepareAssistantRequest({model:'synthetic',modelResponseMode:'result_tool'},prepared.payload).request;
  const q=request.tools[0].function.parameters.properties.draftPlan.properties.quotes.items;
- assert.ok(q.properties.authorization.properties.permission);assert.ok(q.properties.authorization.properties.referent);
+ assert.equal(q.properties.materialRef.type,'string');assert.equal(q.properties.authorityRef.type,'string');assert.deepEqual(q.required,['materialRef','authorityRef']);assert.equal(q.properties.authorization,undefined);
 });
 test('explicit UI option selection authorizes only its exact live original tuple',t=>{
  const {store,args,prepared,plan,id}=fixture(t),source=prepared.payload.sources.find(source=>source.id===id);
@@ -86,8 +92,8 @@ test('quoted, negated or unresolved conditional disclosure can use existing priv
   assert.equal(result.draftPlan.clarification,text);assert.equal(result.draftPlan.quotes,undefined);
  }
  const packet=prepareAssistantRequest({model:'synthetic'},prepared.payload);
- assert.match(packet.request.messages[0].content,/转述、引用、否定、假设、未满足条件/);
- assert.match(packet.request.messages[0].content,/完整上下文/);
+ assert.match(packet.request.messages[0].content,/quoted\/negated\/conditional willingness不自动授权/);
+ assert.match(packet.request.messages[0].content,/完整来源和当前QQ上下文.*指代、否定、引用、已满足条件及最新限制/);
  // This verifies the clarification contract and delivered interpretation rule,
  // not that a scripted transport can judge semantic permission correctly.
 });

@@ -23,15 +23,17 @@ async function controllerFixture(t,{restricted=false,requestText=currentRequestT
    contexts.push(context);
    return assistModel(configured,context,signal,async(_url,args)=>{
     const request=JSON.parse(args.body),wrapper=JSON.parse(request.messages[1].content),p=wrapper.originalInput||wrapper;
+    const receipt=(wrapper.originalInput?context.extraRequests?.at(-1)?.manifest?.sourceHandles:undefined)||context.manifest.sourceHandles;
+    const primary=(wrapper.originalInput?context.extraRequests?.at(-1)?.manifest?.primaryReferences:undefined)||context.manifest.primaryReferences;
+    const canonical=canonicalSourceView(p,receipt,wrapper.originalInput?context.extraRequests.at(-1).payload.originalInput:context.payload);
     calls.push({request,wrapper,p});
     let content=repairResponseContent;
     if(restricted){
      const control=text=>({text,sourceIds:[currentSourceId]});
      content=JSON.stringify(p.purpose==='draft'?finalResponse():{kind:'discussion',text:'先根据当前真实来信准备表达。',requestDelivery:structuredClone(firstResponse.requestDelivery),draftPlan:{quotes:[],intent:'reply',guidance:{objective:control('回应当前实际来信'),allowedApproach:control('保留当前明确的表达范围'),avoidances:[]}}});
     }
-    if(responder){const value=await responder(p,wrapper,calls.length-1);content=typeof value==='string'?value:JSON.stringify(value);}
-    const receipt=(wrapper.originalInput?context.extraRequests?.at(-1)?.manifest?.sourceHandles:undefined)||context.manifest.sourceHandles;
-    content=JSON.stringify(wireSourceView(JSON.parse(content),receipt));calls.at(-1).content=content;
+    if(responder){const value=await responder(canonical,wrapper,calls.length-1);content=typeof value==='string'?value:JSON.stringify(value);}
+    content=JSON.stringify(wireSourceView(JSON.parse(content),receipt,primary,canonical));calls.at(-1).content=content;
     return new Response(JSON.stringify({choices:[{message:{content}}]}),{status:200});
    });
   }});

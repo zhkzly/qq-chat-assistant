@@ -6,7 +6,6 @@ const model=require('../../src/assistant-model.cjs');
 const {parseModelJson}=require('../../src/model-json.cjs');
 const {Controller:ProductController}=require('../../src/controller.cjs');
 const {withRequestDelivery}=require('../../scripts/synthetic-request-delivery.cjs');
-const {mapSourceReferences}=require('../../src/source-handles.cjs');
 
 class Controller extends ProductController {
  get assistantModel(){return this.fixtureModel;}
@@ -29,8 +28,10 @@ async function assistModel(settings,context,signal,fetchImpl=fetch){
   // offered in THIS dispatched request; unknown references remain untouched
   // so the production decoder, rather than this helper, rejects them.
   const receipt=(wrapper.originalInput?context.extraRequests?.at(-1)?.manifest?.sourceHandles:undefined)||context.manifest?.sourceHandles;
-  const aliases=new Map((receipt?.bindings||[]).map(item=>[item.sourceId,item.handle]));
-  const upgradeValue=data=>mapSourceReferences(withRequestDelivery(data,payload),id=>aliases.get(id)||id);
+  const primaryReceipt=(wrapper.originalInput?context.extraRequests?.at(-1)?.manifest?.primaryReferences:undefined)||context.manifest?.primaryReferences;
+  const captured=wrapper.originalInput?context.extraRequests?.at(-1)?.payload?.originalInput||context.payload:context.payload;
+  const canonicalPayload=canonicalSourceView(payload,receipt,captured);
+  const upgradeValue=data=>wireSourceView(withRequestDelivery(data,canonicalPayload),receipt,primaryReceipt,canonicalPayload);
   const upgrade=text=>{try{return JSON.stringify(upgradeValue(JSON.parse(text)));}catch{return text;}};
   for(const choice of json.choices||[]){
    if(typeof choice.message?.content==='string')choice.message.content=upgrade(choice.message.content);

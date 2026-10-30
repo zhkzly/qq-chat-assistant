@@ -65,10 +65,10 @@ test('actual013-shaped missing metadata repair uses the short choice again and r
    assert.equal(p.editingReference.text,f.observedOffer.text);assert.equal(p.userRequest,undefined);assert.equal(p.goal,undefined);
    response={kind:'draft',text:'更直接的版本',suggestions:[{style:'自然',text:'就是我给自己记读书笔记用的小网页，昨天查找功能终于弄好了，我挺开心。你平时怎么留住读到的东西？'}]};
   }else{
-   if(wrapper.originalInput)assert.match(wrapper.formatError,/draftPlan\.quotes\[0\]\.authorization/);
+   if(wrapper.originalInput)assert.match(wrapper.formatError,/draftPlan\.quotes\[0\]\.authorityRef/);
    response=structuredClone(wrapper.originalInput?f.repairResponse:f.firstResponse);response.draftPlan.editingReference={choice:p.editingReferences[0].choice};
   }
-  return new Response(JSON.stringify({choices:[{message:{content:JSON.stringify(wireSourceView(response,(wrapper.originalInput?context.extraRequests?.at(-1)?.manifest?.sourceHandles:undefined)||context.manifest.sourceHandles))}}]}),{status:200});
+  return new Response(JSON.stringify({choices:[{message:{content:JSON.stringify(wireSourceView(response,(wrapper.originalInput?context.extraRequests?.at(-1)?.manifest?.sourceHandles:undefined)||context.manifest.sourceHandles,(wrapper.originalInput?context.extraRequests?.at(-1)?.manifest?.primaryReferences:undefined)||context.manifest.primaryReferences,wrapper.originalInput?context.extraRequests.at(-1).payload.originalInput:context.payload))}}]}),{status:200});
  })});t.after(()=>controller.close());controller.updateStatus({phase:'ready',account:{uid:scope.accountUid,uin:scope.accountUin}});controller.scope={...scope};
  const reply=await controller.assist({text:f.currentRequestText,resumeTurnId:f.currentSourceId.slice(8),sourceTurnIds:[prior.id],taskId:'short-reference-actual013'});
  assert.equal(reply.suggestions.length,1);assert.equal(calls.length,3);assert.equal(store.getCompanion(scope).runs.at(-1).manifest.requestDelivery.status,'delivered');

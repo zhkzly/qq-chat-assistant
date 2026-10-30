@@ -1,4 +1,5 @@
 'use strict';
+const {withCurrentStatementAuthority}=require('./fixtures/current-statement-authority.cjs');
 const test=require('node:test'),assert=require('node:assert/strict');
 const {responseEnvelope}=require('../src/model-response-format.cjs');
 const {parseAssistant,prepareAssistantRequest}=require('./fixtures/assistant-protocol.cjs');
@@ -94,7 +95,7 @@ test('malformed planning carrier receives one strict JSON repair then the restri
     guidance:{objective:control('回答她询问的实际距离'),allowedApproach:control('按已授权事实直接回应'),avoidances:[]}};
    if(calls.length===1)return {ok:true,json:async()=>({choices:[{message:{tool_calls:[{function:{name:'assistant_result',arguments:JSON.stringify({kind:'discussion',text:'准备完整表达。',draftPlan:JSON.stringify({...plan,_:true})+'}'})}}]}}]})};
    assert.equal(body.tool_choice.function.name,'assistant_result');assert.equal(body.response_format,undefined);assert.ok(payload.invalidResponse);assert.equal(payload.purpose,'reply');
-   return response(JSON.stringify({kind:'discussion',text:'按授权事实组织表达。',draftPlan:plan}));
+   return response(JSON.stringify(withCurrentStatementAuthority({kind:'discussion',text:'按授权事实组织表达。',draftPlan:plan},original)));
   })});
  t.after(()=>{controller.close();store.close()});controller.updateStatus({phase:'ready',account:{uid:scope.accountUid,uin:scope.accountUin}});
  await controller.bind(scope.peerUin);controller.live({scope,messages:[raw('72057594037927941',false,{elements:[{textElement:{content:'离你住的地方远吗？'}}]})]});

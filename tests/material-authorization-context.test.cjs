@@ -45,10 +45,10 @@ test('indexed missing-reference feedback preserves a real restricted handoff wit
   }
   let response=firstResponse;
   if(wrapper.originalInput){
-   assert.match(wrapper.formatError,/draftPlan\.quotes\[0\]\.authorization/);assert.match(wrapper.formatError,/draftPlan\.quotes\[1\]\.authorization/);
+   assert.match(wrapper.formatError,/draftPlan\.quotes\[0\]\.authorityRef/);assert.match(wrapper.formatError,/draftPlan\.quotes\[1\]\.authorityRef/);
    response={...structuredClone(firstResponse),draftPlan:bindCurrent(factualPlan(),p)};
   }
-  return new Response(JSON.stringify({choices:[{message:{content:JSON.stringify(wireSourceView(response,(wrapper.originalInput?context.extraRequests?.at(-1)?.manifest?.sourceHandles:undefined)||context.manifest.sourceHandles))}}]}),{status:200});
+  return new Response(JSON.stringify({choices:[{message:{content:JSON.stringify(wireSourceView(response,(wrapper.originalInput?context.extraRequests?.at(-1)?.manifest?.sourceHandles:undefined)||context.manifest.sourceHandles,(wrapper.originalInput?context.extraRequests?.at(-1)?.manifest?.primaryReferences:undefined)||context.manifest.primaryReferences,wrapper.originalInput?context.extraRequests.at(-1).payload.originalInput:context.payload))}}]}),{status:200});
  })});
  controller.updateStatus({phase:'ready',account:{uid:scope.accountUid,uin:scope.accountUin}});await controller.bind(scope.peerUin);
  controller.live({scope,messages:[raw('72057594049927937001',false,{elements:[{textElement:{content:'你说最近总在做那个网页，做它有什么意思呀？'}}]})]});

@@ -10,6 +10,7 @@ const {modelTopic,relevantTo,currentCandidateAnchor}=require('./catalog.cjs');
 const {requiredQuoteSources,planRecentContext,recentExchange,recentHistoryPolicy,recentHistorySegments}=require('./policy.cjs');
 const {contextBudget,finish,attachSelectionManifest}=require('./budget-manifest.cjs');
 const {selectPlanningContext}=require('./selection.cjs');
+const {SourceHandleOwner}=require('../source-handles.cjs');
 const {buildConversationWork,CONVERSATION_WORK_VERSION}=require('../conversation-work.cjs');
 const {buildMaterialView,VERSION:MATERIAL_VERSION}=require('../conversation-materials.cjs');
 const {boundedSource}=require('./source-delivery.cjs');
@@ -55,6 +56,9 @@ function compactPlanningViews(payload){
 }
 function buildContext(options) {
   if(options.store?.experiences)options={...options,companion:options.store.experiences.projectCompanion(options.scope,options.companion)};
+  // Standalone canonical API consumers need the same scoped owner as the
+  // controller. Rebuilds reuse it rather than inventing a fresh namespace.
+  if(!options.settings?.sourceHandleOwner)options={...options,settings:{...options.settings,sourceHandleOwner:new SourceHandleOwner({scope:options.scope,taskId:options.requestId})}};
   const { scope, records, companion, turn, purpose = 'discussion', coverage, requestId,
   materialIds = [], byteBudget = 48000, availableSources, memoryResult, memoryIndex = [], retrievedSources = [],
   sourceTurnIds = [], selectedOption, replyMessageIds = [], imageMessageIds = [], images, mediaContext, actionReceipts = [], lookupHistory = [], reviewRange,

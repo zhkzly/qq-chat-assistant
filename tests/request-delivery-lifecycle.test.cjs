@@ -9,8 +9,7 @@ const {withCurrentDraftControls}=require('./fixtures/draft-controls.cjs');
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
 async function until(check,label){for(let i=0;i<120;i++){if(check())return;await new Promise(resolve=>setTimeout(resolve,25));}assert.fail(label);}
 function interpretation(p,mode='editable_message'){
- const sourceId=p.intentAuthority?.sourceId||p.userRequest?.sourceId;
- return {mode,sourceId,quote:p.sources.find(source=>source.id===sourceId).text.slice(0,1000)};
+ return {mode};
 }
 function plan(p){return withCurrentDraftControls({quotes:[],intent:'reply'},p);}
 async function fixture(t,producer){
@@ -23,8 +22,9 @@ async function fixture(t,producer){
    return assistModel(configured,context,signal,async(_url,args)=>{
     const request=JSON.parse(args.body),wrapper=JSON.parse(request.messages[1].content),p=wrapper.originalInput||wrapper;
     const entry={request,wrapper,p,taskId:configured.requestBudget.task.id};calls.push(entry);
-    const value=await producer(p,wrapper,entry,calls.length-1),receipt=(wrapper.originalInput?context.extraRequests?.at(-1)?.manifest?.sourceHandles:undefined)||context.manifest.sourceHandles;
-    return new Response(JSON.stringify({choices:[{message:{content:JSON.stringify(wireSourceView(value,receipt))}}]}),{status:200});
+    const value=await producer(p,wrapper,entry,calls.length-1),manifest=(wrapper.originalInput?context.extraRequests?.at(-1)?.manifest:undefined)||context.manifest;
+    const receipt=manifest.sourceHandles,canonicalPayload=canonicalSourceView(p,receipt);
+    return new Response(JSON.stringify({choices:[{message:{content:JSON.stringify(wireSourceView(value,receipt,manifest.primaryReferences,canonicalPayload))}}]}),{status:200});
    });
   }});
  controller.updateStatus({phase:'ready',account:{uid:scope.accountUid,uin:scope.accountUin}});await controller.bind(scope.peerUin);

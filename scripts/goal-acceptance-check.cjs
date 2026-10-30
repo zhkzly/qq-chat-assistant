@@ -1,5 +1,5 @@
 'use strict';
-const {withRequestDelivery}=require('./synthetic-request-delivery.cjs');
+const {withRequestDelivery,withCurrentStatementAuthority}=require('./synthetic-request-delivery.cjs');
 // Fictional goal cases exercise the production Controller and model protocol.
 // Synthetic transport demonstrates plumbing only; semantic judgments stay open.
 const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
@@ -107,8 +107,8 @@ function fakeResult(payload,definition){
  if(definition.contrary)guidance.allowedApproach=control('按本轮最新请求询问项目后续时间，覆盖此前不追加问题的方式');
  if(definition.twoQuestions)guidance.allowedApproach=control('本轮按最新请求保留项目预计时长和是否吃饭两个问题，不让旧经验删掉其中一个');
  const quotes=id==='G1'?['今天小苗终于发芽了']:id==='G4'?['这周六下午我有空','邀请她一起去公园散步']:id==='G5'?['我觉得和她聊天挺舒服','想再多了解她一点']:[];
- return {kind:'discussion',text:id==='G9'?'她明确说不怎么玩PVP、玩点回合制PVE；你的长期目标是自然发展关系，但这轮已经明确不问名字也不邀约。因此先接她分享的内容，给她自然展开空间；这种回复不能证明关系一定会更亲近。':'这是合成运输夹具提供的解释，只证明上下文交接和界面产物能够保留，不证明模型理解或恋爱效果。',
-  draftPlan:{quotes:quotes.map(text=>({sourceId:currentId,text})),...(quotes.length?{}:{intent:'reply'}),guidance},methodIds:[id==='G4'?'shared_activity':id==='G5'?'express_interest':'respond']};
+ return withCurrentStatementAuthority({kind:'discussion',text:id==='G9'?'她明确说不怎么玩PVP、玩点回合制PVE；你的长期目标是自然发展关系，但这轮已经明确不问名字也不邀约。因此先接她分享的内容，给她自然展开空间；这种回复不能证明关系一定会更亲近。':'这是合成运输夹具提供的解释，只证明上下文交接和界面产物能够保留，不证明模型理解或恋爱效果。',
+  draftPlan:{quotes:quotes.map(text=>({sourceId:currentId,text})),...(quotes.length?{}:{intent:'reply'}),guidance},methodIds:[id==='G4'?'shared_activity':id==='G5'?'express_interest':'respond']},payload);
 }
 function stopError(message,code='verification_stopped'){const error=new Error(message);error.name='AbortError';error.code=code;return error;}
 function packetPayload(request){const content=request.messages?.[1]?.content;if(typeof content!=='string')throw Error('Acceptance harness must remain text-only');return JSON.parse(content);}

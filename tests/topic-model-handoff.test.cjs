@@ -5,6 +5,7 @@ const { Store } = require('../src/store.cjs');
 const { normalize } = require('../src/messages.cjs');
 const { buildContext, buildDraftContext } = require('../src/assistant-context.cjs');
 const { parseAssistant, assistModel, SYSTEM, canonicalSourceView } = require('./fixtures/assistant-protocol.cjs');
+const {withCurrentStatementAuthority}=require('./fixtures/current-statement-authority.cjs');
 const { prepareTopicPatch } = require('../src/topic-store.cjs');
 const { scope, raw } = require('./fixtures/native.cjs');
 const settings = { baseUrl: 'http://synthetic.invalid/v1', model: 'synthetic', anonymous: true };
@@ -123,9 +124,11 @@ test('a new explicit user direction reaches planner and final instead of restori
   const calls = [], plan = await assistModel(settings, prepared, undefined, async (_, request) => {
     calls.push(JSON.parse(JSON.parse(request.body).messages[1].content));
     assert.equal(calls[0].userRequest.text, changed.text);
-    return { ok: true, json: async () => ({ choices: [{ message: { content: JSON.stringify({ draftPlan: { taskUse: 'continue', quotes: [{ sourceId: currentId, text: '我对她有好感，想多认识她' }],
+    const value={ draftPlan: { taskUse: 'continue', quotes: [{ sourceId: currentId, text: '我对她有好感，想多认识她' }],
       guidance: { objective: { text: '直接表达好感和想多认识对方', sourceIds: [currentId] }, allowedApproach: { text: '直接真诚表达，不沿用之前的含蓄方式', sourceIds: [currentId] },
-        avoidances: [{ text: '不追加连续无关问题', sourceIds: topic.purposeBindings.constraints.sourceIds }] } } }) } }] }) };
+        avoidances: [{ text: '不追加连续无关问题', sourceIds: topic.purposeBindings.constraints.sourceIds }] } } };
+    const captured=prepared.extraRequests?.at(-1)?.payload?.originalInput||prepared.payload,receipt=prepared.extraRequests?.at(-1)?.manifest?.primaryReferences||prepared.manifest.primaryReferences;
+    return { ok: true, json: async () => ({ choices: [{ message: { content: JSON.stringify(withCurrentStatementAuthority(value,captured,receipt)) } }] }) };
   });
   const draft = buildDraftContext(prepared, plan.draftPlan, args);
   assert.equal(draft.payload.draftingGuidance.objective.text, '直接表达好感和想多认识对方');

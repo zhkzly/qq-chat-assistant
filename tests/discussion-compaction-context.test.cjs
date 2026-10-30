@@ -1,5 +1,6 @@
 'use strict';
 const {withCurrentDraftControls}=require('./fixtures/draft-controls.cjs');
+const {materialRefForText}=require('./fixtures/current-statement-authority.cjs');
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { Store } = require('../src/store.cjs');
@@ -110,7 +111,15 @@ test('wrapped early draft preparation is repaired into a plan and still uses the
   const early = '先这样表达：\n```json\n' + JSON.stringify({ kind: 'draft', text: '表达', suggestions: [{ style: '自然', text: '周末一起散步吗？' }] }) + '\n```';
   assert.throws(() => parseAssistant(early, 'draft_prepare', prepared.payload), /purpose=draft_prepare.*draftPlan/);
   const planned = { draftPlan: { quotes: [authorizedInvitation(user)] } };
-  const result = await assistModel(settings, prepared, undefined, async (_, request) => { calls.push(JSON.parse(JSON.parse(request.body).messages[1].content)); return response(calls.length === 1 ? early : JSON.stringify({...planned,draftPlan:withCurrentDraftControls(planned.draftPlan,prepared.payload)})); });
+  const result = await assistModel(settings, prepared, undefined, async (_, request) => {
+    const wrapper=JSON.parse(JSON.parse(request.body).messages[1].content),input=wrapper.originalInput||wrapper;calls.push(wrapper);
+    if(calls.length===1)return response(early);
+    const receipt=prepared.extraRequests.at(-1).manifest.sourceHandles,id=receipt.bindings.find(binding=>binding.sourceId===planned.draftPlan.quotes[0].sourceId).handle;
+    const material=input.sources.find(source=>source.id===id),body=material.segments.map(segment=>segment.text??segment.parts.map(part=>part[1]).join('')).join('');
+    const authorityRef=material.authorityChoices.originalUserStatementCandidates.find(choice=>choice.materialRef===materialRefForText(material,body)).authorityRef;
+    const plan={...planned.draftPlan,quotes:[{materialRef:materialRefForText(material,planned.draftPlan.quotes[0].text),authorityRef}]};
+    return response(JSON.stringify({draftPlan:withCurrentDraftControls(plan,prepared.payload)}));
+  });
   assert.equal(calls.length, 2); assert.match(calls[1].task, /不能直接draft\/suggestions/); assert.equal(result.suggestions, undefined);
   const draft = buildDraftContext(prepared.resultContext || prepared, result.draftPlan, args);
   await assistModel(settings, draft, undefined, async (_, request) => { calls.push(JSON.parse(JSON.parse(request.body).messages[1].content)); return response(JSON.stringify({ kind: 'draft', text: '参考表达', suggestions: [{ style: '自然', text: '周末一起散步吗？' }] })); });

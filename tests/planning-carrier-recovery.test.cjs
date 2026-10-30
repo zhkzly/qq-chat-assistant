@@ -4,6 +4,7 @@ function admittedQuotes(quotes){
 }
 
 const {canonicalSourceView}=require('./fixtures/source-wire.cjs');
+const {withCurrentStatementAuthority}=require('./fixtures/current-statement-authority.cjs');
 // Source-shaped fictional Controller/Store/model-transport handoffs. The fake
 // responses prove delivered instructions and permissions, not model quality.
 const test=require('node:test'),assert=require('node:assert/strict');
@@ -27,10 +28,12 @@ function fixture(t,mode){
    const wire=JSON.parse(request.body),payload=payloadFor(wire);requests.push({wire,payload});
    if(requests.length===1)return response({kind:'discussion',text:'保留你想邀请她的意思，换自然的说法。',draftPlan:{intent:'reply',quotes:[]}});
    if(payload.originalInput){
-    const original=payload.originalInput,currentId=original.userRequest.sourceId,ref=text=>({text,sourceIds:[priorId,currentId]});
+    const captured=context.extraRequests?.at(-1)?.payload?.originalInput||context.payload,manifest=context.extraRequests?.at(-1)?.manifest||context.manifest;
+    const original=canonicalSourceView(payload.originalInput,manifest.sourceHandles,captured),currentId=original.userRequest.sourceId,ref=text=>({text,sourceIds:[priorId,currentId]});
     const quotes=mode==='unauthorized_old_quote'?[{sourceId:priorId,text:PRIOR}]:mode==='new_material'?[{sourceId:currentId,text:NEW_MATERIAL}]:[];
-    return response({kind:'discussion',text:'保留邀请与幽默，只改掉做作的措辞。',draftPlan:{intent:'reply',quotes,
-     guidance:{objective:ref(OBJECTIVE),allowedApproach:ref(APPROACH),avoidances:[{text:'不用“共同体验项目”式正式措辞。',sourceIds:[currentId]}]}}});
+    const output={kind:'discussion',text:'保留邀请与幽默，只改掉做作的措辞。',draftPlan:{intent:'reply',quotes,
+     guidance:{objective:ref(OBJECTIVE),allowedApproach:ref(APPROACH),avoidances:[{text:'不用“共同体验项目”式正式措辞。',sourceIds:[currentId]}]}}};
+    return response(mode==='new_material'?withCurrentStatementAuthority(output,captured,manifest.primaryReferences):output);
    }
    assert.equal(payload.purpose,'draft','only a validated plan can reach the third call');
    return response({kind:'draft',text:'用计数的小玩笑轻松邀请。',suggestions:[{style:'自然',text:mode==='new_material'?'我周六下午有空，要不要一起拼，看看谁找到的边角多？':'还能分别计数，要不要一起拼，看看谁找到的边角多？'}]});
@@ -45,18 +48,19 @@ for(const mode of ['guidance_only','new_material'])test(`structured repair prese
  const {store,controller,requests,priorId}=fixture(t,mode),taskId=`carrier-repair-${mode}`,text=CRITICISM+(mode==='new_material'?`另外${NEW_MATERIAL}，愿意告诉她这点。`:'');
  const answer=await controller.assist({taskId,text});assert.equal(answer.kind,'draft');assert.equal(requests.length,3);
  const receipts=store.getCompanion(scope).runs.at(-1).requests;
- const normal={...requests[0],payload:canonicalSourceView(requests[0].payload,receipts[0].manifest.sourceHandles)},repair={...requests[1],payload:canonicalSourceView(requests[1].payload,receipts[1].manifest.sourceHandles)},draft=canonicalSourceView(requests[2].payload,receipts[2].manifest.sourceHandles),currentId=normal.payload.userRequest.sourceId;
- assert.match(normal.wire.messages[0].content,/quotes[^。]*逐字可外发事实\/素材/);
- assert.match(normal.wire.messages[0].content,/提问、邀请、表意动作和口吻归短guidance/);
- assert.match(normal.wire.messages[0].content,/不必将每个交流目的当事实quote/);
- assert.match(repair.payload.task,/求助要求、交流目的和口吻用guidance承接，不作quotes/);
- assert.match(repair.payload.task,/旧私下quote附authorization:\{permission:\{sourceId,text\},referent:\{sourceId,text\}\}/);
- assert.match(repair.payload.task,/完整上下文、指代、已满足条件及最新限制/);
- assert.match(repair.payload.task,/historicalOnly旧许可须lookup\/核对/);
- assert.match(repair.payload.task,/selectedOption限原素材/);
- assert.match(repair.payload.task,/视图\/requestDelivery\/authorizationQuote\/生成回答不授权/);
+ const normal={...requests[0],payload:canonicalSourceView(requests[0].payload,receipts[0].manifest.sourceHandles,receipts[0].payload)},repair={...requests[1],payload:canonicalSourceView(requests[1].payload,receipts[1].manifest.sourceHandles,receipts[1].payload)},draft=canonicalSourceView(requests[2].payload,receipts[2].manifest.sourceHandles,receipts[2].payload),currentId=normal.payload.userRequest.sourceId;
+ assert.match(normal.wire.messages[0].content,/quotes:\[\{materialRef,authorityRef\}\]/);
+ assert.match(normal.wire.messages[0].content,/每段必须分别选择本次已提供的materialRef和authorityRef/);
+ assert.match(normal.wire.messages[0].content,/目的、提问、邀请、表意动作和口吻由短guidance承接，不作事实片段/);
+ assert.match(repair.payload.task,/求助要求、交流目的和口吻用短guidance承接，不作素材/);
+ assert.match(repair.payload.task,/原始用户发言候选不是许可/);
+ assert.match(repair.payload.task,/完整上下文的指代、否定、引用、条件和最新限制/);
+ assert.match(normal.wire.messages[0].content,/许可发言范围不能用边界缩短来去掉否定或条件/);
+ assert.match(normal.wire.messages[0].content,/选定已有UI表达只保留原有精确素材范围/);
+ assert.match(normal.wire.messages[0].content,/目录\/模式\/助手总结\/生成答案不授权/);
+ assert.match(repair.payload.task,/不填sourceId\/text\/authorization\/authorizationQuote/);
  assert.doesNotMatch(repair.payload.task,/只回应实际QQ时才可quotes:\[\]/);
- assert.ok(repair.payload.task.includes('当前明确的新分享、邀请或表意'),'repair must retain actual newly authorized meaning');
+ assert.ok(repair.payload.task.includes('选最小相关对外片段'),'repair must retain actual newly authorized meaning without forwarding the whole private source');
  assert.equal(repair.payload.originalInput.userRequest.text,text);assert.equal(repair.payload.originalInput.sources.find(source=>source.id===priorId).text,PRIOR);
  assert.equal(draft.purpose,'draft');assert.equal(draft.draftingGuidance.objective.text,OBJECTIVE);assert.equal(draft.draftingGuidance.allowedApproach.text,APPROACH);
  assert.deepEqual(draft.draftingGuidance.objective.sourceIds,[priorId,currentId]);assert.deepEqual(draft.draftingGuidance.allowedApproach.sourceIds,[priorId,currentId]);
@@ -70,7 +74,7 @@ for(const mode of ['guidance_only','new_material'])test(`structured repair prese
 
 test('a repaired plan still cannot promote old private instructions into unauthorized outbound quotes',async t=>{
  const {store,controller,requests,priorId}=fixture(t,'unauthorized_old_quote'),taskId='carrier-repair-old-quote-denied';
- await assert.rejects(controller.assist({taskId,text:CRITICISM}),/draftPlan\.quotes\[0\]\.authorization/);
+ await assert.rejects(controller.assist({taskId,text:CRITICISM}),/draftPlan\.quotes\[0\]\.authorityRef/);
  assert.equal(store.getCompanion(scope).turns.find(turn=>turn.id===priorId.slice(8)).text,PRIOR,'rejected bindings cannot rewrite the private instruction source');
  assert.equal(requests.length,2,'the unauthorized repaired plan must not purchase a wording call');
  assert.ok(!requests.some(request=>request.payload.purpose==='draft'));

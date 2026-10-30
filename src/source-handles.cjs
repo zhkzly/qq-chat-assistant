@@ -30,6 +30,7 @@ class SourceHandleOwner {
  constructor({scope=null,taskId='standalone'}={}){this.#scope=scopeIdentity(scope);this.#taskId=taskId;}
  matches(scope,taskId){return digest(scopeIdentity(scope))===digest(this.#scope)&&taskId===this.#taskId;}
  get size(){return this.#entries.size;}
+ get taskBinding(){return Object.freeze({scope:clone(this.#scope),taskId:this.#taskId});}
  preview(payload,{sources=[],sourceRevisions={}}={}){
   const revisions=new Map(this.#currentRevisions);
   for(const [id,revision]of Object.entries(sourceRevisions))revisions.set(id,revision);

@@ -1,5 +1,6 @@
 'use strict';
 const {wireSourceView,canonicalSourceView}=require('./fixtures/source-wire.cjs');
+const {withCurrentStatementAuthority,materialRefForText}=require('./fixtures/current-statement-authority.cjs');
 const test=require('node:test'),assert=require('node:assert/strict');
 const {Controller}=require('../src/controller.cjs');
 const {Store}=require('../src/store.cjs');
@@ -17,8 +18,11 @@ async function setup(t,producer,{limit=4}={}){
  const controller=new Controller({store,settings,read:async command=>command==='bind'?scope:{messages:[]},
   assistantModel:(settings,context,signal)=>assistModel(settings,context,signal,async(_,args)=>{
    const request=JSON.parse(args.body),wrapper=JSON.parse(request.messages[1].content),p=wrapper.originalInput||wrapper;
-   calls.push({request,wrapper,p});const value=await producer(p,wrapper,request),receipt=(wrapper.originalInput?context.extraRequests?.at(-1)?.manifest?.sourceHandles:undefined)||context.manifest.sourceHandles;
-   const encoded=typeof value==='string'?value:wireSourceView(value,receipt);
+   calls.push({request,wrapper,p});const receipt=(wrapper.originalInput?context.extraRequests?.at(-1)?.manifest?.sourceHandles:undefined)||context.manifest.sourceHandles;
+   const primary=(wrapper.originalInput?context.extraRequests?.at(-1)?.manifest?.primaryReferences:undefined)||context.manifest.primaryReferences;
+   const canonical=canonicalSourceView(p,receipt,wrapper.originalInput?context.extraRequests.at(-1).payload.originalInput:context.payload);
+   const value=await producer(canonical,wrapper,request,{primary,receipt,rawPayload:p});
+   const encoded=typeof value==='string'?value:wireSourceView(value,receipt,primary,canonical);
    return new Response(JSON.stringify({choices:[{message:{content:typeof encoded==='string'?encoded:JSON.stringify(encoded)}}]}),{status:200});
   })});
  controller.updateStatus({phase:'ready',account:{uid:scope.accountUid,uin:scope.accountUin}});await controller.bind(scope.peerUin);
@@ -29,7 +33,7 @@ function actualIncoming(app,text='你说最近总在做那个网页，做它有�
  app.controller.live({scope,messages:[raw(undefined,false,{elements:[{textElement:{content:text}}]})]});
 }
 for(const declared of [false,true])test(`actual005 strategy-only ${declared?'declared editable':'missing contract'} is repaired into a source-bound restricted handoff`,async t=>{
- const app=await setup(t,(p,wrapper)=>{
+ const app=await setup(t,(p,wrapper,_request,refs)=>{
   if(p.purpose==='draft'){
    assert.equal(p.goal,undefined);assert.equal(p.privateConversation,undefined);assert.equal(p.userRequest,undefined);
    assert.equal(JSON.stringify(p).includes('私人担忧_MARKER'),false);
@@ -41,9 +45,10 @@ for(const declared of [false,true])test(`actual005 strategy-only ${declared?'dec
   assert.notEqual(wrapper.purpose,'plain_help_recovery');assert.match(wrapper.task,/requestDelivery/);
   if(declared)assert.equal(p.requestDeliveryPolicy.obligation.mode,'editable_message');
   const material=p.sources.find(s=>s.text.startsWith('这是我给自己'));
-  const permission={sourceId:material.id,text:'想告诉她这个小进展'};
+  const rawId=refs.receipt.bindings.find(binding=>binding.sourceId===material.id).handle,rawMaterial=refs.rawPayload.sources.find(source=>source.id===rawId);
+  const whole=materialRefForText(rawMaterial,material.text),authorityRef=rawMaterial.authorityChoices.originalUserStatementCandidates.find(choice=>choice.materialRef===whole).authorityRef;
   return {kind:'discussion',text:'可以保留你的真实进展，再问她的习惯。',requestDelivery:interpretation(p,'both'),draftPlan:plan(p,
-   ['这是我给自己记读书笔记的小网页。','昨天第一次把查找功能弄好了，我挺开心。'].map(text=>({sourceId:material.id,text,authorization:{permission,referent:{sourceId:material.id,text}}})))};
+   ['这是我给自己记读书笔记的小网页。','昨天第一次把查找功能弄好了，我挺开心。'].map(text=>({materialRef:materialRefForText(rawMaterial,text),authorityRef})))};
  });
  actualIncoming(app);app.store.appendTurn(scope,{role:'user',kind:'discussion',text:'这是我给自己记读书笔记的小网页。昨天第一次把查找功能弄好了，我挺开心。想告诉她这个小进展，也想听她平时怎么留住读到的东西。私人担忧_MARKER只是背景，不要发。'});
  const reply=await app.controller.assist({text:'帮我接她这个问题，给我能改着发的表达。'});
@@ -64,8 +69,8 @@ for(const [text,purpose]of [
 });
 test('no incoming QQ is needed for a current authorized self-share; not inviting still allows complete expression',async t=>{
  const text='不要邀请她。今天我的番茄发芽了，给我一条完整表达告诉她这事。';
- const app=await setup(t,p=>p.purpose==='draft'?{kind:'draft',text:'分享',suggestions:[{style:'自然',text:'我今天种的番茄发芽了，突然觉得这盆有希望了哈哈。'}]}:
-  {kind:'discussion',text:'只分享这件事。',requestDelivery:interpretation(p),draftPlan:plan(p,[{sourceId:p.userRequest.sourceId,text:'今天我的番茄发芽了'}])});
+ const app=await setup(t,(p,_w,_r,refs)=>p.purpose==='draft'?{kind:'draft',text:'分享',suggestions:[{style:'自然',text:'我今天种的番茄发芽了，突然觉得这盆有希望了哈哈。'}]}:
+  withCurrentStatementAuthority({kind:'discussion',text:'只分享这件事。',requestDelivery:interpretation(p),draftPlan:plan(p,[{sourceId:p.userRequest.sourceId,text:'今天我的番茄发芽了'}])},p,refs.primary));
  const reply=await app.controller.assist({text});assert.equal(reply.suggestions.length,1);assert.equal(app.calls.length,2);assert.equal(app.calls[1].p.sources.length,0);
 });
 for(const kind of ['missing_fact','missing_authorization'])test(`specific private ${kind} blocker stops before wording`,async t=>{
@@ -159,7 +164,11 @@ test('a terminal delivery failure cannot obtain a second fulfillment repair afte
 });
 test('source-bound intent does not grant disclosure of a discussion-only note, even during repair',async t=>{
  let hiddenId;
- const app=await setup(t,p=>({kind:'discussion',text:'准备表达',requestDelivery:interpretation(p),draftPlan:plan(p,[{sourceId:hiddenId,text:'PRIVATE_ONLY_NOTE'}])}));
+ const app=await setup(t,(p,_w,_r,refs)=>{
+  const current=refs.rawPayload.sources.find(source=>source.id===refs.rawPayload.intentAuthority.sourceId),currentText=current.segments.map(segment=>segment.text??segment.parts.map(part=>part[1]).join('')).join('');
+  const note=refs.rawPayload.sources.find(source=>source.type==='note'),authorityRef=current.authorityChoices.originalUserStatementCandidates.find(choice=>choice.materialRef===materialRefForText(current,currentText)).authorityRef;
+  return {kind:'discussion',text:'准备表达',requestDelivery:interpretation(p),draftPlan:plan(p,[{materialRef:materialRefForText(note,'PRIVATE_ONLY_NOTE'),authorityRef}])};
+ });
  hiddenId=`note:${app.store.saveNote(scope,{text:'PRIVATE_ONLY_NOTE',use:'discussion'}).id}`;
  actualIncoming(app);await assert.rejects(app.controller.assist({text:'给我一条完整表达，但私下笔记不可发。'}),/私下讨论|未能对应/);
  assert.equal(app.calls.length,2);assert.equal(app.calls.some(call=>call.p.purpose==='draft'),false);

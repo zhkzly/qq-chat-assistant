@@ -112,9 +112,13 @@ function selectPlanningContext({options,snapshot,candidates,view,budget,coreInve
   for(const id of [...selected.keys()])if(!fits(payload)&&!essentialIds.has(id)){selected.delete(id);refresh();}
   // The request is exact; oversized direct evidence receives explicitly marked
   // ranges. Reprojection only uses the canonical originals, never a prior excerpt.
-  for(const maxBytes of [3000,1600]){
+  // Reference labels have a real serialized cost. Keep shrinking only marked
+  // evidence ranges until the measured request fits; the current intent is
+  // never excerpted to make room for navigation or choices.
+  for(const maxBytes of [3000,1600,800,400]){
     if(fits(payload))break;
     for(const [id,source] of selected)if(id!==current.id&&id!==intentSource.id){
+      if(maxBytes<1600&&source.type!=='qq')continue;
       const original=byId.get(id);if(!original||bytes(source)<=maxBytes)continue;
       const projected=boundedSource(original,{start:source.delivery?.start||0,maxBytes});
       if(projected)selected.set(id,projected);

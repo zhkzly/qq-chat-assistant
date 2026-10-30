@@ -4,6 +4,7 @@ function admittedQuotes(quotes){
 }
 
 const {wireSourceView,canonicalSourceView}=require('./fixtures/source-wire.cjs');
+const {materialRefForText}=require('./fixtures/current-statement-authority.cjs');
 const test=require('node:test'),assert=require('node:assert/strict'),{createHash}=require('node:crypto');
 const {parseAssistant,assistModel}=require('../src/assistant-model.cjs');
 const {Controller}=require('../src/controller.cjs');
@@ -77,16 +78,22 @@ async function integrationFixture(t,{privateOnly=false}={}){
   const request=JSON.parse(args.body),wrapper=JSON.parse(request.messages[1].content),p=wrapper.originalInput||wrapper;calls.push({request,wrapper,p});
   let content=actualContents[2];
   if(p.purpose!=='draft'){
-   const sourceId=p.intentAuthority.sourceId,quote=p.sources.find(source=>source.id===sourceId).text,requestDelivery={mode:'editable_message',sourceId,quote};
+   const sourceId=p.intentAuthority.sourceId,requestDelivery={mode:'editable_message'};
    if(p.lookupHistory.length<2){
     const id=p.lookupHistory.length===0?p.sources.find(source=>source.type==='qq').id:'note:n1';
     content=JSON.stringify({kind:'discussion',text:'核对已提供的原始材料。',requestDelivery,lookup:{sourceIds:[id]}});
    }else{
     const control=text=>({text,sourceIds:[sourceId]});
-    content=JSON.stringify({kind:'discussion',text:'按这次允许分享的经历回应。',requestDelivery,draftPlan:{quotes:[structuredClone(actualQuote)],intent:'reply',guidance:{objective:control('回应她当前对旧包的分享'),allowedApproach:control('仅用已经允许分享的真实旧包经历'),avoidances:[]}}});
+    let quotes=[structuredClone(actualQuote)];
+    if(privateOnly){
+     const note=p.sources.find(source=>source.type==='note'),current=p.sources.find(source=>source.id===sourceId),currentText=current.segments.map(segment=>segment.text??segment.parts.map(part=>part[1]).join('')).join('');
+     const authorityRef=current.authorityChoices.originalUserStatementCandidates.find(choice=>choice.materialRef===materialRefForText(current,currentText)).authorityRef;
+     quotes=[{materialRef:materialRefForText(note,actualQuote.text),authorityRef}];
+    }
+    content=JSON.stringify({kind:'discussion',text:'按这次允许分享的经历回应。',requestDelivery,draftPlan:{quotes,intent:'reply',guidance:{objective:control('回应她当前对旧包的分享'),allowedApproach:control('仅用已经允许分享的真实旧包经历'),avoidances:[]}}});
    }
   }
-  content=JSON.stringify(wireSourceView(JSON.parse(content),(wrapper.originalInput?context.extraRequests?.at(-1)?.manifest?.sourceHandles:undefined)||context.manifest.sourceHandles));
+  content=JSON.stringify(wireSourceView(JSON.parse(content),(wrapper.originalInput?context.extraRequests?.at(-1)?.manifest?.sourceHandles:undefined)||context.manifest.sourceHandles,(wrapper.originalInput?context.extraRequests?.at(-1)?.manifest?.primaryReferences:undefined)||context.manifest.primaryReferences,wrapper.originalInput?context.extraRequests.at(-1).payload.originalInput:context.payload));
   return new Response(JSON.stringify({choices:[{message:{content}}]}),{status:200});
  })});
  controller.updateStatus({phase:'ready',account:{uid:scope.accountUid,uin:scope.accountUin}});await controller.bind(scope.peerUin);

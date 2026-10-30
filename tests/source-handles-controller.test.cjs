@@ -4,11 +4,12 @@ const {Controller}=require('../src/controller.cjs'),{Store}=require('../src/stor
 const {assistModel,prepareAssistantRequest}=require('../src/assistant-model.cjs');
 const {SourceHandleOwner}=require('../src/source-handles.cjs');
 const {scope,raw}=require('./fixtures/native.cjs');
+const {withCurrentStatementAuthority}=require('./fixtures/current-statement-authority.cjs');
 const fact='今天我读完一本书',literal='private:quoted-id';
 const currentText=`${fact}，想把这个近况和字符串“${literal}”原样告诉她，给我完整表达。`;
 const intent=p=>p.intentAuthority.sourceId;
-const delivery=p=>({mode:'editable_message',sourceId:intent(p),quote:p.userRequest.text});
-const plan=p=>({quotes:[{sourceId:intent(p),text:fact},{sourceId:intent(p),text:literal}],guidance:{objective:{text:'分享已选真实近况',sourceIds:[intent(p)]},allowedApproach:{text:'自然接住实际问题并保留所选字符串',sourceIds:[intent(p)]},avoidances:[]}});
+const delivery=p=>({mode:'editable_message'});
+const plan=p=>withCurrentStatementAuthority({draftPlan:{quotes:[{sourceId:intent(p),text:fact},{sourceId:intent(p),text:literal}],guidance:{objective:{text:'分享已选真实近况',sourceIds:[intent(p)]},allowedApproach:{text:'自然接住实际问题并保留所选字符串',sourceIds:[intent(p)]},avoidances:[]}}},p).draftPlan;
 async function setup(t,producer){
  const store=new Store(':memory:'),calls=[],contexts=[];
  const settings={anonymous:true,model:'synthetic-wire',baseUrl:'http://fixture.invalid/v1',auto:false,assistantRequestLimit:8,discussionCompactionEnabled:false,realChatConsent:{...scope,model:'synthetic-wire',baseUrl:'http://fixture.invalid/v1'}};
@@ -64,7 +65,7 @@ test('same-task QQ resume retains its source owner and original budget; a fresh 
   if(p.purpose==='draft')return draft;
   if(index===0)return {kind:'discussion',text:'先读当前原话。',requestDelivery:delivery(p),lookup:{sourceIds:[p.sources.find(source=>source.type==='qq').id]}};
   if(index===1)return new Promise(resolve=>{finishPending=()=>resolve({kind:'discussion',text:'旧帧计划',requestDelivery:delivery(p),draftPlan:plan(p)});});
-  if(p.userRequest.text==='现在只私下解释。')return {kind:'discussion',text:'可以先私下解释。',requestDelivery:{mode:'private_help',sourceId:intent(p),quote:p.userRequest.text}};
+  if(p.userRequest.text==='现在只私下解释。')return {kind:'discussion',text:'可以先私下解释。',requestDelivery:{mode:'private_help'}};
   return {kind:'discussion',text:'接上新消息。',requestDelivery:delivery(p),draftPlan:plan(p)};
  });
  const pending=app.controller.assist({text:currentText,taskId:'source-handle-qq-resume'});
@@ -81,7 +82,7 @@ test('forget keeps the task namespace but does not re-offer withdrawn aliases or
  const app=await setup(t,(p,w,index)=>{
   if(index===0){const note=p.sources.find(source=>source.type==='note');oldHandle=note.id;return {kind:'question',text:`先移除${secret}再确认。`,requestDelivery:{...delivery(p),blocker:{kind:'missing_fact',missing:secret,question:`移除${secret}后想先聊什么？`}},actions:[{type:'forget',sourceId:note.id,evidenceQuote:`忘记${secret}`,targetQuote:secret}]};}
   assert.equal(JSON.stringify(p).includes(secret),false);assert.equal(p.sources.some(source=>source.id===oldHandle),false);
-  return {kind:'question',text:'接下来想先分享哪一段？',requestDelivery:{mode:'editable_message',sourceId:intent(p),quote:p.userRequest.text,blocker:{kind:'missing_fact',missing:'新的分享范围',question:'接下来想先分享哪一段？'}}};
+  return {kind:'question',text:'接下来想先分享哪一段？',requestDelivery:{mode:'editable_message',blocker:{kind:'missing_fact',missing:'新的分享范围',question:'接下来想先分享哪一段？'}}};
  });
  noteId=`note:${app.store.saveNote(scope,{text:secret,use:'discussion'}).id}`;
  const reply=await app.controller.assist({text:`忘记${secret}这条笔记，然后继续给我表达。`});assert.equal(reply.kind,'question');assert.equal(app.calls.length,2);assert.equal(app.calls[0].owner,app.calls[1].owner);
@@ -96,7 +97,7 @@ test('source withdrawal during final wording still discards the late decoded res
  assert.equal(app.store.getCompanion(scope).turns.some(turn=>turn.role==='assistant'),false);
 });
 test('unknown handle in a whole optional auxiliary field preserves one-call private help without committing state',async t=>{
- const app=await setup(t,p=>({kind:'discussion',text:'我们先私下理清想法。',requestDelivery:{mode:'private_help',sourceId:intent(p),quote:p.userRequest.text},stateReview:'no_change',statePatch:{items:[{text:'不能提交的辅助状态',sourceIds:[intent(p),'s999']}]}}));
+ const app=await setup(t,p=>({kind:'discussion',text:'我们先私下理清想法。',requestDelivery:{mode:'private_help'},stateReview:'no_change',statePatch:{items:[{text:'不能提交的辅助状态',sourceIds:[intent(p),'s999']}]}}));
  const before=app.store.getCompanion(scope).state.version;
  const reply=await app.controller.assist({text:'先私下理清为什么，不要写表达。'});
  assert.equal(app.calls.length,1);assert.equal(reply.text,'我们先私下理清想法。');assert.equal(app.store.getCompanion(scope).state.version,before);
