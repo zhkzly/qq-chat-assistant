@@ -47,10 +47,10 @@ const schemas={
 };
 function responseEnvelope(settings,purpose,payload) {
  if(settings.modelResponseMode==='plain_text')return {};
- // These are result envelopes, never executable tools. The local proxy's
- // Claude adapter maps named tool_choice; json_object is not mapped there.
- // Restrict the automatic choice to verified non-thinking 4.6 models.
- const useTool=settings.modelResponseMode==='result_tool'||settings.modelResponseMode!=='json_object'&&/^claude-(?:sonnet|opus)-4-6$/.test(settings.model||'');
+ // These are inert result envelopes. The native Codex translator forwards
+ // function tools and named choice; json_object is not an equivalent carrier.
+ const autoTool=/^claude-(?:sonnet|opus)-4-6$/.test(settings.model||'')||/^gpt-(?:4o|4\.1|5|6)(?:[-.]|$)/.test(settings.model||'');
+ const useTool=settings.modelResponseMode==='result_tool'||settings.modelResponseMode!=='json_object'&&autoTool;
  if(!useTool)return {response_format:{type:'json_object'}};
  const name=purpose==='draft'?'draft_result':purpose==='discussion_compaction'?'discussion_compaction_result':purpose==='memory'?'memory_result':'assistant_result';
  let schema=schemas[name];

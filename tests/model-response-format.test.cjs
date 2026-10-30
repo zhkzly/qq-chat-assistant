@@ -2,13 +2,13 @@
 const test=require('node:test'),assert=require('node:assert/strict');
 const {responseEnvelope}=require('../src/model-response-format.cjs'),{readModelOutput,parseModelJson}=require('../src/model-json.cjs');
 const {assistModel,prepareAssistantRequest,parseAssistant}=require('./fixtures/assistant-protocol.cjs');
-test('verified non-thinking Claude uses a pure result envelope; thinking/other models retain compatible JSON mode',()=>{
+test('verified Claude and GPT use result envelopes; thinking Claude retains compatible JSON mode',()=>{
  for(const purpose of ['discussion','draft','discussion_compaction','memory']){
   const settings={model:'claude-sonnet-4-6'},result=responseEnvelope(settings,purpose);
   assert.equal(result.tools.length,1);assert.equal(result.tools[0].function.name,result.tool_choice.function.name);
   assert.equal(result.response_format,undefined);assert.equal(result.parallel_tool_calls,false);
  }
- assert.deepEqual(responseEnvelope({model:'gpt-6-astra'},'draft'),{response_format:{type:'json_object'}});
+ assert.equal(responseEnvelope({model:'gpt-6-astra'},'draft').tool_choice.function.name,'draft_result');
  assert.deepEqual(responseEnvelope({model:'claude-opus-4-6-thinking'},'draft'),{response_format:{type:'json_object'}});
 });
 test('every nested transport object declares the fields that the local parser consumes',()=>{
@@ -63,7 +63,7 @@ test('Claude response envelope still passes local phase validation and the full 
  assert.equal(context.manifest.serializedTextRequestBytes,Buffer.byteLength(JSON.stringify(request)));
  assert.ok(context.manifest.serializedTextRequestBytes<=prepareAssistantRequest(settings,null).byteLimit);
 });
-test('malformed nested tool arguments get one alternate-carrier repair without weakening source-bound controls',async()=>{
+test('malformed nested tool arguments get one same-carrier repair without weakening source-bound controls',async()=>{
  const settings={model:'claude-sonnet-4-6',baseUrl:'http://fixture.invalid/v1',anonymous:true};
  const id='private:current',source={id,type:'private',role:'user',text:'第二个方向，不邀约',revision:'r1'};
  const context={payload:{purpose:'draft_prepare',userRequest:{sourceId:id,text:source.text},sources:[source],topicContext:{active:{id:'topic',lifecycle:'active',objective:'接住游戏分享',direction:'保留反差',constraints:['不邀约']}}},manifest:{}};
@@ -72,8 +72,8 @@ test('malformed nested tool arguments get one alternate-carrier repair without w
  const transport=async(_url,args)=>{const body=JSON.parse(args.body);bodies.push(body);return {ok:true,json:async()=>({choices:[{message:bodies.length===1?{content:null,tool_calls:[{function:{name:'assistant_result',arguments:JSON.stringify({draftPlan:'<parameter name="_">true',kind:'draft',text:'invalid'})}}]}:{content:JSON.stringify(valid)}}]})};};
  const result=await assistModel(settings,context,undefined,transport);
  assert.deepEqual(result.draftPlan.guidance,valid.draftPlan.guidance);assert.equal(bodies.length,2);
- assert.equal(bodies[0].tool_choice.function.name,'assistant_result');assert.equal(bodies[1].tools,undefined);assert.deepEqual(bodies[1].response_format,{type:'json_object'});
- assert.deepEqual(JSON.parse(bodies[1].messages[1].content).originalInput,context.payload);assert.equal(context.manifest.formatRepair.responseMode,'json_object');
+ assert.equal(bodies[0].tool_choice.function.name,'assistant_result');assert.equal(bodies[1].tool_choice.function.name,'assistant_result');assert.equal(bodies[1].response_format,undefined);
+ assert.deepEqual(JSON.parse(bodies[1].messages[1].content).originalInput,context.payload);assert.equal(context.manifest.formatRepair.responseMode,'model_default');
  const bad={payload:context.payload,manifest:{}};let calls=0;
  await assert.rejects(assistModel(settings,bad,undefined,async()=>{calls++;return {ok:true,json:async()=>({choices:[{message:calls===1?{content:null,tool_calls:[{function:{name:'assistant_result',arguments:'{"draftPlan":"broken"}'}}]}:{content:JSON.stringify({draftPlan:{quotes:[],intent:'reply'}})}}]})};}),/current effective topic requires/);
  assert.equal(calls,2,'the alternate carrier is still exactly one format repair');

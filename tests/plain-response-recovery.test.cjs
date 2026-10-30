@@ -87,7 +87,7 @@ for (const purpose of ['discussion', 'review']) test(`${purpose} repairs unusabl
   assert.equal(repair.purpose, purpose); assert.deepEqual(repair.originalInput, context.payload);
   assert.equal(repair.originalInput.userRequest.text, turn.text);
   assert.equal(typeof repair.invalidResponse,'string');assert.equal(typeof repair.formatError,'string');assert.match(repair.task,/requestDelivery/);
-  assert.equal(calls[1].tools, undefined); assert.equal(calls[1].tool_choice, undefined); assert.equal(calls[1].response_format, undefined);
+  assert.equal(calls[1].tool_choice.function.name,'assistant_result');assert.equal(calls[1].response_format,undefined);
   assert.equal(context.manifest.responseRecovery,undefined);assert.equal(context.manifest.formatRepair.deliveryContract,true);assert.equal(result.requestDelivery.sourceId,`private:${turn.id}`);
   assert.equal(context.extraRequests.length, 1); assert.equal(context.extraRequests[0].manifest.methodTrace.reported, null);
 });
@@ -131,7 +131,7 @@ test('draft_prepare still requires structured source-bound plans, including afte
     calls.push(JSON.parse(request.body)); return calls.length === 1 ? resultTool({ draftPlan: '<parameter name="_">true' }) : response(JSON.stringify(valid));
   });
   assert.equal(calls.length, 2); assert.deepEqual(result.draftPlan.guidance, valid.draftPlan.guidance);
-  assert.equal(requestPayload(calls[1]).purpose, purpose); assert.equal(calls[1].response_format,undefined);assert.equal(context.manifest.formatRepair.deliveryContract,true);
+  assert.equal(requestPayload(calls[1]).purpose, purpose);assert.equal(calls[1].tool_choice.function.name,'assistant_result');assert.equal(calls[1].response_format,undefined);assert.equal(context.manifest.formatRepair.deliveryContract,true);
   assert.equal(context.manifest.responseRecovery, undefined);
   let failedCalls = 0;
   await assert.rejects(assistModel(settings, { payload: context.payload, manifest: {} }, undefined, async () => {
@@ -149,7 +149,7 @@ test('reply invalid plans get one strict structured repair while valid plans sti
       response(JSON.stringify({kind:'question',text:'你这周有空一起散步吗？',draftPlan:{clarification:'你这周有空一起散步吗？'}}));
   });
   assert.equal(calls.length, 2); assert.equal(help.kind, 'question'); assert.deepEqual(Object.keys(help).sort(), ['draftPlan','kind','requestDelivery','text']);
-  assert.equal(requestPayload(calls[1]).purpose, 'reply'); assert.equal(calls[1].tools, undefined); assert.equal(calls[1].response_format, undefined);
+  assert.equal(requestPayload(calls[1]).purpose, 'reply');assert.equal(calls[1].tool_choice.function.name,'assistant_result');assert.equal(calls[1].response_format,undefined);
   assert.equal(help.draftPlan.clarification,'你这周有空一起散步吗？'); assert.equal(help.suggestions, undefined); assert.equal(context.manifest.responseRecovery, undefined);
   assert.equal(context.manifest.formatRepair.planningCarrier, true); assert.equal(context.extraRequests[0].purpose, 'delivery_repair');
   const prepared = buildContext(args), valid = { draftPlan: { quotes: [], intent: 'reply', guidance: { objective: control('邀请一起散步'),

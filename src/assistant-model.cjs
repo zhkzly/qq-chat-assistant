@@ -485,9 +485,9 @@ async function assistModel(settings, context, signal, fetchImpl = fetch) {
     context.payload=bindObligation(context.payload);
     const plainRecovery = !context.payload.requestDeliveryPolicy&&!planningCarrierRepair&&(!terminalRepair||error.code!=='request_delivery_unfulfilled')&&['discussion','review','reply','draft'].includes(context.payload.purpose);
     const formatFailure = error instanceof SyntaxError ? '响应不是合法 JSON' : error.message;
-    const repairSettings = plainRecovery||planningCarrierRepair||deliveryRepair ? { ...settings, modelResponseMode: 'plain_text' }
-      : output.metadata.contentShape === 'result_tool' && !settings.modelResponseMode
-        ? { ...settings, modelResponseMode: 'json_object' } : settings;
+    // Structural correction keeps the configured/selected result carrier.
+    // Only the intentional natural-language recovery requests plain output.
+    const repairSettings = plainRecovery ? { ...settings, modelResponseMode: 'plain_text' } : settings;
     let repairPayload=plainRecovery
       ? {purpose:context.payload.purpose === 'draft' ? 'plain_draft_recovery' : 'plain_help_recovery',originalInput:context.payload}
       : {purpose:context.payload.purpose,originalInput:context.payload,invalidResponse:responseContent,
