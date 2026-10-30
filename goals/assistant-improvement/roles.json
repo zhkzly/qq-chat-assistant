@@ -15,6 +15,10 @@
     "qq_diagnostician": {
       "config": ".codex/agents/qq_diagnostician.toml",
       "skill": ".agents/skills/qq-assistant-diagnose/SKILL.md"
+    },
+    "qq_architecture_reviewer": {
+      "config": ".codex/agents/qq_architecture_reviewer.toml",
+      "skill": ".agents/skills/qq-assistant-architecture-review/SKILL.md"
     }
   }
 }

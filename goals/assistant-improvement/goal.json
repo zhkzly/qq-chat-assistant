@@ -1,15 +1,27 @@
 {
   "schema_version": 1,
   "id": "qq-assistant-improvement",
-  "version": "2026-10-30.1",
+  "version": "2026-10-30.2",
   "baseline": {
     "commit": "009b4aa",
     "evidence": "docs/eval-fidelity-v2-verification_CN.md",
     "known_failures": [
-      { "case_id": "coverage-observed-output-feedback", "observed": "Draft planning failed source/authorization validation; no first output was available for feedback." },
-      { "case_id": "coverage-feedback-current-material", "observed": "An invented quotation was attributed to current user material; the positive control also failed planning validation." },
-      { "case_id": "coverage-long-private-consultation", "observed": "Controlled memory preparation rejected a local correction classified as a stable preference; the requested help was not reached." },
-      { "case_id": "coverage-long-single-source", "observed": "Memory preparation finished, but the answer was still blocked by the product context budget." }
+      {
+        "case_id": "coverage-observed-output-feedback",
+        "observed": "Draft planning failed source/authorization validation; no first output was available for feedback."
+      },
+      {
+        "case_id": "coverage-feedback-current-material",
+        "observed": "An invented quotation was attributed to current user material; the positive control also failed planning validation."
+      },
+      {
+        "case_id": "coverage-long-private-consultation",
+        "observed": "Controlled memory preparation rejected a local correction classified as a stable preference; the requested help was not reached."
+      },
+      {
+        "case_id": "coverage-long-single-source",
+        "observed": "Memory preparation finished, but the answer was still blocked by the product context budget."
+      }
     ],
     "limited_positive_evidence": [
       "Three actual emotional-disclosure turns were reviewed as usable / minor edit / usable; the middle turn asserted too much.",
@@ -25,9 +37,9 @@
     "inventory_command": "npm run eval:replay:list"
   },
   "outcome": {
-    "product": "Improve the actual QQ assistant's ability to help the user pursue their stated purpose through grounded, continuous private consultation and usable, personal wording.",
-    "purpose_scope": "The current use includes romantic interest; friendship, work, support, learning and later user goal changes remain valid purposes.",
-    "completion": "Complete the finite staged targets with independently reviewed actual SUT outputs, preserved source/permission/time provenance and relevant counterexamples; document remaining limits and lifecycle evidence separately.",
+    "product": "Improve the actual whole QQ Assistant as a purpose-driven long-term helper: understand the user's situation and intent, help choose next steps and real talking material, initiate and continue conversation, support authentic self-sharing and shared experiences, and maintain continuity through memory and feedback.",
+    "purpose_scope": "The user's current concrete long-term purpose is to become closer to an online romantic interest with mutual willingness. The product must also support other user-defined purposes and later purpose changes; do not hardcode romantic progression or reduce assistance to writing replies.",
+    "completion": "Establish actual whole-product improvements in the user's goal-directed workflow, with independent reviewed outputs, preserved provenance, relevant counterexamples and the finite final coverage. Case scores, architectural change volume and evaluation infrastructure are supporting evidence, never the user outcome itself. Document lifecycle and desktop evidence separately.",
     "success_is_not": [
       "A relationship outcome or a predicted reply from another person.",
       "All synthetic transport checks passing, a green build, valid JSON or a successful request alone.",
@@ -59,9 +71,10 @@
     },
     "lifecycle": {
       "controlled_rebuild_proves_host_lifecycle": false,
-      "requirement": "Distinguish controlled history reconstruction from normal host ingestion, automatic maintenance, contact changes and reopening. Report source-only, synthetic integration, isolated host-lifecycle and actual desktop evidence separately."
+      "requirement": "Distinguish controlled history reconstruction from normal host ingestion, automatic maintenance, contact changes and reopening. Report source-only, synthetic integration, isolated host-lifecycle and actual desktop evidence separately. If persisted schema or migration logic changes, also upgrade a fictional DB created by the baseline and verify original IDs, event time, disclosure/withdrawal and feedback identity; raw-prefix reconstruction alone does not prove migration compatibility."
     },
-    "integrity_vs_quality": "The round checker validates provenance and completeness of supplied evidence. It cannot establish semantic truth, reviewer sincerity, natural wording or real-world benefit."
+    "integrity_vs_quality": "The round checker validates provenance and completeness of supplied evidence. It cannot establish semantic truth, reviewer sincerity, natural wording or real-world benefit.",
+    "product_validation": "Evaluate final-candidate goal-directed workflows explicitly: initiating/reconnecting with grounded talking material, continuing private consultation into a chosen authentic expression or action, and maintaining relevant memory/current intent across exchanges and applicable host lifecycle. Map actual inputs/outputs and independent judgments to these user abilities; a dataset pass count cannot substitute for them. Preserve visible-development, voice-feedback and real-world-outcome limitations."
   },
   "constraints": {
     "qq_workflow": "Keep normal desktop QQ plus a separate assistant window, automatically loading accessible history and observing actually received/sent records. Suggestions remain for human review and manual sending.",
@@ -75,7 +88,7 @@
   },
   "boundaries": {
     "allowed_after_explicit_activation": [
-      "Inspect and change project product code, prompts, context/memory architecture, adapter and project-scoped agent skills when a concrete hypothesis calls for it.",
+      "Inspect and change any relevant project components, including ingestion, storage/migration, long-term memory, current work/state, context selection/compression, prompts/skills, model workflow, candidate lifecycle, UI/host integration and the replaceable replay adapter, when a causal hypothesis calls for it.",
       "Rewrite substantial components when comparative evidence supports that approach; do not treat current architecture as a required solution.",
       "Run isolated fictional replay using the selected real model within the declared round HTTP cap, if the activation explicitly authorizes live replay."
     ],
@@ -92,21 +105,36 @@
     "setup_is_activation": false
   },
   "iteration_policy": {
-    "coordinator": "The main agent owns the queue, stage choices and evidence ledger. Use separate implementation and blinded evaluation agents; request diagnosis only when evidence needs causal attribution.",
+    "coordinator": "The main agent owns the purpose, hypothesis, queue and evidence ledger. Delegate implementation and independent blinded output evaluation; request research-enabled architecture critique for consequential designs/candidates and trace diagnosis after failures. Use roles on demand, not a mandatory all-role committee.",
     "architecture_rewrite_allowed": true,
     "round": [
-      "Select a concrete failure hypothesis, finite target case IDs and named countercases before changing the candidate. Freeze the comparison input and acceptance criteria.",
+      "Select a small diagnostic group from the dataset and inspect observed baseline inputs, outputs and traces to distinguish causes. Freeze the hypothesis, target cases and countercases before changing the candidate.",
       "Implement the hypothesis in isolation. Run appropriate functional checks and replay; inspect actual outputs, not only transport status.",
       "Have an independent evaluator review the blinded actual-output packet using the frozen behavioral criteria. Keep missing/error/uncertain judgments open.",
       "Use diagnostics to attribute the first causal deviation; accept, revise or reject the hypothesis with referenced evidence and record the next action."
     ],
     "stage_acceptance": "Required target and guardrail steps may accumulate across bounded rounds at the same candidate identity. A new candidate must explicitly invalidate and rerun affected accepted evidence; no copied success across changed inputs, standards or implementations.",
-    "guardrails": "Select the listed stage guardrails relevant to each hypothesis, and cover all listed guardrails before stage acceptance. Keep paired opposite cases together when the proposed mechanism could affect both.",
+    "guardrails": "Keep relevant listed stage guards and paired opposite cases together. Additional guards may come from any known frozen dataset case across stages; declare the reason in the round hypothesis and freeze them before execution. Stage labels partition final acceptance, not component ownership or diagnostic access. All listed guards still need final coverage.",
     "thrash": "If the same correction recurs twice, oscillates, or unchanged failure repeats, stop patching and change the causal hypothesis. After three distinct new failures in one step, revisit the general approach instead of adding case-specific rules.",
-    "no_shortcut": "Do not lower the goal to an MVP, a tiny happy path, minimal green checks or a private-only substitute. Do not add permanent planner/brainstorm roles or a separate workflow platform."
+    "no_shortcut": "Do not lower the goal to an MVP, a tiny happy path, minimal green checks or a private-only substitute. Do not add permanent planner/brainstorm roles or a separate workflow platform.",
+    "initial_batch": {
+      "stage_id": "delivery_provenance",
+      "target_cases": [
+        "coverage-observed-output-feedback",
+        "coverage-feedback-current-material"
+      ],
+      "guardrail_cases": [
+        "conv-share-own-material-missing",
+        "coverage-observed-qq-recall"
+      ],
+      "purpose": "Diagnose material/source handoff and actual-output feedback with four frozen cases/seven steps; this is an entry experiment, not the complete product goal or a generalization claim."
+    },
+    "sampling_scope": "A small diagnostic batch bounds experiment cost, not implementation size. Make the complete causal change across all necessary components. Do not preserve a faulty architecture to minimize the diff, and do not rewrite components merely to make a large change.",
+    "expansion": "Expand after a promising diagnostic comparison to affected behaviors; shared memory/context/state/source selection or global prompt changes require long-history, correction, closed-topic and applicable counterpart evidence before acceptance. Include initiative/reconnect, sustained consultation, self-sharing, mutuality and user-purpose changes in broader validation. Preserve the complete dataset for stage/final regression; four good cases cannot establish whole-product quality.",
+    "research_and_critique": "Design and implementation may search relevant OpenViking materials and primary web papers/docs. Trace each imported conclusion to an applicable decision and falsifiable check; seek contrary evidence and simpler alternatives. The architecture reviewer may reject unnecessary components or a proposed rewrite; main arbitrates. Independent output evaluation remains blind to implementation hypotheses and research narratives."
   },
   "stop_conditions": {
-    "complete": "All three stages have independent acceptable actual-output evidence for their finite targets and guardrails, with affected evidence refreshed for the final candidate, appropriate engineering checks passed and lifecycle/desktop limitations accurately stated.",
+    "complete": "The final candidate has independently reviewed actual goal-directed workflow evidence for initiative/reconnection, sustained private consultation and authentic expression, and memory/current-intent continuity; all three finite stages and relevant countercases are accepted at that candidate identity, appropriate engineering checks and changed host/UI lifecycle checks pass, and remaining desktop, personal-voice and generalization limits are accurately stated. Neither adding infrastructure nor the finite case pass count alone completes the product goal.",
     "not_complete": [
       "Synthetic-only or source-only evidence, unexecuted/error steps, absent reviews, unbound outputs, unresolved hard failures or materially uncertain grades.",
       "An exhausted round HTTP cap, a green integrity checker, authorized action or an apparently positive authored continuation.",
@@ -175,7 +203,8 @@
       "acceptance": [
         "Both retained long-context failures reach their requested output steps with the full frozen raw input; no shortening or prepared expected memory substitutes for them.",
         "Review confirms the current purpose, dated corrections, local versus stable preferences, withdrawn evidence and actual consultation continuation are applied appropriately.",
-        "Exercise the changed memory/context behavior through the normal host scheduling/ingestion lifecycle in isolation, including account/contact switch and reopen where affected. Retain lifecycle traces and identify any desktop-only gap; controlled replay preparation alone cannot satisfy this criterion."
+        "Exercise the changed memory/context behavior through the normal host scheduling/ingestion lifecycle in isolation, including account/contact switch and reopen where affected. Retain lifecycle traces and identify any desktop-only gap; controlled replay preparation alone cannot satisfy this criterion.",
+        "If persisted schema or migration changes, exercise candidate upgrade of a baseline-created fictional database and verify original IDs/time, source/disclosure/withdrawal and feedback identity; do not substitute a clean raw-prefix rebuild."
       ]
     },
     {

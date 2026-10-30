@@ -84,3 +84,13 @@ test('pre-step setup failures remain citable execution evidence for grades and d
  const pair=review.comparisons.find(p=>p.case_id===entry.case_id&&p.step_id===entry.step_id);pair.basis='delivery';pair.evidence=[{entry_id:entry.id,quote:entry.case_execution.error.message}];
  const {validateReview}=require('../scripts/goal-round.cjs');assert.doesNotThrow(()=>validateReview(c.packet,review));
 });
+
+test('cross-stage countercases can be frozen without turning them into stage targets', t=>{
+ const dir=directory(t),out=path.join(dir,'round');
+ const r=prepareRound({root:ROOT,id:'cross-stage',stage:'delivery_provenance',cases:['coverage-observed-output-feedback'],guardrails:['conv-share-own-material'],hypothesis:'Changing material selection also affects its positive counterpart',out});
+ assert.deepEqual(r.target_cases,['coverage-observed-output-feedback']);
+ assert.deepEqual(r.guardrail_cases,['conv-share-own-material']);
+ assert.ok(r.case_plans['conv-share-own-material']);
+ assert.throws(()=>prepareRound({root:ROOT,id:'unknown',stage:'delivery_provenance',cases:['coverage-observed-output-feedback'],guardrails:['not-a-real-case'],hypothesis:'Invalid countercase',out:path.join(dir,'bad')}),/guardrail|frozen case/i);
+ assert.equal(fs.existsSync(path.join(dir,'bad')),false);
+});

@@ -72,3 +72,18 @@ test('the committed state is an unstarted queue without invented rounds, ratings
   assert.deepEqual(state.stages, goal.stages.map(stage => ({ id: stage.id, status: 'pending', accepted_round: null })));
   for (const field of ['rating', 'overall', 'completed_at', 'active_goal_id']) assert.equal(Object.hasOwn(state, field), false, field);
 });
+
+// The diagnostic entry is selection metadata, not a replacement dataset or a passing result.
+test('the first diagnostic batch preserves the approved cases and the full final queue', () => {
+  const goal = read('goal.json'), batch = goal.iteration_policy.initial_batch;
+  assert.ok(batch, 'the initial diagnostic selection must be explicit');
+  assert.equal(batch.stage_id, 'delivery_provenance');
+  assert.deepEqual(batch.target_cases, ['coverage-observed-output-feedback', 'coverage-feedback-current-material']);
+  assert.deepEqual(batch.guardrail_cases, ['conv-share-own-material-missing', 'coverage-observed-qq-recall']);
+  const ids = [...batch.target_cases, ...batch.guardrail_cases];
+  const plans = loadReplayPlans().plans.filter(plan => ids.includes(plan.id));
+  assert.equal(plans.length, 4);
+  assert.equal(plans.reduce((n, plan) => n + plan.steps.length, 0), 7);
+  assert.equal(goal.replay_dataset.cases, 38);
+  assert.equal(goal.iteration_policy.architecture_rewrite_allowed, true);
+});

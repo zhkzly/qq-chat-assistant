@@ -32,7 +32,7 @@ test('committed native profiles are current and each consumes its own canonical 
   assert.equal(result.status, 0, result.stderr);
   const report = JSON.parse(result.stdout);
   assert.equal(report.status, 'current');
-  assert.equal(report.agents.length, 3);
+  assert.equal(report.agents.length, 4);
   for (const [name, agent] of Object.entries(manifest.agents)) {
     const profile = parseToml(path.join(root, agent.config));
     assert.equal(profile.name, name);
@@ -59,19 +59,25 @@ test('committed native profiles are current and each consumes its own canonical 
   for (const key of ['apps', 'plugins', 'memories', 'request_permissions_tool']) assert.equal(diagnostician.features[key], false);
   assert.match(diagnostician.developer_instructions, /read-only role contract, not an operating-system sandbox guarantee/);
   assert.ok(!Object.hasOwn(parseToml(path.join(root, manifest.agents.qq_implementer.config)), 'features'));
+  const architectureReviewer = parseToml(path.join(root, manifest.agents.qq_architecture_reviewer.config));
+  assert.ok(!Object.hasOwn(architectureReviewer, 'features'), 'architecture research tools must inherit parent enablement');
+  assert.ok(!Object.hasOwn(architectureReviewer, 'apps'));
+  assert.ok(!Object.hasOwn(architectureReviewer, 'plugins'));
+  assert.ok(!Object.hasOwn(architectureReviewer, 'memories'));
+  assert.ok(!Object.hasOwn(architectureReviewer, 'web_search'));
 });
-test('generation detects stale canonical instructions and regenerates a parseable full body', t => {
+for (const role of ['qq_evaluator', 'qq_architecture_reviewer']) test(`generation detects stale ${role} canonical instructions and regenerates a parseable full body`, t => {
   const directory = fixture(t);
   assert.equal(command(directory, 'generate').status, 0);
-  const skill = path.join(directory, manifest.agents.qq_evaluator.skill);
+  const skill = path.join(directory, manifest.agents[role].skill);
   const addition = '\nLiteral triple quotes """, backslashes \\, and Unicode 评价 stay intact.\n';
   fs.appendFileSync(skill, addition);
   const stale = command(directory, 'check');
   assert.equal(stale.status, 1);
-  assert.match(stale.stderr, /qq_evaluator.*stale/);
+  assert.match(stale.stderr, new RegExp(`${role}.*stale`));
   assert.equal(command(directory, 'generate').status, 0);
   assert.equal(command(directory, 'check').status, 0);
-  assert.ok(parseToml(path.join(directory, manifest.agents.qq_evaluator.config)).developer_instructions.includes(addition.trim()));
+  assert.ok(parseToml(path.join(directory, manifest.agents[role].config)).developer_instructions.includes(addition.trim()));
 });
 test('checks reject invalid native TOML and forbidden permission/provider overrides', t => {
   const directory = fixture(t);

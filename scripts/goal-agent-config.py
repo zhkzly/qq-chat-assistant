@@ -14,8 +14,8 @@ COORDINATOR_SKILL = ".agents/skills/qq-goal-iteration/SKILL.md"
 ROLES = {
     "qq_implementer": {
         "skill": ".agents/skills/qq-assistant-implement/SKILL.md",
-        "description": "Implement a bounded QQ assistant product change; preserve frozen evaluation evidence and leave grading to an independent evaluator.",
-        "core": "You are the project implementation specialist. Follow the canonical implementation skill embedded below. Own only the coordinator-authorized product task; return actual checks and artifacts without self-grading conversational quality.",
+        "description": "Implement a goal-scoped complete causal QQ assistant change across affected components; preserve frozen evidence and leave grading to an independent evaluator.",
+        "core": "You are the project implementation specialist. Follow the canonical implementation skill embedded below. Own the coordinator-authorized causal change and coordinate file ownership across affected components; return actual checks and artifacts without self-grading conversational quality.",
     },
     "qq_evaluator": {
         "skill": ".agents/skills/qq-assistant-evaluate/SKILL.md",
@@ -28,6 +28,11 @@ ROLES = {
         "description": "Read preserved QQ assistant replay diagnostics and source to locate the first supported cause of an observed failure; propose a discriminating next check.",
         "core": "You are the project failure diagnostician. Follow the canonical diagnosis skill embedded below. Use shell only for bounded non-mutating reads; do not edit, execute new replay/provider calls, or decide acceptance. Read-only behavior is a role instruction, not an operating-system permission guarantee.",
         "features": {"shell_tool": True, "apps": False, "plugins": False, "memories": False, "request_permissions_tool": False},
+    },
+    "qq_architecture_reviewer": {
+        "skill": ".agents/skills/qq-assistant-architecture-review/SKILL.md",
+        "description": "Critique a QQ assistant design or candidate against the sustained user goal using project source and proportionate OpenViking or primary web research; do not grade outputs or decide acceptance.",
+        "core": "You are the project architecture reviewer. Follow the canonical architecture review skill embedded below. Inspect and research only the design question assigned by the coordinator, challenge both unnecessary rewrites and incomplete fixes, and return supported findings and discriminating checks. Research tools and permissions inherit from the parent. Read-only behavior is a role instruction, not an operating-system permission guarantee; do not mutate project or persistent memory state.",
     },
 }
 # These are inherited security/provider settings, never per-role authority.
@@ -191,7 +196,7 @@ def run(root, action):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("action", choices=("check", "generate"), help="Check canonical embeddings or regenerate the three native TOML files")
+    parser.add_argument("action", choices=("check", "generate"), help="Check canonical embeddings or regenerate the native TOML files")
     parser.add_argument("--root", type=Path, default=Path(__file__).resolve().parents[1], help="Selected project checkout (also supports isolated test copies)")
     args = parser.parse_args()
     try:
