@@ -68,7 +68,8 @@ test('local wording criticism carries the prior invitation and humor through gui
   store.appendTurn(scope,{role:'assistant',origin:'user',kind:'discussion',text:'这一轮先照你说的方向回应。',sourceIds:[priorId]});
   const request={text:criticism,taskId:quotePrior?'local-criticism-unauthorized-quote':'local-criticism-guidance'};
   if(quotePrior){
-   await assert.rejects(controller.assist(request),/拟表达内容未能对应本次明确请求或已选分享素材/);
+   await assert.rejects(controller.assist(request),error=>error.code==='draft_material_authorization_missing'&&error.missingAuthorizations?.some(item=>item.path==='draftPlan.quotes[0].authorization'));
+   assert.equal(store.getCompanion(scope).turns.find(turn=>turn.id===priorId.slice(8)).text,priorText,'missing-reference diagnostics cannot mutate the original private source');
    assert.equal(calls.length,1,'an old private quote without authorization cannot reach the composer');
    assert.equal(controller.usage.get(scope,request.taskId).status,'failed');
   }else{

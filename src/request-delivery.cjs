@@ -1,4 +1,5 @@
 'use strict';
+const {createHash}=require('node:crypto');
 
 // This is a fallible, request-local interpretation, never durable intent,
 // factual evidence, disclosure permission, or proof of semantic correctness.
@@ -15,6 +16,22 @@ function parseDeliveryBlocker(blocker,value,delivery) {
   !(value.kind==='question'&&typeof value.text==='string'&&value.text.includes(blocker.question)||value.draftPlan?.clarification===blocker.question)||value.draftPlan&&!value.draftPlan.clarification||value.lookup||value.suggestions?.length)
   throw failure('a blocker must identify the specific missing fact/permission and a private question in kind:question/text',delivery);
  return {kind:blocker.kind,missing:blocker.missing,question:blocker.question};
+}
+// Rendering uses the structured question as the single display value. The
+// unchanged shared validator still checks its complete blocker shape first.
+function normalizeBlockerQuestion(value,rawResponse,diagnostics,purpose) {
+ const blocker=purpose==='draft'?value?.deliveryBlocker:value?.requestDelivery?.blocker;
+ if(value?.kind!=='question'||typeof value.text!=='string'||!value.text.trim()||value.text.length>6000||!blocker||value.text===blocker.question)return {value};
+ const candidate={...value,text:blocker.question};
+ try{parseDeliveryBlocker(blocker,candidate,value.requestDelivery);}catch{return {value};}
+ const rendering={rawResponse:structuredClone(rawResponse),question:blocker.question,originalText:value.text};
+ if(diagnostics)diagnostics.blockerRendering=rendering;
+ return {value:candidate,explanation:{kind:'discussion',text:value.text}};
+}
+function blockerRenderingWitness(rendering) {
+ if(!rendering)return undefined;
+ const raw=typeof rendering.rawResponse==='string'?rendering.rawResponse:JSON.stringify(rendering.rawResponse);
+ return {question:rendering.question,rawResponseSha256:createHash('sha256').update(raw).digest('hex')};
 }
 function validateTerminalDelivery(value,delivery) {
  if(!editable(delivery))return;
@@ -57,4 +74,4 @@ function deliveryStatus(delivery,result,{restricted=false}={}) {
  if(restricted)return result.kind==='draft'&&result.suggestions?.some(item=>item.text?.trim())?'delivered':'unfulfilled';
  return editable(delivery)?'unfulfilled':'private_help';
 }
-module.exports={VERSION,editable,parseRequestDelivery,parseDeliveryBlocker,validateTerminalDelivery,deliveryStatus};
+module.exports={VERSION,editable,parseRequestDelivery,parseDeliveryBlocker,normalizeBlockerQuestion,blockerRenderingWitness,validateTerminalDelivery,deliveryStatus};

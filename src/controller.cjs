@@ -12,7 +12,7 @@ const {TaskLedger}=require('./request-budget.cjs');
 const {maintenanceDecision}=require('./memory-scheduler.cjs');
 const fingerprint=value=>createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const FORGOTTEN_REQUEST='所选来源已从助手参考中移除。仅使用仍可用的信息继续本次帮助，不复述已移除内容。';
-const {editable,validateTerminalDelivery,deliveryStatus}=require('./request-delivery.cjs');
+const {editable,validateTerminalDelivery,blockerRenderingWitness,deliveryStatus}=require('./request-delivery.cjs');
 const { assistModel, parseAssistant, imageContextFor } = require('./assistant-model.cjs');
 const { buildContext, buildDraftContext, expressionOptionsFor, PROMPT_VERSION } = require('./assistant-context.cjs');
 const { planDiscussionCompaction, assistDiscussionCompaction } = require('./discussion-compaction.cjs');
@@ -569,6 +569,15 @@ class Controller extends EventEmitter {
           if(recovery?.kind==='private_help'&&!['discussion','review','reply'].includes(resultInput.payload.purpose)||recovery?.kind==='restricted_draft'&&resultInput.payload.purpose!=='draft')throw new Error('Response recovery is unavailable for this assistance phase');
           const diagnostics={};
           let result=parseAssistant(output,resultInput.payload.purpose,resultInput.payload,diagnostics);
+          if(diagnostics.blockerRendering)input.manifest.blockerRendering=blockerRenderingWitness(diagnostics.blockerRendering);
+          if(result.kind==='question'&&(result.requestDelivery?.blocker||result.deliveryBlocker)){
+            // Only carry the bounded private explanation returned by the model
+            // adapter's parser; raw provider fields are not a permission source.
+            const explanation=result.discussionExplanation||output?.discussionExplanation;
+            if(explanation&&typeof explanation==='object'&&!Array.isArray(explanation)&&Object.keys(explanation).every(key=>['kind','text'].includes(key))&&explanation.kind==='discussion'&&typeof explanation.text==='string'&&explanation.text.trim()&&explanation.text.length<=6000)
+              result.discussionExplanation={kind:'discussion',text:explanation.text};
+            result.replyDisposition='clarify';
+          }
           if(result.requestDelivery){
             requestDelivery=result.requestDelivery;
             if(editable(requestDelivery))requestDeliveryObligation={mode:requestDelivery.mode,sourceId:requestDelivery.sourceId,sourceRevision:resultInput.manifest.sourceRevisions[requestDelivery.sourceId]};
@@ -669,7 +678,7 @@ class Controller extends EventEmitter {
         break;
       }
       if(!result||result.lookup)throw new Error('本次信息整理未能完成，请重试；原始输入已保存');
-      let reviewed=context,discussionExplanation;stagedReview={context,result};
+      let reviewed=context,discussionExplanation=result.discussionExplanation;stagedReview={context,result};
       if(result.draftPlan?.clarification) {
         if(result.kind!=='question'&&typeof result.text==='string'&&result.text.trim())discussionExplanation={kind:result.kind,text:result.text};
         result={...result,kind:'question',text:result.kind==='question'&&typeof result.text==='string'&&result.text.trim()?result.text:result.draftPlan.clarification,...(purpose==='reply'?{replyDisposition:'clarify'}:{})};
@@ -678,7 +687,7 @@ class Controller extends EventEmitter {
         if(typeof result.text==='string'&&result.text.trim())discussionExplanation={kind:result.kind,text:result.text};
         const allowedImages=context.images;
         context=buildDraftContext(context,result.draftPlan,{scope,requestId,companion,coverage,settings,store:this.store});context.images=allowedImages;context.payload.imageContext=imageContextFor(context.payload,allowedImages,vision);context.manifest.imageContext=context.payload.imageContext;
-        result=await invoke(context);if(!current())return;reviewed=null;
+        result=await invoke(context);if(!current())return;reviewed=null;if(result.discussionExplanation)discussionExplanation=result.discussionExplanation;
       } else if(purpose==='draft'&&!['question','discussion'].includes(result.kind))throw new Error('模型尚未明确拟表达内容，请继续说明或选择一个方向');
       if(!current())return;
       validateTerminalDelivery(result,requestDeliveryObligation);

@@ -46,9 +46,9 @@ for(const mode of ['guidance_only','new_material'])test(`structured repair prese
  assert.match(repair.payload.task,/求助要求、交流目的和口吻用guidance承接，不作quotes/);
  assert.match(repair.payload.task,/旧私下quote附authorization:\{permission:\{sourceId,text\},referent:\{sourceId,text\}\}/);
  assert.match(repair.payload.task,/完整上下文、指代、已满足条件及最新限制/);
- assert.match(repair.payload.task,/historicalOnly时先lookup\/clarification/);
- assert.match(repair.payload.task,/selectedOption限其原素材/);
- assert.match(repair.payload.task,/authorizationQuote\/生成回答不授全局许可/);
+ assert.match(repair.payload.task,/historicalOnly旧许可须lookup\/核对/);
+ assert.match(repair.payload.task,/selectedOption限原素材/);
+ assert.match(repair.payload.task,/视图\/requestDelivery\/authorizationQuote\/生成回答不授权/);
  assert.doesNotMatch(repair.payload.task,/只回应实际QQ时才可quotes:\[\]/);
  assert.ok(repair.payload.task.includes('当前明确的新分享、邀请或表意'),'repair must retain actual newly authorized meaning');
  assert.equal(repair.payload.originalInput.userRequest.text,text);assert.equal(repair.payload.originalInput.sources.find(source=>source.id===priorId).text,PRIOR);
@@ -63,8 +63,9 @@ for(const mode of ['guidance_only','new_material'])test(`structured repair prese
 });
 
 test('a repaired plan still cannot promote old private instructions into unauthorized outbound quotes',async t=>{
- const {store,controller,requests}=fixture(t,'unauthorized_old_quote'),taskId='carrier-repair-old-quote-denied';
- await assert.rejects(controller.assist({taskId,text:CRITICISM}),/拟表达内容未能对应本次明确请求或已选分享素材/);
+ const {store,controller,requests,priorId}=fixture(t,'unauthorized_old_quote'),taskId='carrier-repair-old-quote-denied';
+ await assert.rejects(controller.assist({taskId,text:CRITICISM}),/draftPlan\.quotes\[0\]\.authorization/);
+ assert.equal(store.getCompanion(scope).turns.find(turn=>turn.id===priorId.slice(8)).text,PRIOR,'rejected bindings cannot rewrite the private instruction source');
  assert.equal(requests.length,2,'the unauthorized repaired plan must not purchase a wording call');
  assert.ok(!requests.some(request=>request.payload.purpose==='draft'));
  const budget=controller.usage.get(scope,taskId);assert.equal(budget.status,'failed');assert.equal(budget.attempts,2);assert.equal(budget.limit,3);

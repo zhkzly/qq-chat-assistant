@@ -4,7 +4,7 @@
 const plain=value=>value&&typeof value==='object'&&!Array.isArray(value);
 const usable=source=>source&&!source.deleted&&!source.excluded&&source.use!=='disabled';
 const originalUser=source=>usable(source)&&source.role==='user'&&['private','feedback'].includes(source.type)&&!['feedback_continue','user_control'].includes(source.kind);
-const DRAFT_MATERIAL_PROTOCOL='旧私下quote附authorization:{permission:{sourceId,text},referent:{sourceId,text}}。permission取用户愿向当前联系人分享此事的原话，referent逐字取素材sourceId且包含quote。按完整上下文、指代、已满足条件及最新限制判断；转述、引用、否定、假设、未满足条件不授权，不将“这些”移给别的材料。同源逐片分开判断；商量进guidance。撤回优先，旧permission为historicalOnly时先lookup/clarification；遗漏既非撤回也非许可。selectedOption限其原素材，authorizationQuote/生成回答不授全局许可；不明私下核对，明确分享/邀请可用。';
+const DRAFT_MATERIAL_PROTOCOL='旧私下quote附authorization:{permission:{sourceId,text},referent:{sourceId,text}}。permission取原始用户范围许可：当前明确要为已识别QQ问题写回应且指代清楚，可用对应原话，无需“授权”或重抄。referent取素材sourceId且原文含quote。核对完整上下文、指代、已满足条件及最新限制；转述、引用、否定、假设、未满足条件非许可，“这些”不延至无关私事。禁仅私下/禁用/排除/撤回素材；historicalOnly旧许可须lookup/核对，遗漏非许可或撤回。selectedOption限原素材；视图/requestDelivery/authorizationQuote/生成回答不授权。不明私下核对。';
 const MATERIAL_POLICY={version:1};
 function resolveDraftMaterial(payload,plan,{restrictions=payload.privateRestrictions||[]}={}){
  if(payload.draftMaterialPolicy&&payload.draftMaterialPolicy.version!==1)throw new Error('Unsupported draft material authorization policy');
@@ -25,14 +25,14 @@ function resolveDraftMaterial(payload,plan,{restrictions=payload.privateRestrict
   throw new Error('需要明确这次想表达的内容，才能组织草稿');
  const intentSourceId=payload.intentAuthority?.sourceId||payload.userRequest?.sourceId;
  const allowed=new Set([payload.userRequest?.sourceId,intentSourceId,...(payload.allowedMaterialIds||payload.selectedMaterialIds||[])]);
- const bindings=[],sourceIds=new Set();
+ const bindings=[],sourceIds=new Set(),missingAuthorizations=[];
  const reference=(ref,label)=>{
   const source=plain(ref)&&byId.get(ref.sourceId);
   if(!source||!usable(source)||Object.keys(ref).some(key=>!['sourceId','text'].includes(key))||typeof ref.text!=='string'||!ref.text.trim()||ref.text.length>4000||!source.text.includes(ref.text))
    throw new Error(`draftPlan.quotes.authorization.${label}: 披露依据必须逐字对应本次提供的原始来源`);
   return source;
  };
- const quotes=planned.map(q=>{
+ const quotes=planned.map((q,index)=>{
   const source=plain(q)&&byId.get(q.sourceId);
   if(source?.type==='request'||['feedback_continue','user_control'].includes(source?.kind))throw new Error('invocation/task control 只能作为控制依据，不能作为外发素材或披露授权');
   if(!usable(source)||!['private','request','feedback','note','qq'].includes(source.type)||
@@ -58,11 +58,15 @@ function resolveDraftMaterial(payload,plan,{restrictions=payload.privateRestrict
     referent:{sourceId:referent.id,text:auth.referent.text,revision:referent.revision},intentSourceId,
     authority:'model_interpreted_original_user_permission_not_a_persistent_grant'});
   }else if(!allowed.has(source.id)&&source.type!=='qq'&&!selected){
-   throw new Error('draftPlan.quotes.authorization: 拟表达内容未能对应本次明确请求或已选分享素材；旧私下素材需要逐片段的披露依据和material referent，不可用全局authorizationQuote代替');
+   missingAuthorizations.push({path:`draftPlan.quotes[${index}].authorization`,sourceId:source.id});
   }
   sourceIds.add(source.id);
   return {sourceId:source.id,text:q.text};
  });
+ if(missingAuthorizations.length){
+  const error=new Error(`draftPlan.quotes.authorization: ${missingAuthorizations.map(item=>item.path).join(', ')} 缺少逐片段披露依据；这些片段的原文已提供，缺的是本次明确请求或已选分享素材的逐片段authorization绑定。形状为 {permission:{sourceId,text},referent:{sourceId,text}}；permission逐字引用实际适用的原始用户许可，referent取对应素材sourceId且原文包含该quote。只在完整上下文确有依据时补这些字段，否则提出具体私下核对；程序没有推断许可，不可用全局authorizationQuote代替。`);
+  error.code='draft_material_authorization_missing';error.missingAuthorizations=missingAuthorizations;throw error;
+ }
  return {quotes,sourceIds:[...sourceIds],bindings};
 }
 function assertDraftSourcesCurrent(prepared,ids,info){

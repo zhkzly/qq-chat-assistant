@@ -9,7 +9,7 @@ const { responseEnvelope } = require('./model-response-format.cjs');
 const { HELP_BEHAVIOR, helpSystemForPayload, expectsReplyCandidates } = require('./help-behavior.cjs');
 const {resolveDraftMaterial,DRAFT_MATERIAL_PROTOCOL}=require('./context/draft-material.cjs');
 const {selectEditingReference}=require('./context/editing-reference.cjs');
-const {parseRequestDelivery,parseDeliveryBlocker,validateTerminalDelivery,editable}=require('./request-delivery.cjs');
+const {parseRequestDelivery,parseDeliveryBlocker,normalizeBlockerQuestion,blockerRenderingWitness,validateTerminalDelivery,editable}=require('./request-delivery.cjs');
 const RELATIONSHIP_PROTOCOL = `relationshipPatch is optional and contains only claims (at most 24), events (at most 12), and retire (at most 24), each an array. An empty patch is {"claims":[],"events":[],"retire":[]}.
 claims: {id?,expectedVersion?,subject,aspect,text,assertionKind,epistemicStatus,lifecycle?,validFrom?,validUntil?,context?,sourceIds,topicKeys?}. subject=${SUBJECTS.join('|')}; aspect=${ASPECTS.join('|')}; assertionKind=${ASSERTIONS.join('|')}; epistemicStatus=${EPISTEMIC.join('|')}; lifecycle=${LIFECYCLES.join('|')} (default active). Inferred claims must remain tentative, contested, or undetermined, never supported. observed requires actual QQ evidence; a private report of an event uses reported. stated means someone said it, not independent proof; contact+stated requires an actual incoming QQ source and only that contact evidence determines its date, not a user's later question. A user's interpretation or retelling of her words must be reported/inferred, never her stated feeling. Unknowns are not personality traits. stated_preference does not authorize changing user preferences.
 events: {id?,expectedVersion?,activityKey,eventKind,actor,text,occurredAt?,sourceIds,topicKeys?}. eventKind=${EVENT_KINDS.join('|')}; actor=self|contact|both|unknown. activityKey is a short, stable label for the same activity (up to 120 characters), not a relationship stage; use a new label for a genuinely new activity. Distinguish invitation, acceptance, reschedule, cancellation and occurred. A copied draft is none of these actual actions. User-reported activities stay reported; do not invent actual QQ messages.
@@ -366,10 +366,12 @@ function validateForegroundState(patch, payload) {
     throw new Error('statePatch.unknowns: expected at most 12 bounded strings');
 }
 function parseAssistant(value, purpose, input, diagnostics) {
-  const data = typeof value === 'string' ? parseModelJson(value) : value;
+  const normalized=normalizeBlockerQuestion(typeof value==='string'?parseModelJson(value):value,value,diagnostics,purpose);
+  const data=normalized.value;
   const payload = input?.payload || input;
   const delivery=purpose==='draft'?undefined:parseRequestDelivery(data,payload);
   const attach=result=>{
+    if(normalized.explanation)result.discussionExplanation=normalized.explanation;
     if(purpose==='draft'&&payload?.requestDeliveryObligation){
       if(data.deliveryBlocker!==undefined)result.deliveryBlocker=parseDeliveryBlocker(data.deliveryBlocker,data,payload.requestDeliveryObligation);
       validateTerminalDelivery(result,payload.requestDeliveryObligation);
@@ -453,6 +455,7 @@ async function assistModel(settings, context, signal, fetchImpl = fetch) {
     const diagnostics = {};
     const result = parseAssistant(content, input.purpose, input, diagnostics);
     if (diagnostics.auxiliaryErrors?.length && context.manifest) context.manifest.auxiliaryErrors = diagnostics.auxiliaryErrors;
+    if(diagnostics.blockerRendering&&context.manifest)context.manifest.blockerRendering=blockerRenderingWitness(diagnostics.blockerRendering);
     if (trace) trace.reported = result.methodIds || null;
     return result;
   };

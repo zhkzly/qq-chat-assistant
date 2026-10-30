@@ -1,5 +1,5 @@
 'use strict';
-const VERSION='conversation-work-2026-10-30.1';
+const VERSION='conversation-work-2026-10-30.2';
 const unique=values=>[...new Set(values.filter(value=>typeof value==='string'))];
 function buildConversationWork(payload={}){
  const sources=new Map((payload.sources||[]).map(source=>[source.id,source]));
@@ -16,7 +16,7 @@ function buildConversationWork(payload={}){
  const current=active?{topicId:topic.id,version:topic.version,meaningFrom:'topicContext.active',interpretation:topic.interpretationStatus||'tentative',sourceIds:available(topic.sourceIds)}:null;
  const pending=available(payload.pendingPrivateReview?.sourceIds).filter(id=>{const source=sources.get(id);return source.role==='user'&&['private','feedback'].includes(source.type);});
  const request={sourceId,purpose:invocation.requestedPurpose||payload.purpose,origin:invocation.origin||'user',trigger:invocation.trigger||'private_request',meaningFromSource:sourceId,
-  authority:payload.generationOrigin==='qq_observation'?'current_request_not_actual_qq':'current_user_meaning_not_outbound_authorization'};
+  authority:payload.generationOrigin==='qq_observation'?'invocation_pointer_not_qq_or_permission':'current_source_pointer_not_material_or_permission'};
  return {version:VERSION,authority:'derived_work_view_not_factual_evidence',scope:'this_relationship',request,
   goal:{available:!!payload.goal,meaningFrom:'goal',authority:'user_owned_long_term_direction_not_wording'},current,
   focus:{sourceIds:focus,positionFrom:'taskContext.latestActual'},pendingPrivateIntent:{sourceIds:pending},

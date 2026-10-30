@@ -2,7 +2,7 @@
 
 // A read view over already scoped, selected evidence. This does not infer
 // interest, novelty, permission, or a new permanent topic from a message.
-const VERSION='conversation-materials-2026-10-16.1';
+const VERSION='conversation-materials-2026-10-30.2';
 function buildMaterialView({sources=[],taskContext={},coreMemory={},relationshipContext={},allowedMaterialIds=[],work={},asOf,maxItems=10,recentHours=72}={}){
  const usable=sources.filter(source=>source&&!source.deleted&&!source.excluded&&source.use!=='disabled');
  const byId=new Map(usable.map(source=>[source.id,source])),items=[],seen=new Set();
@@ -57,7 +57,7 @@ function buildMaterialView({sources=[],taskContext={},coreMemory={},relationship
    ...(historical?{currentStatus:'unknown'}:{}),...shortDetail(source)});
  }
  const intent=byId.get(work.request?.sourceId);
- return {version:VERSION,items,...(intent?{currentIntent:{sourceId:intent.id,trigger:work.request.trigger,authority:'user_meaning_not_shareable_material'}}:{}),authority:'evidence_navigation_not_a_script',
-  instruction:'从这些实际内容里选择这次可聊的一点。核对已表达内容、主体、日期、后续变更和本轮控制；未知不是必须逐项提问的槽位。原文以sources为准，材料类别不代表她的心理、从未聊过或新增分享许可。'};
+ return {version:VERSION,items,...(intent?{currentIntent:{sourceId:intent.id,trigger:work.request.trigger,authority:'current_source_pointer_not_material_or_permission'}}:{}),authority:'evidence_navigation_not_a_script',
+  instruction:'从实际原话选本轮可聊一点，核对主体、日期、已表达内容和后续限制；未知不逐项追问。此视图的类别/指针非素材或许可；sources原始用户话可含事实、任务和范围明确的分享意思，须结合当前QQ指代、否定、条件判断。视图和requestDelivery本身不授分享许可。'};
 }
 module.exports={VERSION,buildMaterialView};
