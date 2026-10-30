@@ -8,7 +8,7 @@ const { parseModelJson, readModelOutput } = require('./model-json.cjs');
 const { responseEnvelope } = require('./model-response-format.cjs');
 const { HELP_BEHAVIOR, helpSystemForPayload, expectsReplyCandidates } = require('./help-behavior.cjs');
 const {resolveDraftMaterial,DRAFT_MATERIAL_PROTOCOL}=require('./context/draft-material.cjs');
-const {selectEditingReference}=require('./context/editing-reference.cjs');
+const {selectEditingReference,editingReferenceBinding}=require('./context/editing-reference.cjs');
 const {parseRequestDelivery,parseDeliveryBlocker,normalizeBlockerQuestion,blockerRenderingWitness,validateTerminalDelivery,editable}=require('./request-delivery.cjs');
 const RELATIONSHIP_PROTOCOL = `relationshipPatch is optional and contains only claims (at most 24), events (at most 12), and retire (at most 24), each an array. An empty patch is {"claims":[],"events":[],"retire":[]}.
 claims: {id?,expectedVersion?,subject,aspect,text,assertionKind,epistemicStatus,lifecycle?,validFrom?,validUntil?,context?,sourceIds,topicKeys?}. subject=${SUBJECTS.join('|')}; aspect=${ASPECTS.join('|')}; assertionKind=${ASSERTIONS.join('|')}; epistemicStatus=${EPISTEMIC.join('|')}; lifecycle=${LIFECYCLES.join('|')} (default active). Inferred claims must remain tentative, contested, or undetermined, never supported. observed requires actual QQ evidence; a private report of an event uses reported. stated means someone said it, not independent proof; contact+stated requires an actual incoming QQ source and only that contact evidence determines its date, not a user's later question. A user's interpretation or retelling of her words must be reported/inferred, never her stated feeling. Unknowns are not personality traits. stated_preference does not authorize changing user preferences.
@@ -312,8 +312,8 @@ function parseAssistantStrict(value, purpose, input) {
     if (typeof plan.clarification === 'string' && plan.clarification.trim() && plan.clarification.length <= 1000) {
       return { ...extras, ...readableStep, draftPlan: { clarification: plan.clarification } };
     }
-    const editingReference=selectEditingReference(payload,plan.editingReference);
-    const editing=editingReference?{editingReference}:{};
+    const editingReference=selectEditingReference(input,plan.editingReference,plan.editingReferenceBinding);
+    const editing=editingReference?{editingReference,...(editingReferenceBinding(input)?{editingReferenceBinding:editingReferenceBinding(input)}:{})}:{};
     const taskUse=taskUseFor(plan,payload,extras.topicPatch);
     const guidance = parseDraftGuidance(plan.guidance, payload,{taskUse});
     requireDraftControlGuidance(guidance,payload);
@@ -451,9 +451,9 @@ async function assistModel(settings, context, signal, fetchImpl = fetch) {
   if (context.manifest) context.manifest.outputMetadata = output.metadata;
   settings.requestBudget?.recordUsage(json.usage);
   if (typeof responseContent !== 'string') throw new Error('助手模型未返回文字');
-  const parsed = (content, trace = context.manifest?.methodTrace, input = context.payload) => {
+  const parsed = (content, trace = context.manifest?.methodTrace, input = context) => {
     const diagnostics = {};
-    const result = parseAssistant(content, input.purpose, input, diagnostics);
+    const result = parseAssistant(content, (input.payload||input).purpose, input, diagnostics);
     if (diagnostics.auxiliaryErrors?.length && context.manifest) context.manifest.auxiliaryErrors = diagnostics.auxiliaryErrors;
     if(diagnostics.blockerRendering&&context.manifest)context.manifest.blockerRendering=blockerRenderingWitness(diagnostics.blockerRendering);
     if (trace) trace.reported = result.methodIds || null;
@@ -532,7 +532,7 @@ async function assistModel(settings, context, signal, fetchImpl = fetch) {
     if(repairedOutput.metadata.finishReason === 'length'){const error=new Error('恢复输出达到上限，未采用可能截断的回答；输入已保留');error.code='model_output_truncated';throw error;}
     if(typeof content!=='string')throw new Error('助手格式修复未返回文字');
     try {
-      const result = plainRecovery ? parsePlainRecovery(content,repairedInput.payload) : parsed(content,trace,repairedInput.payload);
+      const result = plainRecovery ? parsePlainRecovery(content,repairedInput.payload) : parsed(content,trace,repairedInput);
       if (plainRecovery) {
         const intentId = repairedInput.payload.intentAuthority?.sourceId || repairedInput.payload.userRequest?.sourceId;
         const source = repairedInput.payload.sources?.find(item=>item.id===intentId);

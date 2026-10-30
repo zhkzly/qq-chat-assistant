@@ -568,7 +568,7 @@ class Controller extends EventEmitter {
           const recoveryValue=resultInput.manifest?.responseRecovery||input.manifest?.responseRecovery,recovery=recoveryValue&&normalizeResponseRecovery(recoveryValue);
           if(recovery?.kind==='private_help'&&!['discussion','review','reply'].includes(resultInput.payload.purpose)||recovery?.kind==='restricted_draft'&&resultInput.payload.purpose!=='draft')throw new Error('Response recovery is unavailable for this assistance phase');
           const diagnostics={};
-          let result=parseAssistant(output,resultInput.payload.purpose,resultInput.payload,diagnostics);
+          let result=parseAssistant(output,resultInput.payload.purpose,resultInput,diagnostics);
           if(diagnostics.blockerRendering)input.manifest.blockerRendering=blockerRenderingWitness(diagnostics.blockerRendering);
           if(result.kind==='question'&&(result.requestDelivery?.blocker||result.deliveryBlocker)){
             // Only carry the bounded private explanation returned by the model

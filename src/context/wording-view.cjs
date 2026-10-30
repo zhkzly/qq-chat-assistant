@@ -86,6 +86,7 @@ function buildDraftContext(prepared, plan, info) {
   const safeSources=uniqueSources([...payload.sources,...referencedSources]),allSafeSources=uniqueSources([...qq,...referencedSources]);
   const context=finish(payload,safeSources,info,allSafeSources,prepared.manifest.byteBudget,budget);
   if(editing)context.manifest.inputArtifactRefs=[editing.dependency];
+  if(material.ignoredAuthorizations?.length)context.manifest.ignoredMaterialAuthorizations=structuredClone(material.ignoredAuthorizations);
   context.manifest.disclosureBindings=material.bindings.map(binding=>({...binding,scope:{...info.scope}}));
   context.manifest.taskBinding={use:plan.taskUse||'continue',topicId:prepared.payload.topicContext?.active?.id||null,topicVersion:prepared.payload.topicContext?.active?.version||null,controlRefs:controlRefs.filter(ref=>controlIds.includes(ref.sourceId))};
   context.manifest.wordingControlEvidence={sourceRefs:projectedControls.sourceRefs,preferenceRefs:projectedControls.preferenceRefs};

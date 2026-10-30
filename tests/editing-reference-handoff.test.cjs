@@ -19,7 +19,7 @@ function fixture(t,{select=true,intercept=async()=>{}}={}){
   }
   const request=p.sources.find(source=>source.id===p.intentAuthority.sourceId)?.text||p.userRequest.text;
   const chosen=select&&/改|原句/.test(request)&&!/换话题|新问题|先不改/.test(request)?p.editingReferences?.[0]:undefined;
-  return {kind:'discussion',text:'根据本轮意思处理表达。',draftPlan:withCurrentDraftControls({quotes:[],intent:'reply',...(chosen?{editingReference:chosen.artifactRef}:{})},p,
+  return {kind:'discussion',text:'根据本轮意思处理表达。',draftPlan:withCurrentDraftControls({quotes:[],intent:'reply',...(chosen?{editingReference:{choice:chosen.choice}}:{})},p,
    {objective:'接住当前QQ分享',allowedApproach:chosen?'从选定原句去掉开头的听起来或原来，保持其余有依据内容':'自然接住当前QQ分享'})};
  }});
  controller.scope={...scope};controller.ingest(scope,[raw('58001',false,{elements:[{textElement:{content:'这盆薄荷终于冒新叶了。'}}]})]);
@@ -90,12 +90,12 @@ test('an explicit bound leaf can be offered during feedback without forcing edit
 test('parser and result schema preserve only an offered handle and program-owned text',t=>{
  const {store}=fixture(t),prior=store.appendTurn(scope,{role:'assistant',kind:'draft',text:'Private explanation.',suggestions:[{style:'自然',text:'听起来薄荷长新叶了。'}]});
  const args=contextFor(store,prior,{currentCandidateRef:{turnId:prior.id,suggestionIndex:0,artifactRef:prior.suggestions[0].artifactRef}}),prepared=buildContext(args),offered=prepared.payload.editingReferences[0];
- const plan=withCurrentDraftControls({quotes:[],intent:'reply',editingReference:offered.artifactRef},prepared.payload);
- const parsed=parseAssistant({kind:'discussion',text:'改这句。',draftPlan:plan},'discussion',prepared.payload);assert.deepEqual(parsed.draftPlan.editingReference,offered.artifactRef);
+ const plan=withCurrentDraftControls({quotes:[],intent:'reply',editingReference:{choice:offered.choice}},prepared.payload);
+ const parsed=parseAssistant({kind:'discussion',text:'改这句。',draftPlan:plan},'discussion',prepared);assert.deepEqual(parsed.draftPlan.editingReference,prior.suggestions[0].artifactRef);
  const schema=prepareAssistantRequest({model:'claude-sonnet-4-6'},prepared.payload).request.tools[0].function.parameters;
- assert.deepEqual(schema.properties.draftPlan.properties.editingReference.required,['artifactId','version']);
- for(const invalid of [{...offered.artifactRef,text:'MODEL_REPLACEMENT'},prior.artifactRef,{...offered.artifactRef,version:99}])
-  assert.throws(()=>parseAssistant({kind:'discussion',text:'改这句。',draftPlan:{...plan,editingReference:invalid}},'discussion',prepared.payload),/editingReference/);
+ assert.equal(schema.properties.draftPlan.properties.editingReference.properties.choice.type,'string');assert.equal(schema.properties.draftPlan.properties.editingReference.oneOf,undefined);
+ for(const invalid of [{...prior.suggestions[0].artifactRef,text:'MODEL_REPLACEMENT'},prior.artifactRef,{...prior.suggestions[0].artifactRef,version:99},{choice:'e99'}])
+  assert.throws(()=>parseAssistant({kind:'discussion',text:'改这句。',draftPlan:{...plan,editingReference:invalid}},'discussion',prepared),/editingReference/);
 });
 test('editing reference never becomes fact or permission and current corrections and withdrawals still win',t=>{
  const {store}=fixture(t),u=store.appendTurn(scope,{role:'user',kind:'discussion',text:'私下说，我昨天养过薄荷。此事不分享。'});

@@ -25,7 +25,7 @@ function resolveDraftMaterial(payload,plan,{restrictions=payload.privateRestrict
   throw new Error('需要明确这次想表达的内容，才能组织草稿');
  const intentSourceId=payload.intentAuthority?.sourceId||payload.userRequest?.sourceId;
  const allowed=new Set([payload.userRequest?.sourceId,intentSourceId,...(payload.allowedMaterialIds||payload.selectedMaterialIds||[])]);
- const bindings=[],sourceIds=new Set(),missingAuthorizations=[];
+ const bindings=[],sourceIds=new Set(),missingAuthorizations=[],ignoredAuthorizations=[];
  const reference=(ref,label)=>{
   const source=plain(ref)&&byId.get(ref.sourceId);
   if(!source||!usable(source)||Object.keys(ref).some(key=>!['sourceId','text'].includes(key))||typeof ref.text!=='string'||!ref.text.trim()||ref.text.length>4000||!source.text.includes(ref.text))
@@ -42,7 +42,14 @@ function resolveDraftMaterial(payload,plan,{restrictions=payload.privateRestrict
    throw new Error('拟表达内容未能对应已选分享素材：这段内容仍标记为仅供私下讨论，请先明确更改它的分享范围');
   const selected=!!payload.selectedOption&&option?.quotes.some(item=>item.sourceId===q.sourceId&&item.text===q.text&&item.revision===source.revision);
   if(payload.selectedOption&&option&&!selected)throw new Error('已选表达的原始素材或版本已变化，请重新选择');
-  if(q.authorization!==undefined){
+  // Program-owned authority is already sufficient for this exact fragment.
+  // Redundant model metadata cannot narrow it, add dependencies, or redirect
+  // the grant to another quote. Hard source/restriction/selection checks above
+  // remain mandatory before reaching this branch.
+  const programAuthorized=allowed.has(source.id)||source.type==='qq'||selected;
+  if(programAuthorized){
+   if(q.authorization!==undefined)ignoredAuthorizations.push({path:`draftPlan.quotes[${index}].authorization`,sourceId:source.id,authority:'program_authorized_material'});
+  }else if(q.authorization!==undefined){
    const auth=q.authorization;
    if(!plain(auth)||Object.keys(auth).some(key=>!['permission','referent'].includes(key)))throw new Error('draftPlan.quotes.authorization: use permission and referent original references');
    const permission=reference(auth.permission,'permission'),referent=reference(auth.referent,'referent');
@@ -57,7 +64,7 @@ function resolveDraftMaterial(payload,plan,{restrictions=payload.privateRestrict
     permission:{sourceId:permission.id,text:auth.permission.text,revision:permission.revision},
     referent:{sourceId:referent.id,text:auth.referent.text,revision:referent.revision},intentSourceId,
     authority:'model_interpreted_original_user_permission_not_a_persistent_grant'});
-  }else if(!allowed.has(source.id)&&source.type!=='qq'&&!selected){
+  }else{
    missingAuthorizations.push({path:`draftPlan.quotes[${index}].authorization`,sourceId:source.id});
   }
   sourceIds.add(source.id);
@@ -67,7 +74,7 @@ function resolveDraftMaterial(payload,plan,{restrictions=payload.privateRestrict
   const error=new Error(`draftPlan.quotes.authorization: ${missingAuthorizations.map(item=>item.path).join(', ')} 缺少逐片段披露依据；这些片段的原文已提供，缺的是本次明确请求或已选分享素材的逐片段authorization绑定。形状为 {permission:{sourceId,text},referent:{sourceId,text}}；permission逐字引用实际适用的原始用户许可，referent取对应素材sourceId且原文包含该quote。只在完整上下文确有依据时补这些字段，否则提出具体私下核对；程序没有推断许可，不可用全局authorizationQuote代替。`);
   error.code='draft_material_authorization_missing';error.missingAuthorizations=missingAuthorizations;throw error;
  }
- return {quotes,sourceIds:[...sourceIds],bindings};
+ return {quotes,sourceIds:[...sourceIds],bindings,...(ignoredAuthorizations.length?{ignoredAuthorizations}:{})};
 }
 function assertDraftSourcesCurrent(prepared,ids,info){
  const current=info.availableSources||info.store?.memorySources(info.scope);

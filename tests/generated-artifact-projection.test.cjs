@@ -19,7 +19,7 @@ function fixture(t){
   const p=input.payload;calls.push(structuredClone(p));
   if(p.purpose==='draft')return {kind:'draft',text:'独立的私下解释。',suggestions:p.editingReference?[{style:'自然',text:p.editingReference.text.replace('旧句','改句')}]:[{style:'自然',text:`旧句 ${SECRET}`},{style:'另外',text:SIBLING}]};
   const selected=/改/.test(p.userRequest.text)?p.editingReferences?.[0]:null;
-  return {kind:'discussion',text:'独立的规划说明。',draftPlan:withCurrentDraftControls({quotes:[],intent:'reply',...(selected?{editingReference:selected.artifactRef}:{})},p)};
+  return {kind:'discussion',text:'独立的规划说明。',draftPlan:withCurrentDraftControls({quotes:[],intent:'reply',...(selected?{editingReference:{choice:selected.choice}}:{})},p)};
  }});controller.scope={...scope};controller.ingest(scope,[raw('59001',false,{elements:[{textElement:{content:'薄荷又长新叶了。'}}]})]);
  t.after(()=>{controller.close();store.close();});return {store,controller,calls};
 }

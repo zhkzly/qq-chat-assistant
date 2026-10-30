@@ -16,7 +16,7 @@ const {boundedSource}=require('./source-delivery.cjs');
 const {projectDiscussionReads}=require('./discussion-view.cjs');
 const {bytes}=require('./shared.cjs');
 const {MATERIAL_POLICY}=require('./draft-material.cjs');
-const {offerEditingReferences}=require('./editing-reference.cjs');
+const {offerEditingReferences,editingReferenceView,bindEditingReferenceChoices}=require('./editing-reference.cjs');
 
 function reconcilePlanningViews(payload){
   const sources=new Map(payload.sources.map(source=>[source.id,source])),available=new Set(sources.keys());
@@ -233,7 +233,7 @@ function buildContext(options) {
   const coreInventory=[...(options.coreMemory||options.store?._memoryRecords?.(scope)||[]),...(memoryResult?.items||[]),...memoryIndex,...(relationshipContext?.claims||[])];
   const {coreItems,optionalRawLimit,optionalRawIds,optionalRetrieved,recentContextPlan,recentPriorityIds,recentInitialAdditionalBytes}=selectPlanningContext({options:{...options,asOf,viewerTimeZone},snapshot,candidates,view:{payload,state,methodSelection,restrictions},budget,coreInventory,projectPlanningViews,reconcilePlanningViews,compactPlanningViews});
   const editingReferences=offerEditingReferences({payload,companion,sourceTurnIds,currentCandidateRef:implicitAnchor?currentCandidateRef:undefined,store:options.store,scope});
-  if(editingReferences.length){payload.editingReferences=editingReferences;if(!fits(payload)){delete payload.editingReferences;if(editingReferences.some(item=>item.selection.startsWith('explicit_')))throw new Error('选定改稿原句超过上下文预算；没有静默截断');}}
+  if(editingReferences.length){payload.editingReferences=editingReferenceView(editingReferences);if(!fits(payload)){delete payload.editingReferences;if(editingReferences.some(item=>item.selection.startsWith('explicit_')))throw new Error('选定改稿原句超过上下文预算；没有静默截断');}}
   const currentRequest=payload.userRequest,position=payload.taskContext;delete payload.userRequest;delete payload.taskContext;
   payload.taskContext=position;payload.userRequest=currentRequest;
   const context=finish(payload, payload.sources, { scope, requestId, companion, coverage }, all, byteBudget, budget);
@@ -242,7 +242,7 @@ function buildContext(options) {
     materialRefs:(payload.materialView?.items||[]).map(({kind,sourceIds})=>({kind,sourceIds})),projection:payload.materialView?payload.materialView.projection||'full':'omitted_for_required_evidence'};
   if(implicitAnchor){const delivered=payload.privateCandidates?.find(item=>item.selection==='implicit_discussion_anchor'&&item.turnId===implicitAnchor.turnId);
     context.manifest.implicitDiscussionAnchor={turnId:implicitAnchor.turnId,artifactRef:implicitAnchor.artifactRef,field:implicitAnchor.field,...(implicitAnchor.index!==undefined?{index:implicitAnchor.index}:{}),availability:delivered?.availability||'omitted_for_budget'};}
-  if(payload.editingReferences)context.manifest.inputArtifactRefs=payload.editingReferences.map(({text,selection,authority,...dependency})=>dependency);
+  if(payload.editingReferences)bindEditingReferenceChoices(context,editingReferences);
   context.essentialSourceIds=[...essentialIds];
   Object.defineProperty(context, 'fullAvailableSources', { value: all });
   Object.defineProperty(context,'rebuildForRequest',{value:measure=>{

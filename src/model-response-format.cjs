@@ -9,7 +9,7 @@ const reference=object({text:string,sourceIds:strings},['text','sourceIds']);
 const materialReference=object({sourceId:string,text:string},['sourceId','text']);
 const quote=object({sourceId:string,text:string,authorization:object({permission:materialReference,referent:materialReference},['permission','referent'])},['sourceId','text']);
 const guidance=object({objective:reference,allowedApproach:reference,avoidances:array(reference),currentStep:reference});
-const draftPlan=object({editingReference:object({artifactId:string,version:integer},['artifactId','version']),quotes:array(quote),intent:choice(['reply']),authorizationQuote:string,style:choice(['natural','short','casual']),language:string,
+const draftPlan=object({editingReference:object({choice:{...string,description:'Choose the offered short handle, such as e1. Do not reconstruct artifact IDs or versions.'},artifactId:string,version:integer}),quotes:array(quote),intent:choice(['reply']),authorizationQuote:string,style:choice(['natural','short','casual']),language:string,
  askFollowup:boolean,useEmoji:boolean,taskUse:choice(['continue','different','uncertain']),clarification:string,option:object({turnId:string,index:integer},['turnId','index']),guidance});
 const stateItem=object({text:string,sourceIds:strings,status:choice(['open','resolved','cancelled'])},['text','sourceIds']);
 const statePatch=object({focus:string,items:array(reference),openThreads:array(stateItem),unknowns:strings});
