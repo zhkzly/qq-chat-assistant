@@ -29,9 +29,13 @@ const experienceProposal=object({text:string,applicability:string,methodId:strin
 const quoteRef=object({turnId:string,role:choice(['user','assistant']),field:choice(['text','discussionExplanation','suggestions','expressionOptions']),index:integer,quoteIndex:integer,text:string,
  artifactRef:object({artifactId:string,version:integer},['artifactId','version']),sourceIds:strings},['turnId','role','text']);
 const memoryItem=object({id:string,kind:choice(['fact','preference','commitment','uncertainty']),text:string,sourceIds:strings,topicKeys:strings,
- status:choice(['active','resolved','cancelled','superseded']),certainty:choice(['stated','tentative']),explicitPreference:boolean},['kind','text','sourceIds','status','certainty']);
+ status:choice(['active','resolved','cancelled','superseded']),certainty:choice(['stated','tentative']),explicitPreference:{...boolean,description:'Required true for EVERY kind=preference proposal, including existing id updates. Attest recurring user intent from original source evidence; never inherit this flag from prior memory. Otherwise reclassify or omit the proposal.'}},['kind','text','sourceIds','status','certainty']);
 const episode=object({id:string,text:string,sourceIds:strings,topicKeys:strings},['text','sourceIds']);
 const memoryRetirement=object({id:string,sourceIds:strings,status:choice(['resolved','cancelled','superseded'])},['id','sourceIds','status']);
+// Wire admission shares these producer-declared legacy field sets. Typed
+// relationship records retain their separate versioned patch contract.
+const memoryRecordFields=Object.freeze(Object.fromEntries(Object.entries({items:memoryItem,episodes:episode,retire:memoryRetirement})
+ .map(([name,schema])=>[name,Object.freeze(Object.keys(schema.properties))])));
 const schemas={
  assistant_result:object({kind:choice(['discussion','question','options','review','acknowledgment']),text:string,methodIds:strings,draftPlan,replyDisposition:choice(['wait','clarify','unavailable']),
  lookup:object({query:string,discussionTurnIds:strings,sourceIds:strings,offset:integer,maxChars:integer,methodIds:strings,discover:boolean,before:string,after:string,types:array(choice(['qq','private','note','feedback']))}),
@@ -83,4 +87,4 @@ function normalizeResultPadding(value,name) {
  // every other field and all original string content.
  return schema?visit(value,schema,name==='assistant_result'):value;
 }
-module.exports={responseEnvelope,normalizeResultPadding};
+module.exports={responseEnvelope,normalizeResultPadding,memoryRecordFields};
