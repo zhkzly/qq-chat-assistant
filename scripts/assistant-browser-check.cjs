@@ -12,6 +12,7 @@ const { Store } = require('../src/store.cjs');
 const { raw, scope } = require('../tests/fixtures/native.cjs');
 const { CDP } = require('./cdp.cjs');
 const { actions } = require('./browser-actions.cjs');
+const { withCurrentDraftControls } = require('../tests/fixtures/draft-controls.cjs');
 
 const sleep = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds));
 async function until(predicate, label) {
@@ -45,9 +46,9 @@ async function until(predicate, label) {
       const payload = context.payload;
       const text=payload.userRequest?.text||'';
       if (text.includes('模拟网络失败')) throw new Error('synthetic-offline');
-      if (payload.purpose === 'draft_prepare') return { draftPlan: payload.selectedOption ?
-        {option:payload.selectedOption,style:'short'} : {quotes:[{sourceId:payload.userRequest.sourceId,text:'实验终于成功了'}],style:'short'} };
-      if (payload.purpose === 'reply') return {draftPlan:{quotes:[],intent:'reply',style:'short'}};
+      if (payload.purpose === 'draft_prepare') return { draftPlan: withCurrentDraftControls(payload.selectedOption ?
+        {option:payload.selectedOption,style:'short'} : {quotes:[{sourceId:payload.userRequest.sourceId,text:'实验终于成功了'}],style:'short'},payload) };
+      if (payload.purpose === 'reply') return {draftPlan:withCurrentDraftControls({quotes:[],intent:'reply',style:'short'},payload)};
       if (payload.purpose === 'draft') return { kind: 'draft', text: '可以用你自己的语气分享：',
         suggestions: [{ style: '简短', text: payload.outboundQuotes.length?'实验终于成功啦，终于松了口气。':'今晚先好好休息，不用急着回我。' }] };
       if(payload.actionReceipts?.length)return {kind:'acknowledgment',text:'已按你本次明确的意思处理，具体记录可以查看和撤销。',methodIds:['correction']};

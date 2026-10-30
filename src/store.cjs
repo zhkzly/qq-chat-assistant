@@ -140,7 +140,7 @@ class Store {
         changes++;accepted.push(message);
       }
       if (changes) {
-        const companion = this.getCompanion(scope);
+        const companion = this._getCompanion(scope);
         changedSource(companion, invalidates);
         this._writeCompanion(scope, companion);
         this.experiences.observeMessages(scope, accepted);
@@ -151,6 +151,11 @@ class Store {
   }
   scopeKey(scope) { return scopeKey(scope); }
   getCompanion(scope) {
+    // Mutation paths keep the original record. UI and model consumers receive
+    // the same scoped artifact projection without overwriting retained turns.
+    return this.experiences.projectCompanion(scope,this._getCompanion(scope));
+  }
+  _getCompanion(scope) {
     return this._atomic(()=>{
       const row = this.db.prepare('SELECT record FROM companion WHERE scope_key=?').get(scopeKey(scope));
       const stored=row&&JSON.parse(row.record);
@@ -262,7 +267,7 @@ class Store {
     const removed=new Set(),bound=record.turns.length+1;
     for(let pass=0;pass<bound;pass++){
       const invalid=record.turns.filter(turn=>turn.role==='assistant'&&turn.discussionTurnFingerprints&&(()=>{
-        try{validateDiscussionTurnFingerprints(record,turn.discussionTurnFingerprints,{newTurnId:turn.id});return false;}catch{return true;}
+        try{validateDiscussionTurnFingerprints(record,turn.discussionTurnFingerprints,{newTurnId:turn.id,store:this,scope});return false;}catch{return true;}
       })());
       if(!invalid.length)break;
       for(const turn of invalid){removed.add(turn.id);this.experiences.invalidateArtifacts(scope,this.experiences.refsForTurn(scope,turn.id),{mode:'forget',knownTurnId:turn.id});}
@@ -274,13 +279,13 @@ class Store {
     }
     return removed.size;
   }
-  _sourceIds(scope, record = this.getCompanion(scope)) {
+  _sourceIds(scope, record = this._getCompanion(scope)) {
     return new Set(this._rawMemorySources(scope,record).map(s=>s.id));
   }
   setGoal(scope, text, metadata = {}) {
     return this._atomic(()=>{
       textValue(text, 'goal', 10000, true);
-      const record = this.getCompanion(scope);
+      const record = this._getCompanion(scope);
       if (record.goal.text !== text) {
         record.goal = { text, version: record.goal.version + 1 };
         if(metadata.evidenceSourceIds) { record.goal.evidenceSourceIds=sourceList(metadata.evidenceSourceIds);if(record.goal.evidenceSourceIds.some(id=>!this._sourceIds(scope,record).has(id)))throw new Error('Invalid goal source');record.goal.evidenceRevisions=Object.fromEntries(this._rawMemorySources(scope,record).filter(s=>record.goal.evidenceSourceIds.includes(s.id)).map(s=>[s.id,s.revision])); }
@@ -300,7 +305,7 @@ class Store {
       if (!plain(note)) throw new Error('Invalid note');
       textValue(note.text, 'note text');
       if (!['discussion', 'draft', 'disabled'].includes(note.use)) throw new Error('Invalid note use');
-      const record = this.getCompanion(scope);
+      const record = this._getCompanion(scope);
       const id = note.id === undefined ? randomUUID() : identifier(note.id, 'note id');
       const index = record.notes.findIndex(item => item.id === id), old = record.notes[index];
       if (old && old.text === note.text && old.use === note.use && (note.kind===undefined||note.kind===old.kind) && note.evidenceSourceIds===undefined && note.sourceIds===undefined) return old;
@@ -320,7 +325,7 @@ class Store {
   }
   deleteNote(scope, id) {
     return this._atomic(()=>{
-      identifier(id, 'note id'); const record = this.getCompanion(scope);
+      identifier(id, 'note id'); const record = this._getCompanion(scope);
       const index = record.notes.findIndex(note => note.id === id);
       if (index < 0) return false;
       record.notes.splice(index, 1); changedSource(record, true); this._writeCompanion(scope, record); return true;
@@ -331,7 +336,7 @@ class Store {
       if (!plain(turn) || !['user', 'assistant'].includes(turn.role)) throw new Error('Invalid private turn role');
       if(turn.kind!=='feedback_ref')textValue(turn.text, 'turn text', 100000, turn.role === 'assistant');
       textValue(turn.kind, 'turn kind', 100);
-      const record = this.getCompanion(scope);
+      const record = this._getCompanion(scope);
       const id = turn.id === undefined ? randomUUID() : identifier(turn.id, 'turn id');
       if (record.turns.some(item => item.id === id)) throw new Error('Private turn id already exists');
       const saved = { id, role: turn.role, kind: turn.kind, text: turn.text||'', createdAt: new Date().toISOString() };
@@ -397,7 +402,7 @@ class Store {
         const receipt=normalizePrivateReviewReceipt(turn.privateReviewReceipt);saved.privateReviewReceipt={...receipt,sourceRevisions:checkPrivateMetadataSources(receipt.sourceIds,receipt.sourceRevisions)};
       }
       if(turn.role==='assistant'&&turn.artifactMetadata?.discussionTurnFingerprints!==undefined){
-        const references=validateDiscussionTurnFingerprints(record,turn.artifactMetadata.discussionTurnFingerprints,{newTurnId:saved.id});
+        const references=validateDiscussionTurnFingerprints(record,turn.artifactMetadata.discussionTurnFingerprints,{newTurnId:saved.id,store:this,scope});
         if(Object.keys(references).length)saved.discussionTurnFingerprints=references;
       }
       if(turn.role==='assistant'){const refs=this.experiences.recordArtifacts(scope,saved,turn.artifactMetadata||{});saved.artifactRef=refs.responseRef;if(saved.suggestions)saved.suggestions=saved.suggestions.map((x,i)=>({...x,artifactRef:refs.suggestionRefs[i]}));if(saved.expressionOptions)saved.expressionOptions=saved.expressionOptions.map((x,i)=>({...x,artifactRef:refs.optionRefs[i]}));}
@@ -408,7 +413,7 @@ class Store {
   }
   deleteTurn(scope, id) {
     return this._atomic(()=>{
-      identifier(id, 'turn id'); const record = this.getCompanion(scope);
+      identifier(id, 'turn id'); const record = this._getCompanion(scope);
       const index = record.turns.findIndex(turn => turn.id === id);
       if (index < 0) return false;
       const turn=record.turns[index];
@@ -426,7 +431,7 @@ class Store {
   saveRun(scope, run) {
     return this._atomic(()=>{
       if (!plain(run)) throw new Error('Invalid run');
-      const record = this.getCompanion(scope), saved = JSON.parse(JSON.stringify(run));
+      const record = this._getCompanion(scope), saved = JSON.parse(JSON.stringify(run));
       saved.id = saved.id === undefined ? randomUUID() : identifier(saved.id, 'run id');
       if (saved.requestId !== undefined) identifier(saved.requestId, 'request id');
       if (saved.baseRevision !== undefined && saved.baseRevision !== record.revision) throw new Error('Stale run revision');
@@ -438,31 +443,31 @@ class Store {
   }
   addFeedback(scope, feedback) {
     return this._atomic(()=>{
-      const record=this.getCompanion(scope),saved=this.experiences.addFeedback(scope,feedback);
+      const record=this._getCompanion(scope),saved=this.experiences.addFeedback(scope,feedback);
       if(record.feedback.some(f=>f.id===saved.id)&&record.turns.some(t=>t.feedbackId===saved.id))return saved;
       if(!record.turns.some(t=>t.feedbackId===saved.id))record.turns.push({id:randomUUID(),role:'user',kind:'feedback_ref',feedbackId:saved.id,requestId:saved.requestId,createdAt:saved.createdAt});
       changedSource(record);record.feedback=this.experiences.listFeedback(scope);this._writeCompanion(scope,record);return saved;
     });
   }
   touchContext(scope) {
-    return this._atomic(()=>{const record=this.getCompanion(scope);changedSource(record);this._writeCompanion(scope,record);return record.revision;});
+    return this._atomic(()=>{const record=this._getCompanion(scope);changedSource(record);this._writeCompanion(scope,record);return record.revision;});
   }
   relationshipView(scope, options={}) { return relationshipView(this,scope,options); }
   topicView(scope) {
-    return this._atomic(()=>topicView(scope,this.getCompanion(scope).topics));
+    return this._atomic(()=>topicView(scope,this._getCompanion(scope).topics));
   }
   topicAction(scope,{id,expectedVersion,operation,...fields}={}) {
     return this._atomic(()=>{
       if(!['create','update','pause','complete','cancel','resume','remove'].includes(operation))throw new Error('未知的话题操作');
       if(Object.keys(fields).some(key=>!['objective','direction','constraints','stage','progress','unknowns','interpretationStatus'].includes(key)))throw new Error('话题操作包含不支持的字段');
       if(operation==='create'&&id!==undefined)throw new Error('Topic creation cannot choose an existing identifier');
-      const before=this.getCompanion(scope),topic=operation==='create'?null:before.topics.items.find(item=>item.id===identifier(id,'topic id'));
+      const before=this._getCompanion(scope),topic=operation==='create'?null:before.topics.items.find(item=>item.id===identifier(id,'topic id'));
       if(operation!=='create'&&!topic)throw new Error('这个话题已不存在，请刷新后核对');
       if(operation!=='create'&&(!Number.isSafeInteger(expectedVersion)||expectedVersion!==topic.version)||operation==='create'&&expectedVersion!==undefined&&expectedVersion!==before.topics.version)throw new Error('话题已经变化，请刷新后核对版本');
       const patch=operation==='remove'?null:normalizeTopicPatch({operation,...(operation==='create'?{}:{topicId:id}),...fields});
       const command={create:'建立这次讨论任务。',update:'调整这次讨论任务。',pause:'暂停这次话题，等待我另行决定是否继续。',complete:'这次话题已经聊清楚了，结束它的当前目的、方向和限制。',cancel:'取消这次话题，不再沿用它的当前目的、方向和限制。',resume:'恢复这次话题的当前目的、方向和限制。',remove:'移除这次话题，不再把它作为当前或保留话题。'}[operation];
       const requestId=randomUUID(),turn=this.appendTurn(scope,{role:'user',kind:'user_control',requestId,text:`${command}\n话题：${topic?.objective||fields.objective||id||''}\n${Object.keys(fields).length?JSON.stringify(fields):''}\n只操作这个讨论话题，保留原始聊天、私下历史和长期关系目标。`});
-      const sourceId=`private:${turn.id}`,record=this.getCompanion(scope);
+      const sourceId=`private:${turn.id}`,record=this._getCompanion(scope);
       if(operation==='remove'){
         this._commitTaskTransition(scope,record,{...record.topics,version:record.topics.version+1,activeId:record.topics.activeId===id?null:record.topics.activeId,items:record.topics.items.filter(item=>item.id!==id)});
       }else{
@@ -471,7 +476,7 @@ class Store {
         if(!receipt.applied)throw new Error(`话题未更新：${receipt.detail||receipt.reason}`);
         id=receipt.topicId;
       }
-      const next=this.getCompanion(scope),updated=next.topics.items.find(item=>item.id===id);
+      const next=this._getCompanion(scope),updated=next.topics.items.find(item=>item.id===id);
       return {applied:true,operation,topicId:id,lifecycle:updated?.lifecycle||'removed',topicVersion:next.topics.version,revision:next.revision,sourceId};
     });
   }
@@ -484,7 +489,7 @@ class Store {
   saveDiscussionCompaction(scope,record,expected={}) { return this.discussionCompactions.save(scope,record,expected); }
   applyTopicPatch(scope,patch,options={}) {
     try{return this._atomic(()=>{
-      const record=this.getCompanion(scope),key=scopeKey(scope);
+      const record=this._getCompanion(scope),key=scopeKey(scope);
       const reject=reason=>({applied:false,reason,revision:record.revision,topicVersion:record.topics.version,version:record.topics.version,activeId:record.topics.activeId});
       if(options.scopeKey!==undefined&&options.scopeKey!==key)return reject('wrong_scope');
       if(!Number.isSafeInteger(options.baseRevision)||options.baseRevision!==record.revision)return reject('stale_revision');
@@ -508,13 +513,13 @@ class Store {
       const patch={retire:[{id,expectedVersion,sourceIds:[sourceId],lifecycle:'withdrawn'}],claims:operation==='correct'?[{subject:old.subject,aspect:old.aspect,text:`用户说明：${text}`,assertionKind:'reported',epistemicStatus:'supported',sourceIds:[sourceId],topicKeys:old.topicKeys||[]}]:[]};
       const checked=prepareRelationshipPatch(this,scope,patch,{sourceIds:this._rawMemorySources(scope).map(s=>s.id)});
       writeRelationshipRecords(this,scope,checked);this.db.prepare('UPDATE memory_meta SET version=version+1 WHERE scope_key=?').run(scopeKey(scope));
-      return {applied:true,sourceId,claimId:checked.find(r=>r.id!==id)?.id||null,revision:this.getCompanion(scope).revision};
+      return {applied:true,sourceId,claimId:checked.find(r=>r.id!==id)?.id||null,revision:this._getCompanion(scope).revision};
     });}catch(error){return {applied:false,reason:'invalid_claim_correction',detail:error.message};}
   }
 
   applyRelationshipPatch(scope, patch, options={}) {
     try{return this._atomic(()=>{
-      const record=this.getCompanion(scope),key=scopeKey(scope);
+      const record=this._getCompanion(scope),key=scopeKey(scope);
       if(!Number.isSafeInteger(options.baseRevision)||options.baseRevision!==record.revision)return {applied:false,reason:'stale_revision'};
       this._syncMemory(scope,record);
       const version=this.db.prepare('SELECT version FROM memory_meta WHERE scope_key=?').get(key)?.version||0;
@@ -550,7 +555,7 @@ class Store {
     return {pending:rows.length,oldestPendingAt:at[0]||null,lastEventAt:latestEvent||null,lastMaintenanceAt:receipt?JSON.parse(receipt.record).reviewedAt:null};
   }
   applyState(scope, patch, options = {}) {
-    const record = this.getCompanion(scope);
+    const record = this._getCompanion(scope);
     const rejected = (reason, detail) => ({ applied: false, reason, ...(detail ? { detail } : {}), revision: record.revision, stateVersion: record.state.version });
     if (!Number.isSafeInteger(options.baseRevision) || options.baseRevision !== record.revision) return rejected('stale_revision');
     if (options.baseStateVersion !== undefined && options.baseStateVersion !== record.state.version) return rejected('stale_state_version');
@@ -604,7 +609,7 @@ class Store {
           AND json_extract(companion.record,'$.topics.version')=?`)
         .run(scopeKey(scope), this._serializeCompanion(record), record.revision, next.version - 1, record.topics.version);
       if (!committed.changes) {
-        const current = this.getCompanion(scope);
+        const current = this._getCompanion(scope);
         return { applied: false, reason: current.revision !== record.revision ? 'stale_revision' : current.topics.version !== record.topics.version ? 'stale_topic_version' : 'stale_state_version', revision: current.revision, stateVersion: current.state.version };
       }
       return { applied: true, revision: record.revision, stateVersion: next.version };
@@ -633,7 +638,7 @@ class Store {
     if(record.state.legacyTaskReviews)record.state.legacyTaskReviews=record.state.legacyTaskReviews.filter(review=>(review.sourceIds||[]).every(id=>live.has(id)&&(!review.sourceRevisions||review.sourceRevisions[id]===live.get(id).revision)));
     if(record.topics.items.length&&pruneTopics(record,sources))this._invalidateTaskDerived(scope);
   }
-  _rawMemorySources(scope, record=this.getCompanion(scope)) {
+  _rawMemorySources(scope, record=this._getCompanion(scope)) {
     record={...emptyCompanion(),...record};
     const excluded=new Set(this.db.prepare('SELECT source_id FROM memory_exclusions WHERE scope_key=?').all(scopeKey(scope)).map(r=>r.source_id));
     const sources=[
@@ -644,7 +649,7 @@ class Store {
     ].filter(s=>!excluded.has(s.id));
     return sources.map(s=>({...s,revision:sourceRevision(s)}));
   }
-  _syncMemory(scope, record=this.getCompanion(scope)) {
+  _syncMemory(scope, record=this._getCompanion(scope)) {
     // A source invalidation can redact feedback about an affected artifact, which
     // can itself support a note. Resolve this finite dependency chain in the same
     // transaction before any caller can observe or index a surviving copy.
@@ -727,7 +732,7 @@ class Store {
     return {sources,items,episodes,coverage:{complete:status.pending===0,sourceCount:all.length,retrievedCount:sources.length,pending:status.pending,processed:status.processed,history:this.coverage(scope),retrieval:'lexical-han-bigram-bm25',semanticCertainty:false}};
   }
   memoryBatch(scope,{maxBytes=24000,limit=32}={}) {
-    this.maintainLocal(scope);const key=scopeKey(scope),record=this.getCompanion(scope);
+    this.maintainLocal(scope);const key=scopeKey(scope),record=this._getCompanion(scope);
     const size=Math.max(4000,Math.min(200000,Number(maxBytes)||24000)),count=Math.max(1,Math.min(64,Number(limit)||32));
     const pending=this.db.prepare("SELECT j.*,s.record FROM memory_journal j JOIN memory_sources s ON s.scope_key=j.scope_key AND s.source_id=j.source_id AND s.revision=j.revision WHERE j.scope_key=? AND j.status='pending' ORDER BY j.seq LIMIT ?").all(key,count);
     if(!pending.length)return null;
@@ -843,7 +848,7 @@ class Store {
   }
   updateTurn(scope,id,text) {
     return this._atomic(()=>{
-      identifier(id,'turn id');textValue(text,'turn text');const record=this.getCompanion(scope),turn=record.turns.find(t=>t.id===id&&t.role==='user');
+      identifier(id,'turn id');textValue(text,'turn text');const record=this._getCompanion(scope),turn=record.turns.find(t=>t.id===id&&t.role==='user');
       if(!turn)return false;if(turn.text===text)return turn;
       turn.text=text;turn.version=(turn.version||1)+1;turn.updatedAt=new Date().toISOString();changedSource(record,true);this._writeCompanion(scope,record);return turn;
     });
@@ -853,38 +858,38 @@ class Store {
     sourceList([id]);
     if(id.startsWith('note:'))return this.deleteNote(scope,id.slice(5));
     if(id.startsWith('private:feedback-')) {
-      return this._atomic(()=>{const record=this.getCompanion(scope);if(!record.feedback.some(f=>`private:feedback-${f.id}`===id))return false;this.experiences.invalidateSources(scope,[id],{mode:'forget'});record.turns=record.turns.filter(t=>!(t.feedbackId&&`private:feedback-${t.feedbackId}`===id)&&this.experiences.canonicalSource(scope,`private:${t.id}`)!==id);changedSource(record,true);this._writeCompanion(scope,record);return true;});
+      return this._atomic(()=>{const record=this._getCompanion(scope);if(!record.feedback.some(f=>`private:feedback-${f.id}`===id))return false;this.experiences.invalidateSources(scope,[id],{mode:'forget'});record.turns=record.turns.filter(t=>!(t.feedbackId&&`private:feedback-${t.feedbackId}`===id)&&this.experiences.canonicalSource(scope,`private:${t.id}`)!==id);changedSource(record,true);this._writeCompanion(scope,record);return true;});
     }
     if(id.startsWith('private:'))return this.deleteTurn(scope,id.slice(8));
     if(!this._rawMemorySources(scope).some(s=>s.id===id))return false;
-    return this._atomic(()=>{this.db.prepare('INSERT OR IGNORE INTO memory_exclusions VALUES(?,?)').run(scopeKey(scope),id);const record=this.getCompanion(scope);changedSource(record,true);this._writeCompanion(scope,record);return true;});
+    return this._atomic(()=>{this.db.prepare('INSERT OR IGNORE INTO memory_exclusions VALUES(?,?)').run(scopeKey(scope),id);const record=this._getCompanion(scope);changedSource(record,true);this._writeCompanion(scope,record);return true;});
   }
   markTurnControl(scope,id) {
     return this._atomic(()=>{
-      const record=this.getCompanion(scope),turn=record.turns.find(t=>t.id===id&&t.role==='user');if(!turn)return false;
+      const record=this._getCompanion(scope),turn=record.turns.find(t=>t.id===id&&t.role==='user');if(!turn)return false;
       turn.memoryExcluded=true;changedSource(record,true);this._writeCompanion(scope,record);return true;
     });
   }
   setPendingActions(scope,items) {
     return this._atomic(()=>{
       if(!Array.isArray(items)||items.length>20||items.some(x=>!plain(x)))throw new Error('Invalid pending actions');
-      const record=this.getCompanion(scope);record.pendingActions=JSON.parse(JSON.stringify(items));this._writeCompanion(scope,record);return record.pendingActions;
+      const record=this._getCompanion(scope);record.pendingActions=JSON.parse(JSON.stringify(items));this._writeCompanion(scope,record);return record.pendingActions;
     });
   }
   savePendingAction(scope,action) {
     return this._atomic(()=>{
-      if(!plain(action))throw new Error('Invalid pending action');const record=this.getCompanion(scope),saved={...JSON.parse(JSON.stringify(action)),id:action.id||randomUUID()};identifier(saved.id);
+      if(!plain(action))throw new Error('Invalid pending action');const record=this._getCompanion(scope),saved={...JSON.parse(JSON.stringify(action)),id:action.id||randomUUID()};identifier(saved.id);
       record.pendingActions=[...record.pendingActions.filter(a=>a.id!==saved.id),saved].slice(-20);this._writeCompanion(scope,record);return saved;
     });
   }
   resolvePendingAction(scope,id) {
     return this._atomic(()=>{
-      const record=this.getCompanion(scope),before=record.pendingActions.length;record.pendingActions=record.pendingActions.filter(a=>a.id!==id);this._writeCompanion(scope,record);return before!==record.pendingActions.length;
+      const record=this._getCompanion(scope),before=record.pendingActions.length;record.pendingActions=record.pendingActions.filter(a=>a.id!==id);this._writeCompanion(scope,record);return before!==record.pendingActions.length;
     });
   }
   recordActionReceipt(scope,receipt) {
     return this._atomic(()=>{
-      if(!plain(receipt))throw new Error('Invalid action receipt');const record=this.getCompanion(scope),saved={...JSON.parse(JSON.stringify(receipt)),id:receipt.id||randomUUID(),at:new Date().toISOString()};
+      if(!plain(receipt))throw new Error('Invalid action receipt');const record=this._getCompanion(scope),saved={...JSON.parse(JSON.stringify(receipt)),id:receipt.id||randomUUID(),at:new Date().toISOString()};
       record.actionReceipts=[...record.actionReceipts.filter(r=>r.id!==saved.id),saved].slice(-100);this._writeCompanion(scope,record);return saved;
     });
   }

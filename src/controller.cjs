@@ -26,7 +26,7 @@ class Controller extends EventEmitter {
     now = Date.now, viewerTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone }) {
     super(); Object.assign(this, { store, read, settings, model, assistantModel, memoryModel, compactionModel, now, viewerTimeZone });
     this.candidateSession=new CandidateSession({now:()=>this.candidateNow(),sourceValidity:candidate=>!candidate.artifactRef||
-      this.store.experiences.artifactStates(candidate.scope,[candidate.artifactRef])[0]?.availability==='active'});
+      this.store.experiences.artifactStates(candidate.scope,[candidate.artifactRef,...(candidate.suggestions||[]).map(item=>item.artifactRef)]).every(item=>item.availability==='active')});
     this.status = { phase: 'waiting_qq', account: null };
     this.selectedImages=[];this.replyMessageIds=[];this.visionCache=null;this.features={qqDraftFill:false};
     this.scope = null; this.epoch = 0; this.revision = 0; this.advice = null;

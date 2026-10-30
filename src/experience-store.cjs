@@ -1,5 +1,6 @@
 'use strict';
 const { randomUUID, createHash } = require('node:crypto');
+const {readableDiscussionTurns,discussionTurnFingerprint}=require('./discussion-compaction-store.cjs');
 const digest = value => createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const clone = value => JSON.parse(JSON.stringify(value));
 const now = () => new Date().toISOString();
@@ -63,6 +64,80 @@ class ExperienceStore {
       return current;
     });
   }
+  projectGeneratedTurns(scope, turns) {
+    const artifacts=new Map(this._all(scope,'artifact').map(item=>[refKey(item.ref),item])),live=this._sources(scope);
+    const read=(reference,kind,turnId,body,parentRef)=>{
+      if(!reference)return null;
+      const artifact=artifacts.get(refKey(reference));
+      if(!artifact||!artifact.ref||refKey(artifact.ref)!==refKey(reference)||artifact.kind!==kind||artifact.assistantTurnId!==turnId||
+        parentRef&&(!artifact.parentRef||refKey(artifact.parentRef)!==refKey(parentRef))||
+        artifact.body!==body||artifact.bodyDigest!==digest(artifact.body))return null;
+      const availability=this._artifactAvailability(artifact,live);
+      return ['active','stale'].includes(availability)?availability:null;
+    };
+    return (turns||[]).flatMap(turn=>{
+      if(turn.role!=='assistant')return [turn];
+      const availability=read(turn.artifactRef,'response',turn.id,visibleResponseText(turn));
+      if(!availability)return [];
+      const projected={...turn,...(availability==='stale'?{artifactAvailability:'stale'}:{})};
+      for(const [field,kind,bodyKey]of [['suggestions','message_candidate','text'],['expressionOptions','action_option','label']]){
+        if(!turn[field])continue;
+        projected[field]=turn[field].map(item=>{
+          const state=read(item.artifactRef,kind,turn.id,item[bodyKey],turn.artifactRef);
+          if(state)return state==='active'?item:{...item,availability:'stale'};
+          // Keep positional identity for references; unavailable bodies never
+          // fall back to retained text, labels, or an adjacent suggestion.
+          return {artifactRef:item.artifactRef,availability:'unavailable',[bodyKey]:'',...(field==='expressionOptions'?{quotes:[]}:{})};
+        });
+      }
+      return [projected];
+    });
+  }
+  projectCompanion(scope, record) {
+    const turns=this.projectGeneratedTurns(scope,record.turns),visibleIds=new Set(turns.map(turn=>turn.id));
+    const hiddenIds=new Set((record.turns||[]).filter(turn=>!visibleIds.has(turn.id)).map(turn=>turn.id));
+    const live=this._sources(scope),artifacts=new Map(this._all(scope,'artifact').map(item=>[refKey(item.ref),item]));
+    const current=this._raw(scope),currentTurns=this.projectGeneratedTurns(scope,current.turns);
+    const turnFingerprints=new Map(readableDiscussionTurns({...current,turns:currentTurns}).map(turn=>[turn.id,discussionTurnFingerprint(turn)]));
+    const available=(value,witnesses)=>{
+      if(!value||typeof value!=='object')return true;
+      if(Array.isArray(value))return value.every(item=>available(item,witnesses));
+      if(value.artifactRef){const artifact=artifacts.get(refKey(value.artifactRef));if(!artifact||!['active','stale'].includes(this._artifactAvailability(artifact,live)))return false;}
+      for(const field of ['turnFingerprints','discussionTurnFingerprints'])if(Object.hasOwn(value,field)){
+        if(!plain(value[field]))return false;
+        for(const [id,expected]of Object.entries(value[field])){
+          if(turnFingerprints.get(id)!==expected)return false;
+          witnesses.add(id);
+        }
+      }
+      if(Object.hasOwn(value,'turnFingerprint')){
+        const id=value.turnId||value.originalTurnId||value.id;
+        if(typeof value.turnFingerprint!=='string'||turnFingerprints.get(id)!==value.turnFingerprint)return false;
+        witnesses.add(id);
+      }
+      return Object.values(value).every(item=>available(item,witnesses));
+    };
+    const covered=(value,witnesses)=>{
+      if(!value||typeof value!=='object')return true;
+      if(Array.isArray(value))return value.every(item=>covered(item,witnesses));
+      const checkpoint=value.discussionCompaction;
+      if(checkpoint?.summary&&(!Array.isArray(checkpoint.sourceTurnIds)||!checkpoint.sourceTurnIds.length||checkpoint.sourceTurnIds.some(id=>!witnesses.has(id))))return false;
+      if(value.role==='assistant'&&value.originalTurnId&&value.text&&typeof value.turnFingerprint!=='string')return false;
+      if(value.purpose==='discussion_compaction'&&Array.isArray(value.turns)&&value.turns.some(turn=>!witnesses.has(turn.id)))return false;
+      return Object.values(value).every(item=>covered(item,witnesses));
+    };
+    const inspectable=run=>{const witnesses=new Set();return !hiddenIds.has(run.replyId)&&available(run,witnesses)&&covered(run,witnesses);};
+    // Captured model inputs are diagnostics, not an alternate UI history from
+    // which a withdrawn generated body may be recovered.
+    return {...record,turns,runs:(record.runs||[]).filter(inspectable)};
+  }
+  _artifactAvailability(artifact,live) {
+    let availability=artifact.availability||'unknown';
+    const sources=(artifact.sourceIds||[]).map(id=>({sourceId:id,revision:live.get(id)?.revision||null}));
+    if(availability!=='redacted'&&sources.some(source=>!source.revision))availability='redacted';
+    else if(availability==='active'&&(artifact.sourceRefs||[]).some(reference=>live.get(reference.sourceId)?.revision!==reference.revision))availability='stale';
+    return availability;
+  }
   artifactsForRequest(scope, requestId) { return this._all(scope, 'artifact').filter(a => a.requestId === requestId && a.kind === 'response'); }
   refsForTurn(scope, turnId) {
     const refs=this._all(scope,'artifact').filter(a=>a.assistantTurnId===turnId).map(a=>a.ref);
@@ -76,10 +151,8 @@ class ExperienceStore {
     const live=this._sources(scope),refs=[...new Map(requested.map(value=>{const r=ref(value);return [refKey(r),r]})).values()].slice(0,72);
     return refs.map(reference=>{
       const artifact=this.artifact(scope,reference);if(!artifact)return {ref:reference,availability:'unknown',witness:null};
-      let availability=artifact.availability||'unknown';
+      const availability=this._artifactAvailability(artifact,live);
       const sources=(artifact.sourceIds||[]).map(id=>({sourceId:id,revision:live.get(id)?.revision||null}));
-      if(availability!=='redacted'&&sources.some(s=>!s.revision))availability='redacted';
-      else if(availability==='active'&&(artifact.sourceRefs||[]).some(r=>live.get(r.sourceId)?.revision!==r.revision))availability='stale';
       return {ref:reference,availability,witness:digest({ref:reference,availability,sources,invalidatedAt:artifact.invalidatedAt||null})};
     });
   }

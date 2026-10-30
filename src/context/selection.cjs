@@ -298,7 +298,7 @@ function selectPlanningContext({options,snapshot,candidates,view,budget,coreInve
         generatedReadRef:{turnId:read.originalTurnId,turnFingerprint:read.turnFingerprint,bodyView:read.bodyView},availability:read.delivery.status,
         authority:'assistant_discussion_not_factual_evidence'};
       if(coveredTurnIds.has(t.id)&&!sourceTurnIds.includes(t.id)&&!sourceLookupIds.includes(t.id))return {id:t.id,role:t.role,kind:t.kind,compacted:true,authority:'derived_private_discussion_needs_sources'};
-      return {id:t.id,role:t.role,kind:t.kind,text:redact(t.text),...(t.discussionExplanation?{discussionExplanation:{kind:t.discussionExplanation.kind,text:redact(t.discussionExplanation.text)}}:{}),
+      return {id:t.id,role:t.role,kind:t.kind,...(t.artifactAvailability?{artifactAvailability:t.artifactAvailability}:{}),text:redact(t.text),...(t.discussionExplanation?{discussionExplanation:{kind:t.discussionExplanation.kind,text:redact(t.discussionExplanation.text)}}:{}),
         at:t.createdAt,requestId:t.requestId||null,authority:'assistant_discussion_not_factual_evidence'};
     }).concat(previousTurns);
     for (const t of group) if (t.role === 'user' && !foldedPrivateIds.has(`private:${t.id}`)&&!(explicitLookupIds.includes(`private:${t.id}`)&&selected.has(`private:${t.id}`))) selected.set(`private:${t.id}`, byId.get(`private:${t.id}`));

@@ -60,9 +60,9 @@ test('legacy answer families retain honest provenance, persist once, and erase r
 });
 test('legacy migration never revives unavailable-source text or an explicit missing artifact version',t=>{
  const s=setup(t),e=s.experiences;legacyTurn(s,{sourceIds:['private:already-forgotten']});
- const turn=s.getCompanion(scope).turns.find(row=>row.id==='legacy-assistant');assert.equal(turn.text,'');assert.equal(turn.suggestions[0].text,'');assert.equal(turn.expressionOptions[0].label,'');
+ const turn=s._getCompanion(scope).turns.find(row=>row.id==='legacy-assistant');assert.equal(s.getCompanion(scope).turns.some(row=>row.id===turn.id),false);assert.equal(turn.text,'');assert.equal(turn.suggestions[0].text,'');assert.equal(turn.expressionOptions[0].label,'');
  for(const reference of e.refsForTurn(scope,turn.id)){const artifact=e.artifact(scope,reference);assert.equal(artifact.availability,'redacted');assert.equal(artifact.body,'');}
- const record=s.getCompanion(scope);record.turns.push({id:'unknown-version',role:'assistant',kind:'draft',text:'无法验证的显示副本',artifactRef:{artifactId:'absent',version:7}});
+ const record=s._getCompanion(scope);record.turns.push({id:'unknown-version',role:'assistant',kind:'draft',text:'无法验证的显示副本',artifactRef:{artifactId:'absent',version:7}});
  s.db.prepare('UPDATE companion SET record=? WHERE scope_key=?').run(JSON.stringify(record),s.scopeKey(scope));
- const unavailable=s.getCompanion(scope).turns.find(row=>row.id==='unknown-version');assert.equal(e.artifact(scope,unavailable.artifactRef),null);assert.equal(e.artifactStates(scope,[unavailable.artifactRef])[0].availability,'unknown');
+ const unavailable=s._getCompanion(scope).turns.find(row=>row.id==='unknown-version');assert.equal(s.getCompanion(scope).turns.some(row=>row.id===unavailable.id),false);assert.equal(e.artifact(scope,unavailable.artifactRef),null);assert.equal(e.artifactStates(scope,[unavailable.artifactRef])[0].availability,'unknown');
 });

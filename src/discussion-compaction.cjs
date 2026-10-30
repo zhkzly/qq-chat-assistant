@@ -22,9 +22,10 @@ function prepareCompactionRequest(settings, payload) {
 }
 function originalTurnsForModel(turns) {
   return turns.map(turn => ({ id: turn.id, role: turn.role, kind: turn.kind, text: redact(turn.text),
+    ...(turn.artifactAvailability?{artifactAvailability:turn.artifactAvailability}:{}),
     ...(turn.discussionExplanation?{discussionExplanation:{kind:turn.discussionExplanation.kind,text:redact(turn.discussionExplanation.text)}}:{}),
-    ...(turn.suggestions?.length ? { suggestions: turn.suggestions.map((item, index) => ({ index, text: redact(item.text), style: item.style, artifactRef: item.artifactRef })) } : {}),
-    ...(turn.expressionOptions?.length ? { expressionOptions: turn.expressionOptions.map((item, index) => ({ index, label: redact(item.label), quotes: item.quotes, artifactRef: item.artifactRef })) } : {}) }));
+    ...(turn.suggestions?.length ? { suggestions: turn.suggestions.map((item, index) => ({ index, text: redact(item.text), style: item.style, artifactRef: item.artifactRef,...(item.availability?{artifactAvailability:item.availability}:{}) })) } : {}),
+    ...(turn.expressionOptions?.length ? { expressionOptions: turn.expressionOptions.map((item, index) => ({ index, label: redact(item.label), quotes: item.quotes, artifactRef: item.artifactRef,...(item.availability?{artifactAvailability:item.availability}:{}) })) } : {}) }));
 }
 function quoteText(turn, quote) {
   if (!turn || quote.role !== turn.role) throw new Error('quoteRefs.role/turnId: use an original delivered turn and its role');
@@ -125,7 +126,7 @@ function validatedCompaction(record, options) {
 }
 function candidatesForCompaction(record, companion, { sourceTurnIds = [], selectedOption, sourceLookupIds = [],store,scope } = {}) {
   const assistants = eligibleDiscussionTurns(companion,{store,scope}).filter(turn => turn.role === 'assistant');
-  const byId = new Map(readableDiscussionTurns(companion).filter(turn=>turn.role==='assistant').map(turn => [turn.id, turn])), candidates = [];
+  const byId = new Map(readableDiscussionTurns(companion,{store,scope}).filter(turn=>turn.role==='assistant').map(turn => [turn.id, turn])), candidates = [];
   const eligibleIds=new Set(assistants.map(turn=>turn.id));
   const explicit = [...sourceTurnIds, selectedOption?.turnId, ...sourceLookupIds].filter(id => byId.has(id));
   const ids = [...new Set([...explicit, assistants.at(-1)?.id, ...assistants.slice(-6).reverse().map(turn => turn.id),
@@ -133,10 +134,11 @@ function candidatesForCompaction(record, companion, { sourceTurnIds = [], select
   for (const id of ids) {
     const turn = byId.get(id); if (turn?.role !== 'assistant') continue;
     for (const field of ['suggestions','expressionOptions']) for (const [index, item] of (turn[field] || []).entries()) {
+      if(!String(field==='suggestions'?item.text:item.label).trim()||item.availability==='unavailable')continue;
       if(selectedOption?.turnId===id&&(field!=='expressionOptions'||index!==selectedOption.index))continue;
       candidates.push({ turnId: id, field, index,
       text: redact(field === 'suggestions' ? item.text : item.label), ...(field === 'expressionOptions' ? { quotes: item.quotes } : {}), artifactRef: item.artifactRef,
-      availability: 'full', authority: 'generated_discussion_not_outbound_authorization' });
+      availability: 'full',...(item.availability||turn.artifactAvailability?{artifactAvailability:item.availability||turn.artifactAvailability}:{}),authority: 'generated_discussion_not_outbound_authorization' });
     }
     if(explicit.includes(id)&&!turn.suggestions?.length&&!turn.expressionOptions?.length&&turn.text?.trim())candidates.push({turnId:id,field:'text',text:redact(turn.text),artifactRef:turn.artifactRef,
       availability:'full',authority:'generated_discussion_not_outbound_authorization'});

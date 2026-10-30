@@ -4,7 +4,8 @@ const {discussionTurnFingerprint}=require('../discussion-compaction-store.cjs');
 const {boundedSource}=require('./source-delivery.cjs');
 const {bytes,pick}=require('./shared.cjs');
 const BODY_VIEW='discussion-body-v1';
-function discussionReadBody(turn){
+function discussionReadBody(turn,{store,scope}={}){
+ if(store?.experiences&&turn.role==='assistant'){turn=store.experiences.projectGeneratedTurns(scope,[turn])[0];if(!turn)return {text:'',parts:[]};}
  const fields=[['text',turn.text],['discussionExplanation.text',turn.discussionExplanation?.text],
   ...(turn.suggestions||[]).map((item,index)=>[`suggestions[${index}].text`,item.text]),
   ...(turn.expressionOptions||[]).map((item,index)=>[`expressionOptions[${index}].label`,item.label])];
@@ -15,10 +16,11 @@ function discussionReadBody(turn){
  }
  return {text,parts};
 }
-function projectDiscussionReads(items,{sources=new Map(),byteBudget=48000}={}){
+function projectDiscussionReads(items,{sources=new Map(),byteBudget=48000,store,scope}={}){
  const entries=[],omittedTurnIds=[];let used=0;
  const limit=Math.min(8000,Math.floor(byteBudget/4));
- for(const item of items){
+ const available=store?.experiences?store.experiences.projectGeneratedTurns(scope,items):items;
+ for(const item of available){
   const {requestedOffset=0,requestedMaxChars=4000,...original}=item;
   if(!['user','assistant'].includes(original.role)||original.memoryExcluded)continue;
   if(original.role==='user'){
@@ -33,7 +35,7 @@ function projectDiscussionReads(items,{sources=new Map(),byteBudget=48000}={}){
   if(!source){omittedTurnIds.push(original.id);continue;}
   const start=source.delivery?.start||0,end=source.delivery?.end??body.text.length;
   const lookup={discussionTurnIds:[original.id],offset:end,maxChars:Math.min(8000,requestedMaxChars)};
-  const entry={...pick(original,['id','role','kind','artifactRef']),originalTurnId:original.id,at:original.createdAt,turnFingerprint:revision,bodyView:BODY_VIEW,
+  const entry={...pick(original,['id','role','kind','artifactRef','artifactAvailability']),originalTurnId:original.id,at:original.createdAt,turnFingerprint:revision,bodyView:BODY_VIEW,
    text:source.text,lookupHint:{bodyView:BODY_VIEW,offsetUnit:'utf16_redacted_discussion_body_v1'},authority:'generated_discussion_not_factual_evidence_or_outbound_authorization',
    delivery:{status:source.delivery?.status||'delivered',start,end,originalCharLength:body.text.length,offsetUnit:'utf16_redacted_discussion_body_v1',
     requestedRange:{offset:requestedOffset,maxChars:requestedMaxChars},continuationAvailable:end<body.text.length,lookup},

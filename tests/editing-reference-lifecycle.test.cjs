@@ -49,7 +49,8 @@ test('redacting one outgoing leaf never restores it from an active parent or ret
  const {store,e,prior,selection}=fixture(t),captured=e.resolveMessageCandidate(scope,selection).dependency;
  e.invalidateArtifacts(scope,[selection.artifactRef]);
  assert.equal(e.artifact(scope,prior.artifactRef).availability,'active');
- assert.equal(store.getCompanion(scope).turns.find(turn=>turn.id===prior.id).suggestions[1].text,SECOND);
+ assert.equal(store._getCompanion(scope).turns.find(turn=>turn.id===prior.id).suggestions[1].text,SECOND);
+ assert.equal(store.getCompanion(scope).turns.find(turn=>turn.id===prior.id).suggestions[1].text,'');
  assert.equal(e.artifact(scope,selection.artifactRef).body,'');
  assert.equal(e.artifact(scope,selection.artifactRef).availability,'redacted');
  assert.throws(()=>e.resolveMessageCandidate(scope,selection),/Editing reference/);

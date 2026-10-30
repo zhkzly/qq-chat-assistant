@@ -14,9 +14,10 @@ function fingerprint(value,name){if(typeof value!=='string'||!/^[a-f0-9]{64}$/.t
 function sameRef(a,b){return plain(a)&&plain(b)&&a.artifactId===b.artifactId&&a.version===b.version;}
 // Readability and compression eligibility are different authorities. A user
 // may reference an automatic artifact without making it ordinary dialogue.
-function readableDiscussionTurns(companion) {
+function readableDiscussionTurns(companion,{store,scope}={}) {
   let allowed=true;const turns=[];
-  for(const turn of companion.turns||[]){
+  const available=store?.experiences?store.experiences.projectGeneratedTurns(scope,companion.turns):companion.turns||[];
+  for(const turn of available){
     if(turn.role==='user')allowed=!turn.memoryExcluded&&!['feedback','feedback_ref'].includes(turn.kind);
     if(allowed&&['user','assistant'].includes(turn.role)&&!turn.memoryExcluded)turns.push(turn);
   }
@@ -44,15 +45,15 @@ function automaticDiscussionTurnIds(companion,{store,scope}={}) {
 }
 function eligibleDiscussionTurns(companion,options={}) {
   const automatic=automaticDiscussionTurnIds(companion,options);
-  return readableDiscussionTurns(companion).filter(turn=>!automatic.has(turn.id));
+  return readableDiscussionTurns(companion,options).filter(turn=>!automatic.has(turn.id));
 }
 function discussionTurnFingerprint(turn) {
   if(!plain(turn)||!['user','assistant'].includes(turn.role)||typeof turn.text!=='string')throw new Error('Invalid original discussion turn');
   return hash(turn);
 }
-function validateDiscussionTurnFingerprints(companion,references,{newTurnId}={}) {
+function validateDiscussionTurnFingerprints(companion,references,{newTurnId,store,scope}={}) {
   if(!plain(references)||Object.keys(references).length>LIMITS.turnDependencies)throw new Error('Invalid discussion turn fingerprint dependencies');
-  const byId=new Map(readableDiscussionTurns(companion).map(turn=>[turn.id,turn]));
+  const byId=new Map(readableDiscussionTurns(companion,{store,scope}).map(turn=>[turn.id,turn]));
   for(const [id,revision]of Object.entries(references)){
     if(id===newTurnId||!byId.has(id)||discussionTurnFingerprint(byId.get(id))!==fingerprint(revision,'turn fingerprint'))throw new Error('Original discussion turn dependency changed or disappeared');
   }

@@ -54,6 +54,7 @@ function compactPlanningViews(payload){
   return true;
 }
 function buildContext(options) {
+  if(options.store?.experiences)options={...options,companion:options.store.experiences.projectCompanion(options.scope,options.companion)};
   const { scope, records, companion, turn, purpose = 'discussion', coverage, requestId,
   materialIds = [], byteBudget = 48000, availableSources, memoryResult, memoryIndex = [], retrievedSources = [],
   sourceTurnIds = [], selectedOption, replyMessageIds = [], imageMessageIds = [], images, mediaContext, actionReceipts = [], lookupHistory = [], reviewRange,
@@ -114,7 +115,7 @@ function buildContext(options) {
   for (const id of replyMessageIds) if (byId.has(`qq:${id}`)) selected.set(`qq:${id}`, boundedSource(byId.get(`qq:${id}`),{maxBytes:6000}));
   for (const id of protectedImageIds) if (byId.has(`qq:${id}`)) selected.set(`qq:${id}`, boundedSource(byId.get(`qq:${id}`),{maxBytes:6000}));
   const selectedProposal = selectedOption && companion.turns.find(t => t.id === selectedOption.turnId && t.role === 'assistant')?.expressionOptions?.[selectedOption.index];
-  if (selectedOption && !selectedProposal) throw new Error('选中的表达方向已变化，请重新选择');
+  if (selectedOption && (!selectedProposal||!selectedProposal.label?.trim()||selectedProposal.availability==='unavailable')) throw new Error('选中的表达方向已变化，请重新选择');
   const proposals = companion.turns.filter(t => t.role === 'assistant' && !automaticTurn(t) && t.expressionOptions?.length).slice(-4)
     .flatMap(t => t.expressionOptions.map((o, index) => ({ ...o, turnId: t.id, index })));
   for (const proposal of selectedProposal ? [selectedProposal] : []) for (const q of proposal.quotes || [])
@@ -214,7 +215,7 @@ function buildContext(options) {
       authority: 'derived_private_discussion_needs_sources', foldedSourceIds: payload.topicContext.active.sourceIds.filter(id => foldedPrivateIds.has(id)), sourceAvailability: 'folded_originals_require_lookup' });
   }
   if(retrievedDiscussion.length){
-    const projection=projectDiscussionReads(retrievedDiscussion,{sources:selected,byteBudget});
+    const projection=projectDiscussionReads(retrievedDiscussion,{sources:selected,byteBudget,store:options.store,scope});
     payload.retrievedDiscussion=projection.entries;payload.discussionReadCoverage={...pick(projection,['bodyView','offsetUnit','byteLimit','omittedTurnIds']),requestedTurnIds:retrievedDiscussion.map(item=>item.id)};
   }
   const manualAlternative=candidateAlternative===true&&invocation?.origin==='user'&&invocation?.trigger==='manual_suggestion';
