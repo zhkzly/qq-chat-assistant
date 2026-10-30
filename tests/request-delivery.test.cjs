@@ -1,4 +1,5 @@
 'use strict';
+const {wireSourceView,canonicalSourceView}=require('./fixtures/source-wire.cjs');
 const test=require('node:test'),assert=require('node:assert/strict');
 const {Controller}=require('../src/controller.cjs');
 const {Store}=require('../src/store.cjs');
@@ -16,8 +17,9 @@ async function setup(t,producer,{limit=4}={}){
  const controller=new Controller({store,settings,read:async command=>command==='bind'?scope:{messages:[]},
   assistantModel:(settings,context,signal)=>assistModel(settings,context,signal,async(_,args)=>{
    const request=JSON.parse(args.body),wrapper=JSON.parse(request.messages[1].content),p=wrapper.originalInput||wrapper;
-   calls.push({request,wrapper,p});const value=await producer(p,wrapper,request);
-   return new Response(JSON.stringify({choices:[{message:{content:typeof value==='string'?value:JSON.stringify(value)}}]}),{status:200});
+   calls.push({request,wrapper,p});const value=await producer(p,wrapper,request),receipt=(wrapper.originalInput?context.extraRequests?.at(-1)?.manifest?.sourceHandles:undefined)||context.manifest.sourceHandles;
+   const encoded=typeof value==='string'?value:wireSourceView(value,receipt);
+   return new Response(JSON.stringify({choices:[{message:{content:typeof encoded==='string'?encoded:JSON.stringify(encoded)}}]}),{status:200});
   })});
  controller.updateStatus({phase:'ready',account:{uid:scope.accountUid,uin:scope.accountUin}});await controller.bind(scope.peerUin);
  t.after(()=>{controller.close();store.close();});

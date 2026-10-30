@@ -36,5 +36,5 @@ test('one structural repair teaches the same required current-control contract e
   assert.equal(requests.length,2);assert.deepEqual(result.draftPlan.guidance,complete);
   const repair=JSON.parse(requests[1].messages[1].content);
   assert.ok(repair.task.includes('guidance.objective'));assert.ok(repair.task.includes('allowedApproach'));assert.ok(repair.task.includes('avoidances'));
-  assert.ok(repair.task.includes('intentSourceId=private:current'));assert.ok(!repair.task.includes('没有当前有效话题，不强制guidance'));
+  assert.ok(repair.task.includes(`intentSourceId=${repair.originalInput.intentAuthority.sourceId}`));assert.ok(!repair.task.includes('没有当前有效话题，不强制guidance'));
 });

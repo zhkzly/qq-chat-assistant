@@ -69,11 +69,12 @@ function buildContext(options) {
   const inRecentWindow=at=>Number.isFinite(Date.parse(at))&&Date.parse(at)>=recentSince&&Date.parse(at)<=Date.parse(asOf);
   if(typeof viewerTimeZone!=='string'||!viewerTimeZone.trim())throw new Error('上下文查看时区不合法');
   try{new Intl.DateTimeFormat('en-CA',{timeZone:viewerTimeZone});}catch{throw new Error('上下文查看时区不合法');}
-  const budget = contextBudget(settings, byteBudget, requestMeasure), fits = budget.fits;
   if (!METHODS[purpose] || purpose === 'draft') throw new Error('未知的上下文用途');
   if (!Number.isFinite(byteBudget) || byteBudget < 4000 || byteBudget > 192000) throw new Error('上下文预算不合法');
   const snapshot=sourceSnapshot({scope,records,companion,availableSources,turn});
   const {actualById,all,byId,current}=snapshot;
+  const sourceReferenceRevisions=Object.freeze(Object.fromEntries(all.map(source=>[source.id,source.revision])));
+  const budget=contextBudget(settings,byteBudget,requestMeasure,{sourceRevisions:sourceReferenceRevisions}),fits=budget.fits;
   const readRequests=new Map(retrievedSources.map(source=>[source.id,source]));
   const privateReadView=id=>{const request=readRequests.get(id);return boundedSource(byId.get(id),{maxBytes:6000,start:request?.delivery?.start??request?.offset??0,maxChars:request?.delivery?request.delivery.end-request.delivery.start:request?.maxChars??Infinity});};
   const pendingIntents = pendingPrivateReviews(companion, byId);
@@ -243,6 +244,8 @@ function buildContext(options) {
   if(implicitAnchor){const delivered=payload.privateCandidates?.find(item=>item.selection==='implicit_discussion_anchor'&&item.turnId===implicitAnchor.turnId);
     context.manifest.implicitDiscussionAnchor={turnId:implicitAnchor.turnId,artifactRef:implicitAnchor.artifactRef,field:implicitAnchor.field,...(implicitAnchor.index!==undefined?{index:implicitAnchor.index}:{}),availability:delivered?.availability||'omitted_for_budget'};}
   if(payload.editingReferences)bindEditingReferenceChoices(context,editingReferences);
+  Object.defineProperty(context,'sourceReferenceRevisions',{value:sourceReferenceRevisions});
+  Object.defineProperty(context,'sourceHandleOwner',{value:options.settings?.sourceHandleOwner,writable:true,configurable:true});
   context.essentialSourceIds=[...essentialIds];
   Object.defineProperty(context, 'fullAvailableSources', { value: all });
   Object.defineProperty(context,'rebuildForRequest',{value:measure=>{

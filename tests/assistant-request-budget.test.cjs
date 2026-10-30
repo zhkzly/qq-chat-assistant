@@ -3,7 +3,7 @@ const test=require('node:test'),assert=require('node:assert/strict');
 const {Store}=require('../src/store.cjs');
 const {normalize}=require('../src/messages.cjs');
 const {buildContext,buildDraftContext}=require('../src/assistant-context.cjs');
-const {assistModel,prepareAssistantRequest}=require('./fixtures/assistant-protocol.cjs');
+const {assistModel,prepareAssistantRequest,canonicalSourceView}=require('./fixtures/assistant-protocol.cjs');
 const {scope,raw}=require('./fixtures/native.cjs');
 const settings={baseUrl:'http://synthetic.invalid/v1',model:'synthetic-relationship-context',anonymous:true};
 const ok=content=>({ok:true,json:async()=>({choices:[{message:{content}}]})});
@@ -20,8 +20,8 @@ function fixture(t,overrides={}){
 }
 function checkEssential(payload,args){
  assert.equal(payload.userRequest?.text||payload.outboundQuotes[0].text,args.turn.text);
- for(const record of args.records.slice(-4))assert.equal(payload.sources.find(source=>source.id===`qq:${record.messageId}`)?.text,record.text,'keep the complete latest exchange');
- for(const source of payload.sources.filter(source=>source.type==='qq'))assert.equal(source.text,args.records.find(record=>`qq:${record.messageId}`===source.id).text,'optional sources are whole entries');
+ for(const record of args.records.slice(-4))assert.equal(payload.sources.find(source=>source.messageId===record.messageId)?.text,record.text,'keep the complete latest exchange');
+ for(const source of payload.sources.filter(source=>source.type==='qq'))assert.equal(source.text,args.records.find(record=>record.messageId===source.messageId).text,'optional sources are whole entries');
 }
 for(const requestLimit of [64000,32000])test(`native-shaped long context fits the actual ${requestLimit}-byte request envelope`,async t=>{
  const {args}=fixture(t,{assistantRequestBytes:requestLimit}),context=buildContext(args),calls=[];
@@ -49,7 +49,8 @@ for(const purpose of ['discussion','draft_prepare','draft'])test(`${purpose} rec
  }
  if(purpose==='draft'){for(const key of ['userRequest','goal','privateConversation'])assert.equal(repair.originalInput[key],undefined);}
  assert.equal(context.extraRequests[0].inputBytes,Buffer.byteLength(calls[1]));
- const delivered=[...new Set([...repair.originalInput.sources.map(source=>source.id),...(repair.originalInput.outboundQuotes||[]).map(quote=>quote.sourceId)])].sort();
+ const canonicalRepair=canonicalSourceView(repair.originalInput,context.extraRequests[0].manifest.sourceHandles);
+ const delivered=[...new Set([...canonicalRepair.sources.map(source=>source.id),...(canonicalRepair.outboundQuotes||[]).map(quote=>quote.sourceId)])].sort();
  assert.deepEqual([...new Set(context.extraRequests[0].manifest.sourceIds)].sort(),delivered);
  assert.deepEqual([...new Set(effective.manifest.sourceIds)].sort(),delivered);
  assert.deepEqual(context.extraRequests[0].manifest.methodTrace.delivered,repair.originalInput.methodCards.map(({id,version})=>({id,version})));
@@ -83,8 +84,8 @@ test('automatic controller entry uses the configured envelope and persists the e
  controller.visible=false;t.after(()=>controller.close());controller.updateStatus({phase:'ready',account:{uid:scope.accountUid,uin:scope.accountUin}});await controller.bind(scope.peerUin);
  await controller.suggest({automatic:true});assert.equal(controller.assistantError,'');assert.equal(calls.length,2);assert.ok(calls.every(body=>Buffer.byteLength(body)<=32000));
  const run=store.getCompanion(scope).runs.find(item=>item.id===controller.advice.requestId),repair=JSON.parse(JSON.parse(calls[1]).messages[1].content);
- assert.equal(run.status,'complete');assert.deepEqual(run.payload,repair.originalInput);
- const delivered=repair.originalInput.sources.map(source=>source.id).filter(id=>!id.startsWith('request:')).sort();
+ assert.equal(run.status,'complete');const canonicalRepair=canonicalSourceView(repair.originalInput,run.requests[1].manifest.sourceHandles);assert.deepEqual(run.payload,canonicalRepair);
+ const delivered=canonicalRepair.sources.map(source=>source.id).filter(id=>!id.startsWith('request:')).sort();
  assert.deepEqual([...run.manifest.sourceIds].sort(),delivered);assert.deepEqual([...run.requests[1].manifest.sourceIds].sort(),delivered);
  const usage=controller.usage.get(scope,run.id);assert.equal(usage.attempts,2);assert.equal(usage.origin,'automatic');assert.equal(usage.status,'complete');
 });

@@ -9,6 +9,7 @@ const { responseEnvelope } = require('./model-response-format.cjs');
 const { HELP_BEHAVIOR, helpSystemForPayload, expectsReplyCandidates } = require('./help-behavior.cjs');
 const {resolveDraftMaterial,DRAFT_MATERIAL_PROTOCOL}=require('./context/draft-material.cjs');
 const {selectEditingReference,editingReferenceBinding}=require('./context/editing-reference.cjs');
+const {SourceHandleOwner}=require('./source-handles.cjs');
 const {parseRequestDelivery,parseDeliveryBlocker,normalizeBlockerQuestion,blockerRenderingWitness,validateTerminalDelivery,editable}=require('./request-delivery.cjs');
 const RELATIONSHIP_PROTOCOL = `relationshipPatch is optional and contains only claims (at most 24), events (at most 12), and retire (at most 24), each an array. An empty patch is {"claims":[],"events":[],"retire":[]}.
 claims: {id?,expectedVersion?,subject,aspect,text,assertionKind,epistemicStatus,lifecycle?,validFrom?,validUntil?,context?,sourceIds,topicKeys?}. subject=${SUBJECTS.join('|')}; aspect=${ASPECTS.join('|')}; assertionKind=${ASSERTIONS.join('|')}; epistemicStatus=${EPISTEMIC.join('|')}; lifecycle=${LIFECYCLES.join('|')} (default active). Inferred claims must remain tentative, contested, or undetermined, never supported. observed requires actual QQ evidence; a private report of an event uses reported. stated means someone said it, not independent proof; contact+stated requires an actual incoming QQ source and only that contact evidence determines its date, not a user's later question. A user's interpretation or retelling of her words must be reported/inferred, never her stated feeling. Unknowns are not personality traits. stated_preference does not authorize changing user preferences.
@@ -72,15 +73,17 @@ function imagePayloadFor(payload, images) {
   if (payload.originalInput) { clean.originalInput = { ...original, imageContext }; delete clean.originalInput.mediaContext; }
   return clean;
 }
-function prepareAssistantRequest(settings, payload, images) {
+function prepareAssistantRequest(settings, payload, images, wireOptions={}) {
   payload = imagePayloadFor(payload, images);
-  const actualImages = images || [], text = JSON.stringify(payload);
+  const owner=settings.sourceHandleOwner||new SourceHandleOwner();
+  const sourceWire=owner.preview(payload,wireOptions),wirePayload=sourceWire.wirePayload;
+  const actualImages = images || [], text = JSON.stringify(wirePayload);
   const envelope = content => ({ model: settings.model || '', stream: false, temperature: 0.4, max_tokens: 2200,
-    ...responseEnvelope(settings,payload?.purpose,payload), messages: [{ role: 'system', content: helpSystemForPayload(payload || {}, promptProtocols) + (payload?.imageContext ? `\n${IMAGE_CONTEXT_RULE}` : '') }, { role: 'user', content }] });
+    ...responseEnvelope(settings,payload?.purpose,payload), messages: [{ role: 'system', content: helpSystemForPayload(wirePayload || {}, promptProtocols) + (payload?.imageContext ? `\n${IMAGE_CONTEXT_RULE}` : '') }, { role: 'user', content }] });
   const textRequest = envelope(text), serializedText = JSON.stringify(textRequest);
   const request = actualImages.length ? envelope([{ type: 'text', text }, ...actualImages.map(image => ({ type: 'image_url', image_url: { url: image.url, detail: 'auto' } }))]) : textRequest;
   const requestBytes = Buffer.byteLength(serializedText, 'utf8'), envelopeBytes = Buffer.byteLength(JSON.stringify(envelope('')), 'utf8');
-  return { payload, request, serialized: actualImages.length ? JSON.stringify(request) : serializedText, requestBytes, envelopeBytes,
+  return { payload, wirePayload, sourceWire, request, serialized: actualImages.length ? JSON.stringify(request) : serializedText, requestBytes, envelopeBytes,
     payloadWireBytes: requestBytes - envelopeBytes, byteLimit: Math.max(8000, Math.min(256000, Number(settings.assistantRequestBytes) || 64000)) };
 }
 function parseExperienceProposals(value, payload) {
@@ -371,9 +374,13 @@ function validateForegroundState(patch, payload) {
     throw new Error('statePatch.unknowns: expected at most 12 bounded strings');
 }
 function parseAssistant(value, purpose, input, diagnostics) {
-  const normalized=normalizeBlockerQuestion(typeof value==='string'?parseModelJson(value):value,value,diagnostics,purpose);
+  const raw=typeof value==='string'?parseModelJson(value):value;
+  const sourceWire=input?.sourceWireSnapshot,payload=input?.payload||input;
+  const fields=['statePatch','stateReview','topicPatch','relationshipPatch','experienceProposals'],wireAuxiliaryErrors=[];
+  const bestEffort=payload?.taskContext?.auxiliaryPolicy==='best_effort'&&purpose!=='draft'&&raw&&typeof raw==='object'&&!Array.isArray(raw)&&!raw.lookup&&!raw.draftPlan;
+  const decoded=sourceWire?sourceWire.decode(raw,{isolateFields:bestEffort?fields:[],onRejected:(field,error)=>wireAuxiliaryErrors.push({field,code:'invalid_auxiliary_metadata',message:String(error.message).slice(0,500)})}):raw;
+  const normalized=normalizeBlockerQuestion(decoded,value,diagnostics,purpose);
   const data=normalized.value;
-  const payload = input?.payload || input;
   const delivery=purpose==='draft'?undefined:parseRequestDelivery(data,payload);
   const attach=result=>{
     if(normalized.explanation)result.discussionExplanation=normalized.explanation;
@@ -381,7 +388,8 @@ function parseAssistant(value, purpose, input, diagnostics) {
       if(data.deliveryBlocker!==undefined)result.deliveryBlocker=parseDeliveryBlocker(data.deliveryBlocker,data,payload.requestDeliveryObligation);
       validateTerminalDelivery(result,payload.requestDeliveryObligation);
     }
-    return delivery?{...result,requestDelivery:delivery}:result;
+    const canonicalResult=delivery?{...result,requestDelivery:delivery}:result;
+    return sourceWire?sourceWire.markCanonical(canonicalResult):canonicalResult;
   };
   try {
   // Legacy and authorization-bearing paths retain the original strict contract.
@@ -389,9 +397,8 @@ function parseAssistant(value, purpose, input, diagnostics) {
   if (payload?.taskContext?.auxiliaryPolicy !== 'best_effort' || purpose === 'draft' || !data ||
     typeof data !== 'object' || Array.isArray(data) || data.lookup || data.draftPlan)
     return attach(parseAssistantStrict(data,purpose,input));
-  const fields = ['statePatch','stateReview','topicPatch','relationshipPatch','experienceProposals'];
   const base = Object.fromEntries(Object.entries(data).filter(([key]) => !fields.includes(key)));
-  const result = parseAssistantStrict(base,purpose,input), errors = [];
+  const result = parseAssistantStrict(base,purpose,input), errors = [...wireAuxiliaryErrors];
   for (const field of fields) if (data[field] !== undefined) {
     try {
       if (field === 'statePatch') validateForegroundState(data[field],payload);
@@ -437,19 +444,24 @@ function structuredRepairTask(payload) {
 }
 async function assistModel(settings, context, signal, fetchImpl = fetch) {
   if ((!settings.apiKey && !settings.anonymous) || !settings.baseUrl || !settings.model) throw new Error('请先配置模型');
+  settings={...settings,sourceHandleOwner:settings.sourceHandleOwner||context.sourceHandleOwner||new SourceHandleOwner({scope:context.manifest?.scope||null,taskId:context.manifest?.requestId||'standalone'})};
+  Object.defineProperty(context,'sourceHandleOwner',{value:settings.sourceHandleOwner,writable:true,configurable:true});
   const url = new URL(`${settings.baseUrl.replace(/\/$/, '')}/chat/completions`);
   if (!['http:', 'https:'].includes(url.protocol)) throw new Error('模型地址协议无效');
   const timeout = AbortSignal.timeout(60000);
   const boundedSignal = signal ? AbortSignal.any([signal, timeout]) : timeout;
-  const preparedRequest = prepareAssistantRequest(settings, context.mediaContext ? { ...context.payload, mediaContext: context.mediaContext } : context.payload, context.images || []);
+  const wireOptionsFor=input=>({sourceRevisions:input.sourceReferenceRevisions||input.manifest?.sourceRevisions});
+  const preparedRequest = prepareAssistantRequest(settings, context.mediaContext ? { ...context.payload, mediaContext: context.mediaContext } : context.payload, context.images || [],wireOptionsFor(context));
   const { serialized, requestBytes, byteLimit } = preparedRequest;
   if (requestBytes > byteLimit) throw new Error(`完整文字请求超出预算（${requestBytes}/${byteLimit} bytes），请缩小本次范围`);
   context.payload = preparedRequest.payload;
   if (context.manifest) Object.assign(context.manifest,{inputBytes:Buffer.byteLength(JSON.stringify(context.payload)),serializedTextRequestBytes:requestBytes,requestByteBudget:byteLimit,outputTokenLimit:2200,model:settings.model,method:'complete serialized text request; image bytes separately bounded',imageCount:context.images?.length||0});
   if(context.manifest && context.payload.imageContext)context.manifest.imageContext=structuredClone(context.payload.imageContext);
+  Object.defineProperty(context,'sourceWireSnapshot',{value:preparedRequest.sourceWire,writable:true,configurable:true});
+  const dispatch=async(url,request)=>{preparedRequest.sourceWire.commit();if(context.manifest)context.manifest.sourceHandles=preparedRequest.sourceWire.receipt;return fetchImpl(url,request);};
   const {response,attempts} = await postModel(url, { method: 'POST', signal: boundedSignal,
     headers: { 'Content-Type': 'application/json', ...(settings.apiKey ? { Authorization: `Bearer ${settings.apiKey}` } : {}) },
-    body: serialized },fetchImpl,undefined,settings.requestBudget);
+    body: serialized },dispatch,undefined,settings.requestBudget);
   if(context.manifest)context.manifest.networkAttempts=attempts;
   if (!response.ok) throw await modelFailure(response,'助手模型请求失败：');
   const json = await response.json(), output = readModelOutput(json), responseContent = output.text;
@@ -494,16 +506,16 @@ async function assistModel(settings, context, signal, fetchImpl = fetch) {
       formatError:error instanceof SyntaxError?'响应不是合法 JSON':error.message,
       task: context.payload.purpose === 'draft'
         ? '当前purpose=draft，仅按originalInput受限输入修复为kind:draft、非空text及1..3条完整suggestions；确实缺少不可绕过的事实或许可时用kind:question、具体text及deliveryBlocker:{kind:missing_fact/missing_authorization,missing:具体缺项,question:对应私下核对问题}。不能返回只有策略或泛泛问题，不能新增事实或重新索取完整私下请求。'
-        : structuredRepairTask(context.payload) };
+        : structuredRepairTask(preparedRequest.wirePayload) };
     const retainImages=plainRecovery||planningCarrierRepair||deliveryRepair;
-    let repairedInput = context, preparedRepair = prepareAssistantRequest(repairSettings, repairPayload, retainImages ? repairedInput.images : []);
+    let repairedInput = context, preparedRepair = prepareAssistantRequest(repairSettings, repairPayload, retainImages ? repairedInput.images : [],wireOptionsFor(repairedInput));
     if (preparedRepair.requestBytes > byteLimit && context.rebuildForRequest) {
       // null measures the wrapper envelope alone. It has no source records and
       // must not be treated as an actual image-bearing model request.
       repairedInput = context.rebuildForRequest(payload => prepareAssistantRequest(repairSettings, { ...repairPayload,
         originalInput: payload === null ? null : context.mediaContext || context.payload.imageContext
           ? { ...bindObligation(payload), mediaContext: context.mediaContext || context.payload.imageContext } : bindObligation(payload) },
-        payload === null ? [] : retainImages ? context.images || [] : []).requestBytes);
+        payload === null ? [] : retainImages ? context.images || [] : [],wireOptionsFor(context)).requestBytes);
       if(context.images?.length){
         const sourceIds=new Set(repairedInput.payload.sources.map(source=>source.id));
         if(context.images.some(image=>!sourceIds.has(`qq:${image.messageId}`)))throw new Error('所选图片的完整来源超过修复上下文预算；输入已保留，内容未被截断');
@@ -514,7 +526,7 @@ async function assistModel(settings, context, signal, fetchImpl = fetch) {
       }
       repairedInput.payload=bindObligation(repairedInput.payload);
       repairPayload.originalInput = repairedInput.payload;
-      preparedRepair = prepareAssistantRequest(repairSettings, repairPayload, retainImages ? repairedInput.images : []);
+      preparedRepair = prepareAssistantRequest(repairSettings, repairPayload, retainImages ? repairedInput.images : [],wireOptionsFor(repairedInput));
     }
     if(preparedRepair.requestBytes>byteLimit)throw new Error('模型格式不正确，且必要修复输入超过预算；输入已保留，内容未被截断');
     repairPayload=preparedRepair.payload;
@@ -528,7 +540,10 @@ async function assistModel(settings, context, signal, fetchImpl = fetch) {
     if(context.manifest)context.manifest.formatRepair={attempts:1,reason:formatFailure,inputBytes:preparedRepair.requestBytes,responseMode:repairSettings.modelResponseMode || 'model_default',...(planningCarrierRepair?{planningCarrier:true}:{}),...(deliveryRepair?{deliveryContract:true}:{})};
     const repairBudget = settings.requestBudget?.forStage(repairStage);
     if (repairBudget?.stageId) context.extraRequests[0].manifest.stageId = repairBudget.stageId;
-    const {response:repaired,attempts:repairAttempts}=await postModel(url,{method:'POST',signal:boundedSignal,headers:{'Content-Type':'application/json',...(settings.apiKey?{Authorization:`Bearer ${settings.apiKey}`}:{})},body:repairBody},fetchImpl,undefined,repairBudget);
+    Object.defineProperty(repairedInput,'sourceWireSnapshot',{value:preparedRepair.sourceWire,writable:true,configurable:true});
+    Object.defineProperty(repairedInput,'sourceHandleOwner',{value:settings.sourceHandleOwner,writable:true,configurable:true});
+    const repairDispatch=async(url,request)=>{preparedRepair.sourceWire.commit();repairManifest.sourceHandles=preparedRepair.sourceWire.receipt;if(repairedInput!==context&&repairedInput.manifest)repairedInput.manifest.sourceHandles=preparedRepair.sourceWire.receipt;return fetchImpl(url,request);};
+    const {response:repaired,attempts:repairAttempts}=await postModel(url,{method:'POST',signal:boundedSignal,headers:{'Content-Type':'application/json',...(settings.apiKey?{Authorization:`Bearer ${settings.apiKey}`}:{})},body:repairBody},repairDispatch,undefined,repairBudget);
     if(context.manifest)context.manifest.formatRepair.networkAttempts=repairAttempts;
     if(!repaired.ok)throw await modelFailure(repaired,'助手格式修复失败：');
     const repairedJson = await repaired.json(); repairBudget?.recordUsage(repairedJson.usage);
@@ -537,7 +552,7 @@ async function assistModel(settings, context, signal, fetchImpl = fetch) {
     if(repairedOutput.metadata.finishReason === 'length'){const error=new Error('恢复输出达到上限，未采用可能截断的回答；输入已保留');error.code='model_output_truncated';throw error;}
     if(typeof content!=='string')throw new Error('助手格式修复未返回文字');
     try {
-      const result = plainRecovery ? parsePlainRecovery(content,repairedInput.payload) : parsed(content,trace,repairedInput);
+      const result = plainRecovery ? preparedRepair.sourceWire.markCanonical(parsePlainRecovery(content,repairedInput.payload)) : parsed(content,trace,repairedInput);
       if (plainRecovery) {
         const intentId = repairedInput.payload.intentAuthority?.sourceId || repairedInput.payload.userRequest?.sourceId;
         const source = repairedInput.payload.sources?.find(item=>item.id===intentId);

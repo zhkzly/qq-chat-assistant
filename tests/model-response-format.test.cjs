@@ -1,7 +1,7 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
 const {responseEnvelope}=require('../src/model-response-format.cjs'),{readModelOutput,parseModelJson}=require('../src/model-json.cjs');
-const {assistModel,prepareAssistantRequest,parseAssistant}=require('./fixtures/assistant-protocol.cjs');
+const {assistModel,prepareAssistantRequest,parseAssistant,canonicalSourceView}=require('./fixtures/assistant-protocol.cjs');
 test('verified Claude and GPT use result envelopes; thinking Claude retains compatible JSON mode',()=>{
  for(const purpose of ['discussion','draft','discussion_compaction','memory']){
   const settings={model:'claude-sonnet-4-6'},result=responseEnvelope(settings,purpose);
@@ -73,7 +73,7 @@ test('malformed nested tool arguments get one same-carrier repair without weaken
  const result=await assistModel(settings,context,undefined,transport);
  assert.deepEqual(result.draftPlan.guidance,valid.draftPlan.guidance);assert.equal(bodies.length,2);
  assert.equal(bodies[0].tool_choice.function.name,'assistant_result');assert.equal(bodies[1].tool_choice.function.name,'assistant_result');assert.equal(bodies[1].response_format,undefined);
- assert.deepEqual(JSON.parse(bodies[1].messages[1].content).originalInput,context.payload);assert.equal(context.manifest.formatRepair.responseMode,'model_default');
+ assert.deepEqual(canonicalSourceView(JSON.parse(bodies[1].messages[1].content).originalInput,context.extraRequests[0].manifest.sourceHandles),context.payload);assert.equal(context.manifest.formatRepair.responseMode,'model_default');
  const bad={payload:context.payload,manifest:{}};let calls=0;
  await assert.rejects(assistModel(settings,bad,undefined,async()=>{calls++;return {ok:true,json:async()=>({choices:[{message:calls===1?{content:null,tool_calls:[{function:{name:'assistant_result',arguments:'{"draftPlan":"broken"}'}}]}:{content:JSON.stringify({draftPlan:{quotes:[],intent:'reply'}})}}]})};}),/current effective topic requires/);
  assert.equal(calls,2,'the alternate carrier is still exactly one format repair');

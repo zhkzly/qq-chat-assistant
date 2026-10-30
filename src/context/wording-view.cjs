@@ -10,8 +10,9 @@ const {resolveDraftMaterial,assertDraftSourcesCurrent}=require('./draft-material
 const {resolveEditingReference}=require('./editing-reference.cjs');
 function buildDraftContext(prepared, plan, info) {
   if (!sameScopeIfPresent({ scope: prepared.manifest.scope }, info.scope)) throw new Error('当前联系人已变化，请重新组织草稿');
-  const settings=info.settings||{model:prepared.manifest.requestModel,assistantRequestBytes:prepared.manifest.requestByteBudget};
-  const budget=contextBudget(settings,prepared.manifest.byteBudget,info.requestMeasure);
+  const settings={...(info.settings||{model:prepared.manifest.requestModel,assistantRequestBytes:prepared.manifest.requestByteBudget}),sourceHandleOwner:info.settings?.sourceHandleOwner||prepared.sourceHandleOwner};
+  const sourceReferenceRevisions=prepared.sourceReferenceRevisions||prepared.manifest.sourceRevisions;
+  const budget=contextBudget(settings,prepared.manifest.byteBudget,info.requestMeasure,{sourceRevisions:sourceReferenceRevisions});
   const controlRefs=plan?.taskUse!=='different'&&plan?.taskUse!=='uncertain'?prepared.payload.topicContext?.controlRefs||[]:[];
   const byId = new Map([...controlRefs.map(ref=>({id:ref.sourceId,revision:ref.revision})),...prepared.payload.sources].map(s => [s.id, s]));
   const material=resolveDraftMaterial(prepared.payload,plan,{restrictions:prepared.restrictions||prepared.payload.privateRestrictions||[]});
@@ -92,6 +93,8 @@ function buildDraftContext(prepared, plan, info) {
   context.manifest.wordingControlEvidence={sourceRefs:projectedControls.sourceRefs,preferenceRefs:projectedControls.preferenceRefs};
   if(prepared.images)context.images=structuredClone(prepared.images);
   if(prepared.mediaContext||prepared.payload.imageContext)context.mediaContext={mode:payload.imageContext.mode,omitted:structuredClone(payload.imageContext.omitted)};
+  Object.defineProperty(context,'sourceReferenceRevisions',{value:sourceReferenceRevisions});
+  Object.defineProperty(context,'sourceHandleOwner',{value:prepared.sourceHandleOwner||settings.sourceHandleOwner,writable:true,configurable:true});
   context.essentialSourceIds=[...essentialIds];
   Object.defineProperty(context,'rebuildForRequest',{value:measure=>buildDraftContext(prepared,plan,{...info,requestMeasure:measure})});
   return context;

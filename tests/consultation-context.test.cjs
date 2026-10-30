@@ -88,7 +88,7 @@ test('actual format repair reassembly preserves the observation clock and select
  const repaired=requests[1].payload.originalInput;
  assert.equal(repaired.asOf,context.payload.asOf);assert.equal(repaired.viewerTimeZone,'Asia/Shanghai');
  assert.deepEqual(repaired.taskContext.timeContext,context.payload.taskContext.timeContext);assert.deepEqual(repaired.taskContext.invocation,context.payload.taskContext.invocation);
- assert.equal(repaired.taskContext.consultationTask.focus[0].sourceId,'qq:1702');assert.ok(repaired.sources.some(source=>source.id==='qq:1702'));
+ const focusedSource=repaired.sources.find(source=>source.messageId==='1702');assert.ok(focusedSource);assert.equal(repaired.taskContext.consultationTask.focus[0].sourceId,focusedSource.id);
  assert.ok(requests.every(request=>request.bytes<=settings.assistantRequestBytes));
 });
 test('same-millisecond private sources follow actual turn order and fit without false omitted-later markers',t=>{

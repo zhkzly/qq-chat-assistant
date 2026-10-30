@@ -12,6 +12,7 @@ const {TaskLedger}=require('./request-budget.cjs');
 const {maintenanceDecision}=require('./memory-scheduler.cjs');
 const fingerprint=value=>createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const FORGOTTEN_REQUEST='所选来源已从助手参考中移除。仅使用仍可用的信息继续本次帮助，不复述已移除内容。';
+const {SourceHandleOwner}=require('./source-handles.cjs');
 const {editable,validateTerminalDelivery,blockerRenderingWitness,deliveryStatus}=require('./request-delivery.cjs');
 const { assistModel, parseAssistant, imageContextFor } = require('./assistant-model.cjs');
 const { buildContext, buildDraftContext, expressionOptionsFor, PROMPT_VERSION } = require('./assistant-context.cjs');
@@ -406,7 +407,7 @@ class Controller extends EventEmitter {
       if(this.memoryAbort===abort){this.memoryBusy=false;this.memoryAbort=null;this.changed();if(this.store.memoryStatus(scope).pending)this.scheduleMemory(2500);}
     }
   }
-  async assist({ text, purpose = 'discussion', materialIds = [], sourceTurnIds = [], selectedOption, transient = false, resumeTurnId, resumes=0, taskId, origin='user',feedbackIntentId,privateKind,responsePreference=this.instruction,candidateInputSeq,currentCandidateRef,candidateAlternative=false,requestDeliveryObligation:resumeDeliveryObligation } = {}) {
+  async assist({ text, purpose = 'discussion', materialIds = [], sourceTurnIds = [], selectedOption, transient = false, resumeTurnId, resumes=0, taskId, origin='user',feedbackIntentId,privateKind,responsePreference=this.instruction,candidateInputSeq,currentCandidateRef,candidateAlternative=false,requestDeliveryObligation:resumeDeliveryObligation,sourceHandleOwner:resumeSourceHandleOwner } = {}) {
     const scope = this.requireScope();
     // Freeze one observation across lookups, compaction and format repair.
     // Reconstruct this controller and its CandidateSession together on service refresh.
@@ -428,6 +429,8 @@ class Controller extends EventEmitter {
       if(previous.status==='complete')return this.store.getCompanion(scope).turns.find(turn=>turn.role==='assistant'&&turn.requestId===budget.id)||null;
       const error=new Error(previous.status==='running'?'这次请求仍在进行，请等待结果。':'这次请求已经结束；如需重新尝试，请重新提交。');error.code='task_already_exists';throw error;
     }
+    if(resumes>0&&(!(resumeSourceHandleOwner instanceof SourceHandleOwner)||!resumeSourceHandleOwner.matches(scope,budget.id))){this.usage.finish(scope,budget.id,'failed','source_handle_owner_mismatch');throw new Error('本次来源引用任务已变化，原输入已保留，请重新提交');}
+    const sourceHandleOwner=resumes>0?resumeSourceHandleOwner:new SourceHandleOwner({scope,taskId:budget.id});
     // The user's new words can refer to the visible current wording even as
     // the new-intent fence withdraws it. This is one generated reference, not
     // an explicit historical selection or permission to reload its sources.
@@ -445,9 +448,9 @@ class Controller extends EventEmitter {
     const prior=storedPrior&&(storedPrior.text===text?storedPrior:storedPrior.memoryExcluded&&text===FORGOTTEN_REQUEST?{...storedPrior,text:FORGOTTEN_REQUEST}:null);
     if(resumeTurnId&&!prior&&!transient)throw new Error('原来的问题已变化，请使用当前问题');
     let turn = transient ? {id:requestId,role:'user',kind:purpose,text,transient:true} : prior||this.store.appendTurn(scope, { role: 'user', kind: privateKind||purpose, text, requestId });
-    this.activeAssist={scope,turnId:turn.id,taskId:budget.id,resumes,args:{text,purpose,materialIds,sourceTurnIds,selectedOption,transient,origin,feedbackIntentId,privateKind,responsePreference,candidateInputSeq:candidateTicket.privateInputSeq,currentCandidateRef,candidateAlternative,...(resumes>0&&resumeDeliveryObligation?{requestDeliveryObligation:resumeDeliveryObligation}:{})}};
+    this.activeAssist={scope,turnId:turn.id,taskId:budget.id,resumes,args:{text,purpose,materialIds,sourceTurnIds,selectedOption,transient,origin,feedbackIntentId,privateKind,responsePreference,candidateInputSeq:candidateTicket.privateInputSeq,currentCandidateRef,candidateAlternative,sourceHandleOwner,...(resumes>0&&resumeDeliveryObligation?{requestDeliveryObligation:resumeDeliveryObligation}:{})}};
     let companion = this.store.getCompanion(scope), baseRevision = companion.revision,baseGeneration=this.store.contextGeneration?.(scope);
-    const epoch = this.epoch, revision = this.revision, settings = { ...this.settings };
+    const epoch = this.epoch, revision = this.revision, settings = { ...this.settings,sourceHandleOwner };
     const binding = `${settings.baseUrl}\n${settings.model}\n${settings.activeModelProfileId || ''}`;
     const current = () => this.assistantAbort === abort && !abort.signal.aborted && epoch === this.epoch && revision === this.revision &&
       sameScope(scope, this.scope) && this.hasModelConsent() &&this.candidateSession.isCurrent(candidateTicket,{scope:this.scope,revision:this.revision})&&

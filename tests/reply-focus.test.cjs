@@ -38,7 +38,7 @@ test('both unified model stages preserve exact selected targets as quoted data w
  const {store,controller}=app(t,(model,context,signal)=>assistModel(model,context,signal,network));
  const ids=[records[0].messageId];controller.configure({replyMessageIds:ids});const actualCount=store.messages(scope).length;
  await controller.suggest();assert.deepEqual(inputs.map(p=>p.purpose),['reply','draft']);
- for(const input of inputs){assert.deepEqual(input.replyFocus,ids);assert.ok(input.sources.some(s=>s.id===`qq:${ids[0]}`));assert.equal(input.send,undefined);assert.equal(input.command,undefined);}
+ for(const input of inputs){assert.deepEqual(input.replyFocus,ids);assert.ok(input.sources.some(s=>s.messageId===ids[0]));assert.equal(input.send,undefined);assert.equal(input.command,undefined);}
  assert.equal(controller.advice.suggestions.length,1);assert.equal(store.messages(scope).length,actualCount);
  assert.equal(inputs[1].privateConversation,undefined);assert.equal(inputs[1].goal,undefined);
 });

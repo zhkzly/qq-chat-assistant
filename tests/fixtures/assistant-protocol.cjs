@@ -6,6 +6,7 @@ const model=require('../../src/assistant-model.cjs');
 const {parseModelJson}=require('../../src/model-json.cjs');
 const {Controller:ProductController}=require('../../src/controller.cjs');
 const {withRequestDelivery}=require('../../scripts/synthetic-request-delivery.cjs');
+const {mapSourceReferences}=require('../../src/source-handles.cjs');
 
 class Controller extends ProductController {
  get assistantModel(){return this.fixtureModel;}
@@ -17,18 +18,25 @@ function parseAssistant(value,purpose,input,...args){
  if(typeof data==='string'){try{data=parseModelJson(data);}catch{ /* Preserve malformed JSON. */ }}
  return model.parseAssistant(withRequestDelivery(data,input?.payload||input),purpose,input,...args);
 }
+const {canonicalSourceView,wireSourceView}=require('./source-wire.cjs');
 async function assistModel(settings,context,signal,fetchImpl=fetch){
  return model.assistModel(settings,context,signal,async(url,args)=>{
   const response=await fetchImpl(url,args);
   if(!response.ok)return response;
   const json=await response.json(),request=JSON.parse(args.body),content=request.messages[1].content;
   const wrapper=JSON.parse(typeof content==='string'?content:content.find(item=>item.type==='text').text),payload=wrapper.originalInput||wrapper;
-  const upgrade=text=>{try{const data=JSON.parse(text);return JSON.stringify(withRequestDelivery(data,payload));}catch{return text;}};
+  // Legacy producers may use canonical fixture IDs. Encode only exact IDs
+  // offered in THIS dispatched request; unknown references remain untouched
+  // so the production decoder, rather than this helper, rejects them.
+  const receipt=(wrapper.originalInput?context.extraRequests?.at(-1)?.manifest?.sourceHandles:undefined)||context.manifest?.sourceHandles;
+  const aliases=new Map((receipt?.bindings||[]).map(item=>[item.sourceId,item.handle]));
+  const upgradeValue=data=>mapSourceReferences(withRequestDelivery(data,payload),id=>aliases.get(id)||id);
+  const upgrade=text=>{try{return JSON.stringify(upgradeValue(JSON.parse(text)));}catch{return text;}};
   for(const choice of json.choices||[]){
    if(typeof choice.message?.content==='string')choice.message.content=upgrade(choice.message.content);
-   for(const call of choice.message?.tool_calls||[])if(typeof call.function?.arguments==='string')call.function.arguments=upgrade(call.function.arguments);
+   for(const call of choice.message?.tool_calls||[])if(typeof call.function?.arguments==='string')call.function.arguments=upgrade(call.function.arguments);else if(call.function?.arguments&&typeof call.function.arguments==='object')call.function.arguments=upgradeValue(call.function.arguments);
   }
   return {ok:response.ok,status:response.status,json:async()=>json};
  });
 }
-module.exports={...model,Controller,parseAssistant,assistModel,withRequestDelivery};
+module.exports={...model,Controller,parseAssistant,assistModel,withRequestDelivery,canonicalSourceView,wireSourceView};

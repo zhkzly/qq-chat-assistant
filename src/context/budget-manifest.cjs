@@ -7,8 +7,8 @@ function methodTrace(payload) {
     catalog:(payload.methodCatalog||[]).map(({id,version})=>({id,version:version||payload.methodSelection?.version})),
     operationalDelivery:{location:payload.methodSelection?.operationalInstructionsLocation||'payload',ids:[...new Set([...(payload.methodCatalog||[]).filter(method=>method.instruction||payload.methodSelection?.operationalInstructionsLocation==='system').map(method=>method.id),...(payload.methodCards||[]).filter(method=>method.instruction).map(method=>method.id)])]},reported: null };
 }
-function contextBudget(settings, byteBudget, requestMeasure) {
-  const base=prepareAssistantRequest(settings,null),measure=requestMeasure||(payload=>prepareAssistantRequest(settings,payload).requestBytes);
+function contextBudget(settings, byteBudget, requestMeasure,wireOptions={}) {
+  const base=prepareAssistantRequest(settings,null,undefined,wireOptions),measure=requestMeasure||(payload=>prepareAssistantRequest(settings,payload,undefined,wireOptions).requestBytes);
   const envelopeBytes=measure(null)-4;
   return {measure,requestByteBudget:base.byteLimit,envelopeBytes,payloadWireByteBudget:base.byteLimit-envelopeBytes,model:settings.model||'',
     fits:payload=>bytes(payload)<=byteBudget&&measure(payload)<=base.byteLimit};

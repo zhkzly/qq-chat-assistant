@@ -4,7 +4,7 @@ const test = require('node:test'), assert = require('node:assert/strict');
 const { Store } = require('../src/store.cjs');
 const { normalize } = require('../src/messages.cjs');
 const { buildContext, buildDraftContext, PROMPT_VERSION } = require('../src/assistant-context.cjs');
-const { prepareAssistantRequest, assistModel, imageContextFor } = require('./fixtures/assistant-protocol.cjs');
+const { prepareAssistantRequest, assistModel, imageContextFor, canonicalSourceView } = require('./fixtures/assistant-protocol.cjs');
 const { scope, raw } = require('./fixtures/native.cjs');
 const settings = { baseUrl: 'http://synthetic.invalid/v1', model: 'synthetic-vision', anonymous: true };
 const response = content => ({ ok: true, json: async () => ({ choices: [{ message: { content } }] }) });
@@ -29,19 +29,19 @@ function userPayload(body) { const content = JSON.parse(body).messages[1].conten
 test('image order, source attribution and missing-cache boundaries are model visible before budgeting', t => {
   const { prepared, images, args } = fixture(t);
   const request = prepareAssistantRequest(settings, { ...prepared.payload, mediaContext: prepared.mediaContext }, images);
-  const payload = userPayload(request.serialized), packet = request.request;
+  const payload = userPayload(request.serialized), packet = request.request,canonical=canonicalSourceView(payload,request.sourceWire.receipt);
   assert.equal(payload.imageContext.version, 1); assert.equal(payload.imageContext.mode, 'automatic');
-  assert.deepEqual(payload.imageContext.attached, images.map((image, index) => ({ ordinal: index + 1, sourceId: `qq:${image.messageId}`, index: 0,
+  assert.deepEqual(canonical.imageContext.attached, images.map((image, index) => ({ ordinal: index + 1, sourceId: `qq:${image.messageId}`, index: 0,
     speaker: args.records.find(record => record.messageId === image.messageId).direction === 'outgoing' ? '我' : '对方',
     at: new Date(args.records.find(record => record.messageId === image.messageId).timestamp).toISOString() })));
-  assert.deepEqual(payload.imageContext.omitted, [{ sourceId: `qq:${args.records[2].messageId}`, index: 0, reason: 'cache_missing' }]);
+  assert.deepEqual(canonical.imageContext.omitted, [{ sourceId: `qq:${args.records[2].messageId}`, index: 0, reason: 'cache_missing' }]);
   assert.equal(payload.mediaContext, undefined); assert.ok(!JSON.stringify(payload).includes('data:image/')); assert.ok(!JSON.stringify(payload).includes('/private/cache'));
   assert.deepEqual(packet.messages[1].content.slice(1).map(part => part.image_url), images.map(image => ({ url: image.url, detail: 'auto' })));
   const textPacket = { ...packet, messages: [packet.messages[0], { role: 'user', content: JSON.stringify(payload) }] };
   assert.equal(request.requestBytes, Buffer.byteLength(JSON.stringify(textPacket)));
   assert.ok(packet.messages[0].content.includes('imageContext.attached')); assert.ok(packet.messages[0].content.includes('心情'));
   assert.ok(request.requestBytes > prepareAssistantRequest(settings, prepared.payload).requestBytes);
-  assert.deepEqual(request.payload, payload);
+  assert.deepEqual(request.payload,canonical);assert.ok(payload.imageContext.attached.every(image=>payload.sources.some(source=>source.id===image.sourceId)),'image aliases point to actual wire sources');
 });
 test('metadata cannot refer to foreign, excluded or private sources and cannot carry paths', t => {
   const { prepared, images, args } = fixture(t);
@@ -89,7 +89,7 @@ test('private help and its bounded structured recovery retain the same image att
   const first = userPayload(calls[0]), recovery = userPayload(calls[1]);
   assert.deepEqual(recovery.imageContext.attached, first.imageContext.attached);
   assert.deepEqual(recovery.originalInput.imageContext.attached, first.imageContext.attached);
-  assert.deepEqual(prepared.payload.imageContext, first.imageContext);
+  assert.deepEqual(prepared.payload.imageContext,canonicalSourceView(first,prepared.manifest.sourceHandles).imageContext);
   assert.ok(calls.every(body => JSON.parse(body).messages[1].content.length === images.length + 1));
   assert.ok(!JSON.stringify(prepared.extraRequests).includes('data:image/'));
 });
@@ -100,12 +100,12 @@ test('draft projection and structured delivery repair retain the actual image-so
   const first = userPayload(calls[0]), repair = userPayload(calls[1]);
   assert.ok(Array.isArray(JSON.parse(calls[1]).messages[1].content));
   assert.deepEqual(repair.imageContext.attached,first.imageContext.attached);assert.deepEqual(repair.originalInput.imageContext.attached,first.imageContext.attached);
-  assert.equal(prepared.extraRequests[0].manifest.imageCount,images.length);assert.deepEqual(prepared.extraRequests[0].manifest.imageContext.attached,first.imageContext.attached);
-  assert.deepEqual(prepared.payload.imageContext.attached, first.imageContext.attached);
+  assert.equal(prepared.extraRequests[0].manifest.imageCount,images.length);assert.deepEqual(prepared.extraRequests[0].manifest.imageContext.attached,canonicalSourceView(first,prepared.manifest.sourceHandles).imageContext.attached);
+  assert.deepEqual(prepared.payload.imageContext.attached,canonicalSourceView(first,prepared.manifest.sourceHandles).imageContext.attached);
   const draft = buildDraftContext(prepared.resultContext || prepared, planned.draftPlan, args);
-  assert.deepEqual(draft.images, images); assert.deepEqual(draft.payload.imageContext.attached, first.imageContext.attached);
+  assert.deepEqual(draft.images, images); assert.deepEqual(draft.payload.imageContext.attached,canonicalSourceView(first,prepared.manifest.sourceHandles).imageContext.attached);
   for (const key of ['goal', 'userRequest', 'privateConversation']) assert.equal(draft.payload[key], undefined);
   await assistModel(settings, draft, undefined, async (_, request) => { calls.push(request.body); return response(JSON.stringify({ kind: 'draft', text: '参考表达', suggestions: [{ style: '自然', text: '哈哈，这张还挺逗的' }] })); });
-  assert.deepEqual(userPayload(calls[2]).imageContext.attached, first.imageContext.attached);
+  assert.deepEqual(canonicalSourceView(userPayload(calls[2]),draft.manifest.sourceHandles).imageContext.attached,canonicalSourceView(first,prepared.manifest.sourceHandles).imageContext.attached);
   assert.equal(draft.payload.promptVersion, PROMPT_VERSION);
 });

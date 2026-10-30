@@ -1,4 +1,5 @@
 'use strict';
+const {wireSourceView,canonicalSourceView}=require('./fixtures/source-wire.cjs');
 const test=require('node:test'),assert=require('node:assert/strict');
 const {resolveDraftMaterial,DRAFT_MATERIAL_PROTOCOL}=require('../src/context/draft-material.cjs');
 const {parseAssistant,assistModel,prepareAssistantRequest}=require('../src/assistant-model.cjs');
@@ -34,7 +35,7 @@ test('indexed missing-reference feedback preserves a real restricted handoff wit
  const controller=new Controller({store,settings,read:async command=>command==='bind'?scope:{messages:[]},assistantModel:(configured,context,signal)=>assistModel(configured,context,signal,async(_url,args)=>{
   const request=JSON.parse(args.body),wrapper=JSON.parse(request.messages[1].content),p=wrapper.originalInput||wrapper;calls.push({request,wrapper,p});
   if(p.purpose==='draft'){
-   assert.deepEqual(p.outboundQuotes,factualPlan().quotes);assert.equal(p.userRequest,undefined);assert.equal(p.goal,undefined);assert.equal(p.privateConversation,undefined);
+   assert.deepEqual(canonicalSourceView(p,context.manifest.sourceHandles).outboundQuotes,factualPlan().quotes);assert.equal(p.userRequest,undefined);assert.equal(p.goal,undefined);assert.equal(p.privateConversation,undefined);
    assert.equal(JSON.stringify(p).includes('想告诉她这个小进展'),false);
    return new Response(JSON.stringify({choices:[{message:{content:JSON.stringify({kind:'draft',text:'分享真实进展',suggestions:[{style:'自然',text:'是我给自己记读书笔记的小网页，昨天查找功能终于做好了，还挺开心。你平时怎么留住读到的东西？'}]})}}]}),{status:200});
   }
@@ -43,7 +44,7 @@ test('indexed missing-reference feedback preserves a real restricted handoff wit
    assert.match(wrapper.formatError,/draftPlan\.quotes\[0\]\.authorization/);assert.match(wrapper.formatError,/draftPlan\.quotes\[1\]\.authorization/);
    response={...structuredClone(firstResponse),draftPlan:bindCurrent(factualPlan(),p)};
   }
-  return new Response(JSON.stringify({choices:[{message:{content:JSON.stringify(response)}}]}),{status:200});
+  return new Response(JSON.stringify({choices:[{message:{content:JSON.stringify(wireSourceView(response,(wrapper.originalInput?context.extraRequests?.at(-1)?.manifest?.sourceHandles:undefined)||context.manifest.sourceHandles))}}]}),{status:200});
  })});
  controller.updateStatus({phase:'ready',account:{uid:scope.accountUid,uin:scope.accountUin}});await controller.bind(scope.peerUin);
  controller.live({scope,messages:[raw('72057594049927937001',false,{elements:[{textElement:{content:'你说最近总在做那个网页，做它有什么意思呀？'}}]})]});

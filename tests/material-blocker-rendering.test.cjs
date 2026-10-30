@@ -1,4 +1,5 @@
 'use strict';
+const {wireSourceView,canonicalSourceView}=require('./fixtures/source-wire.cjs');
 const test=require('node:test'),assert=require('node:assert/strict'),{createHash}=require('node:crypto');
 const {parseAssistant,assistModel}=require('../src/assistant-model.cjs');
 const {Controller}=require('../src/controller.cjs');
@@ -29,6 +30,8 @@ async function controllerFixture(t,{restricted=false,requestText=currentRequestT
      content=JSON.stringify(p.purpose==='draft'?finalResponse():{kind:'discussion',text:'先根据当前真实来信准备表达。',requestDelivery:structuredClone(firstResponse.requestDelivery),draftPlan:{quotes:[],intent:'reply',guidance:{objective:control('回应当前实际来信'),allowedApproach:control('保留当前明确的表达范围'),avoidances:[]}}});
     }
     if(responder){const value=await responder(p,wrapper,calls.length-1);content=typeof value==='string'?value:JSON.stringify(value);}
+    const receipt=(wrapper.originalInput?context.extraRequests?.at(-1)?.manifest?.sourceHandles:undefined)||context.manifest.sourceHandles;
+    content=JSON.stringify(wireSourceView(JSON.parse(content),receipt));calls.at(-1).content=content;
     return new Response(JSON.stringify({choices:[{message:{content}}]}),{status:200});
    });
   }});
@@ -65,7 +68,7 @@ for(const restricted of [false,true])test(`${restricted?'restricted final':'actu
  assert.equal(reply.kind,'question');assert.equal(reply.text,question);assert.ok(reply.discussionExplanation.text.includes(rationale));
  assert.equal(reply.suggestions,undefined);assert.equal(app.run().status,'complete');assert.equal(app.run().manifest.requestDelivery.status,'blocked');
  assert.deepEqual(app.run().manifest.requestDelivery.blocker,repairResponse.requestDelivery.blocker);
- const rawContent=restricted?JSON.stringify(finalResponse()):repairResponseContent;
+ const rawContent=app.calls.at(-1).content;
  assert.deepEqual(app.contexts.at(-1).manifest.blockerRendering,{question,rawResponseSha256:sha(rawContent)});
  assert.deepEqual(app.run().manifest.blockerRendering,{question,rawResponseSha256:sha(rawContent)});
  assert.deepEqual(app.run().requests.at(-1).manifest.blockerRendering,{question,rawResponseSha256:sha(rawContent)});

@@ -5,7 +5,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { Store } = require('../src/store.cjs');
 const { buildContext, buildDraftContext, PROMPT_VERSION } = require('../src/assistant-context.cjs');
-const { assistModel, parseAssistant } = require('./fixtures/assistant-protocol.cjs');
+const { assistModel, parseAssistant, canonicalSourceView } = require('./fixtures/assistant-protocol.cjs');
 const { TaskLedger } = require('../src/request-budget.cjs');
 const { Controller } = require('./fixtures/assistant-protocol.cjs');
 const { normalize } = require('../src/messages.cjs');
@@ -84,7 +84,7 @@ for (const purpose of ['discussion', 'review']) test(`${purpose} repairs unusabl
   assert.equal(calls.length, 2); assert.equal(result.kind, purpose); assert.equal(result.text, fresh);
   assert.deepEqual(Object.keys(result).sort(), ['kind', 'requestDelivery', 'text']);
   const repair = requestPayload(calls[1]);
-  assert.equal(repair.purpose, purpose); assert.deepEqual(repair.originalInput, context.payload);
+  assert.equal(repair.purpose, purpose); assert.deepEqual(canonicalSourceView(repair.originalInput,context.extraRequests[0].manifest.sourceHandles),context.payload);
   assert.equal(repair.originalInput.userRequest.text, turn.text);
   assert.equal(typeof repair.invalidResponse,'string');assert.equal(typeof repair.formatError,'string');assert.match(repair.task,/requestDelivery/);
   assert.equal(calls[1].tool_choice.function.name,'assistant_result');assert.equal(calls[1].response_format,undefined);
@@ -100,7 +100,7 @@ test('structured help repair retains explicitly selected image evidence and sour
     calls.push(JSON.parse(request.body)); return calls.length === 1 ? resultTool(badOrdinaryHelp) : response(JSON.stringify({kind:'discussion',text:'按你选中的图和她实际说的解谜游戏接话，先保留看不到的细节。'}));
   });
   assert.equal(calls.length, 2); assert.equal(calls[1].messages[1].content[1]?.image_url.url, context.images[0].url);
-  assert.equal(requestPayload(calls[1]).originalInput.sources.find(source => source.id === `qq:${messageId}`).text, args.records[0].text);
+  assert.equal(requestPayload(calls[1]).originalInput.sources.find(source => source.messageId === messageId).text, args.records[0].text);
   assert.equal(context.extraRequests[0].manifest.imageCount, 1);
   assert.deepEqual(context.extraRequests[0].manifest.images, context.manifest.images);
 });
@@ -115,7 +115,7 @@ test('restricted final draft uses only its validated payload for a one-sentence 
   assert.equal(calls.length, 2); assert.equal(result.kind, 'draft'); assert.equal(result.suggestions.length, 1);
   assert.equal(result.suggestions[0].text, '这周有空一起出去走走吗？');
   assert.deepEqual(Object.keys(result).sort(), ['kind', 'suggestions', 'text']);
-  const repair = requestPayload(calls[1]); assert.equal(repair.purpose, 'plain_draft_recovery'); assert.deepEqual(repair.originalInput, draft.payload);
+  const repair = requestPayload(calls[1]); assert.equal(repair.purpose, 'plain_draft_recovery'); assert.deepEqual(canonicalSourceView(repair.originalInput,draft.extraRequests[0].manifest.sourceHandles),draft.payload);
   for (const forbidden of ['PRIVATE_GOAL_SENTINEL', 'PRIVATE_MOTIVE_SENTINEL', 'pendingPrivateReview', 'privateConversation', 'discussionCompaction'])
     assert.equal(JSON.stringify(calls).includes(forbidden), false, `${forbidden} must never enter final transport`);
   assert.deepEqual(draft.manifest.responseRecovery.intentSourceIds, []); assert.equal(draft.manifest.responseRecovery.kind, 'restricted_draft');

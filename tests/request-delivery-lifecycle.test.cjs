@@ -1,4 +1,5 @@
 'use strict';
+const {wireSourceView,canonicalSourceView}=require('./fixtures/source-wire.cjs');
 const test=require('node:test'),assert=require('node:assert/strict');
 const {Controller}=require('../src/controller.cjs');
 const {Store}=require('../src/store.cjs');
@@ -22,8 +23,8 @@ async function fixture(t,producer){
    return assistModel(configured,context,signal,async(_url,args)=>{
     const request=JSON.parse(args.body),wrapper=JSON.parse(request.messages[1].content),p=wrapper.originalInput||wrapper;
     const entry={request,wrapper,p,taskId:configured.requestBudget.task.id};calls.push(entry);
-    const value=await producer(p,wrapper,entry,calls.length-1);
-    return new Response(JSON.stringify({choices:[{message:{content:JSON.stringify(value)}}]}),{status:200});
+    const value=await producer(p,wrapper,entry,calls.length-1),receipt=(wrapper.originalInput?context.extraRequests?.at(-1)?.manifest?.sourceHandles:undefined)||context.manifest.sourceHandles;
+    return new Response(JSON.stringify({choices:[{message:{content:JSON.stringify(wireSourceView(value,receipt))}}]}),{status:200});
    });
   }});
  controller.updateStatus({phase:'ready',account:{uid:scope.accountUid,uin:scope.accountUin}});await controller.bind(scope.peerUin);
@@ -125,7 +126,7 @@ test('QQ resume after applied forget restores only the sanitized request and non
   assert.equal(JSON.stringify(call).includes(secret),false,'no post-forget transport field may restore forgotten content');
   if(call.p.purpose!=='draft')assert.deepEqual(call.p.requestDeliveryPolicy.obligation,{mode:'editable_message'},'the wire receives only the nontext mode obligation');
  }
- const resumed=app.calls[2];assert.equal(resumed.p.userRequest.text,resumeArgs.text);assert.equal(resumed.p.userRequest.sourceId,resumeArgs.requestDeliveryObligation.sourceId);
+ const resumed=app.calls[2];assert.equal(resumed.p.userRequest.text,resumeArgs.text);assert.equal(canonicalSourceView(resumed.p,app.run().requests.find(request=>request.payload?.userRequest?.text===resumeArgs.text)?.manifest?.sourceHandles||app.invocations[2].manifest.sourceHandles).userRequest.sourceId,resumeArgs.requestDeliveryObligation.sourceId);
  assert.equal(app.calls.every(call=>call.taskId==='forget-then-resume-delivery-lifecycle'),true);
  assert.equal(app.controller.usage.get(scope,'forget-then-resume-delivery-lifecycle').attempts,5);
  assert.equal(app.run().manifest.requestDelivery.status,'delivered');assert.equal(JSON.stringify(app.run()).includes(secret),false);

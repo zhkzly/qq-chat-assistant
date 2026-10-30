@@ -1,4 +1,5 @@
 'use strict';
+const {wireSourceView,canonicalSourceView}=require('./fixtures/source-wire.cjs');
 const test=require('node:test'),assert=require('node:assert/strict'),{createHash}=require('node:crypto');
 const {Store}=require('../src/store.cjs'),{Controller}=require('../src/controller.cjs');
 const {buildContext,buildDraftContext}=require('../src/assistant-context.cjs');
@@ -67,7 +68,7 @@ test('actual013-shaped missing metadata repair uses the short choice again and r
    if(wrapper.originalInput)assert.match(wrapper.formatError,/draftPlan\.quotes\[0\]\.authorization/);
    response=structuredClone(wrapper.originalInput?f.repairResponse:f.firstResponse);response.draftPlan.editingReference={choice:p.editingReferences[0].choice};
   }
-  return new Response(JSON.stringify({choices:[{message:{content:JSON.stringify(response)}}]}),{status:200});
+  return new Response(JSON.stringify({choices:[{message:{content:JSON.stringify(wireSourceView(response,(wrapper.originalInput?context.extraRequests?.at(-1)?.manifest?.sourceHandles:undefined)||context.manifest.sourceHandles))}}]}),{status:200});
  })});t.after(()=>controller.close());controller.updateStatus({phase:'ready',account:{uid:scope.accountUid,uin:scope.accountUin}});controller.scope={...scope};
  const reply=await controller.assist({text:f.currentRequestText,resumeTurnId:f.currentSourceId.slice(8),sourceTurnIds:[prior.id],taskId:'short-reference-actual013'});
  assert.equal(reply.suggestions.length,1);assert.equal(calls.length,3);assert.equal(store.getCompanion(scope).runs.at(-1).manifest.requestDelivery.status,'delivered');

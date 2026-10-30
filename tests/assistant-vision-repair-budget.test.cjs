@@ -45,8 +45,8 @@ test('vision planning repair rebudgets the full wrapper without attaching pixels
   for (const call of calls) {
     assert.equal(call.wire.messages[1].content.length, 2, 'one actual image remains attached');
     const sourceInput = call.input.originalInput || call.input;
-    assert.ok(sourceInput.sources.some(source => source.id === 'qq:30002'));
-    assert.deepEqual(call.input.imageContext.attached.map(image => image.sourceId), ['qq:30002']);
+    const imageSource=sourceInput.sources.find(source=>source.messageId==='30002');assert.ok(imageSource);
+    assert.deepEqual(call.input.imageContext.attached.map(image=>image.sourceId),[imageSource.id]);
     const textOnly = { ...call.wire, messages: [call.wire.messages[0], { role: 'user', content: JSON.stringify(call.input) }] };
     assert.ok(Buffer.byteLength(JSON.stringify(textOnly)) <= settings.assistantRequestBytes);
   }

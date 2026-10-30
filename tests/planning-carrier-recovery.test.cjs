@@ -1,4 +1,5 @@
 'use strict';
+const {canonicalSourceView}=require('./fixtures/source-wire.cjs');
 // Source-shaped fictional Controller/Store/model-transport handoffs. The fake
 // responses prove delivered instructions and permissions, not model quality.
 const test=require('node:test'),assert=require('node:assert/strict');
@@ -39,7 +40,8 @@ function fixture(t,mode){
 for(const mode of ['guidance_only','new_material'])test(`structured repair preserves prior intent and current correction through real wording: ${mode}`,async t=>{
  const {store,controller,requests,priorId}=fixture(t,mode),taskId=`carrier-repair-${mode}`,text=CRITICISM+(mode==='new_material'?`另外${NEW_MATERIAL}，愿意告诉她这点。`:'');
  const answer=await controller.assist({taskId,text});assert.equal(answer.kind,'draft');assert.equal(requests.length,3);
- const normal=requests[0],repair=requests[1],draft=requests[2].payload,currentId=normal.payload.userRequest.sourceId;
+ const receipts=store.getCompanion(scope).runs.at(-1).requests;
+ const normal={...requests[0],payload:canonicalSourceView(requests[0].payload,receipts[0].manifest.sourceHandles)},repair={...requests[1],payload:canonicalSourceView(requests[1].payload,receipts[1].manifest.sourceHandles)},draft=canonicalSourceView(requests[2].payload,receipts[2].manifest.sourceHandles),currentId=normal.payload.userRequest.sourceId;
  assert.match(normal.wire.messages[0].content,/quotes[^。]*逐字可外发事实\/素材/);
  assert.match(normal.wire.messages[0].content,/提问、邀请、表意动作和口吻归短guidance/);
  assert.match(normal.wire.messages[0].content,/不必将每个交流目的当事实quote/);

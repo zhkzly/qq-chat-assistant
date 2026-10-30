@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const { Store } = require('../src/store.cjs');
 const { normalize } = require('../src/messages.cjs');
 const { buildContext, buildDraftContext } = require('../src/assistant-context.cjs');
-const { parseAssistant, assistModel, SYSTEM } = require('./fixtures/assistant-protocol.cjs');
+const { parseAssistant, assistModel, SYSTEM, canonicalSourceView } = require('./fixtures/assistant-protocol.cjs');
 const { prepareTopicPatch } = require('../src/topic-store.cjs');
 const { scope, raw } = require('./fixtures/native.cjs');
 const settings = { baseUrl: 'http://synthetic.invalid/v1', model: 'synthetic', anonymous: true };
@@ -74,7 +74,7 @@ test('vague request receives grounded local controls in the serialized final dra
     body = request.body;
     return { ok: true, json: async () => ({ choices: [{ message: { content: JSON.stringify({ kind: 'draft', text: '参考表达', suggestions: [{ style: '自然', text: '周末方便的话，要不要一起出去散个步？' }] }) } }] }) };
   });
-  const final = JSON.parse(JSON.parse(body).messages[1].content);
+  const final = canonicalSourceView(JSON.parse(JSON.parse(body).messages[1].content),draft.manifest.sourceHandles);
   assert.equal(final.draftingGuidance.objective.text, guidance.objective.text);
   assert.equal(final.draftingGuidance.allowedApproach.text, guidance.allowedApproach.text);
   assert.deepEqual(final.draftingGuidance.avoidances, guidance.avoidances);
@@ -189,7 +189,7 @@ test('bounded plain drafting repair retains guidance provenance and chosen image
   }
   assert.equal(draft.extraRequests[0].manifest.imageCount, 1); assert.deepEqual(draft.extraRequests[0].manifest.images, draft.manifest.images);
   const recoveryRequest = JSON.parse(calls[1]), recoveryPayload = JSON.parse(recoveryRequest.messages[1].content[0].text);
-  assert.equal(recoveryPayload.invalidResponse, undefined); assert.deepEqual(recoveryPayload.originalInput.draftingGuidance, draft.payload.draftingGuidance);
+  assert.equal(recoveryPayload.invalidResponse, undefined); assert.deepEqual(canonicalSourceView(recoveryPayload.originalInput,draft.extraRequests[0].manifest.sourceHandles).draftingGuidance,draft.payload.draftingGuidance);
   assert.equal(recoveryRequest.messages[1].content[1].image_url.url, images[0].url);
   recoveryRequest.messages[1].content = JSON.stringify(recoveryPayload);
   assert.equal(draft.extraRequests[0].inputBytes, Buffer.byteLength(JSON.stringify(recoveryRequest)));
