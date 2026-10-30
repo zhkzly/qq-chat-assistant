@@ -1,6 +1,6 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {Store}=require('../src/store.cjs'),{Controller}=require('../src/controller.cjs');
+const {Store}=require('../src/store.cjs'),{Controller}=require('./fixtures/assistant-protocol.cjs');
 const {TaskLedger}=require('../src/request-budget.cjs');
 const {discussionTurnFingerprint}=require('../src/discussion-compaction-store.cjs');
 const {scope}=require('./fixtures/native.cjs');

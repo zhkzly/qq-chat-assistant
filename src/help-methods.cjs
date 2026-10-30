@@ -2,7 +2,7 @@
 
 // These are fallible assistance methods, not inferred facts or relationship stages.
 // Research references were checked in the local context-memory research package.
-const METHOD_VERSION = 'goal-methods-2026-10-30.1';
+const METHOD_VERSION = 'goal-methods-2026-10-30.2';
 const sources = {
   listening: { kind: 'human-study', source: 'https://doi.org/10.1177/0146167217747874',
     limit: '倾听与态度清晰度的实验，未检验 AI 恋爱咨询；清楚不等于正确。' },
@@ -120,10 +120,10 @@ function runtimeCard(method) {
 function selectMethods({ purpose='discussion', hasReply=false, methodIds=[] }={}) {
   const aliases={draft:'compose',draft_prepare:'compose',recall:'review',respond:'respond',clarify:'clarify',choose_next_step:'choose_next_step',shared_activity:'shared_activity',correction:'correction',review:'review',compose:'compose',express_interest:'express_interest'};
   const requested=[...new Set(Array.isArray(methodIds)?methodIds:[])].filter(id=>methodFor(id)).slice(0,2);
-  const preferred=aliases[purpose]||(['reply','suggest'].includes(purpose)?'respond':hasReply?'respond':'choose_next_step');
-  const full=purpose==='draft'?['compose']:requested.length?requested:[preferred];
+  const preferred=aliases[purpose]||(['reply','suggest'].includes(purpose)?'respond':null);
+  const full=purpose==='draft'?['compose']:requested.length?requested:preferred?[preferred]:[];
   const methods=full.map(methodFor);
-  const ids=purpose==='draft'?['compose']:[preferred,...definitions.map(item=>item.id).filter(id=>id!==preferred)];
+  const ids=purpose==='draft'?['compose']:[...(preferred?[preferred]:[]),...definitions.map(item=>item.id).filter(id=>id!==preferred)];
   // Directory metadata supports selection; full instructions are delivered once
   // in methodCards. Requesting a card does not classify the other person's mind.
   const catalog=ids.map(id=>{const method=methodFor(id);return {id,version:method.version,name:method.name,applicability:method.applicability};});

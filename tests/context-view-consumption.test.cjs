@@ -2,7 +2,7 @@
 const test=require('node:test'),assert=require('node:assert/strict');
 const {Store}=require('../src/store.cjs'),{normalize}=require('../src/messages.cjs');
 const {buildContext,buildDraftContext}=require('../src/assistant-context.cjs');
-const {prepareAssistantRequest}=require('../src/assistant-model.cjs');
+const {prepareAssistantRequest}=require('./fixtures/assistant-protocol.cjs');
 const {reconcilePlanningViews}=require('../src/context/planning-view.cjs');
 const {scope,raw}=require('./fixtures/native.cjs');
 const {withCurrentDraftControls}=require('./fixtures/draft-controls.cjs');

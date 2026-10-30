@@ -4,7 +4,7 @@ const test = require('node:test'), assert = require('node:assert/strict');
 const { Store } = require('../src/store.cjs');
 const { normalize } = require('../src/messages.cjs');
 const { buildContext, buildDraftContext, PROMPT_VERSION } = require('../src/assistant-context.cjs');
-const { prepareAssistantRequest, assistModel, imageContextFor } = require('../src/assistant-model.cjs');
+const { prepareAssistantRequest, assistModel, imageContextFor } = require('./fixtures/assistant-protocol.cjs');
 const { scope, raw } = require('./fixtures/native.cjs');
 const settings = { baseUrl: 'http://synthetic.invalid/v1', model: 'synthetic-vision', anonymous: true };
 const response = content => ({ ok: true, json: async () => ({ choices: [{ message: { content } }] }) });
@@ -81,10 +81,10 @@ test('vision attribution and grounding instructions cannot bypass the request bu
   await assert.rejects(assistModel(limited, prepared, undefined, async () => { calls++; return response('never reached'); }), /完整文字请求超出预算/);
   assert.equal(calls, 0); assert.deepEqual(prepared.images, images);
 });
-test('private help and its bounded natural-language recovery retain the same image attribution', async t => {
+test('private help and its bounded structured recovery retain the same image attribution', async t => {
   const { prepared, images } = fixture(t), calls = [];
   prepared.payload.mediaContext = prepared.mediaContext;
-  await assistModel(settings, prepared, undefined, async (_, request) => { calls.push(request.body); return response(calls.length === 1 ? 'invalid response' : '图片是表情包，不能仅凭它判断她的心情。'); });
+  await assistModel(settings, prepared, undefined, async (_, request) => { calls.push(request.body); return response(calls.length === 1 ? 'invalid response' : JSON.stringify({kind:'discussion',text:'图片是表情包，不能仅凭它判断她的心情。'})); });
   assert.equal(calls.length, 2);
   const first = userPayload(calls[0]), recovery = userPayload(calls[1]);
   assert.deepEqual(recovery.imageContext.attached, first.imageContext.attached);
@@ -93,14 +93,14 @@ test('private help and its bounded natural-language recovery retain the same ima
   assert.ok(calls.every(body => JSON.parse(body).messages[1].content.length === images.length + 1));
   assert.ok(!JSON.stringify(prepared.extraRequests).includes('data:image/'));
 });
-test('draft projection and text-only structural repair preserve sources without pretending that pixels were resent', async t => {
+test('draft projection and structured delivery repair retain the actual image-source attribution', async t => {
   const { prepared, args, images } = fixture(t), calls = [];
   prepared.payload.purpose = 'draft_prepare'; prepared.payload.mediaContext = prepared.mediaContext;
   const planned = await assistModel(settings, prepared, undefined, async (_, request) => { calls.push(request.body); return response(calls.length === 1 ? 'invalid response' : JSON.stringify({ draftPlan: withCurrentDraftControls({ intent: 'reply', quotes: [] },prepared.payload) })); });
   const first = userPayload(calls[0]), repair = userPayload(calls[1]);
-  assert.equal(typeof JSON.parse(calls[1]).messages[1].content, 'string');
-  assert.deepEqual(repair.imageContext.attached, []); assert.deepEqual(repair.originalInput.imageContext.attached, []);
-  assert.equal(prepared.extraRequests[0].manifest.imageCount, 0); assert.deepEqual(prepared.extraRequests[0].manifest.imageContext.attached, []);
+  assert.ok(Array.isArray(JSON.parse(calls[1]).messages[1].content));
+  assert.deepEqual(repair.imageContext.attached,first.imageContext.attached);assert.deepEqual(repair.originalInput.imageContext.attached,first.imageContext.attached);
+  assert.equal(prepared.extraRequests[0].manifest.imageCount,images.length);assert.deepEqual(prepared.extraRequests[0].manifest.imageContext.attached,first.imageContext.attached);
   assert.deepEqual(prepared.payload.imageContext.attached, first.imageContext.attached);
   const draft = buildDraftContext(prepared.resultContext || prepared, planned.draftPlan, args);
   assert.deepEqual(draft.images, images); assert.deepEqual(draft.payload.imageContext.attached, first.imageContext.attached);

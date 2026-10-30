@@ -5,7 +5,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { Store } = require('../src/store.cjs');
-const { Controller } = require('../src/controller.cjs');
+const { Controller } = require('./fixtures/assistant-protocol.cjs');
 const { normalize } = require('../src/messages.cjs');
 const { scope, raw } = require('./fixtures/native.cjs');
 

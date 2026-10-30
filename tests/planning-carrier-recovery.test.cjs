@@ -2,8 +2,8 @@
 // Source-shaped fictional Controller/Store/model-transport handoffs. The fake
 // responses prove delivered instructions and permissions, not model quality.
 const test=require('node:test'),assert=require('node:assert/strict');
-const {Store}=require('../src/store.cjs'),{Controller}=require('../src/controller.cjs');
-const {assistModel}=require('../src/assistant-model.cjs');
+const {Store}=require('../src/store.cjs'),{Controller}=require('./fixtures/assistant-protocol.cjs');
+const {assistModel}=require('./fixtures/assistant-protocol.cjs');
 const {scope,raw}=require('./fixtures/native.cjs');
 const PRIOR='我想找个轻松幽默的说法，邀请她一起试这个双人拼图。因为PRIVATE_PRIOR_REASON我怕显得刻意。';
 const CRITICISM='刚才那句“你是否愿意与我共同体验双人拼图项目？”太做作了，不像平时聊天。';
@@ -59,7 +59,7 @@ for(const mode of ['guidance_only','new_material'])test(`structured repair prese
  for(const privateBody of [PRIOR,CRITICISM,'PRIVATE_PRIOR_REASON'])assert.equal(JSON.stringify(draft).includes(privateBody),false);
  assert.equal(store.getCompanion(scope).turns.find(turn=>turn.id===priorId.slice('private:'.length)).text,PRIOR);
  const budget=controller.usage.get(scope,taskId);assert.equal(budget.status,'complete');assert.equal(budget.attempts,3);assert.equal(budget.limit,3);
- assert.deepEqual(budget.requests.map(request=>request.purpose),['discussion','format_repair','draft']);
+ assert.deepEqual(budget.requests.map(request=>request.purpose),['discussion','delivery_repair','draft']);
 });
 
 test('a repaired plan still cannot promote old private instructions into unauthorized outbound quotes',async t=>{

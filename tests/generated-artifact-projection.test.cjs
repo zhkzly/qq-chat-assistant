@@ -1,7 +1,7 @@
 'use strict';
 // Current producer/controller fixtures with local deterministic model transport.
 const test=require('node:test'),assert=require('node:assert/strict');
-const {Store}=require('../src/store.cjs'),{Controller}=require('../src/controller.cjs');
+const {Store}=require('../src/store.cjs'),{Controller}=require('./fixtures/assistant-protocol.cjs');
 const {scope,raw}=require('./fixtures/native.cjs');
 const {withCurrentDraftControls}=require('./fixtures/draft-controls.cjs');
 const {buildContext}=require('../src/assistant-context.cjs');

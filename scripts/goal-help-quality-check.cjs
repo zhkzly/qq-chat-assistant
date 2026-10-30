@@ -1,4 +1,5 @@
 'use strict';
+const {withRequestDelivery}=require('./synthetic-request-delivery.cjs');
 // Fictional production-path probes. Semantic judgments are deliberately not automated.
 const fs = require('node:fs'), path = require('node:path'), crypto = require('node:crypto');
 const vm = require('node:vm'), { createRequire } = require('node:module');
@@ -215,7 +216,7 @@ async function runHarness(options={}) {
     try {
       if (options.live) response=await (options.fetchImpl || fetch)(url,args);
       else {
-        const result=await (options.syntheticResponder || syntheticResult)(payload,current.definition);
+        const result=withRequestDelivery(await (options.syntheticResponder || syntheticResult)(payload,current.definition),payload.originalInput||payload);
         response=result instanceof Response ? result : new Response(JSON.stringify({model:provider.model,
           choices:[{finish_reason:'stop',message:{content:typeof result === 'string' ? result : JSON.stringify(result)}}],
           usage:{prompt_tokens:1,completion_tokens:1,total_tokens:2}}),{status:200});

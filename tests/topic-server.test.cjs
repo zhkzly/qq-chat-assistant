@@ -1,6 +1,6 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),path=require('node:path');
-const {Store}=require('../src/store.cjs');const {Controller}=require('../src/controller.cjs');const {createServer}=require('../src/server.cjs');const {scope}=require('./fixtures/native.cjs');
+const {Store}=require('../src/store.cjs');const {Controller}=require('./fixtures/assistant-protocol.cjs');const {createServer}=require('../src/server.cjs');const {scope}=require('./fixtures/native.cjs');
 test('explicit HTTP feedback continuation is full-scope bound, idempotent, and retains canonical feedback on model failure',async t=>{
  const store=new Store(':memory:');let calls=0;const settings={auto:false,apiKey:'synthetic',model:'synthetic',baseUrl:'http://fixture.invalid',realChatConsent:{accountUid:scope.accountUid,peerUin:scope.peerUin,model:'synthetic',baseUrl:'http://fixture.invalid'}};
  const controller=new Controller({store,settings,read:async command=>command==='bind'?scope:{messages:[]},assistantModel:async()=>{calls++;if(calls===2)throw new Error('synthetic provider failure');return {kind:'discussion',text:'synthetic scoped help'};}});controller.updateStatus({phase:'ready',account:{uid:scope.accountUid,uin:scope.accountUin}});await controller.bind(scope.peerUin);

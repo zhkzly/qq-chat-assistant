@@ -1,6 +1,6 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {Store}=require('../src/store.cjs'),{buildContext}=require('../src/assistant-context.cjs'),{prepareAssistantRequest}=require('../src/assistant-model.cjs');
+const {Store}=require('../src/store.cjs'),{buildContext}=require('../src/assistant-context.cjs'),{prepareAssistantRequest}=require('./fixtures/assistant-protocol.cjs');
 const {scope}=require('./fixtures/native.cjs');
 const {responseEnvelope}=require('../src/model-response-format.cjs');
 for(const [purpose,goal,text]of [['discussion','与同事明确工作交接，减少遗漏。','帮我说明交接清单的安排。'],['review','作为普通朋友交流观展经历。','回顾之前提过的展览和未确认事项。']])test(`actual ${purpose} payload follows the user purpose without an imposed romantic method`,t=>{

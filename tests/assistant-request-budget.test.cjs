@@ -3,7 +3,7 @@ const test=require('node:test'),assert=require('node:assert/strict');
 const {Store}=require('../src/store.cjs');
 const {normalize}=require('../src/messages.cjs');
 const {buildContext,buildDraftContext}=require('../src/assistant-context.cjs');
-const {assistModel,prepareAssistantRequest}=require('../src/assistant-model.cjs');
+const {assistModel,prepareAssistantRequest}=require('./fixtures/assistant-protocol.cjs');
 const {scope,raw}=require('./fixtures/native.cjs');
 const settings={baseUrl:'http://synthetic.invalid/v1',model:'synthetic-relationship-context',anonymous:true};
 const ok=content=>({ok:true,json:async()=>({choices:[{message:{content}}]})});
@@ -35,13 +35,13 @@ for(const purpose of ['discussion','draft_prepare','draft'])test(`${purpose} rec
  // its actual ordinary request so the repair wrapper still exercises eviction.
  if(purpose==='draft_prepare')args.settings.assistantRequestBytes=prepareAssistantRequest(args.settings,context.payload).requestBytes+200;
  const invalid='INVALID_RESPONSE_'+('"\\\\\n原本的输出仍需完整修复。'.repeat(purpose==='draft'?700:purpose==='draft_prepare'?140:350)),calls=[];
- const repaired=purpose==='draft_prepare'?JSON.stringify({draftPlan:{quotes:[{sourceId:prepared.payload.userRequest.sourceId,text:args.turn.text}],guidance:currentControls(prepared.payload)}}):purpose==='draft'?'我想多认识你一点。':'先自然回应她实际提到的安排。';
+ const repaired=purpose==='draft_prepare'?JSON.stringify({draftPlan:{quotes:[{sourceId:prepared.payload.userRequest.sourceId,text:args.turn.text}],guidance:currentControls(prepared.payload)}}):purpose==='draft'?'我想多认识你一点。':JSON.stringify({kind:'discussion',text:'先自然回应她实际提到的安排。'});
  await assistModel(args.settings,context,undefined,async(_,request)=>{calls.push(request.body);return ok(calls.length===1?invalid:repaired);});
  assert.equal(calls.length,2);for(const body of calls)assert.ok(Buffer.byteLength(body)<=64000);
  const first=JSON.parse(JSON.parse(calls[0]).messages[1].content),repair=JSON.parse(JSON.parse(calls[1]).messages[1].content),effective=context.resultContext||context;
  checkEssential(repair.originalInput,args);
- if(purpose==='draft_prepare'){
-  assert.equal(repair.invalidResponse,invalid);assert.ok(repair.originalInput.sources.length<first.sources.length,'mandatory structural repair evicts optional whole sources to fit its full envelope');
+ if(purpose!=='draft'){
+  assert.equal(repair.invalidResponse,invalid);if(purpose==='draft_prepare')assert.ok(repair.originalInput.sources.length<first.sources.length,'mandatory structural repair evicts optional whole sources to fit its full envelope');
  }else{
   assert.equal(repair.invalidResponse,undefined,'fresh natural-language recovery never reuses the malformed output as authority');
   assert.equal(repair.originalInput.sources.length,first.sources.length,'smaller recovery contract retains all originally delivered evidence');
@@ -73,12 +73,12 @@ test('oversized QQ evidence has marked source ranges while the current request r
  assert.throws(()=>buildContext(args),/预算.*没有静默截断/);
 });
 test('automatic controller entry uses the configured envelope and persists the exact repaired evidence',async t=>{
- const {Controller}=require('../src/controller.cjs'),{store,args}=fixture(t,{assistantRequestBytes:32000}),calls=[];
+ const {Controller}=require('./fixtures/assistant-protocol.cjs'),{store,args}=fixture(t,{assistantRequestBytes:32000}),calls=[];
  const controller=new Controller({store,settings:{...args.settings,auto:false,instruction:args.turn.text,
    realChatConsent:{accountUid:scope.accountUid,peerUin:scope.peerUin,model:settings.model,baseUrl:settings.baseUrl}},
   read:async command=>command==='bind'?scope:{messages:[],source:'synthetic'},
   assistantModel:(configured,context,signal)=>assistModel(configured,context,signal,async(_,request)=>{
-   calls.push(request.body);return ok(calls.length===1?JSON.stringify({kind:'discussion',text:''}):'参考她实际说的安排自然回应。');
+   calls.push(request.body);return ok(calls.length===1?JSON.stringify({kind:'discussion',text:''}):JSON.stringify({kind:'discussion',text:'参考她实际说的安排自然回应。',replyDisposition:'unavailable'}));
   })});
  controller.visible=false;t.after(()=>controller.close());controller.updateStatus({phase:'ready',account:{uid:scope.accountUid,uin:scope.accountUin}});await controller.bind(scope.peerUin);
  await controller.suggest({automatic:true});assert.equal(controller.assistantError,'');assert.equal(calls.length,2);assert.ok(calls.every(body=>Buffer.byteLength(body)<=32000));
@@ -101,8 +101,8 @@ test('a repaired preparation retains selected image evidence for the final restr
  const effective=prepared.resultContext;assert.ok(effective);assert.deepEqual(effective.images,images,'repair reconstruction must retain selected image input for the next authorized stage');
  assert.equal(effective.payload.sources.find(source=>source.id===`qq:${imageMessageId}`)?.text,args.records[0].text);
  assert.ok(effective.manifest.sourceRevisions[`qq:${imageMessageId}`]);
- assert.equal(typeof calls[1].messages[1].content,'string','repair itself remains text-only');
- assert.equal(prepared.extraRequests[0].manifest.imageCount,0);assert.equal(prepared.extraRequests[0].manifest.images,undefined);
+ assert.ok(Array.isArray(calls[1].messages[1].content),'delivery repair retains the selected actual image');
+ assert.equal(prepared.extraRequests[0].manifest.imageCount,1);assert.deepEqual(prepared.extraRequests[0].manifest.images,images.map(({url,...metadata})=>metadata));
  const draft=buildDraftContext(effective,plan.draftPlan,args);draft.images=effective.images;
  await assistModel(args.settings,draft,undefined,async(_,request)=>{calls.push(JSON.parse(request.body));return ok(JSON.stringify({kind:'draft',text:'参考表达',suggestions:[{style:'自然',text:'我想多认识你一点。'}]}));});
  assert.equal(calls[2].messages[1].content[1].image_url.url,images[0].url);

@@ -1,7 +1,7 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
 const {responseEnvelope}=require('../src/model-response-format.cjs');
-const {parseAssistant,prepareAssistantRequest}=require('../src/assistant-model.cjs');
+const {parseAssistant,prepareAssistantRequest}=require('./fixtures/assistant-protocol.cjs');
 const settings={model:'claude-sonnet-4-6'};
 const source={id:'private:current',type:'private',role:'user',text:'Please help with this reply.',revision:'r1'};
 const foreground={purpose:'reply',generationOrigin:'private_discussion',userRequest:{sourceId:source.id,text:source.text},sources:[source],taskContext:{auxiliaryPolicy:'best_effort'}};
@@ -77,7 +77,7 @@ test('canonical examples keep unknown self facts private and preserve explicitly
  assert.doesNotMatch(HELP_BEHAVIOR,/private:[a-z]|qq:\d|\[你的城市\]/);
 });
 test('malformed planning carrier receives one strict JSON repair then the restricted composer within the same budget',async t=>{
- const {Controller}=require('../src/controller.cjs'),{Store}=require('../src/store.cjs'),{assistModel}=require('../src/assistant-model.cjs');
+ const {Controller}=require('./fixtures/assistant-protocol.cjs'),{Store}=require('../src/store.cjs'),{assistModel}=require('./fixtures/assistant-protocol.cjs');
  const {scope,raw}=require('./fixtures/native.cjs'),calls=[];
  const store=new Store(':memory:'),configured={...settings,anonymous:true,baseUrl:'http://fixture.invalid/v1',auto:false,assistantRequestLimit:3,
   realChatConsent:{accountUid:scope.accountUid,peerUin:scope.peerUin,baseUrl:'http://fixture.invalid/v1',model:settings.model}};
@@ -101,11 +101,11 @@ test('malformed planning carrier receives one strict JSON repair then the restri
  const answer=await controller.assist({purpose:'reply',text:'我住得很近，帮我直接回答她。',taskId:'planning-carrier-three-stages'});
  assert.equal(calls.length,3);assert.equal(answer.kind,'draft');assert.equal(answer.responseRecovery,undefined);
  const run=store.getCompanion(scope).runs.find(item=>item.id===answer.requestId);
- assert.deepEqual(run.requests.map(item=>item.purpose),['reply','format_repair','draft']);assert.equal(run.patchReceipt,null);assert.equal(run.topicReceipt,null);
+ assert.deepEqual(run.requests.map(item=>item.purpose),['reply','delivery_repair','draft']);assert.equal(run.patchReceipt,null);assert.equal(run.topicReceipt,null);
  assert.equal(controller.usage.get(scope,answer.requestId).attempts,3);
 });
 test('a failed structured planning repair gets no extra fallback and cannot commit auxiliary updates',async t=>{
- const {Controller}=require('../src/controller.cjs'),{Store}=require('../src/store.cjs'),{assistModel}=require('../src/assistant-model.cjs');
+ const {Controller}=require('./fixtures/assistant-protocol.cjs'),{Store}=require('../src/store.cjs'),{assistModel}=require('./fixtures/assistant-protocol.cjs');
  const {scope}=require('./fixtures/native.cjs');
  for(const mode of ['malformed_again','invalid_auxiliary']){
   const store=new Store(':memory:'),configured={...settings,anonymous:true,baseUrl:'http://fixture.invalid/v1',auto:false,assistantRequestLimit:3,
@@ -130,7 +130,7 @@ test('a failed structured planning repair gets no extra fallback and cannot comm
  }
 });
 test('generic planning repair teaches valid escaping and only requires necessary source-bound controls',async()=>{
- const {assistModel}=require('../src/assistant-model.cjs');
+ const {assistModel}=require('./fixtures/assistant-protocol.cjs');
  for(const active of [null,{lifecycle:'active',objective:'PRIVATE_OBJECTIVE_SENTINEL',direction:'PRIVATE_DIRECTION_SENTINEL',constraints:['PRIVATE_CONSTRAINT_SENTINEL']}]){
   const payload={...foreground,purpose:'discussion',goal:'PRIVATE_GOAL_SENTINEL',topicContext:{active}},bodies=[];
   await assistModel({...settings,anonymous:true,baseUrl:'http://fixture.invalid/v1'},{payload,manifest:{}},undefined,async(_url,args)=>{

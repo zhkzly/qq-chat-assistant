@@ -1,6 +1,6 @@
 'use strict';
 const test=require('node:test');const assert=require('node:assert/strict');
-const {assistModel,parseAssistant}=require('../src/assistant-model.cjs');
+const {assistModel,parseAssistant}=require('./fixtures/assistant-protocol.cjs');
 const settings={baseUrl:'http://synthetic.invalid/v1',model:'synthetic',apiKey:'fixture'};
 const response=content=>({ok:true,json:async()=>({choices:[{message:{content}}]})});
 test('restricted draft formatting normalizes cosmetic labels without changing meaning',()=>{

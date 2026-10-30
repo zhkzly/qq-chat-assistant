@@ -36,11 +36,12 @@ const memoryRetirement=object({id:string,sourceIds:strings,status:choice(['resol
 // relationship records retain their separate versioned patch contract.
 const memoryRecordFields=Object.freeze(Object.fromEntries(Object.entries({items:memoryItem,episodes:episode,retire:memoryRetirement})
  .map(([name,schema])=>[name,Object.freeze(Object.keys(schema.properties))])));
+const deliveryBlocker=object({kind:choice(['missing_fact','missing_authorization']),missing:string,question:string},['kind','missing','question']);
 const schemas={
- assistant_result:object({kind:choice(['discussion','question','options','review','acknowledgment']),text:string,methodIds:strings,draftPlan,replyDisposition:choice(['wait','clarify','unavailable']),
+ assistant_result:object({kind:choice(['discussion','question','options','review','acknowledgment']),text:string,methodIds:strings,requestDelivery:object({mode:choice(['private_help','editable_message','both']),sourceId:string,quote:string,blocker:object({kind:choice(['missing_fact','missing_authorization']),missing:string,question:string},['kind','missing','question'])},['mode','sourceId','quote']),draftPlan,replyDisposition:choice(['wait','clarify','unavailable']),
  lookup:object({query:string,discussionTurnIds:strings,sourceIds:strings,offset:integer,maxChars:integer,methodIds:strings,discover:boolean,before:string,after:string,types:array(choice(['qq','private','note','feedback']))}),
     actions:array(action),stateReview:choice(['no_change']),statePatch,topicPatch,relationshipPatch,experienceProposals:array(experienceProposal),expressionOptions:array(expressionOption)},['kind','text']),
- draft_result:object({kind:choice(['draft','discussion','question']),text:string,suggestions:array(object({style:string,text:string},['style','text'])),methodIds:strings,replyDisposition:choice(['wait','clarify','unavailable'])},['kind','text']),
+ draft_result:object({kind:choice(['draft','discussion','question']),text:string,deliveryBlocker,suggestions:array(object({style:string,text:string},['style','text'])),methodIds:strings,replyDisposition:choice(['wait','clarify','unavailable'])},['kind','text']),
  discussion_compaction_result:object({summary:string,reviewedTurnIds:strings,quoteRefs:array(quoteRef)},['summary','reviewedTurnIds','quoteRefs']),
  memory_result:object({batchId:string,reviewedAll:boolean,items:array(memoryItem),episodes:array(episode),retire:array(memoryRetirement),relationshipPatch},['batchId','reviewedAll','items','episodes','retire'])
 };
@@ -53,6 +54,13 @@ function responseEnvelope(settings,purpose,payload) {
  if(!useTool)return {response_format:{type:'json_object'}};
  const name=purpose==='draft'?'draft_result':purpose==='discussion_compaction'?'discussion_compaction_result':purpose==='memory'?'memory_result':'assistant_result';
  let schema=schemas[name];
+ if(name==='draft_result'&&(payload?.originalInput||payload)?.requestDeliveryObligation){
+  // Keep the provider envelope flat; the local terminal validator owns the
+  // conditional contract across providers and program-generated fallbacks.
+  schema={...schema,properties:{...schema.properties,kind:choice(['draft','question']),
+    suggestions:{...schema.properties.suggestions,description:'Required for kind=draft: complete editable wording, never strategy.'},
+    deliveryBlocker:{...deliveryBlocker,description:'Required for kind=question: identify the specific missing fact or authorization and the matching private question.'}}};
+ }
  if(name==='assistant_result'&&payload){
   const taskPayload=payload.originalInput||payload;
   const properties={...schema.properties};
@@ -60,7 +68,8 @@ function responseEnvelope(settings,purpose,payload) {
   if(!auxiliaryReview({...taskPayload,purpose}))delete properties.relationshipPatch;
   if(taskPayload.experienceProposalPolicy?.enabled!==true)delete properties.experienceProposals;
   if(taskPayload.generationOrigin==='qq_observation')delete properties.actions;
-  schema={...schema,properties};
+  if(!taskPayload.requestDeliveryPolicy)delete properties.requestDelivery;
+  schema={...schema,properties,required:[...schema.required,...(taskPayload.requestDeliveryPolicy?['requestDelivery']:[])]};
  }
  return {tools:[{type:'function',function:{name,description:'Return readable kind/text for this phase, with only useful optional data. This function is not executed and performs no external action. Follow source and phase rules.',parameters:schema}}],
   tool_choice:{type:'function',function:{name}},parallel_tool_calls:false};

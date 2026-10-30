@@ -2,7 +2,7 @@
 const test=require('node:test'),assert=require('node:assert/strict');
 const {Store}=require('../src/store.cjs'),{normalize}=require('../src/messages.cjs');
 const {buildContext,buildDraftContext}=require('../src/assistant-context.cjs');
-const {assistModel,prepareAssistantRequest}=require('../src/assistant-model.cjs');
+const {assistModel,prepareAssistantRequest}=require('./fixtures/assistant-protocol.cjs');
 const {withCurrentDraftControls}=require('./fixtures/draft-controls.cjs');
 const {scope,raw}=require('./fixtures/native.cjs');
 function message(id,at,own=false,text='Synthetic actual message'){
@@ -81,7 +81,7 @@ test('actual format repair reassembly preserves the observation clock and select
  const observed={...context,rebuildForRequest:measure=>{rebuilds++;return context.rebuildForRequest(measure);}};
  const result=await assistModel(settings,observed,undefined,async(_url,request)=>{
   const body=JSON.parse(request.body),payload=JSON.parse(body.messages[1].content);requests.push({body,payload,bytes:Buffer.byteLength(request.body,'utf8')});
-  const answer=requests.length===1?{kind:'discussion',text:'Synthetic incomplete planning carrier',draftPlan:{intent:'reply',quotes:[]}}:{kind:'discussion',text:'Synthetic repaired consultation'};
+  const answer=requests.length===1?{kind:'discussion',text:'Synthetic incomplete planning carrier',draftPlan:{intent:'reply',quotes:[]}}:{kind:'discussion',text:'Synthetic repaired consultation',draftPlan:withCurrentDraftControls({intent:'reply',quotes:[]},payload.originalInput)};
   return new Response(JSON.stringify({choices:[{message:{content:JSON.stringify(answer)}}]}),{status:200,headers:{'content-type':'application/json'}});
  });
  assert.equal(result.text,'Synthetic repaired consultation');assert.equal(requests.length,2);assert.equal(rebuilds,1,'repair wrapper must actually force a measured rebuild');

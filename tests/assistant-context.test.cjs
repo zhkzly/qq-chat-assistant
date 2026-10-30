@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 const { Store } = require('../src/store.cjs');
 const { normalize } = require('../src/messages.cjs');
 const { buildContext, buildDraftContext } = require('../src/assistant-context.cjs');
-const { assistModel } = require('../src/assistant-model.cjs');
+const { assistModel } = require('./fixtures/assistant-protocol.cjs');
 const { scope, raw } = require('./fixtures/native.cjs');
 
 function message(id, outgoing, text) {

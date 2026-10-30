@@ -2,7 +2,7 @@
 const test=require('node:test'),assert=require('node:assert/strict');
 const {Store}=require('../src/store.cjs'),{normalize}=require('../src/messages.cjs');
 const {buildContext,buildDraftContext}=require('../src/assistant-context.cjs');
-const {prepareAssistantRequest}=require('../src/assistant-model.cjs');
+const {prepareAssistantRequest}=require('./fixtures/assistant-protocol.cjs');
 const {wordingControls}=require('../src/context/wording-controls.cjs');
 const {scope,raw}=require('./fixtures/native.cjs');
 const OLD='以后回复用短句，不用表情，直接一点，语气轻松，表达口语，别像点评员。';

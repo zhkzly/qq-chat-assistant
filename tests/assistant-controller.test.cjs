@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { Controller } = require('../src/controller.cjs');
+const { Controller } = require('./fixtures/assistant-protocol.cjs');
 const { Store } = require('../src/store.cjs');
 const { scope, raw } = require('./fixtures/native.cjs');
 

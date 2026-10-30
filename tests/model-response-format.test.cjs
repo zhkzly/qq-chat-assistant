@@ -1,7 +1,7 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
 const {responseEnvelope}=require('../src/model-response-format.cjs'),{readModelOutput,parseModelJson}=require('../src/model-json.cjs');
-const {assistModel,prepareAssistantRequest,parseAssistant}=require('../src/assistant-model.cjs');
+const {assistModel,prepareAssistantRequest,parseAssistant}=require('./fixtures/assistant-protocol.cjs');
 test('verified non-thinking Claude uses a pure result envelope; thinking/other models retain compatible JSON mode',()=>{
  for(const purpose of ['discussion','draft','discussion_compaction','memory']){
   const settings={model:'claude-sonnet-4-6'},result=responseEnvelope(settings,purpose);

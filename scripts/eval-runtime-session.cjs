@@ -92,6 +92,10 @@ function makeSyntheticTransport() {
           objective: control('回应当前提供的实际交流内容'), allowedApproach: control('遵守当前有效的用户选择'), avoidances: [] } };
       }
     }
+    if(p.requestDeliveryPolicy&&result&&typeof result==='object'&&p.purpose!=='draft'){
+      const sourceId=p.intentAuthority?.sourceId||p.userRequest?.sourceId,source=p.sources.find(item=>item.id===sourceId);
+      result.requestDelivery={mode:result.draftPlan?'editable_message':'private_help',sourceId,quote:source.text.slice(0,1000)};
+    }
     return new Response(JSON.stringify({ model: request.model, choices: [{ finish_reason: 'stop',
       message: { content: typeof result === 'string' ? result : JSON.stringify(result) } }],
       usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 } }), { status: 200 });

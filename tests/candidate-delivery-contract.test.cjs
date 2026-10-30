@@ -1,6 +1,6 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {parseAssistant,prepareAssistantRequest}=require('../src/assistant-model.cjs');
+const {parseAssistant,prepareAssistantRequest}=require('./fixtures/assistant-protocol.cjs');
 const {Store}=require('../src/store.cjs');
 const scope={accountUid:'a',accountUin:'100',peerUid:'p',peerUin:'200'};
 const payload={purpose:'reply',sources:[],taskContext:{auxiliaryPolicy:'best_effort',invocation:{origin:'automatic',trigger:'automatic_observation',requestedPurpose:'reply'}}};
@@ -35,7 +35,7 @@ test('legacy automatic output is filtered by scoped task identity beyond retaine
   assert.equal(current.runs.length,0);
   assert.equal(current.turns.find(x=>x.id===known.id).origin,undefined);
   assert.equal(current.turns.find(x=>x.id===unknown.id).origin,undefined);
-  const {Controller}=require('../src/controller.cjs');
+  const {Controller}=require('./fixtures/assistant-protocol.cjs');
   const controller=new Controller({store,settings:{},read:async()=>{throw Error('No native read in this fixture');}});
   try{
    controller.scope={...scope};const visible=controller.snapshot().companion.turns;

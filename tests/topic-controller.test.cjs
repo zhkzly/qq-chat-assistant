@@ -1,7 +1,7 @@
 'use strict';
 const {withCurrentDraftControls}=require('./fixtures/draft-controls.cjs');
 const test=require('node:test'),assert=require('node:assert/strict');
-const {Store}=require('../src/store.cjs');const {Controller}=require('../src/controller.cjs');const {scope,raw}=require('./fixtures/native.cjs');
+const {Store}=require('../src/store.cjs');const {Controller}=require('./fixtures/assistant-protocol.cjs');const {scope,raw}=require('./fixtures/native.cjs');
 function setup(t,model){const store=new Store(':memory:');const controller=new Controller({store,assistantModel:model,read:async command=>command==='bind'?scope:{messages:[]},settings:{auto:false,apiKey:'synthetic',model:'synthetic',baseUrl:'http://fixture.invalid',realChatConsent:{accountUid:scope.accountUid,peerUin:scope.peerUin,model:'synthetic',baseUrl:'http://fixture.invalid'}}});controller.updateStatus({phase:'ready',account:{uid:scope.accountUid,uin:scope.accountUin}});t.after(()=>{controller.close();store.close()});return {store,controller};}
 const intent=p=>p.intentAuthority.sourceId;
 const start=p=>({operation:'create',objective:'自然了解她的游戏兴趣',direction:'先顺着游戏体验聊',constraints:['暂不直接邀约'],interpretationStatus:'user_stated',purposeSourceIds:[intent(p)],intentQuote:p.sources.find(s=>s.id===intent(p)).text});

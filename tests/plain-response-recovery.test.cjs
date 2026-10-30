@@ -5,9 +5,9 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { Store } = require('../src/store.cjs');
 const { buildContext, buildDraftContext, PROMPT_VERSION } = require('../src/assistant-context.cjs');
-const { assistModel, parseAssistant } = require('../src/assistant-model.cjs');
+const { assistModel, parseAssistant } = require('./fixtures/assistant-protocol.cjs');
 const { TaskLedger } = require('../src/request-budget.cjs');
-const { Controller } = require('../src/controller.cjs');
+const { Controller } = require('./fixtures/assistant-protocol.cjs');
 const { normalize } = require('../src/messages.cjs');
 const { scope, raw } = require('./fixtures/native.cjs');
 
@@ -75,30 +75,29 @@ test('valid foreground help with rejected auxiliary metadata uses one call and p
   assert.equal(rebuilt.payload.sources.find(item => item.id === pendingId).text, source.text);
 });
 
-for (const purpose of ['discussion', 'review']) test(`${purpose} repairs unusable ordinary output with fresh plain help and no bookkeeping`, async t => {
+for (const purpose of ['discussion', 'review']) test(`${purpose} repairs unusable primary output with a structured current-request interpretation`, async t => {
   const { context, turn } = fixture(t, purpose), calls = [], fresh = '按你现在的意思直接邀请：可以先确认她这周是否方便出去走走。';
   assert.throws(() => parseAssistant(badOrdinaryHelp, purpose, context.payload), /当前用途.*文字/);
   const result = await assistModel(settings, context, undefined, async (_url, request) => {
-    calls.push(JSON.parse(request.body)); return calls.length === 1 ? resultTool(badOrdinaryHelp) : response(fresh);
+    calls.push(JSON.parse(request.body)); return calls.length === 1 ? resultTool(badOrdinaryHelp) : response(JSON.stringify({kind:purpose,text:fresh}));
   });
   assert.equal(calls.length, 2); assert.equal(result.kind, purpose); assert.equal(result.text, fresh);
-  assert.deepEqual(Object.keys(result).sort(), ['kind', 'text']);
+  assert.deepEqual(Object.keys(result).sort(), ['kind', 'requestDelivery', 'text']);
   const repair = requestPayload(calls[1]);
-  assert.equal(repair.purpose, 'plain_help_recovery'); assert.deepEqual(repair.originalInput, context.payload);
+  assert.equal(repair.purpose, purpose); assert.deepEqual(repair.originalInput, context.payload);
   assert.equal(repair.originalInput.userRequest.text, turn.text);
-  for (const key of ['invalidResponse', 'formatError', 'task']) assert.equal(repair[key], undefined);
-  assert.equal(JSON.stringify(calls[1]).includes('FIRST_INVALID_DO_NOT_REUSE'), false);
+  assert.equal(typeof repair.invalidResponse,'string');assert.equal(typeof repair.formatError,'string');assert.match(repair.task,/requestDelivery/);
   assert.equal(calls[1].tools, undefined); assert.equal(calls[1].tool_choice, undefined); assert.equal(calls[1].response_format, undefined);
-  assert.deepEqual(context.manifest.responseRecovery, { kind: 'private_help', reasonCode: 'structured_output_invalid', metadataApplied: false, intentSourceIds: [`private:${turn.id}`] });
+  assert.equal(context.manifest.responseRecovery,undefined);assert.equal(context.manifest.formatRepair.deliveryContract,true);assert.equal(result.requestDelivery.sourceId,`private:${turn.id}`);
   assert.equal(context.extraRequests.length, 1); assert.equal(context.extraRequests[0].manifest.methodTrace.reported, null);
 });
 
-test('plain help repair retains explicitly selected image evidence and source identity', async t => {
+test('structured help repair retains explicitly selected image evidence and source identity', async t => {
   const { context, args } = fixture(t), calls = [], messageId = args.records[0].messageId;
   context.images = [{ messageId, index: 0, bytes: 24, url: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAAB' }];
   context.manifest.images = context.images.map(({ url, ...metadata }) => metadata);
   await assistModel(settings, context, undefined, async (_url, request) => {
-    calls.push(JSON.parse(request.body)); return calls.length === 1 ? resultTool(badOrdinaryHelp) : response('按你选中的图和她实际说的解谜游戏接话，先保留看不到的细节。');
+    calls.push(JSON.parse(request.body)); return calls.length === 1 ? resultTool(badOrdinaryHelp) : response(JSON.stringify({kind:'discussion',text:'按你选中的图和她实际说的解谜游戏接话，先保留看不到的细节。'}));
   });
   assert.equal(calls.length, 2); assert.equal(calls[1].messages[1].content[1]?.image_url.url, context.images[0].url);
   assert.equal(requestPayload(calls[1]).originalInput.sources.find(source => source.id === `qq:${messageId}`).text, args.records[0].text);
@@ -132,7 +131,7 @@ test('draft_prepare still requires structured source-bound plans, including afte
     calls.push(JSON.parse(request.body)); return calls.length === 1 ? resultTool({ draftPlan: '<parameter name="_">true' }) : response(JSON.stringify(valid));
   });
   assert.equal(calls.length, 2); assert.deepEqual(result.draftPlan.guidance, valid.draftPlan.guidance);
-  assert.equal(requestPayload(calls[1]).purpose, purpose); assert.deepEqual(calls[1].response_format, { type: 'json_object' });
+  assert.equal(requestPayload(calls[1]).purpose, purpose); assert.equal(calls[1].response_format,undefined);assert.equal(context.manifest.formatRepair.deliveryContract,true);
   assert.equal(context.manifest.responseRecovery, undefined);
   let failedCalls = 0;
   await assert.rejects(assistModel(settings, { payload: context.payload, manifest: {} }, undefined, async () => {
@@ -147,12 +146,12 @@ test('reply invalid plans get one strict structured repair while valid plans sti
   context.payload.topicContext.active = { id: 'reply-topic', lifecycle: 'active', objective: '一起散步', direction: '直接邀请', constraints: ['不编造共同经历'] };
   const calls = [], help = await assistModel(settings, context, undefined, async (_url, request) => {
     calls.push(JSON.parse(request.body)); return calls.length === 1 ? resultTool({ draftPlan: { quotes: [], intent: 'reply' } }) :
-      response(JSON.stringify({ kind: 'question', text: '先核对这次邀请必要的信息，保留她实际说过的内容。' }));
+      response(JSON.stringify({kind:'question',text:'你这周有空一起散步吗？',draftPlan:{clarification:'你这周有空一起散步吗？'}}));
   });
-  assert.equal(calls.length, 2); assert.equal(help.kind, 'question'); assert.deepEqual(Object.keys(help).sort(), ['kind', 'text']);
+  assert.equal(calls.length, 2); assert.equal(help.kind, 'question'); assert.deepEqual(Object.keys(help).sort(), ['draftPlan','kind','requestDelivery','text']);
   assert.equal(requestPayload(calls[1]).purpose, 'reply'); assert.equal(calls[1].tools, undefined); assert.equal(calls[1].response_format, undefined);
-  assert.equal(help.draftPlan, undefined); assert.equal(help.suggestions, undefined); assert.equal(context.manifest.responseRecovery, undefined);
-  assert.equal(context.manifest.formatRepair.planningCarrier, true); assert.equal(context.extraRequests[0].purpose, 'format_repair');
+  assert.equal(help.draftPlan.clarification,'你这周有空一起散步吗？'); assert.equal(help.suggestions, undefined); assert.equal(context.manifest.responseRecovery, undefined);
+  assert.equal(context.manifest.formatRepair.planningCarrier, true); assert.equal(context.extraRequests[0].purpose, 'delivery_repair');
   const prepared = buildContext(args), valid = { draftPlan: { quotes: [], intent: 'reply', guidance: { objective: control('邀请一起散步'),
     allowedApproach: control('直接邀请'), avoidances: [control('不编造共同经历')] } } };
   prepared.payload.topicContext.active = context.payload.topicContext.active;
@@ -164,26 +163,26 @@ test('reply invalid plans get one strict structured repair while valid plans sti
   assert.equal(final.payload.privateConversation, undefined); assert.equal(JSON.stringify(final.payload).includes('PRIVATE_MOTIVE_SENTINEL'), false);
 });
 
-test('invalid or overlong plain help receives no second recovery, and each call remains in the original task budget', async t => {
+test('invalid structured help receives no second recovery, and each call remains in the original task budget', async t => {
   const { store, context } = fixture(t), ledger = new TaskLedger(store);
   for (const [index, invalid] of ['', 'x'.repeat(6001), '{"actions":[{"type":"set_goal","text":"model claim"}]}', '<parameter name="topicPatch">bad</parameter>'].entries()) {
     const task = ledger.create(scope, { id: `bounded-plain-${index}`, inputDigest: `shape-${index}`, limit: 2 }), calls = [];
     await assert.rejects(assistModel({ ...settings, requestBudget: task.forStage('assistant') }, { payload: context.payload, manifest: {} }, undefined, async (_url, request) => {
       calls.push(request.body); return calls.length === 1 ? resultTool(badOrdinaryHelp) : response(invalid);
-    }), /自然文字|没有返回可用文字|空文字/);
+    }), /结构化结果|空文字/);
     assert.equal(calls.length, 2); assert.equal(task.snapshot().attempts, 2);
-    assert.equal(task.snapshot().requests[1].purpose, 'plain_response_recovery');
+    assert.equal(task.snapshot().requests[1].purpose, 'delivery_repair');
   }
 });
 
-test('plain recovery rejects truncated output, wrapped machine objects and multi-paragraph final output', async t => {
+test('structured core and plain final recovery reject malformed, truncated and multi-paragraph final output', async t => {
   const { args, context, turn } = fixture(t);
   const draft = buildDraftContext(context, { quotes: [{ sourceId: `private:${turn.id}`, text: '直接邀请一起散步' }],guidance:walkingControls(`private:${turn.id}`) }, args);
-  for (const [input, second] of [[context, response('以下是结果：\n{"kind":"discussion","text":"机器参数不是自然回答"}')],
+  for (const [input, second] of [[context, response('以下是结果：\n{"actions":[]}')],
     [draft, response('第一句。\n第二句说明。')], [draft, response('x'.repeat(1201))],
     [context, { ok: true, json: async () => ({ choices: [{ finish_reason: 'length', message: { content: '这是被截断的普通帮助' } }] }) }]]) {
     let calls = 0;
-    await assert.rejects(assistModel(settings, input, undefined, async () => ++calls === 1 ? response('{broken') : second), /机器格式|分段说明|自然文字|截断/);
+    await assert.rejects(assistModel(settings, input, undefined, async () => ++calls === 1 ? response('{broken') : second), /结构化结果|分段说明|自然文字|截断/);
     assert.equal(calls, 2);
   }
 });

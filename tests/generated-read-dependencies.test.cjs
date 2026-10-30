@@ -1,6 +1,6 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {Store}=require('../src/store.cjs'),{Controller}=require('../src/controller.cjs');
+const {Store}=require('../src/store.cjs'),{Controller}=require('./fixtures/assistant-protocol.cjs');
 test('actual generated-read fingerprints persist and deletion prunes only dependent help',async t=>{
  const scope={accountUid:'fictional-dependency-review',accountUin:'11',peerUid:'fictional-peer',peerUin:'22'},store=new Store(':memory:');
  store.appendTurn(scope,{role:'user',kind:'discussion',text:'Discuss an exhibition.'});

@@ -1,7 +1,7 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {Store}=require('../src/store.cjs'),{Controller}=require('../src/controller.cjs');
-const {assistModel}=require('../src/assistant-model.cjs');
+const {Store}=require('../src/store.cjs'),{Controller}=require('./fixtures/assistant-protocol.cjs');
+const {assistModel}=require('./fixtures/assistant-protocol.cjs');
 const {assistDiscussionCompaction}=require('../src/discussion-compaction.cjs');
 const {scope,raw}=require('./fixtures/native.cjs');
 const FIRST='从对战换到解谜，画风都变了哈哈。',SECOND='这是改成跟关卡斗智斗勇了哈哈。';

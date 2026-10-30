@@ -2,7 +2,7 @@
 const test=require('node:test'),assert=require('node:assert/strict');
 const http=require('node:http'),fs=require('node:fs'),os=require('node:os'),path=require('node:path');
 const {fork}=require('node:child_process');
-const {Store}=require('../src/store.cjs'),{Controller}=require('../src/controller.cjs'),{createServer}=require('../src/server.cjs');
+const {Store}=require('../src/store.cjs'),{Controller}=require('./fixtures/assistant-protocol.cjs'),{createServer}=require('../src/server.cjs');
 const {scope,raw}=require('./fixtures/native.cjs');
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 async function until(predicate){for(let n=0;n<100;n++){if(await predicate())return;await sleep(50);}throw Error('Synthetic helper refresh timed out');}

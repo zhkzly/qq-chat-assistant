@@ -2,9 +2,9 @@
 // Synthetic transport integration: edits are derived from the actual wording
 // payload. These checks establish handoff and lifecycle, not language quality.
 const test=require('node:test'),assert=require('node:assert/strict');
-const {Controller}=require('../src/controller.cjs'),{Store}=require('../src/store.cjs');
+const {Controller}=require('./fixtures/assistant-protocol.cjs'),{Store}=require('../src/store.cjs');
 const {buildContext,buildDraftContext}=require('../src/assistant-context.cjs');
-const {parseAssistant,prepareAssistantRequest}=require('../src/assistant-model.cjs');
+const {parseAssistant,prepareAssistantRequest}=require('./fixtures/assistant-protocol.cjs');
 const {withCurrentDraftControls}=require('./fixtures/draft-controls.cjs');
 const {scope,raw}=require('./fixtures/native.cjs');
 function fixture(t,{select=true,intercept=async()=>{}}={}){

@@ -2,8 +2,8 @@
 const test=require('node:test');
 const assert=require('node:assert/strict');
 const {Store}=require('../src/store.cjs');
-const {Controller}=require('../src/controller.cjs');
-const {assistModel}=require('../src/assistant-model.cjs');
+const {Controller}=require('./fixtures/assistant-protocol.cjs');
+const {assistModel}=require('./fixtures/assistant-protocol.cjs');
 const {assistDiscussionCompaction}=require('../src/discussion-compaction.cjs');
 const {scope,raw}=require('./fixtures/native.cjs');
 

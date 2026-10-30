@@ -25,7 +25,8 @@ function buildDraftContext(prepared, plan, info) {
   requireDraftControlGuidance(guidance,prepared.payload);
   const projectedControls=wordingControlsForContext(prepared,{...info,expressionPlan:plan}),safeWordingControls=projectedControls.controls;
   const style=['natural','short','casual'].includes(projectedControls.style)?projectedControls.style:'natural';
-  const payload = { promptVersion: PROMPT_VERSION, purpose: 'draft', method: METHODS.draft, methodCards: selection.methods.map(runtimeCard),
+  const payload = { promptVersion: PROMPT_VERSION, purpose: 'draft',
+    ...(prepared.payload.requestDeliveryPolicy?{requestDeliveryObligation:{version:1,mode:'editable_message'}}:{}), method: METHODS.draft, methodCards: selection.methods.map(runtimeCard),
     methodSelection: { version: selection.version, candidates: ['compose'], maxApplied: 1 }, style, asOf: prepared.payload.asOf,
     viewerTimeZone:prepared.payload.viewerTimeZone||Intl.DateTimeFormat().resolvedOptions().timeZone,
     ...(editing?{editingReference:editing.reference}:{}),

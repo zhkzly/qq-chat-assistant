@@ -1,6 +1,6 @@
 'use strict';
 const test=require('node:test');const assert=require('node:assert/strict');const path=require('node:path');
-const {Store}=require('../src/store.cjs');const {Controller}=require('../src/controller.cjs');const {createServer}=require('../src/server.cjs');const {scope}=require('./fixtures/native.cjs');
+const {Store}=require('../src/store.cjs');const {Controller}=require('./fixtures/assistant-protocol.cjs');const {createServer}=require('../src/server.cjs');const {scope}=require('./fixtures/native.cjs');
 test('relationship HTTP consumers bind full identities, preserve exact feedback and enforce versions without sending',async t=>{
  const store=new Store(':memory:');let calls=0;
  const settings={auto:false,apiKey:'fixture-secret',model:'fixture',baseUrl:'http://fixture.invalid',realChatConsent:{accountUid:scope.accountUid,peerUin:scope.peerUin,model:'fixture',baseUrl:'http://fixture.invalid'}};

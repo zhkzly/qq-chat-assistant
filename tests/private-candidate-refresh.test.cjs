@@ -3,7 +3,7 @@
 // A private correction may replace or withdraw current wording, but the old
 // wording must not remain the primary candidate after the correction succeeds.
 const test=require('node:test'),assert=require('node:assert/strict');
-const {Controller}=require('../src/controller.cjs'),{Store}=require('../src/store.cjs');
+const {Controller}=require('./fixtures/assistant-protocol.cjs'),{Store}=require('../src/store.cjs');
 const {scope,raw}=require('./fixtures/native.cjs');
 const {withCurrentDraftControls}=require('./fixtures/draft-controls.cjs');
 const DIRECT='我想多了解你一点，下次一起去逛逛吧。';

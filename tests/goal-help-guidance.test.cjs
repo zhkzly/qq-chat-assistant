@@ -2,7 +2,7 @@
 const test=require('node:test'),assert=require('node:assert/strict');
 const {selectMethods,compactOperationalCards,METHOD_VERSION}=require('../src/help-methods.cjs');
 const {HELP_BEHAVIOR}=require('../src/help-behavior.cjs');
-const {prepareAssistantRequest}=require('../src/assistant-model.cjs');
+const {prepareAssistantRequest}=require('./fixtures/assistant-protocol.cjs');
 
 test('reply transports remain hints rather than explicit choices of a help method',()=>{
  for(const purpose of ['reply','suggest']){

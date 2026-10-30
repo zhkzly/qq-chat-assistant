@@ -1,8 +1,8 @@
 'use strict';
 const test=require('node:test');const assert=require('node:assert/strict');
 const fs=require('node:fs');const os=require('node:os');const path=require('node:path');
-const {Store}=require('../src/store.cjs');const {Controller}=require('../src/controller.cjs');const {normalize}=require('../src/messages.cjs');
-const {replyFocusFor}=require('../src/model.cjs');const {assistModel}=require('../src/assistant-model.cjs');const {scope,raw}=require('./fixtures/native.cjs');
+const {Store}=require('../src/store.cjs');const {Controller}=require('./fixtures/assistant-protocol.cjs');const {normalize}=require('../src/messages.cjs');
+const {replyFocusFor}=require('../src/model.cjs');const {assistModel}=require('./fixtures/assistant-protocol.cjs');const {scope,raw}=require('./fixtures/native.cjs');
 const {withCurrentDraftControls}=require('./fixtures/draft-controls.cjs');
 const records=Array.from({length:80},(_,i)=>normalize(raw(String(72057594037927000n+BigInt(i)),i===76),scope));
 const settings=()=>({apiKey:'fixture',model:'fixture',baseUrl:'http://fixture.invalid/v1',realChatConsent:{...scope,model:'fixture',baseUrl:'http://fixture.invalid/v1'}});

@@ -2,7 +2,7 @@
 // Real Controller/Store consumers with deterministic local model responses.
 // These checks prove delivery and authority boundaries, not wording quality.
 const test=require('node:test'),assert=require('node:assert/strict');
-const {Controller}=require('../src/controller.cjs'),{Store}=require('../src/store.cjs');
+const {Controller}=require('./fixtures/assistant-protocol.cjs'),{Store}=require('../src/store.cjs');
 const {scope,raw}=require('./fixtures/native.cjs');
 const {withCurrentDraftControls}=require('./fixtures/draft-controls.cjs');
 const PREFERENCE='自然口语，简短，别用emoji，因为PRIVATE_CONFIG_REASON我怕显得太认真。';

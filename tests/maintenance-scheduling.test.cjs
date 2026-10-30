@@ -1,6 +1,6 @@
 'use strict';
 const test=require('node:test');const assert=require('node:assert/strict');
-const {Store}=require('../src/store.cjs');const {Controller}=require('../src/controller.cjs');const {scope}=require('./fixtures/native.cjs');
+const {Store}=require('../src/store.cjs');const {Controller}=require('./fixtures/assistant-protocol.cjs');const {scope}=require('./fixtures/native.cjs');
 test('a lone new private source waits for batch or idle threshold instead of invoking a model immediately',async t=>{
  const store=new Store(':memory:');let calls=0;
  const controller=new Controller({store,read:async(command)=>command==='bind'?scope:{messages:[]},settings:{auto:false,model:'synthetic',baseUrl:'http://fixture.invalid',apiKey:'synthetic',realChatConsent:{accountUid:scope.accountUid,peerUin:scope.peerUin,model:'synthetic',baseUrl:'http://fixture.invalid'}},

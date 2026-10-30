@@ -2,7 +2,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { NativeDriver } = require('../plugin/native-driver.cjs');
-const { Controller } = require('../src/controller.cjs');
+const { Controller } = require('./fixtures/assistant-protocol.cjs');
 const { Store } = require('../src/store.cjs');
 const { scope } = require('./fixtures/native.cjs');
 function adapter(initial = true) {

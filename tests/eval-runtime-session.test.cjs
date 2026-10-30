@@ -1,5 +1,6 @@
 'use strict';
 const test = require('node:test');
+const {withRequestDelivery}=require('../scripts/synthetic-request-delivery.cjs');
 const assert = require('node:assert/strict');
 const path = require('node:path');
 const { createReplaySession, makeSyntheticTransport } = require('../scripts/eval-runtime-session.cjs');
@@ -42,7 +43,7 @@ test('production HTTP consultation preserves generated replies, actual events an
   let sequence = 0;
   const session = await setup(t, { transport: async (_url, args) => {
     const p = input(args);
-    return packet({ kind: 'discussion', text: `真实适配器保存的合成回答 ${++sequence}：${p.userRequest.text}` });
+    return packet(withRequestDelivery({ kind: 'discussion', text: `真实适配器保存的合成回答 ${++sequence}：${p.userRequest.text}` },p));
   } });
   const first = await session.post('/api/assistant', { text: '先接她装书架的事。' });
   const firstAnswer = first.companion.turns.find(turn => turn.role === 'assistant');
@@ -81,7 +82,7 @@ test('actual memory and compaction adapters use explicit synthetic transport and
   let calls = 0;
   const session = await setup(t, { transport: async (url, args) => {
     const p = input(args);
-    if (p.purpose === 'discussion' && ++calls === 1) return packet({ kind: 'discussion', text: '合成历史解释。'.repeat(700) });
+    if (p.purpose === 'discussion' && ++calls === 1) return packet(withRequestDelivery({ kind: 'discussion', text: '合成历史解释。'.repeat(700) },p));
     return transport(url, args);
   } });
   await session.post('/api/assistant', { text: '先商量书架。' });

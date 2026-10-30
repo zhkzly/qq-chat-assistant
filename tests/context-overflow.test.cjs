@@ -3,7 +3,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { Store } = require('../src/store.cjs');
 const { buildContext } = require('../src/assistant-context.cjs');
-const { parseAssistant, prepareAssistantRequest } = require('../src/assistant-model.cjs');
+const { parseAssistant, prepareAssistantRequest } = require('./fixtures/assistant-protocol.cjs');
 const { scope } = require('./fixtures/native.cjs');
 
 // Legal persisted consumer shapes only. These are synthetic budget boundaries,

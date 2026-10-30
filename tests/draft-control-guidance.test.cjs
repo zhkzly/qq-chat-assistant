@@ -1,6 +1,6 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {parseAssistant,requireDraftControlGuidance,assistModel}=require('../src/assistant-model.cjs');
+const {parseAssistant,requireDraftControlGuidance,assistModel}=require('./fixtures/assistant-protocol.cjs');
 const current={id:'private:current',type:'private',role:'user',text:'先接游戏吐槽，暂时不要问游戏名，给完整的一句'},
   previous={id:'private:previous',type:'private',role:'user',text:'上次想了解游戏名字'},
   incoming={id:'qq:72057594037927937',type:'qq',role:'contact',text:'我不怎么玩PVP，玩点回合制PVE'};

@@ -1,6 +1,6 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {Controller}=require('../src/controller.cjs'),{Store}=require('../src/store.cjs');
+const {Controller}=require('./fixtures/assistant-protocol.cjs'),{Store}=require('../src/store.cjs');
 const {scope,raw}=require('./fixtures/native.cjs');
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
 function fixture(t){

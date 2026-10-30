@@ -2,7 +2,7 @@
 const test=require('node:test'),assert=require('node:assert/strict');
 const {Store}=require('../src/store.cjs'),{normalize}=require('../src/messages.cjs');
 const {buildContext,buildDraftContext}=require('../src/assistant-context.cjs');
-const {parseAssistant,assistModel,prepareAssistantRequest}=require('../src/assistant-model.cjs');
+const {parseAssistant,assistModel,prepareAssistantRequest}=require('./fixtures/assistant-protocol.cjs');
 const {withCurrentDraftControls}=require('./fixtures/draft-controls.cjs');
 const {scope,raw}=require('./fixtures/native.cjs');
 const FACT='今天做的陶杯终于烧好了';

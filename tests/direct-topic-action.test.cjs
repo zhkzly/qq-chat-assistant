@@ -1,6 +1,6 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),path=require('node:path');
-const {Store}=require('../src/store.cjs'),{Controller}=require('../src/controller.cjs'),{createServer}=require('../src/server.cjs');
+const {Store}=require('../src/store.cjs'),{Controller}=require('./fixtures/assistant-protocol.cjs'),{createServer}=require('../src/server.cjs');
 const {scope,raw}=require('./fixtures/native.cjs');
 function fixture(t,{model}={}){
  const store=new Store(':memory:');let modelCalls=0;

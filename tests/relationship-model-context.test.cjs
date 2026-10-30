@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 const { Store } = require('../src/store.cjs');
 const { normalize } = require('../src/messages.cjs');
 const { buildContext, buildDraftContext } = require('../src/assistant-context.cjs');
-const { assistModel, parseAssistant, SYSTEM } = require('../src/assistant-model.cjs');
+const { assistModel, parseAssistant, SYSTEM } = require('./fixtures/assistant-protocol.cjs');
 const { scope, raw } = require('./fixtures/native.cjs');
 const settings = { baseUrl: 'http://fixture.invalid/v1', model: 'synthetic', anonymous: true };
 const response = value => ({ ok: true, json: async () => ({ choices: [{ message: { content: JSON.stringify(value) } }] }) });
@@ -195,7 +195,7 @@ test('only an explicitly enabled review can propose inactive local guidance from
 
 test('recorded feedback output promotes a candidate only after loading its actual instruction card', async t => {
   for(const loadCard of [false,true]){
-  const { Controller } = require('../src/controller.cjs');
+  const { Controller } = require('./fixtures/assistant-protocol.cjs');
   const recorded = require('./fixtures/live-feedback-response.json');
   const store = new Store(':memory:');
   const earlier = store.appendTurn(scope, { role: 'user', kind: 'discussion', text: '她说今天考完很累，我想回应她。' });
@@ -233,7 +233,7 @@ test('recorded feedback output promotes a candidate only after loading its actua
 });
 
 test('an old relative-week claim without an end date reaches the model as unspecified, not a fresh current arrangement', t => {
-  const { RELATIONSHIP_PROTOCOL } = require('../src/assistant-model.cjs');
+  const { RELATIONSHIP_PROTOCOL } = require('./fixtures/assistant-protocol.cjs');
   const { MEMORY_SYSTEM } = require('../src/memory-engine.cjs');
   const store = new Store(':memory:'); t.after(() => store.close());
   const at = '2026-10-11T08:00:00.000Z';

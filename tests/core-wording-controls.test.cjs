@@ -2,7 +2,7 @@
 const test=require('node:test'),assert=require('node:assert/strict');
 const {Store}=require('../src/store.cjs'),{normalize}=require('../src/messages.cjs');
 const {buildContext,buildDraftContext}=require('../src/assistant-context.cjs');
-const {assistModel,prepareAssistantRequest}=require('../src/assistant-model.cjs');
+const {assistModel,prepareAssistantRequest}=require('./fixtures/assistant-protocol.cjs');
 const {scope,raw}=require('./fixtures/native.cjs'),{withCurrentDraftControls}=require('./fixtures/draft-controls.cjs');
 const DECLARATION='以后给我的参考回复用短句，不用表情，因为PRIVATE_CORE_REASON我担心显得太急。';
 const SUMMARY='参考回复优先用短句，不用表情。';
@@ -111,6 +111,6 @@ test('a structurally repaired planning carrier still hands the same core control
  const result=await assistModel({anonymous:true,baseUrl:'http://fixture.invalid/v1',model:'synthetic'},prepared,undefined,async(_url,options)=>{
   const body=JSON.parse(options.body);requests.push(JSON.parse(body.messages[1].content));return {ok:true,json:async()=>({choices:[{message:{content:JSON.stringify(requests.length===1?{draftPlan:'{malformed container'}:{draftPlan:plan})}}]})};
  });
- assert.equal(requests.length,2);assert.equal(prepared.extraRequests[0].purpose,'format_repair');
+ assert.equal(requests.length,2);assert.equal(prepared.extraRequests[0].purpose,'delivery_repair');
  const repaired=buildDraftContext(prepared.resultContext||prepared,result.draftPlan,args);assert.deepEqual(repaired.payload.wordingControls,draft().payload.wordingControls);assert.equal(JSON.stringify(repaired.payload).includes('PRIVATE_CORE_REASON'),false);
 });

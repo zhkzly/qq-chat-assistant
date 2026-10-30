@@ -1,7 +1,7 @@
 'use strict';
 const {withCurrentDraftControls}=require('./fixtures/draft-controls.cjs');
 const test=require('node:test'),assert=require('node:assert/strict');
-const {Store}=require('../src/store.cjs'),{Controller}=require('../src/controller.cjs');
+const {Store}=require('../src/store.cjs'),{Controller}=require('./fixtures/assistant-protocol.cjs');
 const {buildContext,buildDraftContext,sourcesFor}=require('../src/assistant-context.cjs'),{normalize}=require('../src/messages.cjs');
 const {scope,raw}=require('./fixtures/native.cjs');
 function msg(id,own,text,extra={}){return normalize(raw(String(id),own,{elements:[{textElement:{content:text}}],...extra}),scope);}
@@ -139,7 +139,7 @@ test('saved generation-stage and feedback lineage distinguish catalog methods fr
  assert.ok(stage.reportedUsedMethodRefs.some(m=>m.methodId===selected.id&&m.version===selected.version));
  const feedback=store.addFeedback(scope,{text:'Synthetic local feedback',targetRef:{kind:'artifact',artifactRef:answer.artifactRef}}),hydrated=store.experiences.hydrateFeedback(scope,feedback.id);
  const visible=hydrated.target.generationStages[0].deliveredMethodRefs;
- assert.equal(visible.find(m=>m.methodId===selected.id).guidanceLevel,'catalog');assert.ok(visible.some(m=>m.guidanceLevel==='full_card'));
+ assert.equal(visible.find(m=>m.methodId===selected.id).guidanceLevel,'catalog');assert.ok(visible.every(m=>m.guidanceLevel==='catalog'),'ordinary consultation starts with neutral method navigation');
 });
 test('method catalog preserves all help families while only a small full guidance set is loaded',t=>{
  const f=setup(t);const context=buildContext(f.args),p=context.payload;

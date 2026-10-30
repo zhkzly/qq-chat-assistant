@@ -1,6 +1,6 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {Store}=require('../src/store.cjs'),{Controller}=require('../src/controller.cjs'),{TaskLedger}=require('../src/request-budget.cjs');
+const {Store}=require('../src/store.cjs'),{Controller}=require('./fixtures/assistant-protocol.cjs'),{TaskLedger}=require('../src/request-budget.cjs');
 const {normalize}=require('../src/messages.cjs');
 const {buildContext,PROMPT_VERSION}=require('../src/assistant-context.cjs');
 const {planDiscussionCompaction,validatedCompaction,assistDiscussionCompaction,candidatesForCompaction}=require('../src/discussion-compaction.cjs');

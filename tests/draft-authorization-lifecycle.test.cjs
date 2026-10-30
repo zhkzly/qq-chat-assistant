@@ -1,6 +1,6 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {Store}=require('../src/store.cjs'),{Controller}=require('../src/controller.cjs');
+const {Store}=require('../src/store.cjs'),{Controller}=require('./fixtures/assistant-protocol.cjs');
 const {withCurrentDraftControls}=require('./fixtures/draft-controls.cjs');
 const {scope}=require('./fixtures/native.cjs');
 const FACT='我这周终于跑完了五公里';

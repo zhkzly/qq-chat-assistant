@@ -2,7 +2,7 @@
 const test=require('node:test');
 const assert=require('node:assert/strict');
 const {Store}=require('../src/store.cjs');
-const {Controller}=require('../src/controller.cjs');
+const {Controller}=require('./fixtures/assistant-protocol.cjs');
 const {scope,raw}=require('./fixtures/native.cjs');
 const privateRecovery=id=>({kind:'private_help',reasonCode:'structured_output_invalid',metadataApplied:false,intentSourceIds:id?[id]:[]});
 const draftRecovery=()=>({kind:'restricted_draft',reasonCode:'structured_output_invalid',metadataApplied:false,intentSourceIds:[]});
@@ -106,13 +106,13 @@ test('durable recovery and review source hashes cannot falsely review a revised 
   assert.throws(()=>store.appendTurn(scope,{role:'assistant',kind:'discussion',text:'Cannot retag an old review as current.',sourceIds:[id],privateReviewReceipt:reviewed.privateReviewReceipt}),/source/i);
 });
 
-test('automatic QQ reply may recover private advice without granting an outbound plan or pending user intent',async t=>{
-  const {assistModel}=require('../src/assistant-model.cjs');let calls=0;
-  const app=setup(t,(settings,input,signal)=>assistModel(settings,input,signal,async()=>({ok:true,json:async()=>({choices:[{finish_reason:'stop',message:{content:++calls===1?JSON.stringify({kind:'unsupported_kind',text:'Not delivered',topicPatch:{operation:'update',version:1},actions:[{type:'save_note',text:'not authorized'}]}):'先接住她分享的游戏变化，保持这次自然的交流分寸。'}}]})})));
+test('automatic QQ repair declares unavailable private advice without granting an outbound plan or pending user intent',async t=>{
+  const {assistModel}=require('./fixtures/assistant-protocol.cjs');let calls=0;
+  const app=setup(t,(settings,input,signal)=>assistModel(settings,input,signal,async()=>({ok:true,json:async()=>({choices:[{finish_reason:'stop',message:{content:++calls===1?JSON.stringify({kind:'unsupported_kind',text:'Not delivered',topicPatch:{operation:'update',version:1},actions:[{type:'save_note',text:'not authorized'}]}):JSON.stringify({kind:'discussion',text:'先接住她分享的游戏变化，保持这次自然的交流分寸。',replyDisposition:'unavailable'})}}]})})));
   await app.controller.bind(scope.peerUin);app.controller.live({scope,messages:[raw('90071992547409999921',false,{elements:[{textElement:{content:'我最近改玩解谜闯关了。'}}]})]});
   const before=app.store.getCompanion(scope);await app.controller.suggest({automatic:true});
   const after=app.store.getCompanion(scope),answer=after.turns.filter(turn=>turn.role==='assistant').at(-1);
-  assert.equal(calls,2);assert.equal(answer.kind,'discussion');assert.equal(answer.responseRecovery.kind,'private_help');assert.deepEqual(answer.responseRecovery.intentSourceIds,[]);assert.equal(answer.suggestions,undefined);assert.deepEqual(answer.expressionOptions,[]);
+  assert.equal(calls,2);assert.equal(answer.kind,'discussion');assert.equal(answer.responseRecovery,undefined);assert.equal(after.runs.at(-1).manifest.requestDelivery.status,'private_help');assert.equal(answer.suggestions,undefined);assert.deepEqual(answer.expressionOptions,[]);
   assert.equal(after.turns.filter(turn=>turn.role==='user').length,before.turns.filter(turn=>turn.role==='user').length);
   assert.equal(after.notes.length,before.notes.length);assert.equal(after.state.version,before.state.version);assert.equal(after.topics.items.length,before.topics.items.length);
   assert.equal(app.controller.advice.suggestions.length,0);assert.ok(app.controller.advice.analysis);assert.equal(after.runs.at(-1).maintenance,'deferred');

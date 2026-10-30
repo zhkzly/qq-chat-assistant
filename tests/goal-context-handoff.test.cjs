@@ -1,7 +1,7 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
 const {Store}=require('../src/store.cjs');const {scope,raw}=require('./fixtures/native.cjs');const {normalize}=require('../src/messages.cjs');
-const {buildContext,buildDraftContext}=require('../src/assistant-context.cjs');const {parseAssistant,prepareAssistantRequest}=require('../src/assistant-model.cjs');const {planDiscussionCompaction}=require('../src/discussion-compaction.cjs');
+const {buildContext,buildDraftContext}=require('../src/assistant-context.cjs');const {parseAssistant,prepareAssistantRequest}=require('./fixtures/assistant-protocol.cjs');const {planDiscussionCompaction}=require('../src/discussion-compaction.cjs');
 const {operationsFor}=require('../src/help-methods.cjs');
 const settings={model:'synthetic-goal',baseUrl:'http://fixture.invalid/v1',anonymous:true};
 function fixture(t,text='先接住她的吐槽，别直接问游戏名，给我一句自然接话'){const store=new Store(':memory:');t.after(()=>store.close());store.setGoal(scope,'PRIVATE_GOAL_发展双方愿意的恋爱关系');store.add(scope,[normalize(raw(),scope)]);const old=store.appendTurn(scope,{role:'user',kind:'discussion',text:'PRIVATE_REASON_我担心自己不够有趣，只供私下商量'});const turn=store.appendTurn(scope,{role:'user',kind:'discussion',text});const args={scope,store,records:store.messages(scope),companion:store.getCompanion(scope),turn,purpose:'discussion',settings,coverage:{status:'partial'},availableSources:store.memorySources(scope),responsePreference:'含蓄，先回应分享'};return {store,args,context:buildContext(args)}}

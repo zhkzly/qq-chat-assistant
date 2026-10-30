@@ -1,8 +1,8 @@
 'use strict';
 const test = require('node:test'), assert = require('node:assert/strict');
 const { Store } = require('../src/store.cjs');
-const { Controller } = require('../src/controller.cjs');
-const { parseAssistant } = require('../src/assistant-model.cjs');
+const { Controller } = require('./fixtures/assistant-protocol.cjs');
+const { parseAssistant } = require('./fixtures/assistant-protocol.cjs');
 const { buildContext } = require('../src/assistant-context.cjs');
 const { normalize } = require('../src/messages.cjs');
 const { scope, raw } = require('./fixtures/native.cjs');

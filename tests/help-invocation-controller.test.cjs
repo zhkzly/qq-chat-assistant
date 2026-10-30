@@ -1,7 +1,7 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
 const {createHash}=require('node:crypto');
-const {Store}=require('../src/store.cjs'),{Controller}=require('../src/controller.cjs');
+const {Store}=require('../src/store.cjs'),{Controller}=require('./fixtures/assistant-protocol.cjs');
 const {normalize}=require('../src/messages.cjs');
 const {scope,raw}=require('./fixtures/native.cjs');
 function fixture(t){

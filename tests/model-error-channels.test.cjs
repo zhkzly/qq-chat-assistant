@@ -1,6 +1,6 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {Store}=require('../src/store.cjs'),{Controller}=require('../src/controller.cjs');
+const {Store}=require('../src/store.cjs'),{Controller}=require('./fixtures/assistant-protocol.cjs');
 const {scope}=require('./fixtures/native.cjs');
 function fixture(t,model){const store=new Store(':memory:'),controller=new Controller({store,settings:{auto:false,anonymous:true,model:'synthetic-errors',baseUrl:'http://fixture.invalid',realChatConsent:{accountUid:scope.accountUid,peerUin:scope.peerUin,model:'synthetic-errors',baseUrl:'http://fixture.invalid'}},read:async()=>{throw Error('No QQ read in this fixture');},assistantModel:model,memoryModel:null});controller.updateStatus({phase:'ready',account:{uid:scope.accountUid,uin:scope.accountUin}});controller.scope={...scope};t.after(()=>{controller.close();store.close()});return {store,controller};}
 test('model failure in QQ assistance appears only in the assistant channel and retains its saved diagnostics',async t=>{

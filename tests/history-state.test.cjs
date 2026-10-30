@@ -1,7 +1,7 @@
 'use strict';
 const test=require('node:test');
 const assert=require('node:assert/strict');
-const {Controller}=require('../src/controller.cjs');
+const {Controller}=require('./fixtures/assistant-protocol.cjs');
 const {Store}=require('../src/store.cjs');
 const {scope,raw}=require('./fixtures/native.cjs');
 function app(latest) {

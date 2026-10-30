@@ -11,6 +11,8 @@ const { randomUUID, createHash } = require('node:crypto');
 const {TaskLedger}=require('./request-budget.cjs');
 const {maintenanceDecision}=require('./memory-scheduler.cjs');
 const fingerprint=value=>createHash('sha256').update(JSON.stringify(value)).digest('hex');
+const FORGOTTEN_REQUEST='所选来源已从助手参考中移除。仅使用仍可用的信息继续本次帮助，不复述已移除内容。';
+const {editable,validateTerminalDelivery,deliveryStatus}=require('./request-delivery.cjs');
 const { assistModel, parseAssistant, imageContextFor } = require('./assistant-model.cjs');
 const { buildContext, buildDraftContext, expressionOptionsFor, PROMPT_VERSION } = require('./assistant-context.cjs');
 const { planDiscussionCompaction, assistDiscussionCompaction } = require('./discussion-compaction.cjs');
@@ -404,7 +406,7 @@ class Controller extends EventEmitter {
       if(this.memoryAbort===abort){this.memoryBusy=false;this.memoryAbort=null;this.changed();if(this.store.memoryStatus(scope).pending)this.scheduleMemory(2500);}
     }
   }
-  async assist({ text, purpose = 'discussion', materialIds = [], sourceTurnIds = [], selectedOption, transient = false, resumeTurnId, resumes=0, taskId, origin='user',feedbackIntentId,privateKind,responsePreference=this.instruction,candidateInputSeq,currentCandidateRef,candidateAlternative=false } = {}) {
+  async assist({ text, purpose = 'discussion', materialIds = [], sourceTurnIds = [], selectedOption, transient = false, resumeTurnId, resumes=0, taskId, origin='user',feedbackIntentId,privateKind,responsePreference=this.instruction,candidateInputSeq,currentCandidateRef,candidateAlternative=false,requestDeliveryObligation:resumeDeliveryObligation } = {}) {
     const scope = this.requireScope();
     // Freeze one observation across lookups, compaction and format repair.
     // Reconstruct this controller and its CandidateSession together on service refresh.
@@ -439,10 +441,11 @@ class Controller extends EventEmitter {
     this.memoryLastActivityAt=Date.now();this.store.maintainLocal?.(scope);
     const abort = this.assistantAbort = new AbortController(), requestId = budget.id;
     clearTimeout(this.timer);
-    const prior=resumeTurnId&&this.store.getCompanion(scope).turns.find(t=>t.id===resumeTurnId&&t.role==='user'&&t.text===text);
+    const storedPrior=resumeTurnId&&this.store.getCompanion(scope).turns.find(t=>t.id===resumeTurnId&&t.role==='user');
+    const prior=storedPrior&&(storedPrior.text===text?storedPrior:storedPrior.memoryExcluded&&text===FORGOTTEN_REQUEST?{...storedPrior,text:FORGOTTEN_REQUEST}:null);
     if(resumeTurnId&&!prior&&!transient)throw new Error('原来的问题已变化，请使用当前问题');
     let turn = transient ? {id:requestId,role:'user',kind:purpose,text,transient:true} : prior||this.store.appendTurn(scope, { role: 'user', kind: privateKind||purpose, text, requestId });
-    this.activeAssist={scope,turnId:turn.id,taskId:budget.id,resumes,args:{text,purpose,materialIds,sourceTurnIds,selectedOption,transient,origin,feedbackIntentId,privateKind,responsePreference,candidateInputSeq:candidateTicket.privateInputSeq,currentCandidateRef,candidateAlternative}};
+    this.activeAssist={scope,turnId:turn.id,taskId:budget.id,resumes,args:{text,purpose,materialIds,sourceTurnIds,selectedOption,transient,origin,feedbackIntentId,privateKind,responsePreference,candidateInputSeq:candidateTicket.privateInputSeq,currentCandidateRef,candidateAlternative,...(resumes>0&&resumeDeliveryObligation?{requestDeliveryObligation:resumeDeliveryObligation}:{})}};
     let companion = this.store.getCompanion(scope), baseRevision = companion.revision,baseGeneration=this.store.contextGeneration?.(scope);
     const epoch = this.epoch, revision = this.revision, settings = { ...this.settings };
     const binding = `${settings.baseUrl}\n${settings.model}\n${settings.activeModelProfileId || ''}`;
@@ -453,7 +456,7 @@ class Controller extends EventEmitter {
     this.assistantBusy = true; this.assistantError = ''; this.changed();
     let context, receipts=[], actionsHandled=false, lookups=0, lookupHistory=[], retrievedSources=[], methodLookupIds=[], discoveryRequested=false, query=text, reviewRange;
     const capturedRequests=[],relationshipProposals=[],experienceProposals=[],topicProposals=[];let stagedReview=null;
-    let activeCompaction=null,compactionAttempted=false,sourceLookupIds=[],retrievedDiscussion=[];
+    let activeCompaction=null,compactionAttempted=false,sourceLookupIds=[],retrievedDiscussion=[],requestDeliveryObligation=resumes>0?resumeDeliveryObligation:undefined,requestDelivery;
     try {
       const records = this.store.messages(scope), coverage = this.store.coverage(scope);
       query=retrievalQuery({text,records,companion,transient,asOf,settings});
@@ -486,7 +489,7 @@ class Controller extends EventEmitter {
           relationshipContext:this.store.relationshipView?.(scope,{query,limit:16}),
           experienceContext,allowExperienceProposals:purpose==='review'||explicitFeedbackIds.length>0,topicContext,intentSourceId,
           generationOrigin:feedbackIntentId?'user_feedback':transient?'qq_observation':'private_discussion',responsePreference,
-          discussionCompaction:activeCompaction,sourceLookupIds,retrievedDiscussion,store:this.store,promptVersion:PROMPT_VERSION };
+          discussionCompaction:activeCompaction,sourceLookupIds,retrievedDiscussion,requestDeliveryObligation,lookupExhausted:lookups>=2,store:this.store,promptVersion:PROMPT_VERSION };
       };
       const attachImages=input=>{
         const availableSources=this.store.memorySources(scope);
@@ -547,6 +550,14 @@ class Controller extends EventEmitter {
         return this.store.experiences.assertInputArtifactsCurrent(scope,[...references.values()]);
       };
       const invoke=async(input)=>{
+        if(input.payload.requestDeliveryPolicy){
+          const sourceId=input.payload.intentAuthority?.sourceId,sourceRevision=input.manifest.sourceRevisions[sourceId];
+          if(requestDeliveryObligation?.sourceId&&(requestDeliveryObligation.sourceId!==sourceId||requestDeliveryObligation.sourceRevision!==sourceRevision)){
+            requestDeliveryObligation=undefined;requestDelivery=undefined;delete input.payload.requestDeliveryPolicy.obligation;
+          }
+          if(editable(requestDeliveryObligation))requestDeliveryObligation={mode:requestDeliveryObligation.mode,sourceId,sourceRevision};
+          if(current()&&this.activeAssist?.taskId===budget.id)this.activeAssist.args.requestDeliveryObligation=requestDeliveryObligation;
+        }
         assertArtifactInputs(input);
         const stage=budget.forStage(input.payload.purpose);settings.requestBudget=stage;input.manifest.stageId=stage.stageId;
         input.manifest.candidateSession={qqRevision:revision,privateInputSeq:candidateTicket.privateInputSeq};
@@ -558,6 +569,12 @@ class Controller extends EventEmitter {
           if(recovery?.kind==='private_help'&&!['discussion','review','reply'].includes(resultInput.payload.purpose)||recovery?.kind==='restricted_draft'&&resultInput.payload.purpose!=='draft')throw new Error('Response recovery is unavailable for this assistance phase');
           const diagnostics={};
           let result=parseAssistant(output,resultInput.payload.purpose,resultInput.payload,diagnostics);
+          if(result.requestDelivery){
+            requestDelivery=result.requestDelivery;
+            if(editable(requestDelivery))requestDeliveryObligation={mode:requestDelivery.mode,sourceId:requestDelivery.sourceId,sourceRevision:resultInput.manifest.sourceRevisions[requestDelivery.sourceId]};
+            if(current()&&this.activeAssist?.taskId===budget.id)this.activeAssist.args.requestDeliveryObligation=requestDeliveryObligation;
+          }
+          if(requestDelivery)input.manifest.requestDelivery={interpretation:requestDelivery,status:deliveryStatus(requestDelivery,result,{restricted:resultInput.payload.purpose==='draft'}),...(result.deliveryBlocker?{blocker:result.deliveryBlocker}:{})};
           const auxiliaryErrors=[...(input.manifest.auxiliaryErrors||[]),...(resultInput.manifest.auxiliaryErrors||[]),...(diagnostics.auxiliaryErrors||[])];
           if(auxiliaryErrors.length){input.manifest.auxiliaryErrors=[...new Map(auxiliaryErrors.map(e=>[JSON.stringify(e),e])).values()];
             const fields=new Set(auxiliaryErrors.map(e=>e.field));
@@ -638,7 +655,11 @@ class Controller extends EventEmitter {
           if(forgotten.length){
             this.store.markTurnControl(scope,turn.id);
             for(const receipt of forgotten)this.store.recordActionReceipt(scope,{...receipt,evidenceQuote:'用户明确要求不再使用此来源'});
-            turn={...turn,memoryExcluded:true,text:'所选来源已从助手参考中移除。请简短确认，不复述已移除内容。'};
+            turn={...turn,memoryExcluded:true,text:FORGOTTEN_REQUEST};
+            requestDeliveryObligation=editable(requestDeliveryObligation)?{mode:requestDeliveryObligation.mode}:undefined;requestDelivery=undefined;context=null;
+            query=turn.text;retrievedSources=[];retrievedDiscussion=[];sourceLookupIds=[];lookupHistory=[];methodLookupIds=[];reviewRange=undefined;
+            feedbackIntentId=undefined;sourceTurnIds=[];selectedOption=undefined;currentCandidateRef=undefined;
+            if(this.activeAssist?.taskId===budget.id)this.activeAssist.args={...this.activeAssist.args,text:FORGOTTEN_REQUEST,feedbackIntentId:undefined,sourceTurnIds:[],selectedOption:undefined,currentCandidateRef:undefined,requestDeliveryObligation};
             capturedRequests.length=0;relationshipProposals.length=0;experienceProposals.length=0;topicProposals.length=0;this.usage.redactInputs(scope);
             receipts=forgotten.map(({undo,...r})=>({...r,evidenceQuote:'用户明确要求不再使用此来源'}));
           }
@@ -660,6 +681,7 @@ class Controller extends EventEmitter {
         result=await invoke(context);if(!current())return;reviewed=null;
       } else if(purpose==='draft'&&!['question','discussion'].includes(result.kind))throw new Error('模型尚未明确拟表达内容，请继续说明或选择一个方向');
       if(!current())return;
+      validateTerminalDelivery(result,requestDeliveryObligation);
       let expressionOptions=[];
       try{expressionOptions=expressionOptionsFor(context,result.expressionOptions||[]);}catch(error){receipts.push({status:'rejected',reason:error.message});}
       const methodIds=(result.methodIds||[]).filter(id=>methodFor(id));
@@ -667,6 +689,7 @@ class Controller extends EventEmitter {
         deliveredMethodRefs:[...new Map([...(request.manifest.methodTrace?.catalog||[]).map(method=>({...method,guidanceLevel:'catalog'})),...(request.manifest.methodTrace?.delivered||[]).map(method=>({...method,guidanceLevel:'full_card'}))].map(method=>[method.id,method])).values()].map(method=>({methodId:method.id,version:method.version,guidanceLevel:method.guidanceLevel})),reportedUsedMethodRefs:request.manifest.methodTrace?.reported?.map(id=>({methodId:id,version:methodFor(id)?.version}))??null}));
       let patchReceipt=null,relationshipReceipt=null,topicReceipt=null;
       const recoveryValue=context.manifest?.responseRecovery,responseRecovery=recoveryValue&&normalizeResponseRecovery(recoveryValue);
+      if(requestDelivery)context.manifest.requestDelivery={interpretation:requestDelivery,status:deliveryStatus(requestDelivery,result,{restricted:context.payload.purpose==='draft'}),...(result.deliveryBlocker||result.requestDelivery?.blocker?{blocker:result.deliveryBlocker||result.requestDelivery.blocker}:{})};
       const validatedPlanDigest=fingerprint({purpose:context.payload.purpose,outboundQuotes:context.payload.outboundQuotes,
         editingReference:context.payload.editingReference,inputArtifactRefs:context.manifest.inputArtifactRefs,
         draftingGuidance:context.payload.draftingGuidance,wordingControls:context.payload.wordingControls,replyFocus:context.payload.replyFocus,
