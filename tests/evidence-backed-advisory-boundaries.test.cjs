@@ -58,8 +58,8 @@ test('an allowed actual checker result ignores an undecodable optional source wi
  assert.equal(app.store.memorySources(scope).some(source=>source.id==='s999'),false);
 });
 
-test('an explicit uncertain actual checker verdict stays uncertain beside valid and invalid optional advice with no regeneration',async t=>{
- const app=await application(t,p=>({checkRef:p.checkRef,factual:factualReview(p,{'suggestions[0].text':[{quote:MESSAGE,kind:'opinion'}]}),verdict:'uncertain',issues:[],concerns:[{path:'suggestions[0].text',code:'style',quote:MESSAGE,reason:'A valid private style observation.'},badAdvisory]}));
+test('a targeted unverifiable assertion stays uncertain beside valid and invalid optional advice with no regeneration',async t=>{
+ const app=await application(t,p=>({checkRef:p.checkRef,factual:factualReview(p,{'suggestions[0].text':[{quote:MESSAGE,kind:'opinion'},{quote:'Your shelf',kind:'assertion',support:'unverifiable'}]}),verdict:'uncertain',issues:[],concerns:[{path:'suggestions[0].text',code:'style',quote:MESSAGE,reason:'A valid private style observation.'},badAdvisory]}));
  await assert.rejects(app.assist(),error=>error.code==='fidelity_coverage_uncertain');
  const ledger=noExtraRequests(app);assert.equal(ledger.status,'failed');assert.equal(ledger.errorCode,'fidelity_coverage_uncertain');noPublication(app);
  const check=app.contexts.at(-1).manifest.fidelity;

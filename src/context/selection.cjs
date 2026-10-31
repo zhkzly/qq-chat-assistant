@@ -272,7 +272,7 @@ function selectPlanningContext({options,snapshot,candidates,view,budget,coreInve
   // reasons stay in private planning; restricted wording gets safe controls.
   for (const n of companion.notes.filter(n => n.kind === 'preference' && n.use !== 'disabled').slice(-12).reverse()) {
     const id=`note:${n.id}`;
-    includeGrounded({sourceId:id,text:redact(n.text),sourceIds:[id]},payload.preferences,['sourceId','text','sourceIds'],true);
+    includeGrounded({sourceId:id,text:redact(n.text),sourceIds:[id],authority:'user_owned_behavior_instruction',scopeRule:'interpret_whole_original_in_current_context'},payload.preferences,['sourceId','text','sourceIds','authority','scopeRule'],true);
   }
   // A legacy preference classification is only a lookup hint. Read its human
   // original on demand without promoting the old summary into a stable control.

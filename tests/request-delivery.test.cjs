@@ -159,7 +159,7 @@ test('lookup exhaustion with no remaining HTTP budget fails visibly and preserve
  assert.ok(app.store.getCompanion(scope).turns.some(turn=>turn.role==='user'&&turn.text==='给我完整表达。'));
 });
 test('a terminal delivery failure cannot obtain a second fulfillment repair after preparation used it',async t=>{
- const app=await setup(t,(p,w)=>p.purpose==='fidelity_check'?{checkRef:p.checkRef,factual:factualReview(p,{}),verdict:'reject',issues:[{path:'suggestions[0].text',code:'unsupported_fact',quote:p.candidate.suggestions[0].text,basis:'no_support_in_supplied_evidence',reason:'Scripted rejection tests the already spent shared repair.'}]}:
+ const app=await setup(t,(p,w)=>p.purpose==='fidelity_check'?{checkRef:p.checkRef,factual:factualReview(p,{'suggestions[0].text':[{quote:p.candidate.suggestions[0].text,kind:'assertion',support:'unsupported',basis:'no_support_in_supplied_evidence'}]}),verdict:'reject',issues:[{path:'suggestions[0].text',code:'unsupported_fact',quote:p.candidate.suggestions[0].text,basis:'no_support_in_supplied_evidence',reason:'Scripted rejection tests the already spent shared repair.'}]}:
   w.originalInput?{operation:'prepare_message',answer:answer('昨天我完成了一个没有提供来源的小项目。')}:actual005);
  actualIncoming(app);await assert.rejects(app.controller.assist({text:'给我完整表达。'}),error=>error.code==='request_delivery_repair_exhausted');
  assert.equal(app.calls.length,3);assert.equal(app.run().status,'failed');

@@ -84,9 +84,9 @@ test('the fidelity envelope cannot advertise reply rewriting or auxiliary writes
  const envelope=responseEnvelope({model:'gpt-6-luna'},'fidelity_check');
  assert.equal(envelope.tool_choice.function.name,'fidelity_result');
  assert.deepEqual(Object.keys(envelope.tools[0].function.parameters.properties).sort(),['checkRef','concerns','factual','issues','verdict']);
- assert.deepEqual(new Set(envelope.tools[0].function.parameters.required),new Set(['checkRef','verdict','issues','factual']));
+ assert.deepEqual(new Set(envelope.tools[0].function.parameters.required),new Set(['checkRef','issues','factual']));
  const statement=envelope.tools[0].function.parameters.properties.factual.items.properties.statements.items.properties;
- assert.deepEqual(statement.kind.enum,['assertion','intent','opinion','question','private_conditional']);assert.ok(statement.evidence);assert.ok(statement.condition);assert.ok(statement.contextQuote);
+ assert.deepEqual(statement.kind.enum,['assertion','intent','opinion','question','private_conditional','advice','inspection']);assert.ok(statement.evidence);assert.ok(statement.condition);assert.ok(statement.contextQuote);assert.ok(statement.reference);assert.ok(statement.disclosure);assert.ok(statement.outwardAction);assert.deepEqual(statement.basis.enum,['no_support_in_supplied_evidence','source_contradiction','necessary_factual_qualification','candidate_fact_conflict']);assert.deepEqual(envelope.tools[0].function.parameters.properties.issues.items.properties.code.enum,['private_disclosure','explicit_outward_prohibition']);
 });
 
 

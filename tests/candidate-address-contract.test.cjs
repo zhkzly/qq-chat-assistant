@@ -20,12 +20,21 @@ const pathFailure=(field,received,paths)=>error=>{
 function fixture({text=BAD,requestId='candidate-address-independent',sourceId='private:current',candidate={}}={}){
  const qq=source('qq:91000000000000801','今天窗边的花盆冒了两片新叶。',{type:'qq',role:'contact'}),current=source(sourceId,HUMAN),sources=[qq,current],identity=structuredClone(scope);
  const payload={purpose:'discussion',intentAuthority:{sourceId:current.id},sources},manifest={scope:identity,requestId,sourceIds:sources.map(item=>item.id),sourceRevisions:Object.fromEntries(sources.map(item=>[item.id,item.revision]))};
- const prepared={payload,manifest,fullAvailableSources:sources,essentialSourceIds:[qq.id,current.id]},result={kind:'draft',text:'',discussionExplanation:{kind:'discussion',text:'先回应她分享的花盆近况。'},suggestions:[{style:'自然',text}],expressionOptions:[{label:'接她分享的近况。'}],...candidate};
+ const prepared={payload,manifest,fullAvailableSources:sources,essentialSourceIds:[qq.id,current.id]},result={kind:'draft',text:'',discussionExplanation:{kind:'discussion',text:'我没有给自己的花盆换过土。'},suggestions:[{style:'自然',text}],expressionOptions:[{label:'接她分享的近况。'}],...candidate};
  const info={scope:identity,requestId,admittedContext:{payload:{outboundQuotes:[{sourceId:qq.id,text:qq.text}],currentHumanControl:{authority:'CONTROL_ONLY',sourceId:current.id,text:current.text}},manifest},requestMeasure:value=>Buffer.byteLength(JSON.stringify(value))};
  return {prepared,result,info,current,qq,context:buildFidelityContext(prepared,result,info)};
 }
 const unsupported=(app,path='suggestions[0].text',extra={})=>({path,code:'unsupported_fact',quote:app.result.suggestions?.[0]?.text||app.result.text,basis:'no_support_in_supplied_evidence',reason:'Scripted missing-source rejection exercises field addressing only.',...extra});
-const reject=(app,issue)=>({checkRef:'c1',factual:factualReview(app.context,{}),verdict:'reject',issues:[issue]});
+// This local constructor receives an explicitly chosen scripted fact defect;
+// it is not a production compatibility path or a language classifier.
+const reject=(app,issue)=>{
+ const paths=app.context.payload.candidatePaths,canonical=path=>path?.startsWith('candidate.')?path.slice(10):path,at=paths.indexOf(canonical(issue.path)),index=at<0?0:at;
+ const statement={quote:issue.quote,kind:'assertion',support:'unsupported',basis:issue.code==='internal_conflict'?'candidate_fact_conflict':issue.code==='evidence_mismatch'?'source_contradiction':issue.basis,...(issue.evidence?{evidence:issue.evidence}:{}),...(issue.code==='internal_conflict'?{related:{path:issue.relatedPath,quote:issue.relatedQuote}}:{})};
+ const factual=factualReview(app.context,{});factual[index]={path:issue.path,statements:[statement]};
+ if(issue.code==='internal_conflict'){const related=paths.indexOf(canonical(issue.relatedPath));if(related>=0&&!(related===index&&issue.relatedQuote===issue.quote))factual[related].statements.push({quote:issue.relatedQuote,kind:'assertion',support:'unverifiable'});}
+ return {checkRef:'c1',factual,verdict:'reject',issues:[]};
+};
+const legacy=(app,issue)=>({checkRef:'c1',factual:factualReview(app.context,{}),verdict:'reject',issues:[issue]});
 const allow=app=>({checkRef:'c1',factual:factualReview(app.context,{}),verdict:'allow',issues:[]});
 
 test('one candidate prefix resolves to the same canonical unsupported-fact rejection',()=>{
@@ -37,27 +46,27 @@ test('related and concern paths canonicalize before comparing distinct candidate
  const app=fixture(),text=app.result.suggestions[0].text,why=app.result.discussionExplanation.text;
  const valid={path:'candidate.suggestions[0].text',code:'internal_conflict',quote:text,relatedPath:'candidate.discussionExplanation.text',relatedQuote:why,reason:'Scripted exact distinct-field witnesses.'};
  const parsed=parseFidelityResult(reject(app,valid),app.context);assert.equal(parsed.issues[0].path,'suggestions[0].text');assert.equal(parsed.issues[0].relatedPath,'discussionExplanation.text');
- for(const [path,relatedPath]of [['suggestions[0].text','candidate.suggestions[0].text'],['candidate.suggestions[0].text','suggestions[0].text']])assert.throws(()=>parseFidelityResult(reject(app,{...valid,path,relatedPath,relatedQuote:text}),app.context),typed('fidelity_grounding_missing'));
+ for(const [path,relatedPath]of [['suggestions[0].text','candidate.suggestions[0].text'],['candidate.suggestions[0].text','suggestions[0].text']])assert.throws(()=>parseFidelityResult(reject(app,{...valid,path,relatedPath,relatedQuote:text}),app.context),typed('factual_reference_invalid'));
  const concern={path:'candidate.suggestions[0].style',code:'style',quote:app.result.suggestions[0].style,reason:'Scripted nonblocking style concern.'},soft=parseFidelityResult({checkRef:'c1',factual:factualReview(app.context,{}),verdict:'reject',issues:[],concerns:[concern]},app.context);
  assert.equal(soft.verdict,'allow');assert.equal(soft.concerns[0].path,'suggestions[0].style');assert.ok(approvalFor(soft,app.context));
 });
 
 test('only currently offered field coordinates survive qualification',()=>{
  const app=fixture();
- for(const path of ['candidate','candidate.candidate.suggestions[0].text','candidate.evidence[0].text','evidence[0].text','candidate.draftPlan.guidance','candidate.privateExplanation','foreign.suggestions[0].text','candidate.suggestions[1].text','candidate.suggestions[-1].text','candidate.suggestions[00].text','candidate.suggestions[0].text.extra','candidate.expressionOptions[1].label','candidate.suggestions.0.text'])assert.throws(()=>parseFidelityResult(reject(app,unsupported(app,path)),app.context),pathFailure('issues[0].path',path,app.context.payload.candidatePaths),path);
+ for(const path of ['candidate','candidate.candidate.suggestions[0].text','candidate.evidence[0].text','evidence[0].text','candidate.draftPlan.guidance','candidate.privateExplanation','foreign.suggestions[0].text','candidate.suggestions[1].text','candidate.suggestions[-1].text','candidate.suggestions[00].text','candidate.suggestions[0].text.extra','candidate.expressionOptions[1].label','candidate.suggestions.0.text'])assert.throws(()=>parseFidelityResult(reject(app,unsupported(app,path)),app.context),pathFailure('factual[0].path',path,app.context.payload.candidatePaths),path);
  const discussion=fixture({candidate:{kind:'discussion',text:'先回应她分享的花盆近况。',suggestions:[],expressionOptions:[],discussionExplanation:undefined}});
- for(const path of ['candidate.suggestions[0].text','candidate.discussionExplanation.text','candidate.expressionOptions[0].label'])assert.throws(()=>parseFidelityResult(reject(discussion,unsupported(discussion,path,{quote:discussion.result.text})),discussion.context),pathFailure('issues[0].path',path,discussion.context.payload.candidatePaths),path);
- const conflict={...unsupported(app),code:'internal_conflict',relatedPath:'candidate.evidence[0].text',relatedQuote:app.current.text};assert.throws(()=>parseFidelityResult(reject(app,conflict),app.context),pathFailure('issues[0].relatedPath',conflict.relatedPath,app.context.payload.candidatePaths));
+ for(const path of ['candidate.suggestions[0].text','candidate.discussionExplanation.text','candidate.expressionOptions[0].label'])assert.throws(()=>parseFidelityResult(reject(discussion,unsupported(discussion,path,{quote:discussion.result.text})),discussion.context),pathFailure('factual[0].path',path,discussion.context.payload.candidatePaths),path);
+ const conflict={...unsupported(app),code:'internal_conflict',relatedPath:'candidate.evidence[0].text',relatedQuote:app.current.text};assert.throws(()=>parseFidelityResult(reject(app,conflict),app.context),pathFailure('factual[2].statements[0].related.path',conflict.relatedPath,app.context.payload.candidatePaths));
  const concern={path:'candidate.suggestions[1].text',code:'style',reason:'Not an offered candidate.'};const allowed=parseFidelityResult({checkRef:'c1',factual:factualReview(app.context,{}),verdict:'allow',issues:[],concerns:[concern]},app.context);assert.equal(allowed.verdict,'allow');assert.equal(allowed.concerns,undefined);const diagnostic=app.context.manifest.fidelity.unusableAdvisory.at(-1);assert.equal(diagnostic.code,'fidelity_candidate_path_invalid');assert.ok(diagnostic.message.includes(concern.path));for(const path of app.context.payload.candidatePaths)assert.ok(diagnostic.message.includes(path));
 });
 
 test('field qualification does not rewrite quote text, source IDs or evidence witnesses',()=>{
- const app=fixture({text:'candidate.suggestions[0].text 是这个虚构字符串。',sourceId:'candidate.private:current'}),issue={path:'candidate.suggestions[0].text',code:'current_boundary',quote:app.result.suggestions[0].text,sourceIds:[app.current.id],evidence:[{sourceId:app.current.id,quote:app.current.text}],reason:'Scripted original witness identifiers remain exact.'},parsed=parseFidelityResult(reject(app,issue),app.context);
+ const app=fixture({text:'candidate.suggestions[0].text 是这个虚构字符串。',sourceId:'candidate.private:current'}),issue={path:'candidate.suggestions[0].text',code:'current_boundary',quote:app.result.suggestions[0].text,sourceIds:[app.current.id],evidence:[{sourceId:app.current.id,quote:app.current.text}],reason:'Scripted original witness identifiers remain exact.'},parsed=parseFidelityResult(legacy(app,issue),app.context);
  assert.equal(parsed.verdict,'allow');assert.deepEqual(parsed.concerns[0],{...issue,path:'suggestions[0].text'});
- for(const patch of [{quote:'candidate.'+issue.quote},{quote:'suggestions[0].text 是另一个字符串。'},{sourceIds:['private:current']},{evidence:[{sourceId:'private:current',quote:app.current.text}]},{evidence:[{sourceId:app.current.id,quote:'candidate.'+app.current.text}]}]){
-  assert.throws(()=>parseFidelityResult(reject(app,{...issue,code:'evidence_mismatch',...patch}),app.context),typed('fidelity_result_invalid'));
+ for(const patch of [{quote:'candidate.'+issue.quote},{quote:'suggestions[0].text 是另一个字符串。'},{evidence:[{sourceId:'private:current',quote:app.current.text}]},{evidence:[{sourceId:app.current.id,quote:'candidate.'+app.current.text}]}]){
+  assert.throws(()=>parseFidelityResult(reject(app,{...issue,code:'evidence_mismatch',...patch}),app.context),typed(Object.hasOwn(patch,'quote')?'factual_statement_invalid':'factual_evidence_invalid'));
  }
- assert.equal(parseFidelityResult(reject(app,{...issue,evidence:[]}),app.context).verdict,'allow','a social concern may state uncertainty without an original fact witness');
+ assert.equal(parseFidelityResult(legacy(app,{...issue,evidence:[]}),app.context).verdict,'allow','a social concern may state uncertainty without an original fact witness');
 });
 
 test('qualified coordinates preserve private candidate, evidence and scope binding',()=>{
@@ -71,7 +80,7 @@ test('qualified coordinates preserve private candidate, evidence and scope bindi
 });
 
 function modelPayload(request){const content=request.messages[1].content;return JSON.parse(typeof content==='string'?content:content.find(item=>item.type==='text').text);}
-const fieldEnums=schema=>[schema.properties.issues.items.properties.path.enum,schema.properties.issues.items.properties.relatedPath.enum,schema.properties.concerns.items.properties.path.enum,schema.properties.factual.items.properties.path.enum];
+const fieldEnums=schema=>[schema.properties.issues.items.properties.path.enum,schema.properties.concerns.items.properties.path.enum,schema.properties.factual.items.properties.path.enum,...['related','reference'].map(field=>schema.properties.factual.items.properties.statements.items.properties[field].properties.path.enum)];
 test('request-local path choices agree with the captured visible fields across tool, JSON and plain carriers',()=>{
  const app=fixture(),expected=['text','discussionExplanation.text','suggestions[0].text','suggestions[0].style','expressionOptions[0].label'],settings={model:'synthetic-candidate-address',baseUrl:'http://fixture.invalid/v1',anonymous:true,modelResponseMode:'result_tool'},first=prepareAssistantRequest(settings,app.context.payload,[]),schema=first.request.tools[0].function.parameters,before=structuredClone(schema);
  assert.deepEqual(app.context.payload.candidatePaths,expected);assert.deepEqual([...app.context.fidelityFrameSnapshot.paths],expected);assert.deepEqual(modelPayload(first.request).candidatePaths,expected);
@@ -110,7 +119,7 @@ test('a qualified factual reject reaches full regeneration and recheck inside th
  for(const repairKind of ['grounded_candidate','private_question'])await t.test(repairKind,async t=>{
   let checks=0;const app=await application(t,(p,wrapper)=>{
    if(p.purpose==='fidelity_check'){
-    checks++;if(checks===1){const issue={path:'candidate.suggestions[0].text',code:'unsupported_fact',quote:p.candidate.suggestions[0].text,basis:'no_support_in_supplied_evidence',reason:'Scripted qualified factual rejection reaches the existing shared repair.'};return {checkRef:p.checkRef,verdict:'reject',issues:[issue],factual:factualReview(p,{'suggestions[0].text':[{quote:issue.quote,kind:'assertion',support:'unsupported',basis:issue.basis}]})};}
+    checks++;if(checks===1){const issue={path:'candidate.suggestions[0].text',code:'unsupported_fact',quote:p.candidate.suggestions[0].text,basis:'no_support_in_supplied_evidence',reason:'Scripted qualified factual rejection reaches the existing shared repair.'};const factual=factualReview(p,{'suggestions[0].text':[{quote:issue.quote,kind:'assertion',support:'unsupported',basis:issue.basis}]});factual.find(field=>field.path==='suggestions[0].text').path=issue.path;return {checkRef:p.checkRef,verdict:'reject',issues:[issue],factual};}
     const path=p.candidate.suggestions.length?'suggestions[0].text':'text',quote=p.candidate.suggestions.length?p.candidate.suggestions[0].text:p.candidate.text;
     return {checkRef:p.checkRef,verdict:'allow',issues:[],factual:factualReview(p,{[path]:[{quote,kind:p.candidate.suggestions.length?'opinion':'question'}]})};
    }

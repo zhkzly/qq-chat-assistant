@@ -9,16 +9,17 @@ const {visibleCandidate,buildFidelityContext,parseFidelityResult,approvalFor}=re
 const {scope}=require('./fixtures/native.cjs');
 const HUMAN='这次先不要邀请。我只是觉得木色挺好看，想以后再自己尝试。';
 const ORIGINAL='我看过朋友组装书架。补充的完整范围是：我没有自己组装过，也没有答应一起做。';
-function fixture(t,{partial=false,requestId='fidelity-boundary',priorText,humanText=HUMAN}={}){
+function fixture(t,{partial=false,requestId='fidelity-boundary',priorText,humanText=HUMAN,candidateText}={}){
  const store=new Store(':memory:');t.after(()=>store.close());const note=store.saveNote(scope,{text:ORIGINAL,use:'draft'}),prior=priorText?store.appendTurn(scope,{role:'user',kind:'discussion',text:priorText}):null,turn=store.appendTurn(scope,{role:'user',kind:'discussion',text:humanText}),all=store.memorySources(scope),material=all.find(source=>source.id==='note:'+note.id),current=all.find(source=>source.id==='private:'+turn.id);
  const delivered=partial?boundedSource(material,{maxChars:'我看过朋友组装书架。'.length,maxBytes:4000}):material;
  const prepared={payload:{purpose:'discussion',intentAuthority:{sourceId:current.id},sources:[delivered,current]},fullAvailableSources:all,essentialSourceIds:[material.id,current.id],manifest:{scope:structuredClone(scope),requestId,sourceRevisions:Object.fromEntries(all.map(source=>[source.id,source.revision]))}};
  const result={kind:'draft',text:'我觉得这种木色挺好看，以后想自己试试。',discussionExplanation:{kind:'discussion',text:'这里只表达当前的看法与未来打算。'},suggestions:[{style:'自然',text:'我觉得这种木色挺好看，以后想自己试试。'}],expressionOptions:[{label:'先聊木色，不发出邀请。'}]};
+ if(candidateText)result.suggestions[0].text=candidateText;
  const identity=structuredClone(scope),info={scope:identity,requestId,store,admittedContext:{payload:{outboundQuotes:[{sourceId:material.id,text:delivered.text}],currentHumanControl:{authority:'CONTROL_ONLY',sourceId:current.id,text:current.text}},manifest:{sourceRevisions:prepared.manifest.sourceRevisions}},settings:{assistantRequestBytes:64000},requestMeasure:value=>Buffer.byteLength(JSON.stringify(value))};
  return {store,prepared,result,info,material,current,prior,context:buildFidelityContext(prepared,result,info)};
 }
 const allow=context=>({checkRef:context.payload.checkRef,factual:factualReview(context.payload,{}),verdict:'allow',issues:[]});
-const invalid=error=>/^fidelity_/.test(error.code||'');
+const invalid=error=>/^(?:fidelity|factual)_/.test(error.code||'');
 
 test('every visible candidate surface is exact and only a privately validated same-frame allow can approve it',t=>{
  const app=fixture(t),expected=visibleCandidate(app.result);assert.deepEqual(app.context.payload.candidate,expected);assert.equal(app.context.payload.candidate.suggestions[0].style,'自然');assert.equal(app.context.payload.candidate.expressionOptions[0].label,'先聊木色，不发出邀请。');
@@ -34,9 +35,13 @@ test('checker issues can identify only real visible paths and supplied original 
  for(const path of ['text','discussionExplanation.text','suggestions[0].text','suggestions[0].style','expressionOptions[0].label']){
   const verdict=parseFidelityResult({checkRef:'c1',factual:factualReview(app.context,{}),verdict:'reject',issues:[{path,code:'current_boundary',quote:bodies[path],sourceIds:[sourceId],evidence:[{sourceId,quote:app.current.text}],reason:'Scripted rejection exercises a source-bound visible path, not its semantic rating.'}]},app.context);assert.equal(verdict.verdict,'allow');assert.equal(verdict.concerns[0].path,path);assert.ok(approvalFor(verdict,app.context));
  }
- const grounded={path:'text',code:'evidence_mismatch',quote:app.result.text,evidence:[{sourceId,quote:app.current.text}],reason:'A mechanically grounded contract probe.'};
- for(const issue of [{...grounded,path:'draftPlan.guidance',reason:'Not visible.'},{...grounded,sourceIds:['private:unoffered'],reason:'Unknown source.'},{...grounded,evidence:[{sourceId:'private:unoffered',quote:app.current.text}],reason:'Unknown original body.'},{...grounded,code:'grant_permission',reason:'Checker cannot grant.'}])assert.throws(()=>parseFidelityResult({checkRef:'c1',factual:factualReview(app.context,{}),verdict:'reject',issues:[issue]},app.context),invalid);
- const uncertain=parseFidelityResult({checkRef:'c1',factual:factualReview(app.context,{}),verdict:'uncertain',issues:[]},app.context);assert.equal(approvalFor(uncertain,app.context),undefined);
+ const statement={quote:app.result.text,kind:'assertion',support:'unsupported',basis:'source_contradiction',evidence:[{sourceId,quote:app.current.text}]};
+ for(const [path,value]of [['draftPlan.guidance',statement],['text',{...statement,evidence:[{sourceId:'private:unoffered',quote:app.current.text}]}],['text',{...statement,evidence:[{sourceId,quote:'An absent original sentence.'}]}]]){
+  const factual=factualReview(app.context,{text:[value]});factual.find(field=>field.path==='text').path=path;
+  assert.throws(()=>parseFidelityResult({checkRef:'c1',factual,verdict:'reject',issues:[]},app.context),invalid);
+ }
+ assert.throws(()=>parseFidelityResult({checkRef:'c1',factual:factualReview(app.context,{}),verdict:'reject',issues:[{path:'text',quote:app.result.text,code:'grant_permission',reason:'A checker cannot grant.'}]},app.context),invalid);
+ const uncertainApp=fixture(t,{candidateText:'我这周五下午有空。'}),uncertain=parseFidelityResult({checkRef:'c1',factual:factualReview(uncertainApp.context,{'suggestions[0].text':[{quote:'我这周五下午有空。',kind:'assertion',support:'unverifiable'}]}),verdict:'allow',issues:[]},uncertainApp.context);assert.equal(approvalFor(uncertain,uncertainApp.context),undefined);
 });
 
 test('mutating the original candidate after a check invalidates approval while the checker candidate copy is immutable',t=>{
@@ -52,7 +57,7 @@ test('a substituted original evidence body cannot retain the old source-bound al
 });
 
 test('a same-frame parsed rejection cannot be mutated into an allowed checker receipt',t=>{
- const app=fixture(t),rejected=parseFidelityResult({checkRef:'c1',factual:factualReview(app.context,{}),verdict:'reject',issues:[{path:'text',code:'unsupported_fact',quote:app.result.text,basis:'no_support_in_supplied_evidence',reason:'A scripted factual rejection, not a quality rating.'}]},app.context);assert.equal(approvalFor(rejected,app.context),undefined);let immutable=false;
+ const app=fixture(t),rejected=parseFidelityResult({checkRef:'c1',factual:factualReview(app.context,{text:[{quote:app.result.text,kind:'assertion',support:'unsupported',basis:'no_support_in_supplied_evidence'}]}),verdict:'reject',issues:[{path:'text',code:'unsupported_fact',quote:app.result.text,basis:'no_support_in_supplied_evidence',reason:'A scripted factual rejection, not a quality rating.'}]},app.context);assert.equal(approvalFor(rejected,app.context),undefined);let immutable=false;
  try{rejected.verdict='allow';rejected.issues=[];}catch(error){assert.equal(error instanceof TypeError,true);immutable=true;}
  if(!immutable){let receipt;try{receipt=approvalFor(rejected,app.context);}catch(error){assert.equal(invalid(error),true);}assert.equal(receipt,undefined,'the original checker decision itself must be privately bound');}
 });
@@ -61,9 +66,9 @@ test('an available full original qualifier is not replaced by the selected parti
  const app=fixture(t,{partial:true}),selected=app.prepared.payload.sources.find(source=>source.id===app.material.id);assert.notEqual(selected.text,ORIGINAL);assert.equal(selected.delivery.status,'partial');
  const original=app.context.payload.evidence.find(source=>source.sourceId===app.material.id);assert.equal(original.text,ORIGINAL,'the original no-firsthand-experience qualifier is available in the captured canonical source');assert.equal(original.delivery?.status==='partial',false);
  assert.equal(app.context.payload.admittedFragments[0].text,selected.text,'selected material remains a separate exact span');assert.equal(app.context.payload.evidence.find(source=>source.sourceId===app.current.id).text,HUMAN);
- const unavailable=buildFidelityContext({...app.prepared,fullAvailableSources:[selected,app.current]},app.result,{...app.info,store:undefined}),partial=unavailable.payload.evidence.find(source=>source.sourceId===app.material.id);
+ const unavailableResult={...app.result,suggestions:[{style:'自然',text:'我看过朋友组装书架。'}]},unavailable=buildFidelityContext({...app.prepared,fullAvailableSources:[selected,app.current]},unavailableResult,{...app.info,store:undefined}),partial=unavailable.payload.evidence.find(source=>source.sourceId===app.material.id);
  assert.equal(partial.text,selected.text);assert.equal(partial.delivery.status,'partial');assert.ok(unavailable.payload.coverage.partialSourceIds.includes(app.material.id));
- const uncertain=parseFidelityResult({checkRef:'c1',factual:factualReview(unavailable,{}),verdict:'uncertain',issues:[]},unavailable);assert.equal(approvalFor(uncertain,unavailable),undefined,'an unresolved check cannot approve by inventing the unread remainder');
+ const uncertain=parseFidelityResult({checkRef:'c1',factual:factualReview(unavailable,{'suggestions[0].text':[{quote:'我看过朋友组装书架。',kind:'assertion',support:'unverifiable'}]}),verdict:'allow',issues:[]},unavailable);assert.equal(approvalFor(uncertain,unavailable),undefined,'an unresolved check cannot approve by inventing the unread remainder');
 });
 
 test('a delivered prior human boundary without typed topic refs is retained under byte pressure or fails explicitly',t=>{

@@ -100,7 +100,7 @@ test('continuing consultation reuses only admitted original facts independently 
  let primary=0;const app=await application(t,p=>{
   if(p.purpose==='fidelity_check'){
    const material=p.admittedFragments[0],source=p.evidence.find(source=>source.sourceId===material.sourceId);assert.ok(source);
-   return {checkRef:p.checkRef,factual:factualReview(p,{'suggestions[0].text':[{quote:p.candidate.suggestions[0].text,kind:'assertion',support:'supported',evidence:[{sourceId:source.sourceId,quote:source.text}]}]}),verdict:'allow',issues:[]};
+   return {checkRef:p.checkRef,factual:factualReview(p,{'suggestions[0].text':[{quote:p.candidate.suggestions[0].text,kind:'assertion',support:'supported',evidence:[{sourceId:source.sourceId,quote:source.text}],disclosure:[{sourceId:material.sourceId,quote:material.text}]}]}),verdict:'allow',issues:[]};
   }
   primary++;if(primary===1)return {operation:'prepare_message',currentFacts:[fact],answer:{suggestions:[{text:fact}]}};
   const source=p.sources.find(source=>source.type==='private'&&text(source)===human);assert.ok(source,'the actual original survives the outgoing-candidate lifetime');

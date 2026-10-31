@@ -36,7 +36,7 @@ function actualFactReview(p,quote=FACT){
  const source=p.evidence.find(source=>source.sourceId===fragment.sourceId);assert.ok(source,'the exact original must be in this checker frame');
  return factualReview(p,{'suggestions[0].text':[{quote,kind:'assertion',support:'supported',evidence:[{sourceId:source.sourceId,quote}]}]});
 }
-const decide=(context,issues=[],extra={})=>parseFidelityResult({checkRef:context.payload.checkRef,factual:factualReview(context.payload,{}),verdict:issues.length?'reject':'allow',issues,...extra},context);
+const decide=(context,issues=[],extra={},statements={})=>parseFidelityResult({checkRef:context.payload.checkRef,factual:factualReview(context.payload,statements),verdict:issues.length?'reject':'allow',issues,...extra},context);
 function primary(message='这两片新叶看着挺精神。',{why,currentFacts,materials,editingReference}={}){
  return {operation:'prepare_message',answer:{suggestions:[{text:message}],...(why?{privateExplanation:why}:{})},...(currentFacts?{currentFacts}:{}),...(materials?{materials}:{}),...(editingReference?{editingReference}:{})};
 }
@@ -177,7 +177,7 @@ test('a neutral contact echo survives social-pragmatic concern while a grounded 
  const app=checker(),quote=app.result.suggestions[0].text,verdict=decide(app.context,[],{verdict:'reject',concerns:[{path:'suggestions[0].text',code:'pragmatic_ambiguity',quote,reason:'A possible social interpretation of a neutral contact echo is advisory.'}]});
  assert.equal(verdict.verdict,'allow');assert.ok(approvalFor(verdict,app.context));assert.equal(verdict.concerns.length,1);
  assert.equal(app.result.suggestions[0].text,quote);assert.equal(app.result.warning,undefined);
- const qualified=checker({human:'我没有自己养过花，先不要写成我的经历。',message:'我昨天也给自己的花盆换了土。'}),issue={path:'suggestions[0].text',code:'omitted_qualifier',quote:qualified.result.suggestions[0].text,evidence:[{sourceId:qualified.current.id,quote:qualified.current.text}],reason:'The exact original negation is a factual witness, not a social guess.'},rejected=decide(qualified.context,[issue]);
+ const qualified=checker({human:'我没有自己养过花，先不要写成我的经历。',message:'我昨天也给自己的花盆换了土。'}),issue={path:'suggestions[0].text',code:'omitted_qualifier',quote:qualified.result.suggestions[0].text,evidence:[{sourceId:qualified.current.id,quote:qualified.current.text}],reason:'The exact original negation is a factual witness, not a social guess.'},rejected=decide(qualified.context,[issue],{},{'suggestions[0].text':[{quote:qualified.result.suggestions[0].text,kind:'assertion',support:'unsupported',basis:'necessary_factual_qualification',qualification:'negation',evidence:issue.evidence}]});
  assert.equal(rejected.verdict,'reject');assert.equal(approvalFor(rejected,qualified.context),undefined);
 });
 
@@ -185,13 +185,13 @@ for(const placement of ['issues','concerns'])test(`a social current-action conce
  const human='如果她先说想一起去，再帮我邀请；她现在没说，所以这次不邀请。',app=checker({human,message:'这两片新叶看着挺精神。'}),concern={path:'suggestions[0].text',code:'current_boundary',quote:app.result.suggestions[0].text,sourceIds:[app.current.id],evidence:[{sourceId:app.current.id,quote:human}],reason:'A suggested social interpretation is advisory; the complete original stays available.'},verdict=decide(app.context,placement==='issues'?[concern]:[],{verdict:'reject',...(placement==='concerns'?{concerns:[concern]}:{})});
  assert.equal(verdict.verdict,'allow');assert.ok(approvalFor(verdict,app.context));assert.equal(verdict.issues.length,0);assert.deepEqual(verdict.concerns[0].evidence,concern.evidence);
  assert.equal(app.context.payload.evidence.find(item=>item.sourceId===app.current.id).text,human);
- const bad={...concern,evidence:[{sourceId:app.current.id,quote:'An absent original.'}]};const allowed=decide(app.context,[],{concerns:[bad]});assert.equal(allowed.verdict,'allow');assert.equal(allowed.concerns,undefined);assert.equal(app.context.manifest.fidelity.unusableAdvisory.at(-1).code,'fidelity_result_invalid');
+ const bad={...concern,evidence:[{sourceId:app.current.id,quote:'An absent original.'}]};const allowed=decide(app.context,[],{concerns:[bad]});assert.equal(allowed.verdict,'allow');assert.equal(allowed.concerns,undefined);assert.equal(app.context.manifest.fidelity.unusableAdvisory.at(-1).code,'factual_evidence_invalid');
 });
 
 for(const [code,human,message] of [
  ['unsupported_fact',CONTROL,'我昨天也给自己的花盆换了土。'],
  ['private_disclosure',PRIVATE,'家里的安排让我这周很焦虑。']
 ])test(`an explicit ${code} witness is not downgraded into social concern`,()=>{
- const app=checker({human,message}),issue={path:'suggestions[0].text',code,quote:message,reason:'Scripted hard-boundary witness tests the checker contract only.',...(code==='unsupported_fact'?{basis:'no_support_in_supplied_evidence'}:{evidence:[{sourceId:app.current.id,quote:human}]})},verdict=decide(app.context,[issue]);
+ const app=checker({human,message}),issue={path:'suggestions[0].text',code,quote:message,reason:'Scripted hard-boundary witness tests the checker contract only.',...(code==='unsupported_fact'?{basis:'no_support_in_supplied_evidence'}:{evidence:[{sourceId:app.current.id,quote:human}]})},verdict=decide(app.context,[issue],{},code==='unsupported_fact'?{'suggestions[0].text':[{quote:message,kind:'assertion',support:'unsupported',basis:'no_support_in_supplied_evidence'}]}:{});
  assert.equal(verdict.verdict,'reject');assert.equal(approvalFor(verdict,app.context),undefined);assert.equal(verdict.issues[0].code,code);
 });

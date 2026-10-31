@@ -35,6 +35,9 @@ test('withdrawn preference cannot be restored into a restricted draft',t=>{
 test('safe projection does not invert negation or broaden conditional preferences',()=>{
  const controls=wordingControls([{sourceId:'note:synthetic',text:'不要用短句，不想太含蓄，别用emoji，如果她忙的时候就简短一点。'}],'直接一点');
  const text=controls.items.map(item=>item.text).join(' ');
- assert.doesNotMatch(text,/简短|含蓄/);assert.match(text,/不额外添加 emoji/);assert.match(text,/直接表达/);
+ assert.doesNotMatch(text,/简短|含蓄/);assert.match(text,/直接表达/);
+ assert.equal(controls.items.some(item=>item.sourceIds.includes('note:synthetic')),false,'the complete conditional original is not flattened into unconditional commands');
+ assert.deepEqual(controls.scoped,[{scope:'conditional',sourceIds:['note:synthetic'],bodyLocation:'original_instruction',application:'assess_whole_condition_in_current_context'}]);
+ assert.ok(wordingControls([{sourceId:'note:plain',text:'不要用短句，不想太含蓄，别用emoji。'}]).items.some(item=>item.text==='不额外添加 emoji。'),'an independent unconditional instruction still applies');
  assert.deepEqual(wordingControls([{sourceId:'note:synthetic',text:'以后像点评员一样认真评论。'}]).items,[]);
 });

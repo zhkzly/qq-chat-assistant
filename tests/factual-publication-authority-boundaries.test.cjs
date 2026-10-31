@@ -109,8 +109,8 @@ test('optional malformed advisory cannot cancel a valid core allow or a valid un
  assert.ok(allowed.input.manifest.fidelity.unusableAdvisory.length);assert.ok(rejected.input.manifest.fidelity.unusableAdvisory.length);
 });
 
-test('explicit uncertainty and source, candidate or scope drift cannot reuse an old frame approval',()=>{
- const intent='我想多跟你聊聊。',app=fixture({message:intent,why:''}),value=decision(app,{'suggestions[0].text':[{quote:intent,kind:'intent'}]}),uncertain=parseFidelityResult({...value,verdict:'uncertain'},app.input);assert.equal(approvalFor(uncertain,app.input),undefined);
+test('targeted uncertainty and source, candidate or scope drift cannot reuse an old frame approval',()=>{
+ const intent='我想多跟你聊聊。',app=fixture({message:intent,why:''}),value=decision(app,{'suggestions[0].text':[{quote:intent,kind:'intent'}]}),uncertainApp=fixture({message:'我周五会去北京。',why:''}),uncertain=parseFidelityResult(decision(uncertainApp,{'suggestions[0].text':[{quote:'我周五会去北京。',kind:'assertion',support:'unverifiable'}]}),uncertainApp.input);assert.equal(approvalFor(uncertain,uncertainApp.input),undefined);
  const parsed=parseFidelityResult(value,app.input),other=fixture({message:intent,why:'',requestId:'another-factual-frame'});assert.equal(approvalFor(parsed,other.input),undefined);
  for(const field of ['candidate','evidence','scope']){
   const current=fixture({message:intent,why:''}),valid=decision(current,{'suggestions[0].text':[{quote:intent,kind:'intent'}]});

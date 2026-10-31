@@ -38,9 +38,13 @@ const memoryRetirement=object({id:string,sourceIds:strings,status:choice(['resol
 const memoryRecordFields=Object.freeze(Object.fromEntries(Object.entries({items:memoryItem,episodes:episode,retire:memoryRetirement})
  .map(([name,schema])=>[name,Object.freeze(Object.keys(schema.properties))])));
 const deliveryBlocker=object({kind:choice(['missing_fact','missing_authorization']),missing:string,question:{...string,description:'The sole canonical private clarification question.'},explanation:{...string,description:'Optional explicit why-only explanation, at most 1000 characters; do not repeat or paraphrase the question here.'}},['kind','missing','question']);
-const factualStatement=object({quote:string,kind:choice(['assertion','intent','opinion','question','private_conditional']),support:choice(['supported','unsupported','unverifiable']),
- evidence:{...array(object({sourceId:string,quote:string},['sourceId','quote'])),maxItems:4},basis:choice(['no_support_in_supplied_evidence']),condition:string,contextQuote:string,reason:string},['quote','kind']);
+const evidenceWitness=object({sourceId:string,quote:string},['sourceId','quote']),candidateReference=object({path:string,quote:string},['path','quote']);
+const outwardActions=['invitation','commitment','user_disclosure','topic_content'];
+const factualStatement=object({quote:string,kind:choice(['assertion','intent','opinion','question','private_conditional','advice','inspection']),support:choice(['supported','unsupported','unverifiable']),
+ evidence:{...array(evidenceWitness),maxItems:4},basis:choice(['no_support_in_supplied_evidence','source_contradiction','necessary_factual_qualification','candidate_fact_conflict']),qualification:choice(['time','frequency','degree','subject','negation','condition','scope']),related:candidateReference,reference:candidateReference,
+ disclosure:{...array(evidenceWitness),maxItems:4},outwardAction:choice(outwardActions),condition:string,contextQuote:string,reason:string},['quote','kind']);
 const factualField=object({path:string,statements:{...array(factualStatement),maxItems:12}},['path','statements']);
+const prohibitionWitness=object({sourceId:string,quote:string,action:choice(outwardActions),applicability:choice(['active','overridden','unresolved']),current:evidenceWitness,override:evidenceWitness},['sourceId','quote','action','applicability']);
 const schemas={
  assistant_result:object({operation:choice(['advise','prepare_message','lookup','clarify']),
  answer:{...object({privateExplanation:string,suggestions:array(object({style:string,text:string},['text']))},['suggestions']),description:'Only prepare_message: COMPLETE outward suggestions and its sole optional privateExplanation. No outer text, planning handoff or later composer.'},materials:{...array(quote),description:'Only actually used historical private facts; currentFacts plus materials total at most 8. Public QQ/control needs no material selector. Source/permission candidates are not new sharing grants.'},
@@ -53,7 +57,7 @@ const schemas={
  blocker:{...deliveryBlocker,description:'Only clarify: specific missing fact/permission question and optional why-only explanation.'},
  methodIds:strings,actions:array(action),stateReview:choice(['no_change']),statePatch,topicPatch,relationshipPatch,experienceProposals:array(experienceProposal),expressionOptions:array(expressionOption)},['operation']),
  draft_result:object({kind:choice(['draft','discussion','question']),text:{...string,description:'For kind=draft, only the complete outward message body, 1..1200 characters; keep private reasoning in privateExplanation. For kind=question, the blocker owns its canonical body.'},privateExplanation:{...string,description:'Optional FINAL private explanation for kind=draft, at most 6000 characters; omitted or blank means absent. Own its factual reasoning together with the outward message; a primary planning comment is not verified truth.'},deliveryBlocker,suggestions:array(object({style:string,text:string},['style','text'])),methodIds:strings,replyDisposition:choice(['wait','clarify','unavailable'])},['kind','text']),
- fidelity_result:object({checkRef:string,verdict:choice(['allow','reject','uncertain']),factual:array(factualField),issues:array(object({path:string,code:choice(['unsupported_fact','private_disclosure','omitted_qualifier','evidence_mismatch','internal_conflict']),quote:string,sourceIds:strings,evidence:array(object({sourceId:string,quote:string},['sourceId','quote'])),basis:choice(['no_support_in_supplied_evidence']),relatedPath:string,relatedQuote:string,reason:string},['path','code','quote','reason'])),concerns:array(object({path:string,code:choice(['current_boundary','pragmatic_ambiguity','style','helpfulness','coverage_gap']),quote:string,sourceIds:strings,evidence:array(object({sourceId:string,quote:string},['sourceId','quote'])),reason:string},['path','code','reason']))},['checkRef','verdict','factual','issues']),
+ fidelity_result:object({checkRef:string,verdict:choice(['allow','reject','uncertain']),factual:array(factualField),issues:array(object({path:string,code:choice(['private_disclosure','explicit_outward_prohibition']),quote:string,sourceIds:strings,evidence:array(evidenceWitness),prohibition:prohibitionWitness,reason:string},['path','code','quote'])),concerns:array(object({path:string,code:string,quote:string,sourceIds:strings,evidence:array(evidenceWitness),reason:string},['path','code','reason']))},['checkRef','factual','issues']),
  discussion_compaction_result:object({summary:string,reviewedTurnIds:strings,quoteRefs:array(quoteRef)},['summary','reviewedTurnIds','quoteRefs']),
  memory_result:object({batchId:string,reviewedAll:boolean,episodes:array(episode),relationshipPatch},['batchId','reviewedAll','episodes','relationshipPatch'])
 };
@@ -73,6 +77,10 @@ function responseEnvelope(settings,purpose,payload) {
     ...(rule.items.properties.relatedPath?{relatedPath:choice([...paths])}:{})}}});
   properties.issues=withPaths(properties.issues);properties.concerns=withPaths(properties.concerns);
   properties.factual={...withPaths(properties.factual),minItems:paths.length,maxItems:paths.length};
+  const statementProperties=properties.factual.items.properties.statements.items.properties;
+  for(const field of ['related','reference'])statementProperties[field]={...statementProperties[field],properties:{...statementProperties[field].properties,path:choice([...paths])}};
+  const humans=(payload.originalInput||payload).humanInstructions?.map(item=>item.sourceId)||[];
+  if(humans.length)properties.issues.items.properties.prohibition.properties.sourceId=choice(humans);
   properties.concerns={...properties.concerns,items:{...properties.concerns.items,properties:{...properties.concerns.items.properties,code:string}}};
   schema={...schema,properties};
  }

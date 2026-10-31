@@ -3,10 +3,10 @@
 const fs=require('node:fs'),os=require('node:os'),path=require('node:path'),assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');
 const {Store}=require('../src/store.cjs');
-const {Controller}=require('../src/controller.cjs');
+const {Controller}=require('../tests/fixtures/whole-answer-fidelity.cjs');
 const {createServer}=require('../src/server.cjs');
 const {scope,raw}=require('../tests/fixtures/native.cjs');
-const {withCurrentDraftControls}=require('../tests/fixtures/draft-controls.cjs');
+const {factualReview}=require('../tests/fixtures/factual-assessment.cjs');
 const {CDP}=require('./cdp.cjs');
 const {actions}=require('./browser-actions.cjs');
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
@@ -21,9 +21,10 @@ async function until(check,label){for(let n=0;n<120;n++){if(await check())return
  const settings={anonymous:true,baseUrl:'http://fixture.invalid/v1',model:'synthetic-entry',auto:false,realChatConsent:{...scope,baseUrl:'http://fixture.invalid/v1',model:'synthetic-entry'}};
  const controller=new Controller({store,settings,read:async(command,args)=>command==='bind'?(args.uin===scope.peerUin?scope:{...scope,peerUid:'other-peer',peerUin:args.uin}):{messages:command==='latest'?fictionalQQ:[],source:'synthetic'},assistantModel:async(_settings,input)=>{
   const p=input.payload;calls.push(structuredClone(p));callScopes.push(structuredClone(input.manifest.scope));
-  if(p.purpose==='draft_prepare')return {draftPlan:withCurrentDraftControls({quotes:[{sourceId:p.userRequest.sourceId,text:p.userRequest.text}],style:'natural'},p)};
-  if(p.purpose==='draft')return {kind:'draft',text:'参考表达',suggestions:[{style:'自然',text:'今天实习培训学到了一个新技巧。'}]};
-  return {kind:p.purpose==='review'?'review':'question',text:p.purpose==='review'?'只回顾已经发生的交流。':'你愿意先说说这次想表达哪件真实小事吗？',...(p.purpose==='reply'?{replyDisposition:'clarify'}:{})};
+  if(p.purpose==='fidelity_check')return {checkRef:p.checkRef,factual:factualReview(p,{}),issues:[]};
+  if(p.purpose==='draft_prepare')return {operation:'prepare_message',currentFacts:['今天实习培训学到了一个新技巧'],answer:{suggestions:[{style:'自然',text:'今天实习培训学到了一个新技巧。'}]}};
+  if(p.purpose==='review')return {operation:'advise',text:'只回顾已经发生的交流。'};
+  return {operation:'clarify',blocker:{kind:'missing_fact',missing:'这次想分享的真实小事',question:'你愿意先说说这次想表达哪件真实小事吗？'}};
  }});
  // Exercise the inspector's new projection with the agreed task contract,
  // deriving its QQ entries from the real source-shaped fixture and saved run.
@@ -68,7 +69,7 @@ async function until(check,label){for(let n=0;n<120;n++){if(await check())return
     assert.equal(calls[before].purpose,firstPurpose,'explicit private submit preserves the selected help mode');
     assert.equal(calls[before].userRequest.text,text,'the natural private intent is the current request');
     assert.equal(await cdp.evaluate('nextPurpose'),mode,'the chosen mode is not silently reset');
-    assert.equal(await cdp.evaluate("document.querySelector('#assistant-input').value"),'','completed matching input is cleared like normal submit');
+    await until(()=>cdp.evaluate("document.querySelector('#assistant-input').value===''") ,'completed matching input is cleared like normal submit');
    checks.push(`Explicit private submit preserves ${mode} intent and dispatch`);
    }
    await ui.click('#draft-button');await ui.fill('#draft','这份未发送草稿要保留。');await ui.click('#draft-close');
@@ -83,8 +84,8 @@ async function until(check,label){for(let n=0;n<120;n++){if(await check())return
    assert.equal(await cdp.evaluate("document.querySelector('#draft').value"),'这份未发送草稿要保留。');assert.equal(await cdp.evaluate("document.querySelector('#goal-input').value"),'这个目标还没有保存，先保留。');assert.equal(controller.snapshot().total,totalBefore);
    checks.push('Synthetic task/readback shows actual QQ, unknown quote, self evidence and loaded guidance without clearing input, draft, goal or QQ');
    await ui.fill('#assistant-input','');
-   const before=calls.length;await ui.click('#generate');await until(()=>calls.length===before+1&&!controller.assistantBusy,'empty scoped QQ help');
-   const observation=calls.at(-1);assert.equal(observation.purpose,'reply');assert.notEqual(observation.userRequest.text,controller.instruction,'saved style is separate from the actual QQ task');
+   const before=calls.length;await ui.click('#generate');await until(()=>calls.length===before+2&&!controller.assistantBusy,'empty scoped QQ help');
+   const observation=calls[before];assert.equal(calls[before+1].purpose,'fidelity_check','the exact complete private question receives the normal read-only check');assert.equal(observation.purpose,'reply');assert.notEqual(observation.userRequest.text,controller.instruction,'saved style is separate from the actual QQ task');
    assert.equal(observation.generationOrigin,'qq_observation');assert.equal(observation.taskContext.requestOrigin,'qq_observation');assert.equal(observation.taskContext.responsePreference,controller.instruction);
    assert.equal(observation.taskContext.latestActual.sourceId,'qq:72057594037927939');assert.deepEqual(callScopes.at(-1),scope,'observation remains bound to all four scope fields');
    checks.push('Empty shortcut retains the actual QQ task, separate style preference and complete captured scope');

@@ -3,6 +3,9 @@ const {sourceClosure,assertPreferenceAuthority}=require('../provenance.cjs');
 const {sameScopeIfPresent}=require('./source-snapshot.cjs');
 const reportMarker=/(?:她|他|对方|朋友|同事)(?:说|希望|喜欢|偏好|要求)|转述|引用|原话/u;
 const thirdPartyReport=text=>reportMarker.test(String(text||''));
+const unquotedInstruction=text=>String(text||'').replace(/^[ \t]*>.*$/gmu,'').replace(/“[^”]*”|「[^」]*」|『[^』]*』|‘[^’]*’|"[^"]*"|'[^']*'|`[^`]*`/gu,'');
+const hasConditionalScope=text=>unquotedInstruction(text).split(/[，,。；;\n]/u).some(clause=>
+ /如果|除非|只有|时候|有时|偶尔/u.test(clause.split(/因为|原因|担心|害怕|我怕|为了让|PRIVATE_|仅供私下|不要告诉|别告诉/u)[0]));
 function preferenceEvidenceText(text){
  const value=String(text||''),report=value.search(reportMarker);if(report<0)return value;
  const reason=value.search(/因为|原因|担心|害怕|我怕|为了让/u);
@@ -17,10 +20,14 @@ function expressionClause(text){
 }
 // Only normalized expression controls cross the private-to-wording boundary.
 function rawWordingControls(preferences=[],responsePreference=''){
- const items=new Map();
+ const items=new Map(),scoped=[];
  const add=(text,sourceIds)=>{const item=items.get(text)||{text,sourceIds:[]};for(const id of sourceIds)if(typeof id==='string'&&!item.sourceIds.includes(id))item.sourceIds.push(id);items.set(text,item);};
  const inputs=[...preferences.map(item=>({text:item.text,sourceIds:item.sourceIds||[item.sourceId],strictExpression:item.strictExpression})),{text:responsePreference,sourceIds:['responsePreference']}];
- for(const input of inputs)for(const clause of String(input.text||'').split(/[，,。；;\n]/u)){
+ for(const input of inputs){
+  // Scope belongs to the whole original instruction. Never drop an opening
+  // condition and promote its later comma-separated commands unconditionally.
+  if(hasConditionalScope(input.text)){scoped.push({scope:'conditional',sourceIds:(input.sourceIds||[]).filter(id=>typeof id==='string'),bodyLocation:'original_instruction',application:'assess_whole_condition_in_current_context'});continue;}
+  for(const clause of String(input.text||'').split(/[，,。；;\n]/u)){
   if(/因为|原因|担心|害怕|我怕|为了让|PRIVATE_|仅供私下|不要告诉|别告诉|如果|除非|只有|时候|有时|偶尔/i.test(clause))continue;
   if(input.strictExpression&&!expressionClause(clause))continue;
   if(/短句|简短|简洁|少写|别.{0,5}长篇|不要.{0,5}长篇/.test(clause)&&!/(?:不要|不用|不想|别).{0,3}(?:短句|简短|简洁)/.test(clause))add('用简短句子，保留这次实际想表达的内容。',input.sourceIds);
@@ -32,8 +39,9 @@ function rawWordingControls(preferences=[],responsePreference=''){
   else if(/(?:少用|少加).{0,4}(?:emoji|表情)|(?:emoji|表情).{0,5}(?:少用|少加|别太多)/i.test(clause))add('少用 emoji，仅在符合实际语气时使用。',input.sourceIds);
   else if(/(?:允许|可以|可用|用点|加点|喜欢).{0,5}(?:emoji|表情)/i.test(clause))add('可以自然地使用少量 emoji，无需强加。',input.sourceIds);
   if(/(?:不要|不用|别|避免).{0,10}(?:反问|追问|连问|尾问|查户口)/.test(clause))add('不机械追加尾问或连续追问；保留用户本来想问的具体内容。',input.sourceIds);
+  }
  }
- return {version:1,authority:'expression_control_not_outbound_material',items:[...items.values()].slice(0,12)};
+ return {version:1,authority:'expression_control_not_outbound_material',items:[...items.values()].slice(0,12),...(scoped.length?{scoped}: {})};
 }
 // Resolve only the existing, identifiable dimensions. A clear removes a default;
 // it does not manufacture the opposite style or interpret the communication act.
@@ -54,8 +62,8 @@ function currentExpressionInstruction(clause){
 }
 function expressionChanges(text,sourceIds,currentInstruction=false){
  const changes=new Map();
- let safe=String(text||'').replace(/^[ \t]*>.*$/gmu,'').replace(/“[^”]*”|「[^」]*」|『[^』]*』|‘[^’]*’|"[^"]*"|'[^']*'|`[^`]*`/gu,'');
- if(/如果|除非|只有|时候|有时|偶尔/u.test(safe))return changes;
+ let safe=unquotedInstruction(text);
+ if(hasConditionalScope(safe))return changes;
  safe=preferenceEvidenceText(safe).split(/因为|原因|担心|害怕|我怕|为了让|PRIVATE_|仅供私下|不要告诉|别告诉/u)[0];
  for(const clause of safe.split(/[，,。；;\n]/u)){
   if(currentInstruction&&!currentExpressionInstruction(clause))continue;
@@ -135,7 +143,7 @@ function wordingControlsForContext(prepared,info={}){
  if(controls.items.some(item=>item.text==='不额外添加 emoji。'))presentation.useEmoji=false;
  const style=changes.has('length')&&changes.get('length')===null&&plan.style==='short'?'natural':plan.style;
  // A clear has no replacement item, but its authority still belongs in CAS.
- const sourceIds=[...new Set([...controls.items.flatMap(item=>item.sourceIds),...(localChanges.size?[id]:[])])].filter(id=>expected.has(id)&&live.get(id)?.revision===expected.get(id));
+ const sourceIds=[...new Set([...controls.items.flatMap(item=>item.sourceIds),...(controls.scoped||[]).flatMap(item=>item.sourceIds),...(localChanges.size?[id]:[])])].filter(id=>expected.has(id)&&live.get(id)?.revision===expected.get(id));
  return {controls,sourceRefs:sourceIds.map(id=>({sourceId:id,revision:expected.get(id)})),preferenceRefs:preferenceRefs.filter(ref=>ref.sourceIds.some(id=>sourceIds.includes(id))),presentation,style};
 }
 module.exports={wordingControls,wordingControlsForContext};

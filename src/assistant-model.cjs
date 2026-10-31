@@ -551,7 +551,7 @@ async function assistModel(settings, context, signal, fetchImpl = fetch) {
   const originalPayload=context.mediaContext?{...context.payload,mediaContext:context.mediaContext}:context.payload;
   const dispatchPayload=context.fidelityRepair?{purpose:context.payload.purpose,originalInput:originalPayload,
     rejectedCandidate:context.fidelityRepair.candidate,fidelityIssues:context.fidelityRepair.issues,
-    task:'重新生成完整operation候选和精确素材/authority引用。核对意见只是可错诊断，不能授权新事实。依据originalInput原文逐项解决问题；prepare_message只给answer和按需事实申报，advise给完整text，可用materials绑定示例素材。不要另行成稿、重写事实或自报核对通过；不得新增操作或以lookup回避本次必要原文不足。原文不足则明确clarify，不虚构。'}:originalPayload;
+    task:'重新生成完整operation候选和精确素材/authority引用。核对意见只是可错诊断，不能授权新事实。依据originalInput逐项解决问题；prepare_message只给answer和按需事实申报，advise给完整text，可用materials绑定示例素材。不得新增操作或lookup。缺本人日常仍可先完成有据的QQ回应，并在唯一私下解释问一件必要的真实素材；不要把占位经历或空泛“以后分享”放进成稿等用户填。只有整个请求确实无法诚实推进才clarify；不另行成稿、自报通过或虚构。'}:originalPayload;
   const preparedRequest = prepareAssistantRequest(settings,dispatchPayload,context.images||[],wireOptionsFor(context));
   const { serialized, requestBytes, byteLimit } = preparedRequest;
   if (requestBytes > byteLimit) throw new Error(`完整文字请求超出预算（${requestBytes}/${byteLimit} bytes），请缩小本次范围`);

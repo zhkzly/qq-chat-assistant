@@ -41,7 +41,7 @@ function buildDraftContext(prepared, plan, info) {
     outboundQuotes: quotes, sources: [...qq], coverage: prepared.payload.coverage,
     ...(human.control?{currentHumanControl:human.control}:{}),
     ...(selectedDirection.control?{selectedDirectionControl:selectedDirection.control}:{}),
-    ...(safeWordingControls.items.length?{wordingControls:safeWordingControls}:{}),
+    ...((safeWordingControls.items.length||safeWordingControls.scoped?.length)?{wordingControls:safeWordingControls}:{}),
     replyFocus: prepared.payload.replyFocus || [],
     presentation: { language: typeof plan.language==='string'&&/^[a-z]{2,3}(?:-[a-zA-Z0-9]{2,8})*$/.test(plan.language) ? plan.language : 'zh',
       ...projectedControls.presentation } };
@@ -185,7 +185,7 @@ function buildAnswerAdmission(prepared,declaration={},info={}){
  return {payload:{purpose:'answer_admission',promptVersion:PROMPT_VERSION,asOf:prepared.payload.asOf,
    sources:prepared.payload.sources.filter(source=>source.type==='qq'),outboundQuotes:provenance.quotes,
    ...(human.control?{currentHumanControl:human.control}:{}),...(selected.control?{selectedDirectionControl:selected.control}:{}),
-   ...(editing?{editingReference:editing.reference}:{}),...(controls.controls.items.length?{wordingControls:controls.controls}:{})},
+   ...(editing?{editingReference:editing.reference}:{}),...((controls.controls.items.length||controls.controls.scoped?.length)?{wordingControls:controls.controls}:{})},
   manifest:{requestId:info.requestId||prepared.manifest.requestId,scope:{...scope},purpose:'answer_admission',promptVersion:PROMPT_VERSION,
    sourceIds:Object.keys(revisions).filter(id=>!id.startsWith('request:')),sourceRevisions:revisions,contextRevision:prepared.manifest.contextRevision,
    inputArtifactRefs:[...(editing?[editing.dependency]:[]),...(selected.dependency?[selected.dependency]:[])],
