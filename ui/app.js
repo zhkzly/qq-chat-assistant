@@ -431,7 +431,9 @@ function renderMemoryStatus(){
  if(!status){$('memory-status').textContent='背景随当前好友分别保存。';return}
  const phase=status.phase||status.status,labels={idle:'已保存的背景可用于继续讨论',running:'正在整理新的交流',pending:'有新的交流等待整理',error:'记忆整理暂未完成',ready:'记忆已更新',complete:'记忆已更新'};
  const pending=status.pendingCount??status.pending,count=Number.isFinite(pending)?` · ${pending} 条待整理`:'';
- $('memory-status').textContent=`${status.message||labels[phase]||(status.busy?'正在整理新的交流':pending?'新的背景已保存，等待整理':'已保存的背景可用于继续讨论')}${count}${issue?' · 上次整理未完成，可在记忆面板重试':''}`;
+ const semantic=Number(status.semanticPending)||0,review=semantic?` · ${semantic} 条理解待核对（可复核 ${Number(status.recoveryReady)||0}，暂缓 ${Number(status.recoveryDeferred)||0}）`:'';
+ const message=semantic&&!pending&&!status.busy?'原始背景已保存，部分理解仍待核对':status.message||labels[phase]||(status.busy?'正在整理新的交流':pending?'新的背景已保存，等待整理':'已保存的背景可用于继续讨论');
+ $('memory-status').textContent=`${message}${count}${review}${issue?' · 上次整理未完成，可在记忆面板重试':''}`;
 }
 function renderActionPanels(companion){
  const pending=companion.pendingActions||[],receipts=(companion.actionReceipts||[]).slice(-5),key=JSON.stringify([pending,receipts]);if(key===actionPanelKey)return;actionPanelKey=key;

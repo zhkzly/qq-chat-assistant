@@ -4,7 +4,7 @@ const {rank}=require('./memory-search.cjs');
 const {normalizeRelationshipPatch}=require('./relationship-schema.cjs');
 const {sourceClosure,assertPreferenceAuthority}=require('./provenance.cjs');
 const {requireOriginals}=require('./original-evidence.cjs');
-const PROCESSOR_VERSION='evidence-backed-understanding-2026-10-31.1';
+const PROCESSOR_VERSION='evidence-backed-understanding-2026-10-31.2';
 const hash=value=>createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const typed=r=>r.recordType==='claim'||r.recordType==='relationship_event';
 function prepareRelationshipPatch(store,scope,input,options={}) {
@@ -14,7 +14,7 @@ function prepareRelationshipPatch(store,scope,input,options={}) {
   const build=(value,type,retiring=false)=>{
     if(value.sourceIds.some(id=>!allowed.has(id)||!raw.has(id)))throw new Error('Unavailable or undelivered relationship evidence');
     if(options.sourceRevisions&&value.sourceIds.some(id=>options.sourceRevisions[id]!==raw.get(id).revision))throw new Error('Stale relationship source');
-    const old=value.id&&byId.get(value.id);
+    const old=value.id&&(retiring?transitionById:byId).get(value.id);
     if(value.id&&!old)throw new Error('Unknown relationship record');
     if(old&&old.recordType!==type)throw new Error('Relationship record type cannot change');
     if(old&&value.expectedVersion!==undefined&&old.version!==value.expectedVersion)throw new Error('Stale relationship object version');
@@ -26,21 +26,21 @@ function prepareRelationshipPatch(store,scope,input,options={}) {
     const originalRoots=sourceClosure(raw,required).map(source=>source.id);
     const delivered=options.deliveredSources||options.batchSources||[];
     const readCoverage=requireOriginals(raw,delivered,scope,originalRoots,{complete:!!old||retiring||transitionTargets.length>0});
-    if(options.reviewedSourceIds&&!value.sourceIds.some(id=>options.reviewedSourceIds.includes(id)))throw new Error('Relationship update needs newly reviewed evidence');
+    if(options.reviewedSourceIds&&!old&&!transitionTargets.length&&!value.sourceIds.some(id=>options.reviewedSourceIds.includes(id)))throw new Error('New relationship knowledge needs evidence read in this batch');
     let refs=retiring?[...new Set([...old.sourceIds,...value.sourceIds])]:value.sourceIds;
     let closure=sourceClosure(raw,refs);
-    if(type==='claim'&&value.assertionKind==='stated'&&value.subject==='contact'){
+    if(!retiring&&type==='claim'&&value.assertionKind==='stated'&&value.subject==='contact'){
       const direct=closure.filter(s=>s.type==='qq'&&s.role==='contact');
       if(!direct.length)throw new Error('Contact statements require actual contact messages; use reported for user reports');
       // A new question may cause retrieval, but it is not a new statement by her.
       refs=direct.map(s=>s.id);closure=sourceClosure(raw,refs);
     }
-    if(type==='claim'&&value.assertionKind==='observed'){
+    if(!retiring&&type==='claim'&&value.assertionKind==='observed'){
       const observed=closure.filter(s=>s.type==='qq');if(!observed.length)throw new Error('Observed claims require actual QQ evidence; use reported for user reports');
       refs=observed.map(s=>s.id);closure=sourceClosure(raw,refs);
     }
-    if(type==='claim'&&value.subject==='self'&&value.aspect==='stated_preference')assertPreferenceAuthority(raw,refs);
-    if(type==='claim'&&value.applicabilityKind==='recurring')assertPreferenceAuthority(raw,refs);
+    if(!retiring&&type==='claim'&&value.subject==='self'&&value.aspect==='stated_preference')assertPreferenceAuthority(raw,refs);
+    if(!retiring&&type==='claim'&&value.applicabilityKind==='recurring')assertPreferenceAuthority(raw,refs);
     if(type==='claim'&&value.assertionKind==='stated'&&value.subject==='contact'&&!closure.some(s=>s.type==='qq'&&s.role==='contact'))throw new Error('Contact statements require actual contact messages; use reported for user reports');
     const dates=refs.map(id=>raw.get(id).at).sort();
     if(old&&dates.at(-1)<old.lastEvidenceAt)throw new Error('Older backfill cannot replace newer relationship evidence');
@@ -48,7 +48,7 @@ function prepareRelationshipPatch(store,scope,input,options={}) {
     const {id,expectedVersion,topicKeys:inputTopics,...semantic}=value;
     const reviewComplete=originalRoots.every(id=>readCoverage.completeSourceIds.includes(id));
     const sourceRevisions=Object.fromEntries(closure.map(s=>[s.id,s.revision]));
-    const body=retiring?{...old,lifecycle:value.lifecycle,sourceIds:refs}: {...semantic,sourceIds:refs,topicKeys:value.topicKeys||[],lifecycle:value.lifecycle||'active'};
+    const body=retiring?{...old,lifecycle:value.lifecycle,...(type==='item'?{status:'superseded'}:{}),sourceIds:refs}: {...semantic,sourceIds:refs,topicKeys:value.topicKeys||[],lifecycle:value.lifecycle||'active'};
     const signature=hash({type,...semantic,sourceIds:[...refs].sort(),sourceRevisions:Object.fromEntries(Object.entries(sourceRevisions).sort(([a],[b])=>a.localeCompare(b)))});
     // Retirement changes the record's evidence, but must not erase the identity
     // of the rejected interpretation. Replaying it is an idempotent no-op;
@@ -62,13 +62,18 @@ function prepareRelationshipPatch(store,scope,input,options={}) {
       if(JSON.stringify(topicKeys)===JSON.stringify(duplicate.topicKeys||[]))return duplicate;
       return {...duplicate,topicKeys,version:duplicate.version+(byId.has(duplicate.id)?1:0),updatedAt:new Date().toISOString()};
     }
-    const result={...body,id:previous?.id||randomUUID(),kind:type==='claim'?'relationship_claim':'relationship_event',recordType:type,
+    const result={...body,id:previous?.id||randomUUID(),kind:type==='item'?old.kind:type==='claim'?'relationship_claim':'relationship_event',recordType:type,
       version:(previous?.version||0)+1,sourceRevisions,reviewComplete,evidenceValidity:reviewComplete?'valid':'partial',semanticSignature:signature,
       firstEvidenceAt:dates[0],lastEvidenceAt:dates.at(-1),at:dates.at(-1),reportedAt:dates.at(-1),reviewedAt:new Date().toISOString(),
       semanticReview:{status:reviewComplete?'evidence_reviewed':'partial_originals',reviewedAt:new Date().toISOString(),coverage:readCoverage},knowledgeSchemaVersion:2,
       createdAt:previous?.createdAt||new Date().toISOString(),updatedAt:new Date().toISOString()};
-    if(retiring)result.retiredSemanticSignatures=[...new Set([...(old.retiredSemanticSignatures||[]),old.semanticSignature])];
-    if(type==='relationship_event') {result.occurredAt=value.occurredAt||null;result.occurrenceTimeStatus=value.occurredAt?'known':'unknown';result.origin=closure.every(s=>s.type==='qq')?'qq_observation':'user_report';}
+    if(retiring){
+      result.retiredSemanticSignatures=[...new Set([...(old.retiredSemanticSignatures||[]),old.semanticSignature].filter(Boolean))];
+      for(const field of ['firstEvidenceAt','lastEvidenceAt','at','reportedAt'])if(old[field]!==undefined)result[field]=old[field];
+      if(old.reportedAt===undefined)delete result.reportedAt;
+      result.retirement={sourceIds:value.sourceIds,reviewedAt:result.reviewedAt};result.semanticReview.status='retired_from_originals';
+    }
+    if(type==='relationship_event') {result.occurredAt=retiring?old.occurredAt??null:value.occurredAt||null;result.occurrenceTimeStatus=retiring?old.occurrenceTimeStatus||'unknown':value.occurredAt?'known':'unknown';result.origin=retiring?old.origin:closure.every(s=>s.type==='qq')?'qq_observation':'user_report';}
     if(old)result.revisions=[...(old.revisions||[]),{version:old.version,semanticSignature:old.semanticSignature,operation:retiring?value.lifecycle:value.transition?.operation||'revision',reviewedAt:result.reviewedAt}];
     if(transitionTargets.length){
       result.transition={...value.transition,reviewedAt:result.reviewedAt};
@@ -86,7 +91,7 @@ function prepareRelationshipPatch(store,scope,input,options={}) {
   };
   for(const c of patch.claims)checked.push(build(c,'claim'));
   for(const e of patch.events)checked.push(build(e,'relationship_event'));
-  for(const r of patch.retire) {const old=byId.get(r.id);if(!old)throw new Error('Unknown relationship retirement');checked.push(build(r,old.recordType,true));}
+  for(const r of patch.retire) {const old=transitionById.get(r.id);if(!old)throw new Error('Unknown relationship retirement');checked.push(build(r,old.recordType,true));}
   const unique=new Map();
   for(const record of checked){const prior=unique.get(record.id);if(prior&&prior.semanticSignature!==record.semanticSignature)throw new Error('Conflicting relationship updates for one record');unique.set(record.id,record);}
   return [...unique.values()];

@@ -570,7 +570,8 @@ class Store {
     const at=rows.map(r=>r.queued_at).filter(Boolean).sort();
     const latestEvent=this.db.prepare('SELECT max(queued_at) at FROM memory_journal WHERE scope_key=?').get(key)?.at;
     const receipt=this.db.prepare('SELECT record FROM memory_receipts WHERE scope_key=? ORDER BY rowid DESC LIMIT 1').get(key);
-    return {pending:rows.length,oldestPendingAt:at[0]||null,lastEventAt:latestEvent||null,lastMaintenanceAt:receipt?JSON.parse(receipt.record).reviewedAt:null};
+    const review=this._semanticReviewState(scope);
+    return {pending:rows.length+review.ready.length,sourcePending:rows.length,recoveryReady:review.ready.length,recoveryDeferred:review.deferred.length,semanticPending:review.pending.length,oldestPendingAt:at[0]||null,lastEventAt:latestEvent||null,lastMaintenanceAt:receipt?JSON.parse(receipt.record).reviewedAt:null};
   }
   applyState(scope, patch, options = {}) {
     const record = this._getCompanion(scope);
@@ -756,17 +757,50 @@ class Store {
     });
   }
   personUnderstanding(scope,options={}) {this.ensureKnowledgeMigration(scope);return require('./relationship-store.cjs').personUnderstanding(this,scope,options);}
+  setMemoryReviewBudget(scope,options={}) {
+    this._memoryReviewBudgets ||= new Map();
+    const policy={sourceBytes:Math.max(4000,Math.min(200000,Number(options.sourceBytes)||24000)),requestBytes:Math.max(8000,Math.min(240000,Number(options.requestBytes)||48000)),model:String(options.model||''),responseMode:String(options.responseMode||'auto')};
+    policy.key=hash(policy);this._memoryReviewBudgets.set(scopeKey(scope),policy);return policy;
+  }
+  _semanticReviewState(scope) {
+    const policy=this._memoryReviewBudgets?.get(scopeKey(scope))||this.setMemoryReviewBudget(scope),raw=new Map(this._rawMemorySources(scope).map(source=>[source.id,source]));
+    const pending=this._memoryRecords(scope).filter(record=>record.recordType!=='episode'&&(!record.lifecycle||record.lifecycle==='active')&&(!record.status||record.status==='active')&&(record.reviewComplete===false||record.semanticReview?.status==='legacy_unreviewed'));
+    const ready=[],deferred=[];
+    for(const record of pending){
+      let originals=[];try{originals=sourceClosure(raw,record.sourceIds);if(Object.entries(record.sourceRevisions||{}).some(([id,revision])=>raw.get(id)?.revision!==revision))throw new Error('Changed evidence');}catch{deferred.push({record,reason:'originals_unavailable'});continue;}
+      const key=hash({scope:scopeKey(scope),processor:PROCESSOR_VERSION,id:record.id,sourceRevisions:Object.fromEntries(originals.map(source=>[source.id,source.revision]).sort(([a],[b])=>a.localeCompare(b)))});
+      const attempt=record.semanticReview?.recoveryAttempt,blocked=record.semanticReview?.recoveryDeferred;
+      if(attempt?.key===key){deferred.push({record,key,reason:'no_decision_after_recovery'});continue;}
+      if(blocked?.key===key&&(blocked.budgetKey===policy.key||blocked.budgetKey==='originals')){deferred.push({record,key,reason:blocked.reason});continue;}
+      ready.push({record,key,originals});
+    }
+    return {policy,raw,pending,ready,deferred};
+  }
+  deferSemanticRecovery(scope,batch,{reason='request_budget',requiredBytes,sourceIds}={}) {
+    return this._atomic(()=>{
+      if(batch.kind!=='semantic_recovery'||batch.scopeKey!==scopeKey(scope))throw new Error('Recovery deferral scope mismatch');
+      const state=this._semanticReviewState(scope),targets=new Map(state.ready.map(target=>[target.record.id,target]));let changed=0;
+      for(const offered of batch.recoveryTargets||[]){
+        const target=targets.get(offered.id);if(!target||target.key!==offered.key||target.record.version!==offered.version)continue;
+        if(sourceIds&&!target.originals.some(source=>sourceIds.includes(source.id)))continue;
+        const deferred={key:target.key,budgetKey:reason==='originals_redacted'?'originals':state.policy.key,reason,requiredBytes:requiredBytes||null,readCoverage:coverageFor(state.raw,[],scope,{requiredSourceIds:target.originals.map(source=>source.id)}),at:new Date().toISOString()};
+        const record={...target.record,semanticReview:{...target.record.semanticReview,recoveryDeferred:deferred}};
+        this.db.prepare('UPDATE memory_records SET record=? WHERE scope_key=? AND id=?').run(JSON.stringify(record),scopeKey(scope),record.id);changed++;
+      }
+      if(changed)this.db.prepare('UPDATE memory_meta SET version=version+1 WHERE scope_key=?').run(scopeKey(scope));return changed;
+    });
+  }
   memoryStatus(scope) {
-    this.memorySources(scope);const key=scopeKey(scope);
+    this.ensureKnowledgeMigration(scope);this.memorySources(scope);const key=scopeKey(scope);
     const journal=this.db.prepare('SELECT status,count(*) AS n FROM memory_journal WHERE scope_key=? GROUP BY status').all(key);
     const counts=Object.fromEntries(journal.map(x=>[x.status,x.n]));
     const records=this.db.prepare('SELECT kind,count(*) AS n FROM memory_records WHERE scope_key=? GROUP BY kind').all(key);
     const sourceCount=this.db.prepare('SELECT count(*) AS n FROM memory_sources WHERE scope_key=? AND deleted=0').get(key).n;
     const meta=this.db.prepare('SELECT version,error,processor_version FROM memory_meta WHERE scope_key=?').get(key);
     const latest=this.db.prepare('SELECT record FROM memory_receipts WHERE scope_key=? ORDER BY rowid DESC LIMIT 1').get(key);
-    const semanticPending=this._memoryRecords(scope).filter(record=>record.recordType!=='episode'&&(!record.lifecycle||record.lifecycle==='active')&&(!record.status||record.status==='active')&&(record.reviewComplete===false||record.semanticReview?.status==='legacy_unreviewed')).length;
+    const review=this._semanticReviewState(scope),semanticPending=review.pending.length;
     const pendingProposals=this.db.prepare('SELECT count(*) n FROM memory_pending_proposals WHERE scope_key=?').get(key).n;
-    return {pending:counts.pending||0,processed:counts.reviewed||0,superseded:counts.superseded||0,semanticPending,pendingProposals,version:meta?.version||0,counts:{sources:sourceCount,items:records.find(x=>x.kind==='item')?.n||0,episodes:records.find(x=>x.kind==='episode')?.n||0,claims:records.find(x=>x.kind==='claim')?.n||0,events:records.find(x=>x.kind==='relationship_event')?.n||0},errors:meta?.error?[JSON.parse(meta.error)]:[],lastReview:latest?JSON.parse(latest.record):null};
+    return {pending:counts.pending||0,processed:counts.reviewed||0,superseded:counts.superseded||0,semanticPending,pendingProposals,recoveryReady:review.ready.length,recoveryDeferred:review.deferred.length,recoveryReasons:[...new Set(review.deferred.map(target=>target.reason))],version:meta?.version||0,counts:{sources:sourceCount,items:records.find(x=>x.kind==='item')?.n||0,episodes:records.find(x=>x.kind==='episode')?.n||0,claims:records.find(x=>x.kind==='claim')?.n||0,events:records.find(x=>x.kind==='relationship_event')?.n||0},errors:meta?.error?[JSON.parse(meta.error)]:[],lastReview:latest?JSON.parse(latest.record):null};
   }
   _memoryRecords(scope) {
     return this.db.prepare('SELECT kind,record FROM memory_records WHERE scope_key=?').all(scopeKey(scope)).map(r=>({...JSON.parse(r.record),recordType:r.kind}));
@@ -794,11 +828,12 @@ class Store {
     const status=this.memoryStatus(scope);
     return {sources,items,episodes,coverage:{complete:status.pending===0,sourceCount:all.length,retrievedCount:sources.length,pending:status.pending,processed:status.processed,history:this.coverage(scope),retrieval:'lexical-han-bigram-bm25',semanticCertainty:false}};
   }
-  memoryBatch(scope,{maxBytes=24000,limit=32}={}) {
+  memoryBatch(scope,options={}) {return this._atomic(()=>this._memoryBatch(scope,options));}
+  _memoryBatch(scope,{maxBytes=24000,limit=32,recoveryPolicy,recoveryLimit=8}={}) {
     this.maintainLocal(scope);const key=scopeKey(scope),record=this._getCompanion(scope);
     const size=Math.max(4000,Math.min(200000,Number(maxBytes)||24000)),count=Math.max(1,Math.min(64,Number(limit)||32));
     const pending=this.db.prepare("SELECT j.*,s.record FROM memory_journal j JOIN memory_sources s ON s.scope_key=j.scope_key AND s.source_id=j.source_id AND s.revision=j.revision WHERE j.scope_key=? AND j.status='pending' ORDER BY j.seq LIMIT ?").all(key,count);
-    if(!pending.length)return null;
+    if(!pending.length)return this._semanticRecoveryBatch(scope,{size,count,record,recoveryPolicy,recoveryLimit});
     const meta=this.db.prepare('SELECT version FROM memory_meta WHERE scope_key=?').get(key);
     const core={scopeKey:key,baseRevision:record.revision,baseMemoryVersion:meta.version,baseState:{version:record.state.version,focus:record.state.focus.slice(0,500)},sources:[],events:[],priorMemory:{items:[],episodes:[],claims:[],events:[]},contextSources:[],reviewedSourceIds:[],evidenceCoverage:{version:'original-evidence-v1',rule:'journal_progress_is_not_semantic_review'}};
     const bytes=()=>Buffer.byteLength(JSON.stringify(core),'utf8')+150;
@@ -850,6 +885,30 @@ class Store {
     }
     return {id:hash(core),...core,maxBytes:size,inputBytes:bytes()-150};
   }
+  _semanticRecoveryBatch(scope,{size,count,record,recoveryPolicy,recoveryLimit}) {
+    if(recoveryPolicy)this.setMemoryReviewBudget(scope,recoveryPolicy);
+    else this.setMemoryReviewBudget(scope,{...(this._memoryReviewBudgets?.get(scopeKey(scope))||{}),sourceBytes:size});
+    const key=scopeKey(scope),state=this._semanticReviewState(scope),core={kind:'semantic_recovery',scopeKey:key,baseRevision:record.revision,baseMemoryVersion:0,baseState:{version:record.state.version,focus:record.state.focus.slice(0,500)},sources:[],events:[],priorMemory:{items:[],episodes:[],claims:[],events:[]},contextSources:[],reviewedSourceIds:[],recoveryTargets:[],recoveryBudgetKey:state.policy.key,evidenceCoverage:{version:'original-evidence-v1',rule:'semantic_original_reread_does_not_advance_journal'}};
+    const bytes=()=>Buffer.byteLength(JSON.stringify(core),'utf8')+150;let deferred=false;
+    for(const target of state.ready){
+      if(core.recoveryTargets.length>=Math.max(1,Math.min(8,count,Number(recoveryLimit)||8)))break;
+      const field={item:'items',claim:'claims',relationship_event:'events'}[target.record.recordType];if(!field)continue;
+      const roots=target.originals.map(source=>({...source,scope:{...scope}})),offered={id:target.record.id,version:target.record.version,key:target.key,sourceIds:roots.map(source=>source.id)};
+      const own={...core,sources:roots,reviewedSourceIds:roots.map(source=>source.id),recoveryTargets:[offered],priorMemory:{items:[],episodes:[],claims:[],events:[]}};own.priorMemory[field]=[target.record];
+      const requiredBytes=Buffer.byteLength(JSON.stringify(own),'utf8')+150;
+      if(requiredBytes>size){
+        const blocked={...target.record,semanticReview:{...target.record.semanticReview,recoveryDeferred:{key:target.key,budgetKey:state.policy.key,reason:'original_set_exceeds_batch_budget',requiredBytes,limitBytes:size,readCoverage:coverageFor(state.raw,[],scope,{requiredSourceIds:roots.map(source=>source.id)}),at:new Date().toISOString()}}};
+        this.db.prepare('UPDATE memory_records SET record=? WHERE scope_key=? AND id=?').run(JSON.stringify(blocked),key,blocked.id);deferred=true;continue;
+      }
+      const previousSources=core.sources,previousIds=core.reviewedSourceIds;
+      core.sources=[...new Map([...core.sources,...roots].map(source=>[source.id,source])).values()];core.reviewedSourceIds=core.sources.map(source=>source.id);core.priorMemory[field].push(target.record);core.recoveryTargets.push(offered);
+      if(bytes()>size){core.sources=previousSources;core.reviewedSourceIds=previousIds;core.priorMemory[field].pop();core.recoveryTargets.pop();}
+    }
+    if(deferred)this.db.prepare('UPDATE memory_meta SET version=version+1 WHERE scope_key=?').run(key);
+    if(!core.recoveryTargets.length)return null;
+    core.baseMemoryVersion=this.db.prepare('SELECT version FROM memory_meta WHERE scope_key=?').get(key).version;
+    return {id:hash(core),...core,maxBytes:size,inputBytes:bytes()-150};
+  }
   recordMemoryError(scope,error) {
     this.db.prepare('INSERT INTO memory_meta(scope_key,error) VALUES(?,?) ON CONFLICT(scope_key) DO UPDATE SET error=excluded.error').run(scopeKey(scope),JSON.stringify({code:String(error.code||'maintenance_error').slice(0,100),message:String(error.message||'Memory maintenance failed').slice(0,1000),at:new Date().toISOString(),...(error.sourceId?{sourceId:error.sourceId}:{}),...(error.requiredBytes?{requiredBytes:error.requiredBytes}:{})}));
   }
@@ -868,23 +927,29 @@ class Store {
       const raw=new Map(this._rawMemorySources(scope).map(s=>[s.id,s]));
       const actualDelivery=result.originalDelivery||[...batch.sources,...(batch.contextSources||[])].filter(source=>!source.deleted);
       coverageFor(raw,actualDelivery,scope);
+      if(batch.kind==='semantic_recovery'){
+        if(batch.events.length||!batch.recoveryTargets?.length)return reject('invalid_semantic_recovery');
+        const ready=new Map(this._semanticReviewState(scope).ready.map(target=>[target.record.id,target]));
+        if(batch.recoveryTargets.some(target=>ready.get(target.id)?.key!==target.key||ready.get(target.id)?.record.version!==target.version))return reject('stale_semantic_recovery');
+        if(result.items?.length)return reject('legacy_rewrite_not_allowed_in_recovery');
+      }
       const allowed=new Set(batch.sources.filter(s=>!s.deleted).map(s=>s.id));
       for(const source of batch.contextSources||[]) {if(raw.get(source.id)?.revision!==source.revision)return reject('stale_context_source');allowed.add(source.id);}
       const previous=new Map([...batch.priorMemory.items,...batch.priorMemory.episodes,...(batch.priorMemory.claims||[]),...(batch.priorMemory.events||[])].map(item=>[item.id,item]));
       for(const item of previous.values())for(const sid of item.sourceIds){if(raw.get(sid)?.revision!==item.sourceRevisions[sid])throw new Error('Stale prior memory source');}
       for(const source of batch.sources)if(!source.deleted&&raw.get(source.id)?.revision!==source.revision)return reject('stale_source');
       const checked=[];const statuses=['active','resolved','cancelled','superseded'];
-      const build=(value,type)=>{
+      const build=(value,type,{retiring=false}={})=>{
         const keys=['id','kind','text','sourceIds','topicKeys','status','certainty','explicitPreference'];
         if(!plain(value)||Object.keys(value).some(k=>!keys.includes(k)))throw new Error('Unauthorized memory fields');
         const sourceIds=sourceList(value.sourceIds);
         if(!sourceIds.length||sourceIds.length>64||sourceIds.some(sid=>!allowed.has(sid)||!raw.has(sid)))throw new Error('Unavailable or undelivered memory evidence');
         if(value.id!==undefined&&!previous.has(value.id))throw new Error('Replacement memory was not delivered');
         if(value.id!==undefined&&previous.get(value.id).recordType!==type)throw new Error('Memory update cannot change record type');
-        if(!sourceIds.some(sid=>batch.reviewedSourceIds.includes(sid)))throw new Error('An update needs evidence from this reviewed batch');
+        if(!retiring&&!value.id&&!sourceIds.some(sid=>batch.reviewedSourceIds.includes(sid)))throw new Error('A new memory needs evidence from this reviewed batch');
         const kind=type==='episode'?'episode':value.kind;
         if(type==='item'&&!['fact','preference','commitment','uncertainty'].includes(kind))throw new Error('Invalid memory kind');
-        if(kind==='preference'){if(value.explicitPreference!==true)throw new Error('Stable preferences require explicit recurring intent, not local feedback');assertPreferenceAuthority(raw,sourceIds);}
+        if(!retiring&&kind==='preference'){if(value.explicitPreference!==true)throw new Error('Stable preferences require explicit recurring intent, not local feedback');assertPreferenceAuthority(raw,sourceIds);}
         const topicKeys=value.topicKeys||[];
         if(!Array.isArray(topicKeys)||topicKeys.length>8||topicKeys.some(t=>typeof t!=='string'||!t.trim()||t.length>80))throw new Error('Invalid memory topic keys');
         const sourceRevisions=Object.fromEntries(sourceIds.map(sid=>[sid,raw.get(sid).revision]));
@@ -898,7 +963,9 @@ class Store {
         // Equivalent topic/state keys must not revive a resolved commitment just
         // because its original invitation arrived in a later history page.
         if(kind==='commitment'&&status==='active')for(const p of this._memoryRecords(scope))if(p.kind==='commitment'&&p.status!=='active'&&(p.topicKeys||[]).some(t=>topicKeys.includes(t))&&p.lastEvidenceAt>dates.at(-1))throw new Error('Older backfill cannot revive a later closed commitment');
-        return {id:value.id||randomUUID(),kind,text:textValue(value.text,'memory text',type==='episode'?2000:1000),sourceIds,sourceRevisions,topicKeys,status,certainty,reviewComplete,knowledgeSchemaVersion:2,semanticReview:{status:type==='episode'?'navigation_only':'legacy_unreviewed',coverage},firstEvidenceAt:dates[0],lastEvidenceAt:dates.at(-1),at:dates.at(-1),version:(older?.version||0)+1,createdAt:older?.createdAt||new Date().toISOString(),updatedAt:new Date().toISOString(),recordType:type};
+        const result={id:value.id||randomUUID(),kind,text:textValue(value.text,'memory text',type==='episode'?2000:1000),sourceIds,sourceRevisions,topicKeys,status,certainty,reviewComplete,knowledgeSchemaVersion:2,semanticReview:{...older?.semanticReview,status:retiring?'retired_from_originals':type==='episode'?'navigation_only':'legacy_unreviewed',coverage,...(retiring?{reviewedAt:new Date().toISOString()}:{})},firstEvidenceAt:dates[0],lastEvidenceAt:dates.at(-1),at:dates.at(-1),version:(older?.version||0)+1,createdAt:older?.createdAt||new Date().toISOString(),updatedAt:new Date().toISOString(),recordType:type};
+        if(retiring){for(const field of ['firstEvidenceAt','lastEvidenceAt','at','reportedAt'])if(older[field]!==undefined)result[field]=older[field];result.retirement={sourceIds:value.sourceIds,reviewedAt:result.semanticReview.reviewedAt};}
+        return result;
       };
       for(const [field,type] of [['items','item'],['episodes','episode']]) {
         if(result[field]!==undefined&&(!Array.isArray(result[field])||result[field].length>(type==='item'?24:6)))throw new Error(`Invalid ${field} count`);
@@ -907,7 +974,7 @@ class Store {
       if(result.retire!==undefined&&(!Array.isArray(result.retire)||result.retire.length>24))throw new Error('Invalid retire count');
       for(const retirement of result.retire||[]) {
         if(!plain(retirement)||Object.keys(retirement).some(k=>!['id','sourceIds','status'].includes(k))||!previous.has(retirement.id)||!['resolved','cancelled','superseded'].includes(retirement.status))throw new Error('Invalid retirement');
-        const old=previous.get(retirement.id);if(!['item','episode'].includes(old.recordType))throw new Error('Typed records require relationshipPatch retirement');checked.push(build({id:old.id,kind:old.kind,text:old.text,sourceIds:[...new Set([...old.sourceIds,...sourceList(retirement.sourceIds)])],topicKeys:old.topicKeys,status:retirement.status,certainty:old.certainty,...(old.kind==='preference'?{explicitPreference:true}:{})},old.recordType));
+        const old=previous.get(retirement.id);if(!['item','episode'].includes(old.recordType))throw new Error('Typed records require relationshipPatch retirement');checked.push(build({id:old.id,kind:old.kind,text:old.text,sourceIds:[...new Set([...old.sourceIds,...sourceList(retirement.sourceIds)])],topicKeys:old.topicKeys,status:retirement.status,certainty:old.certainty},old.recordType,{retiring:true}));
       }
       if(new Set(checked.map(c=>c.id)).size!==checked.length)throw new Error('Duplicate memory update');
       const relationships=result.relationshipPatch?prepareRelationshipPatch(this,scope,result.relationshipPatch,{sourceIds:[...allowed],sourceRevisions:Object.fromEntries([...raw].map(([id,s])=>[id,s.revision])),previousIds:new Set(previous.keys()),reviewedSourceIds:batch.reviewedSourceIds,deliveredSources:actualDelivery}):[];
@@ -918,12 +985,21 @@ class Store {
         for(const sid of item.sourceIds)this.db.prepare('INSERT INTO memory_dependencies VALUES(?,?,?,?)').run(key,item.id,sid,item.sourceRevisions[sid]);
       }
       const relationshipChanges=writeRelationshipRecords(this,scope,relationships);
+      const recoveryAttempts=[];
+      for(const target of batch.recoveryTargets||[]){
+        const row=this.db.prepare('SELECT record FROM memory_records WHERE scope_key=? AND id=?').get(key,target.id);if(!row)continue;
+        const record=JSON.parse(row.record);if(record.reviewComplete!==false||record.lifecycle&&record.lifecycle!=='active'||record.status&&record.status!=='active')continue;
+        const coverage=coverageFor(raw,actualDelivery,scope,{requiredSourceIds:target.sourceIds});
+        const metadata=coverage.complete?{recoveryAttempt:{key:target.key,batchId:id,targetVersion:target.version,outcome:'no_decision',readCoverage:coverage,at:new Date().toISOString()}}:
+          {recoveryDeferred:{key:target.key,budgetKey:'originals',reason:'necessary_originals_incomplete',readCoverage:coverage,at:new Date().toISOString()}};
+        record.semanticReview={...record.semanticReview,...metadata};this.db.prepare('UPDATE memory_records SET record=? WHERE scope_key=? AND id=?').run(JSON.stringify(record),key,target.id);recoveryAttempts.push({id:target.id,version:target.version,complete:coverage.complete});
+      }
       for(const proposal of batch.pendingProposals||[])this.db.prepare('DELETE FROM memory_pending_proposals WHERE scope_key=? AND id=?').run(key,proposal.id);
       for(const event of batch.events) {
         const length=raw.get(event.id)?.text.length||0;
         this.db.prepare("UPDATE memory_journal SET status=?,cursor=? WHERE seq=? AND scope_key=? AND status='pending'").run(event.end>=length?'reviewed':'pending',event.end,event.seq,key);
       }
-      const receipt={batchId:id,reviewedSourceIds:batch.reviewedSourceIds,sourceRevisions:Object.fromEntries(batch.events.map(e=>[e.id,e.revision])),seqFrom:batch.events[0].seq,seqTo:batch.events.at(-1).seq,segments:batch.events.map(e=>({sourceId:e.id,offset:e.offset,end:e.end})),originalCoverage:coverageFor(raw,actualDelivery,scope,{requiredSourceIds:actualDelivery.map(source=>source.id)}),reviewedAt:new Date().toISOString(),outcome:checked.length||relationshipChanges?'updated':'reviewed_no_change',updates:checked.length+relationshipChanges};
+      const receipt={batchId:id,kind:batch.kind||'source_journal',reviewedSourceIds:batch.reviewedSourceIds,sourceRevisions:Object.fromEntries((batch.kind==='semantic_recovery'?actualDelivery:batch.events).map(e=>[e.id,e.revision])),seqFrom:batch.events[0]?.seq??null,seqTo:batch.events.at(-1)?.seq??null,segments:batch.events.map(e=>({sourceId:e.id,offset:e.offset,end:e.end})),...(batch.kind==='semantic_recovery'?{recoveryAttempts}:{}),originalCoverage:coverageFor(raw,actualDelivery,scope,{requiredSourceIds:actualDelivery.map(source=>source.id)}),reviewedAt:new Date().toISOString(),outcome:checked.length||relationshipChanges?'updated':batch.kind==='semantic_recovery'?'semantic_review_unfinished':'reviewed_no_change',updates:checked.length+relationshipChanges};
       this.db.prepare('INSERT INTO memory_receipts VALUES(?,?,?)').run(key,id,JSON.stringify(receipt));
       this.db.prepare('UPDATE memory_meta SET version=version+1,error=NULL WHERE scope_key=?').run(key);
       return {applied:true,receipt};

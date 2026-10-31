@@ -378,6 +378,7 @@ class Controller extends EventEmitter {
   searchMemory(query,options={}) { return this.store.searchMemory(this.requireScope(),query,options); }
   memorySchedule() {
     if(!this.scope)return {reason:'no_contact',pending:0,ready:false,nextAt:null};
+    this.store.setMemoryReviewBudget?.(this.scope,{requestBytes:this.settings.memoryInputBytes,model:this.settings.model,responseMode:this.settings.modelResponseMode});
     const status=this.store.memorySchedulingStatus?this.store.memorySchedulingStatus(this.scope):this.store.memoryStatus(this.scope);
     // Unprocessed private sources have timestamps even before scheduler metadata is migrated.
     if(!status.lastEventAt&&!status.oldestPendingAt){const sources=this.store.memorySources(this.scope);status.lastEventAt=sources.map(source=>source.at).filter(Boolean).sort().at(-1);}
@@ -396,12 +397,14 @@ class Controller extends EventEmitter {
   }
   async maintainMemory({maxBatches=1,force=false}={}) {
     const scope=this.requireScope();
+    this.store.setMemoryReviewBudget?.(scope,{requestBytes:this.settings.memoryInputBytes,model:this.settings.model,responseMode:this.settings.modelResponseMode});
     if(force){this.memoryFailures=0;this.memoryRetryAfter=0;}
     if(!this.memoryModel)return {status:'not_configured',...this.store.memoryStatus(scope)};
     if(!this.hasModelConsent())throw new Error('当前会话未允许这个模型整理记忆');
     if(this.assistantBusy||this.memoryBusy||(!force&&!this.visible))return {status:'deferred',...this.store.memoryStatus(scope)};
     this.store.maintainLocal?.(scope);
-    if(!this.store.memoryStatus(scope).pending)return {status:'complete',...this.store.memoryStatus(scope)};
+    const work=this.store.memoryStatus(scope);
+    if(!work.pending&&!work.recoveryReady)return {status:work.semanticPending?'unfinished':'complete',...work};
     const schedule=this.memorySchedule(),remaining=schedule.windowLimit-schedule.requestsInWindow;
     if(!force&&remaining<=0)return {status:'deferred',...this.store.memoryStatus(scope)};
     const budget=this.usage.create(scope,{inputDigest:fingerprint({origin:'maintenance',at:Date.now(),scope}),origin:'maintenance',limit:Math.min(Math.max(2,Math.min(6,maxBatches*2)),force?6:remaining)});
@@ -419,8 +422,8 @@ class Controller extends EventEmitter {
       this.usage.finish(scope,budget.id,abort.signal.aborted?'cancelled':'failed',error.code||'maintenance_failed');
       throw error;
     } finally {
-      if(!this.store.memoryStatus(scope).pending)this.memoryDraining=false;
-      if(this.memoryAbort===abort){this.memoryBusy=false;this.memoryAbort=null;this.changed();if(this.store.memoryStatus(scope).pending)this.scheduleMemory(2500);}
+      const work=this.store.memoryStatus(scope);if(!work.pending&&!work.recoveryReady)this.memoryDraining=false;
+      if(this.memoryAbort===abort){this.memoryBusy=false;this.memoryAbort=null;this.changed();if(work.pending||work.recoveryReady)this.scheduleMemory(2500);}
     }
   }
   async assist({ text, purpose = 'discussion', materialIds = [], sourceTurnIds = [], selectedOption, transient = false, resumeTurnId, resumes=0, taskId, origin='user',feedbackIntentId,privateKind,responsePreference=this.instruction,candidateInputSeq,currentCandidateRef,candidateAlternative=false,requestDeliveryObligation:resumeDeliveryObligation,sourceHandleOwner:resumeSourceHandleOwner } = {}) {
