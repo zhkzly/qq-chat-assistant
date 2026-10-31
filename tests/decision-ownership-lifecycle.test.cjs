@@ -11,8 +11,7 @@ const GOOD='这两片新叶看着挺精神。';
 const PRIVATE_QUESTION='你最近有哪件愿意告诉她的真实小事？';
 function whole(source){const first=source.segments[0].materialRef,last=source.segments.at(-1).materialRef;return first===last?first:source.materialChoices.find(item=>item.from===first&&item.to===last).materialRef;}
 function candidate(p,text=GOOD){
- const qq=p.sources.find(source=>source.type==='qq'),id=p.intentAuthority.sourceId,c=text=>({text,sourceIds:[id]});
- return {operation:'prepare_message',draftPlan:{intent:'reply',quotes:[{materialRef:whole(qq),authorityRef:qq.authorityChoices.program[0].authorityRef}],guidance:{objective:c('回应她实际分享的近况'),allowedApproach:c('保留本次动作与真实经历范围'),avoidances:[]}},answer:{privateExplanation:'接住她刚说的具体变化。',suggestions:[{style:'自然',text}]}};
+ return {operation:'prepare_message',answer:{privateExplanation:'接住她刚说的具体变化。',suggestions:[{style:'自然',text}]}};
 }
 const allow=p=>({checkRef:p.checkRef,verdict:'allow',issues:[]});
 function toolResponse(value,name){return new Response(JSON.stringify({choices:[{finish_reason:'stop',message:{tool_calls:[{id:'fictional-decision-owner',type:'function',function:{name,arguments:JSON.stringify(value)}}]}}]}),{status:200});}
@@ -50,7 +49,7 @@ test('a plausible private pragmatic concern preserves the exact candidate withou
  assert.equal(app.controller.usage.get(scope,'decision-ownership-lifecycle').requests.filter(request=>request.purpose==='delivery_repair').length,0);
 });
 
-for(const defect of ['invented_self_event','forbidden_current_invitation'])test(`a grounded ${defect} rejects once, regenerates the whole candidate and rechecks within one shared repair`,async t=>{
+for(const defect of ['invented_self_event'])test(`a grounded ${defect} rejects once, regenerates the whole candidate and rechecks within one shared repair`,async t=>{
  const bad=defect==='invented_self_event'?'我昨天也给自己养的花盆换了土。':'下次我们一起去给花盆换土吧。';let checks=0;
  const app=await application(t,(p,wrapper)=>{
   if(p.purpose==='fidelity_check'){
@@ -62,6 +61,15 @@ for(const defect of ['invented_self_event','forbidden_current_invitation'])test(
  });
  const reply=await app.assist();assert.equal(app.calls.length,4);assert.equal(checks,2);assert.equal(reply.suggestions[0].text,GOOD);assert.deepEqual(visibleCandidate(reply),app.calls[3].p.candidate);assert.equal(JSON.stringify(reply).includes(bad),false);
  const ledger=app.controller.usage.get(scope,'decision-ownership-lifecycle');assert.equal(ledger.requests.filter(request=>request.purpose==='delivery_repair').length,1);assert.equal(new Set(app.calls.map(call=>call.taskId)).size,1);assert.equal(app.calls.every(call=>call.request.model==='synthetic-decision-ownership'),true);assert.equal(app.calls.some(call=>call.p.purpose==='draft'),false);assert.equal(app.store.getCompanion(scope).turns.filter(turn=>turn.role==='assistant').length,1);assert.equal(app.store.messages(scope).some(message=>message.direction==='outgoing'),false);
+});
+
+test('a sourced current social-boundary concern retains the exact answer without a repair',async t=>{
+ const text='下次我们一起去给花盆换土吧。',app=await application(t,p=>{
+  if(p.purpose!=='fidelity_check')return candidate(p,text);
+  const current=p.evidence.find(source=>source.sourceId===p.intentAuthority.sourceId);
+  return {checkRef:p.checkRef,verdict:'reject',issues:[{path:'suggestions[0].text',code:'current_boundary',quote:text,evidence:[{sourceId:current.sourceId,quote:current.text}],reason:'Scripted social interpretation remains privately advisory.'}]};
+ }),reply=await app.assist();
+ assert.equal(app.calls.length,2);assert.equal(reply.suggestions[0].text,text);assert.equal(app.run().requests.filter(request=>request.purpose==='delivery_repair').length,0);assert.equal(app.store.messages(scope).some(message=>message.direction==='outgoing'),false);
 });
 
 test('a later sourced explicit invitation replaces the prior local action under its fresh human-control frame',async t=>{
@@ -103,10 +111,10 @@ test('an exhausted structural repair preserves the original nested typed core fa
   if(p.purpose==='fidelity_check')assert.fail('A malformed core cannot reach checking');
   if(!wrapper.originalInput&&app.calls.length===1)return {operation:'prepare_message',draftPlan:'malformed core plan',answer:{suggestions:[{text:GOOD}]}};
   if(wrapper.originalInput){const qq=p.sources.find(source=>source.type==='qq');return {operation:'lookup',lookup:{sourceIds:[qq.id],offset:0,maxChars:1000},continuation:'prepare_message'};}
-  const raw=candidate(p);raw.draftPlan.quotes[0].authorityRef='a999999';raw.topicPatch=currentTopic(p);raw.statePatch={focus:'CORE_FAILURE_STATE_MUST_NOT_COMMIT'};return raw;
- }),before=app.store.getCompanion(scope);
- await assert.rejects(app.assist(),error=>{
-  assert.equal(error.code,'request_delivery_repair_exhausted');assert.equal(error.originalFailure.code,'unknown_authority_reference');assert.equal(error.originalFailure.field,'draftPlan.quotes[0].authorityRef');assert.ok(error.originalFailure.issues.some(issue=>issue.path==='draftPlan.quotes[0].authorityRef'&&issue.code==='unknown_authority_reference'));assert.ok(error.originalFailure.message);return true;
+  const raw=candidate(p);raw.materials=[{materialRef:whole(p.sources.find(source=>source.type==='note')),authorityRef:'a999999'}];raw.topicPatch=currentTopic(p);raw.statePatch={focus:'CORE_FAILURE_STATE_MUST_NOT_COMMIT'};return raw;
+ }),before=app.store.getCompanion(scope),note=app.store.saveNote(scope,{text:'BOUND_SOURCE_FACT',use:'draft'});
+ await assert.rejects(app.controller.assist({text:HUMAN,taskId:'decision-ownership-lifecycle',materialIds:[note.id]}),error=>{
+  assert.equal(error.code,'request_delivery_repair_exhausted');assert.equal(error.originalFailure.code,'unknown_authority_reference');assert.equal(error.originalFailure.field,'materials[0].authorityRef');assert.ok(error.originalFailure.issues.some(issue=>issue.path==='materials[0].authorityRef'&&issue.code==='unknown_authority_reference'));assert.ok(error.originalFailure.message);return true;
  });
  assert.equal(app.calls.length,3);unchangedCore(app,before);assert.equal(app.controller.usage.get(scope,'decision-ownership-lifecycle').requests.filter(request=>request.purpose==='delivery_repair').length,1);assert.equal(app.run().status,'failed');
 });

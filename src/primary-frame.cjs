@@ -12,7 +12,7 @@ function preparePrimaryFrame(payload,sourceOwner){
   ['draft','memory','discussion_compaction'].includes(original.purpose))return undefined;
  let owner=owners.get(sourceOwner);
  if(!owner){owner=new PrimaryReferenceOwner(sourceOwner.taskBinding);owners.set(sourceOwner,owner);}
- return owner.preview(payload);
+ return owner.preview(payload,{foreground:true});
 }
 const plain=value=>value&&typeof value==='object'&&!Array.isArray(value);
 function compilePrimaryFrame(raw,snapshot,payload){

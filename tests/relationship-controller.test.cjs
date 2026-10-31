@@ -100,5 +100,5 @@ test('old feedback review commits no-change state and an experience candidate wi
  const result=await app.controller.assist({taskId:'feedback-state-review',text:'回顾这次普通问候太正式的问题。',purpose:'review'});
  assert.equal(result.kind,'discussion');assert.equal(app.controller.usage.get(scope,'feedback-state-review').status,'complete');
  assert.equal(app.store.experiences.list(scope).adaptations[0].status,'candidate');
- const run=app.store.getCompanion(scope).runs.find(r=>r.id==='feedback-state-review');assert.equal(run.purpose,'review');assert.equal(run.requests[0].payload.purpose,'review');assert.equal(run.patchReceipt.applied,true);assert.equal(run.status,'complete');
+ const run=app.store.getCompanion(scope).runs.find(r=>r.id==='feedback-state-review');assert.equal(run.purpose,'answer_admission');assert.equal(run.payload.purpose,'answer_admission');assert.equal(run.requests[0].payload.purpose,'review');assert.equal(run.patchReceipt.applied,true);assert.equal(run.status,'complete');
 });

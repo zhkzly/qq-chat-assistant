@@ -29,6 +29,7 @@ function inFlightMessageRequirement(owner,scope){
 }
 const { assistModel, parseAssistant, withoutInapplicableTopic, imageContextFor } = require('./assistant-model.cjs');
 const { buildContext, buildDraftContext, expressionOptionsFor, PROMPT_VERSION } = require('./assistant-context.cjs');
+const {buildAnswerAdmission,buildOptionAdmission}=require('./context/wording-view.cjs');
 const { planDiscussionCompaction, assistDiscussionCompaction } = require('./discussion-compaction.cjs');
 const { discussionTopicBinding, discussionModelBinding, DISCUSSION_COMPACTION_VERSION,automaticDiscussionTurnIds } = require('./discussion-compaction-store.cjs');
 const { normalizeResponseRecovery } = require('./store.cjs');
@@ -600,7 +601,7 @@ class Controller extends EventEmitter {
             if(editable(requestDelivery))requestDeliveryObligation={mode:requestDelivery.mode,sourceId:requestDelivery.sourceId,sourceRevision:resultInput.manifest.sourceRevisions[requestDelivery.sourceId]};
             if(current()&&this.activeAssist?.taskId===budget.id)this.activeAssist.args.requestDeliveryObligation=requestDeliveryObligation;
           }
-          if(requestDelivery)input.manifest.requestDelivery={interpretation:requestDelivery,status:deliveryStatus(requestDelivery,result,{restricted:resultInput.payload.purpose==='draft'}),...(result.deliveryBlocker?{blocker:result.deliveryBlocker}:{})};
+          if(requestDelivery)input.manifest.requestDelivery={interpretation:requestDelivery,status:deliveryStatus(requestDelivery,result,{restricted:resultInput.payload.purpose==='draft',committed:false}),...(result.deliveryBlocker?{blocker:result.deliveryBlocker}:{})};
           const auxiliaryErrors=[...(input.manifest.auxiliaryErrors||[]),...(resultInput.manifest.auxiliaryErrors||[]),...(diagnostics.auxiliaryErrors||[])];
           if(auxiliaryErrors.length){input.manifest.auxiliaryErrors=[...new Map(auxiliaryErrors.map(e=>[JSON.stringify(e),e])).values()];
             const fields=new Set(auxiliaryErrors.map(e=>e.field));
@@ -668,7 +669,9 @@ class Controller extends EventEmitter {
         }
         // Validate the complete prepared branch before any independently
         // authorized action can mutate its source context.
-        if(result.draftPlan&&!result.draftPlan.clarification){
+        if(primaryOperationFor(result)?.contractVersion==='primary-operation-v2'&&primaryOperationFor(result).operation==='prepare_message'){
+          buildAnswerAdmission(context,result,{scope,requestId,companion,coverage,settings,store:this.store});
+        }else if(result.draftPlan&&!result.draftPlan.clarification){
           if(!primaryOperationFor(result)?.answer)throw new Error('主调用必须同时提供完整answer和来源绑定计划；输入已保留');
           buildDraftContext(context,result.draftPlan,{scope,requestId,companion,coverage,settings,store:this.store});
         }
@@ -733,7 +736,7 @@ class Controller extends EventEmitter {
         break;
       }
       if(!result||result.lookup)throw new Error('本次信息整理未能完成，请重试；原始输入已保存');
-      let reviewed,discussionExplanation,expressionOptions,checkInput,checked,approval;
+      let reviewed,discussionExplanation,expressionOptions,optionAdmission,checkInput,checked,approval,fidelityRegenerationUsed=false;
       for(;;){
         const proposal=topicProposals.at(-1);
         if(proposal?.context===context&&this.store.previewTopicPatch){
@@ -748,9 +751,13 @@ class Controller extends EventEmitter {
         const primaryContext=context,primaryResult=result,state=primaryOperationFor(result);
         reviewed=context;stagedReview={context,result};
         expressionOptions=[];
-        try{expressionOptions=expressionOptionsFor(primaryContext,result.expressionOptions||[]);}catch(error){receipts.push({status:'rejected',reason:error.message});}
+        try{optionAdmission=buildOptionAdmission(primaryContext,result.expressionOptions||[],{scope,store:this.store});expressionOptions=optionAdmission.options;}
+        catch(error){if(state?.contractVersion==='primary-operation-v2')throw error;receipts.push({status:'rejected',reason:error.message});optionAdmission={options:[],groups:[],sourceRevisions:{}};}
         let admitted;
-        if(result.draftPlan?.clarification){
+        if(state?.contractVersion==='primary-operation-v2'&&['prepare_message','advise'].includes(state.operation)){
+          admitted=buildAnswerAdmission(primaryContext,result,{scope,requestId,companion,coverage,settings,store:this.store});
+          context=admitted;
+        }else if(result.draftPlan?.clarification){
           const blocker=result.requestDelivery?.blocker||result.deliveryBlocker;
           result={...result,kind:'question',text:blocker?clarificationBody(blocker):result.draftPlan.clarification};
         }else if(result.draftPlan){
@@ -761,13 +768,14 @@ class Controller extends EventEmitter {
         }else if(state?.admittedMaterials){admitted={payload:{outboundQuotes:state.admittedMaterials},manifest:primaryContext.manifest};}
         discussionExplanation=result.requestDelivery?.blocker||result.deliveryBlocker?undefined:result.discussionExplanation;
         validateTerminalDelivery(result,requestDeliveryObligation);
-        checkInput=buildFidelityContext(primaryContext,result,{scope,requestId,store:this.store,settings,admittedContext:admitted,expressionOptions,sourceContexts:capturedRequests});
+        checkInput=buildFidelityContext(primaryContext,result,{scope,requestId,store:this.store,settings,admittedContext:admitted,expressionOptions,optionAdmission,sourceContexts:capturedRequests});
         checked=await invokeFidelity(checkInput);if(!current())return;
         approval=approvalFor(checked,checkInput);
         if(approval){context.manifest.fidelity={...checkInput.manifest.fidelity,...approval};break;}
-        const ledger=budget.snapshot(),used=ledger.requests.some(request=>request.purpose==='delivery_repair');
+        const ledger=budget.snapshot(),used=fidelityRegenerationUsed||ledger.requests.some(request=>request.purpose==='delivery_repair');
         if(checked.verdict==='uncertain'||used||ledger.remaining<2){const error=new Error('完整答复核对未完成，且不能继续修复；输入与已取得原文已保留');error.code=used?'request_delivery_repair_exhausted':checked.verdict==='uncertain'?'fidelity_coverage_uncertain':'fidelity_repair_budget';throw error;}
         relationshipProposals.length=0;topicProposals.length=0;experienceProposals.length=0;stagedReview=null;
+        fidelityRegenerationUsed=true;
         const retry=buildFidelityRepairContext(primaryContext,checkInput);
         Object.defineProperty(retry,'sourceHandleOwner',{value:settings.sourceHandleOwner,writable:true,configurable:true});
         Object.defineProperty(retry,'fidelityRepair',{value:{candidate:checkInput.payload.candidate,issues:checked.issues}});
@@ -781,7 +789,7 @@ class Controller extends EventEmitter {
         deliveredMethodRefs:[...new Map([...(request.manifest.methodTrace?.catalog||[]).map(method=>({...method,guidanceLevel:'catalog'})),...(request.manifest.methodTrace?.delivered||[]).map(method=>({...method,guidanceLevel:'full_card'}))].map(method=>[method.id,method])).values()].map(method=>({methodId:method.id,version:method.version,guidanceLevel:method.guidanceLevel})),reportedUsedMethodRefs:request.manifest.methodTrace?.reported?.map(id=>({methodId:id,version:methodFor(id)?.version}))??null}));
       let patchReceipt=null,relationshipReceipt=null,topicReceipt=null;
       const recoveryValue=context.manifest?.responseRecovery,responseRecovery=recoveryValue&&normalizeResponseRecovery(recoveryValue);
-      if(requestDelivery)context.manifest.requestDelivery={interpretation:requestDelivery,status:deliveryStatus(requestDelivery,result,{restricted:context.payload.purpose==='draft'}),...(result.deliveryBlocker||result.requestDelivery?.blocker?{blocker:result.deliveryBlocker||result.requestDelivery.blocker}:{})};
+      if(requestDelivery)context.manifest.requestDelivery={interpretation:requestDelivery,status:deliveryStatus(requestDelivery,result,{restricted:context.payload.purpose==='draft',committed:false}),...(result.deliveryBlocker||result.requestDelivery?.blocker?{blocker:result.deliveryBlocker||result.requestDelivery.blocker}:{})};
       const validatedPlanDigest=fingerprint({purpose:context.payload.purpose,outboundQuotes:context.payload.outboundQuotes,
         editingReference:context.payload.editingReference,inputArtifactRefs:context.manifest.inputArtifactRefs,
         draftingGuidance:context.payload.draftingGuidance,wordingControls:context.payload.wordingControls,replyFocus:context.payload.replyFocus,
@@ -837,6 +845,7 @@ class Controller extends EventEmitter {
           artifactMetadata:{generationStages,goalVersion:companion.goal.version,inputArtifactRefs:assertArtifactInputs(context),inputSourceRefs:
             [...new Map(capturedRequests.flatMap(request=>Object.entries({...request.manifest?.discussionCompaction?.sourceRevisions,...request.manifest?.sourceRevisions}))).entries()].filter(([sourceId])=>/^(qq|private|note):/.test(sourceId)).map(([sourceId,revision])=>({sourceId,revision})),
             discussionTurnFingerprints:Object.assign({},...capturedRequests.map(request=>({...request.manifest?.discussionCompaction?.turnFingerprints,...Object.fromEntries((request.manifest?.discussionReads||[]).filter(read=>['delivered','partial'].includes(read.delivery?.status)&&read.turnFingerprint).map(read=>[read.turnId,read.turnFingerprint]))}))),model:settings.model,promptVersion:context.payload.promptVersion}});
+        if(requestDelivery)context.manifest.requestDelivery.status=deliveryStatus(requestDelivery,result,{restricted:context.payload.purpose==='draft'});
         this.store.saveRun(scope,{id:requestId,baseRevision,purpose:context.payload.purpose,status:'complete',payload:context.payload,manifest:context.manifest,
           requests:capturedRequests,replyId:saved.id,patchReceipt,relationshipReceipt,topicReceipt,actionReceipts:receipts,privateReviewReceipt:saved.privateReviewReceipt,
           auxiliaryErrors:rejectedAux,maintenance:metadataReviewPending?'partial_rejected':patchReceipt?.applied?(stagedReview?.result.statePatch?'applied':'reviewed_no_change'):patchReceipt?'rejected':'deferred'});
@@ -857,6 +866,7 @@ class Controller extends EventEmitter {
       this.usage.finish(scope,budget.id,'failed',error.code||'assistant_failed');
       this.candidateSession.finish(candidateTicket,'generation_failed');
       this.assistantError=error.message;
+      if(context?.manifest?.requestDelivery?.status==='delivered')context.manifest.requestDelivery.status='prepared';
       // A later producer failure does not undo an independently applied user
       // action. An unavailable post-forget context must not revive old inputs.
       this.store.saveRun(scope,{id:requestId,baseRevision,purpose:context?.payload.purpose||purpose,status:'failed',payload:context?.payload||{purpose},manifest:context?.manifest||{scope,requestId,purpose},requests:capturedRequests,

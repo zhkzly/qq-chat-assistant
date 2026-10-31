@@ -120,8 +120,8 @@ test('wrapped early draft preparation is repaired into a complete primary answer
     const plan={...planned.draftPlan,quotes:[{materialRef:materialRefForText(material,planned.draftPlan.quotes[0].text),authorityRef}]};
     return response(JSON.stringify({draftPlan:withCurrentDraftControls(plan,prepared.payload),answer:{privateExplanation:'参考表达',suggestions:[{style:'自然',text:'周末一起散步吗？'}]}}));
   });
-  assert.equal(calls.length, 2); assert.match(calls[1].task,/prepare_message\+draftPlan/);assert.doesNotMatch(calls[1].task,/先保证kind\/text/); assert.equal(result.suggestions, undefined);
-  const draft = buildDraftContext(prepared.resultContext || prepared, result.draftPlan, args);
+  assert.equal(calls.length, 2); assert.match(calls[1].task,/prepare_message/);assert.match(calls[1].task,/answer/);assert.doesNotMatch(calls[1].task,/先保证kind\/text/); assert.equal(result.kind,'draft');assert.equal(result.draftPlan,undefined);assert.equal(result.suggestions[0].text,'周末一起散步吗？');
+  const draft = buildDraftContext(prepared.resultContext || prepared, withCurrentDraftControls(planned.draftPlan,prepared.payload), args);
   const {primaryOperationFor}=require('../src/primary-operation.cjs');assert.equal(primaryOperationFor(result).answer.suggestions[0].text,'周末一起散步吗？');
   assert.equal(calls.length,2);assert.equal(draft.payload.purpose,'draft');assert.equal(JSON.stringify(draft.payload).includes('PRIVATE_MOTIVE_'),false);
 });

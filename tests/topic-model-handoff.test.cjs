@@ -130,11 +130,10 @@ test('a new explicit user direction reaches planner and final instead of restori
     const captured=prepared.extraRequests?.at(-1)?.payload?.originalInput||prepared.payload,receipt=prepared.extraRequests?.at(-1)?.manifest?.primaryReferences||prepared.manifest.primaryReferences;
     return { ok: true, json: async () => ({ choices: [{ message: { content: JSON.stringify(withCurrentStatementAuthority(value,captured,receipt)) } }] }) };
   });
-  const draft = buildDraftContext(prepared, plan.draftPlan, args);
-  assert.equal(draft.payload.draftingGuidance.objective.text, '直接表达好感和想多认识对方');
-  assert.deepEqual(draft.payload.draftingGuidance.allowedApproach.sourceIds, [currentId]);
-  assert.equal(JSON.stringify(draft.payload).includes(topic.direction), false);
-  assert.throws(() => buildDraftContext(prepared, plan.draftPlan, { ...args, scope: { ...scope, peerUid: 'other-contact' } }), /联系人已变化/);
+  const draft = require('../src/context/wording-view.cjs').buildAnswerAdmission(prepared,plan,args);
+  assert.equal(plan.suggestions[0].text,'我对你有好感，想多认识你一点。');assert.equal(plan.draftPlan,undefined);
+  assert.equal(draft.payload.currentHumanControl.sourceId,currentId);assert.equal(draft.payload.currentHumanControl.text,changed.text);assert.equal(draft.payload.draftingGuidance,undefined);
+  assert.throws(() => require('../src/context/wording-view.cjs').buildAnswerAdmission(prepared,plan,{...args,scope:{...scope,peerUid:'other-contact'}}),/scope changed/);
 });
 
 test('canonical feedback continuation is authoritative without duplicating its body into the neutral request', t => {
@@ -318,7 +317,7 @@ test('ordinary and prepared help isolate unsupported optional progress without s
     return { ok: true, json: async () => ({ choices: [{ message: { content: JSON.stringify(output) } }] }) };
   });
   assert.equal(strictCalls.length,1);assert.equal(strict.manifest.formatRepair,undefined);assert.ok(strict.manifest.auxiliaryErrors.some(issue=>issue.field==='topicPatch'&&/progress/.test(issue.message)));
-  assert.deepEqual(planned.draftPlan.guidance, plan.guidance); assert.equal(planned.topicPatch, undefined);
+  assert.equal(planned.kind,'draft');assert.equal(planned.draftPlan,undefined);assert.equal(planned.topicPatch,undefined);
 });
 
 test('a current private draft task can refresh its phase without changing objective or recording an actual send', t => {
@@ -360,17 +359,14 @@ test('removed topic restrictions stay removed while each current drafting task s
     { ...prepared.payload, topicContext: { active: null, retained: [] } }).draftPlan.quotes.length, 1);
 });
 
-test('legacy active-topic draft preparation is repaired once into source-bound guidance before restricted drafting', async t => {
-  const { args, guidance } = fixture(t), prepared = buildContext({ ...args, purpose: 'draft_prepare' }), calls = [];
-  const result = await assistModel(settings, prepared, undefined, async (_, request) => {
-    calls.push(JSON.parse(JSON.parse(request.body).messages[1].content));
-    const draftPlan = calls.length === 1 ? { taskUse:'continue', intent: 'reply', quotes: [], style: 'natural' } : { taskUse:'continue', intent: 'reply', quotes: [], style: 'natural', guidance };
-    return { ok: true, json: async () => ({ choices: [{ message: { content: JSON.stringify({ draftPlan,answer:{suggestions:[{text:'A complete message retaining the current controls.'}]} }) } }] }) };
-  });
-  assert.equal(calls.length, 2); assert.match(calls[1].formatError, /draftPlan.guidance/);
-  const effective = prepared.resultContext || prepared, draft = buildDraftContext(effective, result.draftPlan, args);
-  assert.equal(draft.payload.draftingGuidance.objective.text, guidance.objective.text);
-  assert.equal(draft.payload.draftingGuidance.allowedApproach.text, guidance.allowedApproach.text);
-  assert.deepEqual(draft.payload.draftingGuidance.avoidances, guidance.avoidances);
-  for (const privateText of ['PRIVATE_MOTIVE_', 'PRIVATE_LONG_GOAL_']) assert.equal(JSON.stringify(draft.payload).includes(privateText), false);
+test('normal active-topic preparation owns its answer without a legacy guidance handshake',async t=>{
+ const {args}=fixture(t),prepared=buildContext({...args,purpose:'draft_prepare'}),calls=[];
+ const result=await assistModel(settings,prepared,undefined,async(_,request)=>{
+  calls.push(JSON.parse(JSON.parse(request.body).messages[1].content));
+  return {ok:true,json:async()=>({choices:[{message:{content:JSON.stringify({operation:'prepare_message',answer:{suggestions:[{text:'A complete message retaining the current controls.'}]}})}}]})};
+ });
+ assert.equal(calls.length,1);assert.equal(result.kind,'draft');assert.equal(result.draftPlan,undefined);assert.equal(calls[0].taskContext.draftControlPolicy,undefined);
+ const admitted=require('../src/context/wording-view.cjs').buildAnswerAdmission(prepared,result,args);
+ assert.equal(admitted.payload.currentHumanControl.text,prepared.payload.userRequest.text);assert.equal(admitted.payload.draftingGuidance,undefined);
+ for(const privateText of ['PRIVATE_MOTIVE_','PRIVATE_LONG_GOAL_'])assert.equal(JSON.stringify(admitted.payload).includes(privateText),false);
 });

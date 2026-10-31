@@ -9,23 +9,12 @@ const stages=(item,stepId,purpose)=>item.stages.filter(stage=>stage.stepId===ste
 function responder(payload,definition){
  const step=definition.activeStep;
  if(payload.purpose==='fidelity_check')return {checkRef:payload.checkRef,verdict:'allow',issues:[]};
- const sourceId=payload.intentAuthority?.sourceId||payload.userRequest?.sourceId,control=text=>({text,sourceIds:[sourceId]});
- const plan={quotes:[],intent:'reply',guidance:{objective:control('按本轮明确意思回应当前交流'),allowedApproach:control('接住实际内容，不编自己的经历'),avoidances:[]}};
- if(step.id==='invite-now'){
-  plan.quotes=['我周六下午有空','想约她语音一起拼一会儿'].map(text=>({sourceId,text}));
-  plan.guidance.objective=control('明确邀请她周六下午语音一起拼一会儿');
-  plan.guidance.allowedApproach=control('保留当前邀请与用户自己的时间，不沿用旧的只聊兴趣方向');
- }
- if(step.id==='this-turn-complete-emoji'){
-  plan.useEmoji=true;
-  plan.guidance.allowedApproach=control('正常说完整一句，不刻意压成碎短句，可以用一个表情');
- }
- const reply={operation:'prepare_message',text:'Synthetic planning verifies carriers only.',draftPlan:plan,answer:{privateExplanation:'Synthetic transport output, not a quality verdict.',suggestions:[{style:'自然',text:step.syntheticWording}]}};
+ const reply={operation:'prepare_message',...(step.id==='invite-now'?{currentFacts:['我周六下午有空']}:{}),answer:{privateExplanation:'Synthetic transport output, not a quality verdict.',suggestions:[{style:'自然',text:step.syntheticWording}]}};
  if(step.id==='save-defaults'){
   const text=step.request.slice(step.request.indexOf('以后'),step.request.indexOf('。'));
   reply.actions=[{type:'set_preference',text,evidenceQuote:step.request}];
  }
- return step.id==='invite-now'?withCurrentStatementAuthority(reply,payload):reply;
+ return reply;
 }
 const run=cases=>runHarness({continuousCases:cases,maxHttp:18,syntheticResponder:responder});
 
@@ -51,12 +40,12 @@ test('work correction, actual send and next incoming retain one history and the 
  assert.equal(report.realHttpAttempts,0);assert.equal(report.semanticVerdict,'requires_independent_review');
 });
 
-test('the current explicit invitation reaches restricted wording as authorized current material',async()=>{
+test('the current factual time and complete invitation intent reach the admission view separately',async()=>{
  const report=await run(selected('S2-now-invite')),item=report.cases[0];
  assert.equal(item.status,'executed_semantic_review_required',JSON.stringify(item.error||item.checks));const draft=item.steps.find(step=>step.id==='invite-now').admittedContext.payload;
  assert.equal(item.status,'executed_semantic_review_required',JSON.stringify(item.error||item.checks));
- assert.deepEqual(draft.outboundQuotes.map(quote=>quote.text),['我周六下午有空','想约她语音一起拼一会儿']);
- assert.ok(draft.outboundQuotes.every(quote=>draft.draftingGuidance.objective.sourceIds.includes(quote.sourceId)));
+ assert.deepEqual(draft.outboundQuotes.map(quote=>quote.text),['我周六下午有空']);
+ assert.equal(draft.purpose,'answer_admission');assert.equal(draft.draftingGuidance,undefined);assert.ok(draft.currentHumanControl.text.includes('想约她语音一起拼一会儿'));
  assert.equal(draft.privateConversation,undefined);assert.equal(draft.goal,undefined);
 });
 

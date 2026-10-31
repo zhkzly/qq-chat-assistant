@@ -4,6 +4,8 @@ const {Store}=require('../src/store.cjs');
 const {SourceHandleOwner}=require('../src/source-handles.cjs');
 const {normalize}=require('../src/messages.cjs');
 const {buildContext,buildDraftContext}=require('../src/assistant-context.cjs');
+const {buildAnswerAdmission}=require('../src/context/wording-view.cjs');
+const {buildFidelityContext}=require('../src/whole-answer-fidelity.cjs');
 const {assistModel,prepareAssistantRequest,canonicalSourceView}=require('./fixtures/assistant-protocol.cjs');
 const {withCurrentStatementAuthority}=require('./fixtures/current-statement-authority.cjs');
 const {scope,raw}=require('./fixtures/native.cjs');
@@ -61,7 +63,7 @@ for(const purpose of ['discussion','draft_prepare','draft'])test(`${purpose} rec
  }
  if(purpose==='draft'){for(const key of ['userRequest','goal','privateConversation'])assert.equal(repair.originalInput[key],undefined);}
  assert.equal(context.extraRequests[0].inputBytes,Buffer.byteLength(calls[1]));
- const canonicalRepair=canonicalSourceView(repair.originalInput,context.extraRequests[0].manifest.sourceHandles);
+ const canonicalRepair=canonicalSourceView(repair.originalInput,context.extraRequests[0].manifest.sourceHandles,effective.payload);
  const delivered=[...new Set([...canonicalRepair.sources.map(source=>source.id),...(canonicalRepair.outboundQuotes||[]).map(quote=>quote.sourceId)])].sort();
  assert.deepEqual([...new Set(context.extraRequests[0].manifest.sourceIds)].sort(),delivered);
  assert.deepEqual([...new Set(effective.manifest.sourceIds)].sort(),delivered);
@@ -96,19 +98,23 @@ test('automatic controller entry uses the configured envelope and persists the e
  controller.visible=false;t.after(()=>controller.close());controller.updateStatus({phase:'ready',account:{uid:scope.accountUid,uin:scope.accountUin}});await controller.bind(scope.peerUin);
  await controller.suggest({automatic:true});assert.equal(controller.assistantError,'');assert.equal(calls.length,3);assert.ok(calls.every(body=>Buffer.byteLength(body)<=32000));
  const run=store.getCompanion(scope).runs.find(item=>item.id===controller.advice.requestId),repair=JSON.parse(JSON.parse(calls[1]).messages[1].content);
- assert.equal(run.status,'complete');const canonicalRepair=canonicalSourceView(repair.originalInput,run.requests[1].manifest.sourceHandles,run.payload);assert.deepEqual(run.payload,canonicalRepair);
+ assert.equal(run.status,'complete');
+ const captured=run.requests[1].payload.originalInput,canonicalRepair=canonicalSourceView(repair.originalInput,run.requests[1].manifest.sourceHandles,captured);
+ assert.deepEqual(captured,canonicalRepair,'the exact model repair input stays in its captured request');
+ assert.equal(run.payload.purpose,'answer_admission');assert.equal(run.payload.userRequest,undefined);assert.deepEqual(run.payload.outboundQuotes,[]);
  const delivered=canonicalRepair.sources.map(source=>source.id).filter(id=>!id.startsWith('request:')).sort();
  assert.deepEqual([...run.manifest.sourceIds].sort(),delivered);assert.deepEqual([...run.requests[1].manifest.sourceIds].sort(),delivered);
  const usage=controller.usage.get(scope,run.id);assert.equal(usage.attempts,3);assert.equal(usage.origin,'automatic');assert.equal(usage.status,'complete');
 });
-test('a repaired preparation retains selected image evidence for the final restricted draft',async t=>{
+test('a repaired whole answer retains selected image evidence for its factual check',async t=>{
  const {args}=fixture(t),imageMessageId=args.records[0].messageId;
+ args.settings.sourceHandleOwner=new SourceHandleOwner({scope,taskId:args.requestId});
  const images=[{url:'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAAB',messageId:imageMessageId,index:0,bytes:24}];
  const prepared=buildContext({...args,purpose:'draft_prepare',imageMessageIds:[imageMessageId],images,mediaContext:{mode:'manual',omitted:[]}}),calls=[];
  args.settings.assistantRequestBytes=prepareAssistantRequest(args.settings,prepared.payload,images).requestBytes+200;
  prepared.images=images;prepared.manifest.images=images.map(({url,...metadata})=>metadata);
  const invalid='INVALID_'+('"\\\n原本的输出仍需完整修复。'.repeat(140));
- const plan=await assistModel(args.settings,prepared,undefined,async(_,request)=>{
+ const result=await assistModel(args.settings,prepared,undefined,async(_,request)=>{
   calls.push(JSON.parse(request.body));if(calls.length===1)return ok(invalid);
   const captured=prepared.extraRequests?.at(-1)?.payload?.originalInput||prepared.payload,receipt=prepared.extraRequests?.at(-1)?.manifest?.primaryReferences||prepared.manifest.primaryReferences;
   return ok(JSON.stringify(withCurrentStatementAuthority({draftPlan:{quotes:[{sourceId:prepared.payload.userRequest.sourceId,text:args.turn.text}],guidance:currentControls(prepared.payload)},answer:{suggestions:[{text:'我想多认识你一点。'}]}},captured,receipt)));
@@ -118,9 +124,10 @@ test('a repaired preparation retains selected image evidence for the final restr
  assert.ok(effective.manifest.sourceRevisions[`qq:${imageMessageId}`]);
  assert.ok(Array.isArray(calls[1].messages[1].content),'delivery repair retains the selected actual image');
  assert.equal(prepared.extraRequests[0].manifest.imageCount,1);assert.deepEqual(prepared.extraRequests[0].manifest.images,images.map(({url,...metadata})=>metadata));
- const draft=buildDraftContext(effective,plan.draftPlan,args);draft.images=effective.images;
- await assistModel(args.settings,draft,undefined,async(_,request)=>{calls.push(JSON.parse(request.body));return ok(JSON.stringify({kind:'draft',text:'参考表达',suggestions:[{style:'自然',text:'我想多认识你一点。'}]}));});
+ assert.equal(result.kind,'draft');assert.equal(result.suggestions[0].text,'我想多认识你一点。');assert.equal(result.draftPlan,undefined);
+ const admitted=buildAnswerAdmission(effective,result,args),check=buildFidelityContext(effective,result,{...args,admittedContext:admitted});
+ await assistModel(args.settings,check,undefined,async(_,request)=>{const body=JSON.parse(request.body),payload=JSON.parse(body.messages[1].content[0].text);calls.push(body);return ok(JSON.stringify({checkRef:payload.checkRef,verdict:'allow',issues:[]}));});
  assert.equal(calls[2].messages[1].content[1].image_url.url,images[0].url);
- assert.ok(draft.manifest.sourceRevisions[`qq:${imageMessageId}`]);
+ assert.equal(check.payload.purpose,'fidelity_check');assert.ok(check.manifest.sourceRevisions[`qq:${imageMessageId}`]);
  assert.deepEqual(structuredClone(effective).payload,effective.payload,'internal callbacks must not break plain-data context copies');
 });

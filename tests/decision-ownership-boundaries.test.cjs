@@ -27,9 +27,8 @@ function active(extra={}){
  return {...fixture,payload,wire:prepared.wirePayload,prepared,context:{payload,manifest:{scope,requestId:'decision-ownership-boundaries',sourceRevisions:Object.fromEntries(payload.sources.map(item=>[item.id,item.revision]))},sourceWireSnapshot:prepared.sourceWire,primaryFrameSnapshot:prepared.primaryFrame}};
 }
 function whole(view){const first=view.segments[0].materialRef,last=view.segments.at(-1).materialRef;return first===last?first:view.materialChoices.find(item=>item.from===first&&item.to===last).materialRef;}
-function preparedMessage(app,{guidance=true}={}){
- const qq=app.wire.sources.find(item=>item.type==='qq'),id=app.wire.intentAuthority.sourceId,control=text=>({text,sourceIds:[id]});
- return {operation:'prepare_message',draftPlan:{intent:'reply',quotes:[{materialRef:whole(qq),authorityRef:qq.authorityChoices.program[0].authorityRef}],...(guidance?{guidance:{objective:control('回应她刚说的具体近况'),allowedApproach:control('只用实际材料并保留本次动作'),avoidances:[]}}:{})},answer:{privateExplanation:'顺着她已经分享的近况接一句。',suggestions:[{text:'这两片新叶看着挺精神。'}]}};
+function preparedMessage(){
+ return {operation:'prepare_message',answer:{privateExplanation:'顺着她已经分享的近况接一句。',suggestions:[{text:'这两片新叶看着挺精神。'}]}};
 }
 
 test('omitted public QQ authority is derived from the currently offered exact program target',()=>{
@@ -75,15 +74,15 @@ test('a prepared core survives malformed or inapplicable optional topic bookkeep
  for(const topicPatch of [{operation:'update',authority:'MODEL_CANNOT_ASSIGN_AUTHORITY'},{operation:'update',topicId:'not-offered-topic',direction:'An inapplicable proposed direction'},{operation:'create',objective:'An unsupported optional interpretation',purposeSourceIds:['s999999'],intentQuote:'An absent quote'}]){
   const app=active(),raw=preparedMessage(app),diagnostics={};raw.topicPatch=topicPatch;raw.stateReview='no_change';
   const result=parseAssistant(raw,'discussion',app.context,diagnostics);
-  assert.equal(result.draftPlan.quotes[0].sourceId,app.qq.id);assert.equal(result.topicPatch,undefined);assert.equal(result.stateReview,undefined);
+  assert.equal(result.kind,'draft');assert.equal(result.draftPlan,undefined);assert.equal(result.topicPatch,undefined);assert.equal(result.stateReview,undefined);
   assert.ok(diagnostics.auxiliaryErrors.some(error=>error.field==='topicPatch'));
  }
 });
 
-test('dropping optional topic proposals revalidates required current guidance and private material permission',()=>{
- const app=active(),raw=preparedMessage(app,{guidance:false});raw.topicPatch={operation:'update',authority:'MODEL_CANNOT_ASSIGN_AUTHORITY'};
- assert.throws(()=>parseAssistant(raw,'discussion',app.context,{}),error=>typed(error,'draft_control_guidance_missing'));
- const privateApp=active(),privateRaw=preparedMessage(privateApp),privateView=privateApp.wire.sources.find(item=>item.id!==privateApp.wire.intentAuthority.sourceId&&item.type==='private');privateRaw.draftPlan.quotes=[{materialRef:whole(privateView)}];privateRaw.topicPatch={operation:'update',authority:'MODEL_CANNOT_ASSIGN_AUTHORITY'};
+test('dropping optional topic proposals preserves whole-answer ownership and private material permission',()=>{
+ const app=active(),raw=preparedMessage(app);raw.topicPatch={operation:'update',authority:'MODEL_CANNOT_ASSIGN_AUTHORITY'};
+ const answer=parseAssistant(raw,'discussion',app.context,{});assert.equal(answer.kind,'draft');assert.equal(answer.draftPlan,undefined);
+ const privateApp=active(),privateRaw=preparedMessage(privateApp),privateView=privateApp.wire.sources.find(item=>item.id!==privateApp.wire.intentAuthority.sourceId&&item.type==='private');privateRaw.materials=[{materialRef:whole(privateView)}];privateRaw.topicPatch={operation:'update',authority:'MODEL_CANNOT_ASSIGN_AUTHORITY'};
  assert.throws(()=>parseAssistant(privateRaw,'discussion',privateApp.context,{}),error=>typed(error,'primary_authority_reference_missing'));
 });
 
@@ -97,10 +96,10 @@ test('a plausible pragmatic reading is a private nonblocking concern without cre
  assert.equal(verdict.verdict,'allow');assert.ok(approvalFor(verdict,app.context));assert.equal(verdict.concerns.length,1);assert.equal(app.context.payload.candidate.suggestions[0].text,quote);assert.equal(app.result.warning,undefined);
 });
 
-test('hard checker issues need exact candidate and original evidence witnesses while unsupported facts state their absence basis',()=>{
+test('social concerns retain exact witnesses while unsupported factual claims remain blocking',()=>{
  const app=checkerFixture('这周末要不要一起去给花盆换土？'),quote=app.result.suggestions[0].text,issue={path:'suggestions[0].text',code:'current_boundary',quote,evidence:[{sourceId:app.current.id,quote:app.current.text}],reason:'Scripted grounded current-action rejection exercises the contract only.'};
- const rejected=parseFidelityResult({checkRef:'c1',verdict:'reject',issues:[issue]},app.context);assert.equal(rejected.verdict,'reject');assert.equal(approvalFor(rejected,app.context),undefined);
- for(const patch of [{quote:'An absent candidate body.'},{evidence:[{sourceId:app.current.id,quote:'An absent original sentence.'}]},{evidence:[{sourceId:'private:unoffered',quote:app.current.text}]},{evidence:[]}])assert.throws(()=>parseFidelityResult({checkRef:'c1',verdict:'reject',issues:[{...issue,...patch}]},app.context),error=>typed(error,patch.evidence?.length===0?'fidelity_grounding_missing':'fidelity_result_invalid'));
+ const advisory=parseFidelityResult({checkRef:'c1',verdict:'reject',issues:[issue]},app.context);assert.equal(advisory.verdict,'allow');assert.deepEqual(advisory.concerns,[issue]);assert.ok(approvalFor(advisory,app.context));
+ for(const patch of [{quote:'An absent candidate body.'},{evidence:[{sourceId:app.current.id,quote:'An absent original sentence.'}]},{evidence:[{sourceId:'private:unoffered',quote:app.current.text}]}])assert.throws(()=>parseFidelityResult({checkRef:'c1',verdict:'reject',issues:[{...issue,...patch}]},app.context),error=>typed(error,'fidelity_result_invalid'));
  const factual=checkerFixture('我昨天也给自己养的花盆换了土。'),unsupported={path:'suggestions[0].text',code:'unsupported_fact',quote:factual.result.suggestions[0].text,basis:'no_support_in_supplied_evidence',reason:'Scripted unsupported-event defect.'};assert.equal(parseFidelityResult({checkRef:'c1',verdict:'reject',issues:[unsupported]},factual.context).verdict,'reject');
  for(const value of [{checkRef:'c1',verdict:'reject',issues:[]},{checkRef:'c1',verdict:'unknown',issues:[]}])assert.throws(()=>parseFidelityResult(value,app.context),error=>typed(error,'fidelity_result_invalid'));
  assert.equal(approvalFor(parseFidelityResult({checkRef:'c1',verdict:'uncertain',issues:[]},app.context),app.context),undefined,'a well-formed unresolved check still cannot approve publication');

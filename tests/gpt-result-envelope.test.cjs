@@ -23,20 +23,20 @@ test('explicit modes, Claude and Gemini keep their selected carrier',()=>{
  assert.deepEqual(responseEnvelope({model:'claude-opus-4-6-thinking'},'discussion',p),{response_format:{type:'json_object'}});
 });
 test('malformed actual primary gets one same-carrier repair with complete payload and shared call accounting',async t=>{
- const store=new Store(':memory:');t.after(()=>store.close());const task=new TaskLedger(store).create(scope,{inputDigest:'actual015-envelope',limit:2}),context={payload:structuredClone(p),manifest:{}},calls=[];
+ const store=new Store(':memory:');t.after(()=>store.close());const task=new TaskLedger(store).create(scope,{inputDigest:'actual015-envelope',limit:2}),context={payload:structuredClone(p),manifest:{scope,sourceRevisions:Object.fromEntries(p.sources.map(source=>[source.id,source.revision]))}},calls=[];
  const result=await assistModel({...settings,requestBudget:task.forStage('discussion')},context,undefined,async(_url,args)=>{
   const r=JSON.parse(args.body);calls.push(r);assert.equal(r.tool_choice.function.name,'assistant_result');return calls.length===1?packet(malformedActual015):tool(withCurrentStatementAuthority(valid,context.payload,context.primaryFrameSnapshot.receipt),context.sourceWireSnapshot.receipt,context.primaryFrameSnapshot.receipt,context.payload);
  });
- assert.equal(calls.length,2);assert.equal(task.snapshot().attempts,2);assert.deepEqual(task.snapshot().requests.map(r=>r.purpose),['discussion','delivery_repair']);assert.ok(result.draftPlan);
+ assert.equal(calls.length,2);assert.equal(task.snapshot().attempts,2);assert.deepEqual(task.snapshot().requests.map(r=>r.purpose),['discussion','delivery_repair']);assert.equal(result.kind,'draft');assert.equal(result.draftPlan,undefined);
  const repair=JSON.parse(calls[1].messages[1].content);assert.deepEqual(canonicalSourceView(repair.originalInput,context.extraRequests[0].manifest.sourceHandles,p),p);assert.equal(repair.invalidResponse,malformedActual015);assert.equal(context.manifest.formatRepair.attempts,1);
 });
 for(const mode of ['result_tool','json_object','plain_text'])test(`structural repair respects explicit ${mode}`,async()=>{
- const calls=[],context={payload:structuredClone(p),manifest:{}};await assistModel({...settings,modelResponseMode:mode},context,undefined,async(_url,args)=>{const r=JSON.parse(args.body);calls.push(r);return calls.length===1?packet(malformedActual015):packet(withCurrentStatementAuthority(valid,context.payload,context.primaryFrameSnapshot.receipt),context.sourceWireSnapshot.receipt,context.primaryFrameSnapshot.receipt,context.payload);});
+ const calls=[],context={payload:structuredClone(p),manifest:{scope,sourceRevisions:Object.fromEntries(p.sources.map(source=>[source.id,source.revision]))}};await assistModel({...settings,modelResponseMode:mode},context,undefined,async(_url,args)=>{const r=JSON.parse(args.body);calls.push(r);return calls.length===1?packet(malformedActual015):packet(withCurrentStatementAuthority(valid,context.payload,context.primaryFrameSnapshot.receipt),context.sourceWireSnapshot.receipt,context.primaryFrameSnapshot.receipt,context.payload);});
  for(const r of calls){if(mode==='result_tool')assert.equal(r.tool_choice.function.name,'assistant_result');else if(mode==='json_object')assert.deepEqual(r.response_format,{type:'json_object'});else{assert.equal(r.tools,undefined);assert.equal(r.response_format,undefined);}}
 });
 test('retaining a result tool does not admit missing historical private authorization or purchase another repair',async()=>{
- const bad={...valid,draftPlan:{quotes:[{sourceId:'private:old',text:'OLD_PRIVATE_FACT'}]}};let calls=0;const context={payload:structuredClone(p),manifest:{}};
- await assert.rejects(assistModel(settings,context,undefined,async(_url,args)=>{calls++;assert.equal(JSON.parse(args.body).tool_choice.function.name,'assistant_result');return calls===1?packet(malformedActual015):tool(bad,context.sourceWireSnapshot.receipt,context.primaryFrameSnapshot.receipt,context.payload);}),/quotes\[0\]\.authorityRef/);assert.equal(calls,2);
+ const bad={...valid,draftPlan:{quotes:[{sourceId:'private:old',text:'OLD_PRIVATE_FACT'}]}};let calls=0;const context={payload:structuredClone(p),manifest:{scope,sourceRevisions:Object.fromEntries(p.sources.map(source=>[source.id,source.revision]))}};
+ await assert.rejects(assistModel(settings,context,undefined,async(_url,args)=>{calls++;assert.equal(JSON.parse(args.body).tool_choice.function.name,'assistant_result');return calls===1?packet(malformedActual015):tool(bad,context.sourceWireSnapshot.receipt,context.primaryFrameSnapshot.receipt,context.payload);}),/materials\[0\]\.authorityRef/);assert.equal(calls,2);
 });
 test('private primary recovery retains the GPT operation carrier without adding an outward artifact',async()=>{
  const calls=[],legacy={purpose:'discussion',sources:[],userRequest:{text:'私下帮我理清想法。'}};

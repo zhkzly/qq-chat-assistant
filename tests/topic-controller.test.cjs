@@ -21,7 +21,7 @@ test('actual controller preserves a corrected local purpose into vague-followup 
  await app.controller.assist({text:'先不直接问游戏名字，顺着体验聊。',taskId:'topic-correct'});
  const corrected=app.store.topicView(scope).active;assert.equal(corrected.id,initial.id);assert.ok(corrected.version>initial.version);
  const answer=await app.controller.assist({text:'给出一句话吧',taskId:'topic-draft'});assert.equal(answer.kind,'draft');assert.equal(app.store.topicView(scope).active.id,initial.id);
- lastDraft=app.controller.assistantContext().run.payload;assert.equal(lastDraft.draftingGuidance.avoidances[0].text,'先不直接问游戏名字');assert.equal(app.fidelityCalls.length,3);assert.equal(lastDraft.privateConversation,undefined);assert.equal(lastDraft.topicContext,undefined);assert.equal(lastDraft.goal,undefined);assert.ok(answer.artifactRef);
+ lastDraft=app.controller.assistantContext().run.payload;assert.equal(lastDraft.draftingGuidance,undefined);assert.ok(app.fidelityCalls.at(-1).payload.evidence.some(source=>source.text==='先不直接问游戏名字，顺着体验聊。'));assert.equal(app.fidelityCalls.length,3);assert.equal(lastDraft.privateConversation,undefined);assert.equal(lastDraft.topicContext,undefined);assert.equal(lastDraft.goal,undefined);assert.ok(answer.artifactRef);
  const firstRun=app.store.getCompanion(scope).runs.find(r=>r.id==='topic-start');assert.equal(firstRun.topicReceipt.applied,true);
 });
 test('feedback continuation uses one canonical feedback and survives idempotent retries without duplicated calls',async t=>{
@@ -60,14 +60,13 @@ test('ordinary help survives an invalid optional topic proposal with bound pendi
 test('source-bound draft planning still rolls back final output when Store rejects topic authority',async t=>{
  const phases=[],question='你最近最喜欢哪种游戏？';
  const app=setup(t,async(_s,input)=>{const p=input.payload;phases.push(p.purpose);
-  if(p.purpose==='draft_prepare'){const topicPatch=start(p);return {kind:'discussion',text:'按你明确想问的意思组织表达。',topicPatch,
-    draftPlan:{quotes:[{sourceId:intent(p),text:question,authorization:{permission:{sourceId:intent(p),text:p.userRequest.text},referent:{sourceId:intent(p),text:question}}}],guidance:guide(topicPatch),style:'natural'},answer:{privateExplanation:'一条完整参考表达',suggestions:[{style:'自然',text:question}]}};}
+  if(p.purpose==='draft_prepare'){const topicPatch=start(p);return {operation:'prepare_message',topicPatch,answer:{privateExplanation:'一条完整参考表达',suggestions:[{style:'自然',text:question}]}};}
   assert.fail(`Unexpected primary phase ${p.purpose}`);
  });await app.controller.bind(scope.peerUin);const apply=app.store.applyTopicPatch.bind(app.store);t.mock.method(app.store,'applyTopicPatch',(scope,patch,options)=>{const competing=apply(scope,{...patch,objective:'A real competing local task transition'},options);assert.equal(competing.applied,true);return apply(scope,patch,options);});
  const request=`想含蓄了解她的游戏兴趣，先不直接邀约。请帮我问：${question}`;
  await assert.rejects(app.controller.assist({text:request,purpose:'draft',taskId:'strict-planning-rejection'}),error=>error.code==='topic_patch_rejected'&&/stale_topic_version/.test(error.message));
  assert.deepEqual(phases,['draft_prepare'],'one complete primary answer is produced before admission and checking');assert.equal(app.fidelityCalls.length,1);
- const admitted=app.store.getCompanion(scope).runs.find(r=>r.id==='strict-planning-rejection').payload;assert.deepEqual(admittedQuotes(admitted.outboundQuotes),[{sourceId:admitted.draftingGuidance.objective.sourceIds[0],text:question}]);assert.equal(admitted.userRequest,undefined);assert.equal(admitted.goal,undefined);
+ const admitted=app.store.getCompanion(scope).runs.find(r=>r.id==='strict-planning-rejection').payload;assert.deepEqual(admittedQuotes(admitted.outboundQuotes),[]);assert.equal(admitted.currentHumanControl.text,request);assert.equal(admitted.draftingGuidance,undefined);assert.equal(admitted.userRequest,undefined);assert.equal(admitted.goal,undefined);
  const companion=app.store.getCompanion(scope);assert.equal(app.store.topicView(scope).active,null);assert.equal(companion.turns.filter(x=>x.role==='assistant').length,0);
  assert.equal(companion.turns.filter(x=>x.role==='user').length,1);assert.equal(companion.turns.find(x=>x.role==='user').text,request);
  assert.equal(app.store.experiences._all(scope,'artifact').length,0);assert.equal(companion.runs.find(r=>r.id==='strict-planning-rejection').status,'failed');

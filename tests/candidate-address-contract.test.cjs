@@ -52,10 +52,11 @@ test('only currently offered field coordinates survive qualification',()=>{
 
 test('field qualification does not rewrite quote text, source IDs or evidence witnesses',()=>{
  const app=fixture({text:'candidate.suggestions[0].text 是这个虚构字符串。',sourceId:'candidate.private:current'}),issue={path:'candidate.suggestions[0].text',code:'current_boundary',quote:app.result.suggestions[0].text,sourceIds:[app.current.id],evidence:[{sourceId:app.current.id,quote:app.current.text}],reason:'Scripted original witness identifiers remain exact.'},parsed=parseFidelityResult(reject(issue),app.context);
- assert.deepEqual(parsed.issues[0],{...issue,path:'suggestions[0].text'});
- for(const patch of [{quote:'candidate.'+issue.quote},{quote:'suggestions[0].text 是另一个字符串。'},{sourceIds:['private:current']},{evidence:[{sourceId:'private:current',quote:app.current.text}]},{evidence:[{sourceId:app.current.id,quote:'candidate.'+app.current.text}]},{evidence:[]}]){
-  assert.throws(()=>parseFidelityResult(reject({...issue,...patch}),app.context),typed(patch.evidence?.length===0?'fidelity_grounding_missing':'fidelity_result_invalid'));
+ assert.equal(parsed.verdict,'allow');assert.deepEqual(parsed.concerns[0],{...issue,path:'suggestions[0].text'});
+ for(const patch of [{quote:'candidate.'+issue.quote},{quote:'suggestions[0].text 是另一个字符串。'},{sourceIds:['private:current']},{evidence:[{sourceId:'private:current',quote:app.current.text}]},{evidence:[{sourceId:app.current.id,quote:'candidate.'+app.current.text}]}]){
+  assert.throws(()=>parseFidelityResult(reject({...issue,...patch}),app.context),typed('fidelity_result_invalid'));
  }
+ assert.equal(parseFidelityResult(reject({...issue,evidence:[]}),app.context).verdict,'allow','a social concern may state uncertainty without an original fact witness');
 });
 
 test('qualified coordinates preserve private candidate, evidence and scope binding',()=>{
@@ -88,8 +89,7 @@ test('offered path metadata is immutable and cannot be supplied by a checker as 
 const GOOD='这两片新叶看着挺精神。',QUESTION='你最近有哪件愿意告诉她的真实小事？';
 function whole(source){const first=source.segments[0].materialRef,last=source.segments.at(-1).materialRef;return first===last?first:source.materialChoices.find(item=>item.from===first&&item.to===last).materialRef;}
 function candidate(p,text){
- const qq=p.sources.find(source=>source.type==='qq'),id=p.intentAuthority.sourceId,control=text=>({text,sourceIds:[id]});
- return {operation:'prepare_message',draftPlan:{intent:'reply',quotes:[{materialRef:whole(qq),authorityRef:qq.authorityChoices.program[0].authorityRef}],guidance:{objective:control('回应她实际分享的近况'),allowedApproach:control('保留真实经历范围'),avoidances:[]}},answer:{privateExplanation:'接住她刚说的具体变化。',suggestions:[{style:'自然',text}]}};
+ return {operation:'prepare_message',answer:{privateExplanation:'接住她刚说的具体变化。',suggestions:[{style:'自然',text}]}};
 }
 function toolResponse(value,name){return new Response(JSON.stringify({choices:[{finish_reason:'stop',message:{tool_calls:[{id:'fictional-candidate-address',type:'function',function:{name,arguments:JSON.stringify(value)}}]}}]}),{status:200});}
 async function application(t,producer){

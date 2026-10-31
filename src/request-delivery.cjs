@@ -43,7 +43,7 @@ function validateTerminalDelivery(value,delivery) {
  if(value.kind==='draft'&&Array.isArray(value.suggestions)&&value.suggestions.length&&value.suggestions.every(item=>typeof item.text==='string'&&item.text.trim()))return;
  throw failure('terminal editable-message delivery missing: return complete suggestions or a necessary specific private blocker; a plan, strategy, generic question or lookup is not a terminal result',delivery);
 }
-function parseRequestDelivery(value,payload) {
+function parseRequestDelivery(value,payload,{prepared=false}={}) {
  if(!payload?.requestDeliveryPolicy)return undefined;
  const policy=payload.requestDeliveryPolicy;
  if(policy.version!==VERSION)throw failure('unsupported policy');
@@ -65,14 +65,15 @@ function parseRequestDelivery(value,payload) {
  if(value.lookup&&editable(parsed)&&policy.lookupExhausted)throw failure('lookup limit reached; supply a source-bound plan or a necessary specific private blocker rather than another lookup',parsed);
 
  if(!editable(parsed)&&value.draftPlan)throw failure('private_help must stay private; choose both only when the current request also wants wording',parsed,'requestDelivery.mode');
- if(editable(parsed)&&!value.lookup&&(!value.draftPlan||value.draftPlan.clarification)&&!parsed.blocker)
+ if(editable(parsed)&&!value.lookup&&(!value.draftPlan||value.draftPlan.clarification)&&!parsed.blocker&&!(prepared&&value.kind==='draft'&&value.suggestions?.length))
   throw failure('editable message still missing: supply a source-bound draftPlan, an actual lookup, or a necessary specific private blocker; strategy alone is not fulfillment',parsed);
  return parsed;
 }
-function deliveryStatus(delivery,result,{restricted=false}={}) {
+function deliveryStatus(delivery,result,{restricted=false,committed=true}={}) {
  if(!delivery)return undefined;
  if(result.lookup)return 'looking_up';
  if(result.deliveryBlocker||result.requestDelivery?.blocker||result.draftPlan?.clarification)return 'blocked';
+ if(result.kind==='draft'&&result.suggestions?.some(item=>item.text?.trim()))return committed?'delivered':'prepared';
  if(result.draftPlan)return 'planned';
  if(restricted)return result.kind==='draft'&&result.suggestions?.some(item=>item.text?.trim())?'delivered':'unfulfilled';
  return editable(delivery)?'unfulfilled':'private_help';

@@ -8,7 +8,7 @@ const {withCurrentStatementAuthority}=require('./fixtures/current-statement-auth
 const fact='今天我读完一本书',literal='private:quoted-id';
 const currentText=`${fact}，想把这个近况和字符串“${literal}”原样告诉她，给我完整表达。`;
 const intent=p=>p.intentAuthority.sourceId;
-const plan=p=>withCurrentStatementAuthority({draftPlan:{quotes:[{sourceId:intent(p),text:fact},{sourceId:intent(p),text:literal}],guidance:{objective:{text:'分享已选真实近况',sourceIds:[intent(p)]},allowedApproach:{text:'自然接住实际问题并保留所选字符串',sourceIds:[intent(p)]},avoidances:[]}}},p).draftPlan;
+const currentFacts=()=>[fact,literal];
 async function setup(t,producer){
  const store=new Store(':memory:'),calls=[],contexts=[];
  const settings={anonymous:true,model:'synthetic-wire',baseUrl:'http://fixture.invalid/v1',auto:false,assistantRequestLimit:8,discussionCompactionEnabled:false,realChatConsent:{...scope,model:'synthetic-wire',baseUrl:'http://fixture.invalid/v1'}};
@@ -26,7 +26,7 @@ async function setup(t,producer){
 const draft={kind:'draft',text:`今天读完了这本书，顺便记下这个字符串：${literal}。`};
 const answer={suggestions:[{text:draft.text}]},allow=p=>({checkRef:p.checkRef,verdict:'allow',issues:[]});
 test('actual foreground wire is compact while controller, stored provenance and quoted literals remain canonical',async t=>{
- const app=await setup(t,p=>p.purpose==='fidelity_check'?allow(p):{operation:'prepare_message',text:'按本次意思准备表达。',draftPlan:plan(p),answer});
+ const app=await setup(t,p=>p.purpose==='fidelity_check'?allow(p):{operation:'prepare_message',currentFacts:currentFacts(),answer});
  const reply=await app.controller.assist({text:currentText});assert.equal(app.calls.length,2);assert.equal(reply.suggestions[0].text,draft.text);
  for(const call of app.calls){assert.equal(call.p.sourceReferenceProtocol?.version||call.wrapper.sourceReferenceProtocol.version,'foreground-source-handles-v1');assert.ok((call.p.sources||call.p.evidence).every(source=>/^s\d+$/.test(source.id||source.sourceId)));assert.ok(JSON.stringify(call.p).includes(literal));}
  assert.equal(app.calls[0].p.intentAuthority.sourceId,app.calls[1].p.admittedFragments[0].sourceId,'same task retains source handle through restricted wording');
@@ -34,9 +34,9 @@ test('actual foreground wire is compact while controller, stored provenance and 
  for(const context of app.contexts){assert.equal(context.payload.sourceReferenceProtocol,undefined);assert.ok((context.payload.sources||context.payload.evidence).every(source=>/^(qq|private|note|request):/.test(source.id||source.sourceId)));}
  assert.equal(app.run().requests.length,2);assert.ok(app.run().requests.every(request=>request.manifest.sourceHandles.bindings.every(binding=>!/^s\d+$/.test(binding.sourceId))));assert.equal(app.run().manifest.requestDelivery.status,'delivered');
 });
-test('unknown actual019-style hybrid reference is rejected exactly and never dropped beside the correct current handle',async t=>{
+test('unknown hybrid reference is rejected exactly beside the correct current handle in an active lookup',async t=>{
  const hybrid='private:0227f276-0758-46c0-9613-e5e672159b16';
- const app=await setup(t,p=>{const value=plan(p);value.guidance.objective.sourceIds.push(hybrid);return {operation:'prepare_message',text:'准备表达',draftPlan:value,answer};});
+ const app=await setup(t,p=>{return {operation:'lookup',continuation:'prepare_message',lookup:{sourceIds:[intent(p),hybrid]}};});
  await assert.rejects(app.controller.assist({text:currentText}),/Unknown or not-offered source handle/);assert.equal(app.calls.length,2);assert.equal(app.run().status,'failed');
  assert.equal(app.store.getCompanion(scope).turns.some(turn=>turn.role==='assistant'),false);assert.ok(app.calls[1].wrapper.invalidResponse.includes(hybrid));
 });
@@ -45,11 +45,14 @@ test('lookup, same-task structured repair and wording use append-only offers wit
   if(p.purpose==='fidelity_check')return allow(p);
   if(index===0)return {operation:'lookup',continuation:'prepare_message',text:'先读取当前已知来源。',lookup:{sourceIds:[p.sources.find(source=>source.type==='qq').id]}};
   if(!w.originalInput)return {operation:'prepare_message',text:'只给策略还不够。'};
-  return {operation:'prepare_message',text:'现按本次意思成稿。',draftPlan:plan(p),answer};
+  return {operation:'prepare_message',currentFacts:currentFacts(),answer};
  });
  const reply=await app.controller.assist({text:currentText});assert.equal(reply.kind,'draft');assert.equal(app.calls.length,4);assert.equal(new Set(app.calls.map(call=>call.owner)).size,1);
  assert.equal(new Set(app.calls.slice(0,3).map(call=>call.p.intentAuthority.sourceId)).size,1);
- const canonicalId=app.contexts[0].payload.intentAuthority.sourceId;assert.equal(app.calls[2].wrapper.task.includes(canonicalId),false);assert.match(app.calls[2].wrapper.task,/prepare_message/);assert.match(app.calls[2].wrapper.task,/materialRef.*authorityRef/);
+ const canonicalId=app.contexts[0].payload.intentAuthority.sourceId;assert.equal(app.calls[2].wrapper.task.includes(canonicalId),false);assert.match(app.calls[2].wrapper.task,/prepare_message/);assert.match(app.calls[2].request.messages[0].content,/materials:\[\{materialRef,authorityRef\}\]/);
+ assert.ok(app.calls[2].wrapper.validationIssues.some(issue=>issue.path==='text'&&issue.code==='primary_operation_inactive_payload'));
+ const materialSchema=prepareAssistantRequest({...app.controller.settings,modelResponseMode:'result_tool'},app.contexts[0].payload).request.tools[0].function.parameters.properties.materials.items;
+ assert.deepEqual(Object.keys(materialSchema.properties).sort(),['authorityRef','materialRef']);assert.ok(materialSchema.required.includes('materialRef'));
  assert.equal(app.run().requests.filter(request=>request.purpose==='delivery_repair').length,1);
 });
 test('budget preview serializes aliased bytes without registering speculative handles',()=>{
@@ -57,16 +60,16 @@ test('budget preview serializes aliased bytes without registering speculative ha
  const p={purpose:'discussion',sources:[{id:'private:long-canonical-uuid-000000000000000000',revision:'r1',text:literal}],userRequest:{sourceId:'private:long-canonical-uuid-000000000000000000',text:literal}};
  const before=JSON.stringify(p),first=prepareAssistantRequest(settings,p,[]),second=prepareAssistantRequest(settings,p,[]);
  assert.equal(owner.size,0);assert.equal(first.serialized,second.serialized);assert.equal(first.requestBytes,Buffer.byteLength(first.serialized));assert.equal(JSON.stringify(p),before);
- assert.equal(first.payload,p);assert.notEqual(first.wirePayload.sources[0].id,p.sources[0].id);
+ assert.equal(first.payload,p);assert.notEqual(first.wirePayload.userRequest.sourceId,p.sources[0].id);assert.equal(first.wirePayload.userRequest.text,literal);assert.deepEqual(first.wirePayload.sources,[]);
 });
 test('same-task QQ resume retains its source owner and original budget; a fresh user request gets a new owner',async t=>{
  let finishPending;
  const app=await setup(t,(p,w,index)=>{
   if(p.purpose==='fidelity_check')return allow(p);
   if(index===0)return {operation:'lookup',continuation:'prepare_message',text:'先读当前原话。',lookup:{sourceIds:[p.sources.find(source=>source.type==='qq').id]}};
-  if(index===1)return new Promise(resolve=>{finishPending=()=>resolve({operation:'prepare_message',text:'旧帧计划',draftPlan:plan(p),answer});});
+  if(index===1)return new Promise(resolve=>{finishPending=()=>resolve({operation:'prepare_message',currentFacts:currentFacts(),answer});});
   if(p.userRequest.text==='现在只私下解释。')return {operation:'advise',text:'可以先私下解释。'};
-  return {operation:'prepare_message',text:'接上新消息。',draftPlan:plan(p),answer};
+  return {operation:'prepare_message',currentFacts:currentFacts(),answer};
  });
  const pending=app.controller.assist({text:currentText,taskId:'source-handle-qq-resume'});
  for(let i=0;i<30&&!finishPending;i++)await new Promise(resolve=>setImmediate(resolve));assert.ok(finishPending);
@@ -92,7 +95,7 @@ test('forget keeps the task namespace but does not re-offer withdrawn aliases or
 });
 test('source withdrawal during read-only checking still discards the late decoded result',async t=>{
  let finish;
- const app=await setup(t,p=>p.purpose==='fidelity_check'?new Promise(resolve=>{finish=()=>resolve(allow(p));}):{operation:'prepare_message',text:'准备表达',draftPlan:plan(p),answer});
+ const app=await setup(t,p=>p.purpose==='fidelity_check'?new Promise(resolve=>{finish=()=>resolve(allow(p));}):{operation:'prepare_message',currentFacts:currentFacts(),answer});
  const pending=app.controller.assist({text:currentText});for(let i=0;i<30&&!finish;i++)await new Promise(resolve=>setImmediate(resolve));assert.ok(finish);
  const current=app.store.getCompanion(scope).turns.find(turn=>turn.role==='user');app.controller.deleteTurn(current.id);finish();assert.equal(await pending,undefined);
  assert.equal(app.store.getCompanion(scope).turns.some(turn=>turn.role==='assistant'),false);

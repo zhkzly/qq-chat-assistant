@@ -52,9 +52,9 @@ test('short choice still rejects dependency withdrawal before restricted wording
  const {store,prepared,args}=fixture(t),result=parseAssistant(selectedResponse(),'discussion',prepared);store.forgetSource(scope,'private:p1');
  assert.throws(()=>buildDraftContext(prepared,result.draftPlan,args),/变化|changed|unavailable|已/);
 });
-test('the flat result schema exposes choice plus legacy exact fields without a union',()=>{
- const schema=responseEnvelope({model:'claude-sonnet-4-6'},'discussion',{purpose:'discussion'}).tools[0].function.parameters.properties.draftPlan.properties.editingReference;
- assert.equal(schema.properties.choice.type,'string');assert.ok(schema.properties.artifactId&&schema.properties.version);assert.equal(schema.oneOf,undefined);assert.equal(schema.anyOf,undefined);
+test('the normal flat result schema exposes only its short editing choice without a union',()=>{
+ const schema=responseEnvelope({model:'claude-sonnet-4-6'},'discussion',{purpose:'discussion'}).tools[0].function.parameters.properties.editingReference;
+ assert.equal(schema.properties.choice.type,'string');assert.equal(schema.properties.artifactId,undefined);assert.equal(schema.properties.version,undefined);assert.equal(schema.oneOf,undefined);assert.equal(schema.anyOf,undefined);
 });
 test('actual013-shaped missing metadata repair uses the short choice again and reaches safe wording in the same task',async t=>{
  const {store,prior}=fixture(t),calls=[];
@@ -65,7 +65,7 @@ test('actual013-shaped missing metadata repair uses the short choice again and r
    assert.equal(p.priorArtifact.text,f.observedOffer.text);assert.equal(p.userRequest,undefined);assert.equal(p.goal,store.getCompanion(scope).goal.text);
    response={checkRef:p.checkRef,verdict:'allow',issues:[]};
   }else{
-   if(wrapper.originalInput)assert.match(wrapper.formatError,/draftPlan\.quotes\[0\]\.authorityRef/);
+   if(wrapper.originalInput)assert.match(wrapper.formatError,/materials\[0\]\.authorityRef/);
    response=structuredClone(wrapper.originalInput?f.repairResponse:f.firstResponse);response.draftPlan.editingReference={choice:p.editingReferences[0].choice};response.answer={suggestions:[{style:'自然',text:'就是我给自己记读书笔记用的小网页，昨天查找功能终于弄好了，我挺开心。你平时怎么留住读到的东西？'}]};
   }
   return new Response(JSON.stringify({choices:[{message:{content:JSON.stringify(wireSourceView(response,(wrapper.originalInput?context.extraRequests?.at(-1)?.manifest?.sourceHandles:undefined)||context.manifest.sourceHandles,(wrapper.originalInput?context.extraRequests?.at(-1)?.manifest?.primaryReferences:undefined)||context.manifest.primaryReferences,wrapper.originalInput?context.extraRequests.at(-1).payload.originalInput:context.payload))}}]}),{status:200});

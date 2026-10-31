@@ -19,7 +19,7 @@ test('synthetic default exercises production controller and separates semantic j
   assert.equal(report.realHttpAttempts, 0);
   assert.equal(report.cases.length, 13);
   assert.ok(report.cases.every(item => item.status === 'executed_semantic_review_required'));
-  assert.ok(report.cases.some(item => item.admittedContext?.payload.purpose==='draft'));
+  assert.ok(report.cases.some(item => item.admittedContext?.payload.purpose==='answer_admission'));
   assert.ok(report.cases.every(item=>item.stages.some(stage=>stage.purpose==='fidelity_check')));
   assert.ok(report.cases.every(item => item.checks.every(check => check.status === 'pass')));
   assert.ok(report.cases.every(item => item.semanticVerdict === 'requires_independent_review'));
@@ -96,13 +96,13 @@ test('independent case API records separate criteria without sending gold to the
   await assert.rejects(runHarness({cases:['Q1-live'],independentCases:[independent]}),/cannot be mixed/);
 });
 
-test('bounded synthetic material fixture selects only its offered fact sentence and retains the unoffered-substring limitation',async()=>{
+test('bounded synthetic current fact uses the complete human request without an outward material menu',async()=>{
  const definition=definitions().find(item=>item.id==='Q3-material'),fact=definition.quoteFragments[0],report=await runHarness({cases:['Q3-material']});
- const input=JSON.parse(report.requests[0].request.messages[1].content),source=input.sources.find(item=>item.id===input.intentAuthority.sourceId);
- assert.equal(source.refinementCoverage.status,'partial');assert.throws(()=>materialRefForText(source,fact),/no exact offered span/);
- const item=report.cases[0],draft=item.admittedContext.payload,quote=draft.outboundQuotes[0];
+ const input=JSON.parse(report.requests[0].request.messages[1].content);
+ assert.equal(input.sources.some(item=>item.id===input.intentAuthority.sourceId),false);assert.ok(input.userRequest.text.includes(fact));assert.ok(input.currentPermission);
+ const item=report.cases[0],admitted=item.admittedContext.payload,quote=admitted.outboundQuotes[0];
  assert.equal(item.status,'executed_semantic_review_required');assert.equal(report.httpAttempts,2);assert.equal(report.realHttpAttempts,0);
- assert.ok(quote.text.startsWith(fact));assert.equal(quote.text.slice(fact.length),'。','only the original sentence punctuation accompanies the same exact fact');
+ assert.equal(quote.text,fact);assert.equal(admitted.currentHumanControl.text,input.userRequest.text);
  const original=item.stages[0].effectivePayload.sources.find(row=>row.id===item.stages[0].effectivePayload.intentAuthority.sourceId);
  assert.ok(original.text.includes(quote.text));assert.equal(quote.text.includes('这件事我愿意分享'),false);assert.equal(quote.text.includes('给我一句'),false);
  assert.equal(report.sourceUnchanged,true);assert.equal(item.semanticVerdict,'requires_independent_review');

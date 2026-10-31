@@ -202,7 +202,7 @@ async function runHarness(options={}){
    const reply=await controller.assist({text:definition.request,purpose:'discussion',taskId:`acceptance-${definition.id}`});item.reply=reply?clone(reply):null;
    item.visibleHelp=reply?visibleResponseText(reply):null;
    const savedRun=controller.assistantContext().run;
-   item.admittedContext=savedRun?.payload?.purpose==='draft'?{payload:clone(savedRun.payload),manifest:clone(savedRun.manifest)}:null;
+   item.admittedContext=['draft','answer_admission'].includes(savedRun?.payload?.purpose)?{payload:clone(savedRun.payload),manifest:clone(savedRun.manifest)}:null;
    item.controls=item.admittedContext?[item.admittedContext.payload.draftingGuidance||null]:[];
    item.observedDeliverables={privateRationale:!!reply?.discussionExplanation?.text,editableWordingCount:reply?.suggestions?.length||0};
    const after=store.getCompanion(scope);item.goalAfter=after.goal;item.actualRecordsAfter=store.messages(scope);item.tasks=controller.usage.recent(scope,4);item.savedRuns=after.runs;

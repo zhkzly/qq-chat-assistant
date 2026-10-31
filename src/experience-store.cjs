@@ -76,7 +76,7 @@ class ExperienceStore {
     if(!artifact||artifact.kind!=='action_option'||artifact.assistantTurnId!==selection.turnId||
       !item?.artifactRef||refKey(item.artifactRef)!==refKey(reference)||!artifact.parentRef||!turn.artifactRef||refKey(artifact.parentRef)!==refKey(turn.artifactRef)||
       state.availability!=='active'||typeof artifact.body!=='string'||!artifact.body.trim()||item.label!==artifact.body||artifact.bodyDigest!==digest(artifact.body)||
-      !Array.isArray(item.quotes)||!item.quotes.length||item.quotes.length>8)return fail();
+      !Array.isArray(item.quotes)||item.quotes.length>8)return fail();
     const live=this._sources(scope),tuples=item.quotes.map(quote=>({sourceId:quote.sourceId,text:quote.text,revision:quote.revision}));
     if(tuples.some(quote=>{const source=live.get(quote.sourceId);return typeof quote.sourceId!=='string'||typeof quote.text!=='string'||!quote.text.trim()||typeof quote.revision!=='string'||
       !source||source.deleted||source.excluded||source.use==='disabled'||source.revision!==quote.revision;}))return fail();

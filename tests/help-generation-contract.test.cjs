@@ -9,7 +9,7 @@ const foreground={purpose:'reply',generationOrigin:'private_discussion',userRequ
 test('ordinary model envelopes require readable help and expose auxiliary writes only for their task',()=>{
  for(const purpose of ['discussion','reply','draft_prepare','review']){
   const schema=responseEnvelope(settings,purpose,{...foreground,purpose}).tools[0].function.parameters;
-  assert.deepEqual(schema.required,['operation']);assert.deepEqual(schema.properties.operation.enum,['advise','prepare_message','lookup','clarify']);assert.equal(schema.properties.kind,undefined);assert.equal(schema.properties.requestDelivery,undefined);assert.ok(schema.properties.lookup&&schema.properties.draftPlan);
+  assert.deepEqual(schema.required,['operation']);assert.deepEqual(schema.properties.operation.enum,['advise','prepare_message','lookup','clarify']);assert.equal(schema.properties.kind,undefined);assert.equal(schema.properties.requestDelivery,undefined);assert.ok(schema.properties.lookup&&schema.properties.answer&&schema.properties.materials&&schema.properties.currentFacts);
  }
  const ordinary=responseEnvelope(settings,'reply',foreground).tools[0].function.parameters.properties;
  assert.equal(ordinary.relationshipPatch,undefined);assert.equal(ordinary.experienceProposals,undefined);
@@ -64,16 +64,16 @@ test('normal, recovery and restricted wording share behavior while protocols fol
  for(const trigger of ['private_request','manual_suggestion','automatic_observation']){
   const prompt=prepareAssistantRequest(settings,{...foreground,taskContext:{...foreground.taskContext,invocation:{trigger,requestedPurpose:'reply'}}}).request.messages[0].content;
   assert.ok(prompt.length<4600,`${trigger} foreground protocol stays readable: ${prompt.length}`);
-  assert.match(prompt,/requires_current_request_match/);assert.match(prompt,/taskUse/);
+  assert.match(prompt,/旧任务仅为候选/);assert.doesNotMatch(prompt,/taskUse|draftControlPolicy/);
   assert.match(prompt,/lookup:\{methodIds/);assert.match(prompt,/lookup:\{discover:true\}/);
-  assert.match(prompt,/methodCatalog仅导航元数据/);
+  assert.match(prompt,/methodCatalog仅导航/);
  }
 });
 test('canonical examples keep unknown self facts private and preserve explicitly authorized new intent',()=>{
  const {HELP_BEHAVIOR}=require('../src/help-behavior.cjs');
  assert.match(HELP_BEHAVIOR,/selfEvidenceSourceIds只指向待读/);
  assert.match(HELP_BEHAVIOR,/先私下问用户/);assert.match(HELP_BEHAVIOR,/不把核对问题发给她/);
- assert.match(HELP_BEHAVIOR,/获准原文.*draftPlan/s);assert.match(HELP_BEHAVIOR,/无须先等回复/);
+ assert.match(HELP_BEHAVIOR,/获准原文.*支撑表达/s);assert.match(HELP_BEHAVIOR,/无须先等回复/);
  assert.match(HELP_BEHAVIOR,/即使历史少也帮助表达/);
  assert.doesNotMatch(HELP_BEHAVIOR,/private:[a-z]|qq:\d|\[你的城市\]/);
 });
@@ -96,7 +96,7 @@ test('malformed primary carrier shares one strict repair with the read-only fide
     guidance:{objective:control('回答她询问的实际距离'),allowedApproach:control('按已授权事实直接回应'),avoidances:[]}};
    if(calls.length===1)return {ok:true,json:async()=>({choices:[{message:{tool_calls:[{function:{name:'assistant_result',arguments:JSON.stringify({kind:'discussion',text:'准备完整表达。',draftPlan:JSON.stringify({...plan,_:true})+'}'})}}]}}]})};
    assert.equal(body.tool_choice.function.name,'assistant_result');assert.equal(body.response_format,undefined);assert.ok(payload.invalidResponse);assert.equal(payload.purpose,'reply');
-   return response(JSON.stringify(withCurrentStatementAuthority({kind:'discussion',text:'按授权事实组织表达。',draftPlan:plan,answer:{suggestions:[{style:'自然',text:'不远，我住得挺近的。'}]}},original)));
+   return response(JSON.stringify({operation:'prepare_message',currentFacts:['我住得很近'],answer:{suggestions:[{style:'自然',text:'不远，我住得挺近的。'}]}}));
   })});
  t.after(()=>{controller.close();store.close()});controller.updateStatus({phase:'ready',account:{uid:scope.accountUid,uin:scope.accountUin}});
  await controller.bind(scope.peerUin);controller.live({scope,messages:[raw('72057594037927941',false,{elements:[{textElement:{content:'离你住的地方远吗？'}}]})]});
@@ -141,13 +141,13 @@ test('generic planning repair teaches valid escaping and only requires necessary
     {kind:'discussion',text:'准备表达',draftPlan:'{malformed planning container'}:{kind:'question',text:'需要先核对一个会改变表达的事实。'})}}]})};
   });
   assert.equal(bodies.length,2);const repair=JSON.parse(bodies[1].messages[1].content),task=repair.task;
-  assert.match(task,/从originalInput重新生成/);assert.match(task,/invalidResponse仅诊断/);assert.match(task,/advise\+完整text/);assert.match(task,/prepare_message\+draftPlan\+answer/);assert.doesNotMatch(task,/先保证kind\/text|private_help|editable_message/);
+  assert.match(task,/从originalInput重新生成/);assert.match(task,/invalidResponse仅诊断/);assert.match(task,/advise\+完整text/);assert.match(task,/prepare_message\+answer/);assert.doesNotMatch(task,/先保证kind\/text|private_help|editable_message/);
   assert.match(task,/双引号.*反斜线.*转义/);assert.match(task,/不增加HTTP调用/);
-  assert.match(task,/只保留选中操作的核心字段/);assert.match(task,/draftControlPolicy和当前有效topic/);
+  assert.match(task,/只保留选中操作的核心字段/);assert.match(task,/完整当前人类意思、否定与条件/);
   for(const secret of ['PRIVATE_OBJECTIVE_SENTINEL','PRIVATE_DIRECTION_SENTINEL','PRIVATE_CONSTRAINT_SENTINEL','PRIVATE_GOAL_SENTINEL'])assert.equal(task.includes(secret),false);
   const example=JSON.parse(task.split('字符串转义格式示例（只示范格式，不作本次事实）：')[1]);
   assert.equal(example.operation,'advise');assert.ok(example.text.includes('"'));assert.ok(example.text.includes('\\'));
   assert.equal(parseAssistant(require('../src/primary-operation.cjs').normalizePrimaryOperation(example,payload).value,'discussion',payload).text,example.text,'the operation example passes the same normalization and canonical admission stages');
-  assert.deepEqual(repair.originalInput.topicContext.active,active);assert.match(bodies[1].messages[0].content,/有效topic的objective\/direction\/constraints对应保留/);assert.match(task,/提供必要短字段/);
+  assert.deepEqual(repair.originalInput.topicContext.active,active);assert.match(bodies[1].messages[0].content,/完整当前原话及明确UI选择优先/);assert.match(task,/所有核心问题须一次解决/);
  }
 });

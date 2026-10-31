@@ -148,12 +148,12 @@ test('mixed current private meaning is control-only while outward material stays
   assert.equal(contexts.length, 1);
   assert.equal(app.fidelityCalls.length,1);
   const admitted=app.controller.assistantContext().run.payload;
-  assert.equal(admitted.purpose,'draft');
+  assert.equal(admitted.purpose,'answer_admission');
   assert.match(JSON.stringify(contexts[0].payload), /PRIVATE_FEAR_/);
   const outgoing = JSON.stringify(withoutCurrentControl(admitted,`${privateFear}，但想告诉她${shareable}，帮我写一句。`));
   assert.equal(admitted.currentHumanControl.sourceId,contexts[0].payload.intentAuthority.sourceId);
   assert.deepEqual(admitted.outboundQuotes.map(quote=>({sourceId:quote.sourceId,text:quote.text})),[
-    {sourceId:contexts[0].payload.userRequest.sourceId,text:shareable},{sourceId:`note:${selected.id}`,text:selected.text}
+    {sourceId:`note:${selected.id}`,text:selected.text},{sourceId:contexts[0].payload.userRequest.sourceId,text:shareable}
   ]);
   for (const excluded of [privateFear, privateNote, goal, '我怕她嫌我烦']) assert.equal(outgoing.includes(excluded), false, excluded);
   assert.equal(admitted.userRequest, undefined);
@@ -177,7 +177,7 @@ test('invalid draft references cannot authorize discussion-only or unselected no
   await app.bind();
   await app.controller.saveNote({ text: '不想告诉她的担忧', use: 'discussion' });
   forbiddenId = companion(app).notes[0].id;
-  await assert.rejects(app.controller.assist({ text: '帮我分享实验成功了。', purpose: 'draft', materialIds: [] }),error=>error.code==='primary_authority_reference_missing'&&error.issues?.some(item=>item.path==='draftPlan.quotes[0].authorityRef'));
+  await assert.rejects(app.controller.assist({ text: '帮我分享实验成功了。', purpose: 'draft', materialIds: [] }),error=>error.code==='primary_authority_reference_missing'&&error.issues?.some(item=>item.path==='materials[0].authorityRef'));
   assert.equal(calls, 1, 'a readable discussion-only note has no outward authority and cannot reach checking');
   assert.equal(app.fidelityCalls.length, 0);
   assert.equal(assistantTexts(app).length, 0);

@@ -26,8 +26,7 @@ async function until(check,label){for(let n=0;n<120;n++){if(await check())return
   requests.push({purpose:input.payload.purpose,payload:structuredClone(input.payload)});
   if(requests.length===1){
    assert.equal(input.payload.userRequest.text,originalQuestion);await new Promise(resolve=>{releasePlanner=resolve});
-   const sourceId=input.payload.userRequest.sourceId;
-   return {operation:'prepare_message',answer:{privateExplanation:explanation,suggestions:[{style:'自然',text:wording}]},methodIds:['respond'],draftPlan:{intent:'reply',quotes:[],guidance:{objective:{text:'回应她这次加班的分享',sourceIds:[sourceId]},allowedApproach:{text:'具体自然地接住近况',sourceIds:[sourceId]},avoidances:[]}}};
+   return {operation:'prepare_message',answer:{privateExplanation:explanation,suggestions:[{style:'自然',text:wording}]},methodIds:['respond']};
   }
   assert.equal(requests.length,2,'one complete primary and one read-only fidelity check');assert.equal(input.payload.purpose,'fidelity_check');
   assert.equal(input.payload.candidate.discussionExplanation.text,explanation);assert.equal(input.payload.candidate.text,'');

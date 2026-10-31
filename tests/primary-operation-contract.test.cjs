@@ -4,6 +4,7 @@
 const test=require('node:test'),assert=require('node:assert/strict');
 const {prepareAssistantRequest,parseAssistant,assistModel}=require('../src/assistant-model.cjs');
 const {SourceHandleOwner}=require('../src/source-handles.cjs');
+const {primaryOperationFor}=require('../src/primary-operation.cjs');
 const {scope}=require('./fixtures/native.cjs');
 const FACT='这个小网页可以按标题找回我自己的摘记；';
 const ANSWER={suggestions:[{style:'自然',text:FACT}]};
@@ -15,12 +16,9 @@ function fixture(){
  return {payload,settings,current,old};
 }
 function body(source){return source.segments.map(segment=>segment.text??segment.parts.map(part=>part[1]).join('')).join('');}
-function whole(source){const first=source.segments[0].materialRef,last=source.segments.at(-1).materialRef;return first===last?first:source.materialChoices.find(item=>item.from===first&&item.to===last).materialRef;}
-function plan(wire){
- const old=wire.sources.find(source=>source.at?.startsWith('2026-08')),current=wire.sources.find(source=>source.id===wire.intentAuthority.sourceId),permission=whole(current);
- const authorityRef=current.authorityChoices.originalUserStatementCandidates.find(item=>item.materialRef===permission).authorityRef;
- const id=wire.intentAuthority.sourceId,control=text=>({text,sourceIds:[id]});
- return {intent:'reply',quotes:[{materialRef:old.segments[0].materialRef,authorityRef}],guidance:{objective:control('分享已经准许的真实功能'),allowedApproach:control('保留当前人类的实际意思'),avoidances:[]}};
+function materials(wire){
+ const old=wire.sources.find(source=>source.at?.startsWith('2026-08'));
+ return [{materialRef:old.segments[0].materialRef,authorityRef:wire.currentPermission.authorityRef}];
 }
 function active(){
  const original=fixture(),prepared=prepareAssistantRequest(original.settings,original.payload,[]);
@@ -37,6 +35,7 @@ test('one existing named result tool advertises an operation without duplicate k
  const schema=tools[0].function.parameters;assert.ok(schema.properties.operation,'the model chooses one authoritative operation');
  assert.deepEqual(new Set(schema.properties.operation.enum),new Set(['advise','prepare_message','lookup','clarify']));assert.ok(schema.required.includes('operation'));assert.equal(schema.required.includes('text'),false);
  assert.equal(schema.properties.kind,undefined);assert.equal(schema.properties.requestDelivery,undefined);
+ assert.equal(schema.properties.draftPlan,undefined);assert.ok(schema.properties.currentFacts);assert.ok(schema.properties.materials);assert.ok(schema.properties.editingReference);
  assert.ok(prepared.wirePayload.operationProtocol);assert.equal(prepared.wirePayload.requestDeliveryPolicy,undefined);assert.equal(prepared.wirePayload.operationProtocol.requiredArtifact,undefined);
  assert.equal(prepared.request.tool_choice.function.name,'assistant_result');assert.equal(payload.sources[0].text,FACT+'旧的私下细节不能自动分享。');
 });
@@ -57,12 +56,12 @@ test('raw advise binds current identity and keeps a private why body without con
  const other=active();assert.throws(()=>parseAssistant(result,'discussion',other.context),/different HTTP offer|canonical|binding/i,'a canonical result cannot be rebound to a different HTTP offer');
 });
 
-test('raw prepare_message restores genuinely offered exact material and authority before the unchanged strict parser',()=>{
- const app=active(),raw={operation:'prepare_message',answer:ANSWER,text:'按这次范围准备完整表达。',draftPlan:plan(app.wire)},result=parseAssistant(raw,'discussion',app.context);
- assert.equal(result.requestDelivery.mode,'editable_message');assert.equal(result.requestDelivery.sourceId,app.current.id);assert.equal(result.draftPlan.quotes[0].sourceId,app.old.id);assert.equal(result.draftPlan.quotes[0].text,FACT);
- assert.equal(result.draftPlan.quotes[0].authorization.permission.sourceId,app.current.id);assert.equal(result.draftPlan.quotes[0].authorization.referent.text,FACT);assert.equal(raw.draftPlan.quotes[0].text,undefined);
- assert.equal(app.context.manifest.primaryOperation.operation,'prepare_message');assert.equal(app.context.manifest.primaryOperation.requiredArtifact,'message');assert.equal(result.suggestions,undefined);
- const withoutText=active(),pure=parseAssistant({operation:'prepare_message',answer:ANSWER,draftPlan:plan(withoutText.wire)},'discussion',withoutText.context);assert.equal(pure.draftPlan.quotes[0].text,FACT,'optional private prose is not a second required operation marker');
+test('raw prepare_message owns a complete answer and restores optional private material without a plan',()=>{
+ const app=active(),raw={operation:'prepare_message',answer:ANSWER,materials:materials(app.wire)},result=parseAssistant(raw,'discussion',app.context),quote=result.materials[0];
+ assert.equal(result.requestDelivery.mode,'editable_message');assert.equal(result.requestDelivery.sourceId,app.current.id);assert.equal(quote.sourceId,app.old.id);assert.equal(quote.text,FACT);
+ assert.equal(quote.authorization.permission.sourceId,app.current.id);assert.equal(quote.authorization.referent.text,FACT);assert.equal(raw.materials[0].text,undefined);
+ assert.equal(app.context.manifest.primaryOperation.operation,'prepare_message');assert.equal(app.context.manifest.primaryOperation.requiredArtifact,'message');assert.equal(result.kind,'draft');assert.equal(result.suggestions[0].text,FACT);assert.equal(result.draftPlan,undefined);
+ const control=active(),pure=parseAssistant({operation:'prepare_message',answer:{suggestions:[{text:'这个功能挺有意思的。'}]}},'discussion',control.context);assert.equal(pure.kind,'draft');assert.deepEqual(primaryOperationFor(pure).admittedMaterials,[],'ordinary response has no fabricated material-selection obligation');
 });
 
 test('raw lookup declares its continuation and retains valid independent auxiliary metadata without accepting another core branch',()=>{
@@ -93,7 +92,7 @@ test('mixed, malformed and unknown operations fail before inactive refs or legac
 });
 
 test('prepare_message itself cannot create new permission, human controls or a selected UI source',()=>{
- const app=active(),bad={operation:'prepare_message',answer:ANSWER,draftPlan:plan(app.wire)};bad.draftPlan.quotes[0].authorityRef='a999999';
+ const app=active(),bad={operation:'prepare_message',answer:ANSWER,materials:materials(app.wire)};bad.materials[0].authorityRef='a999999';
  assert.throws(()=>parseAssistant(bad,'discussion',app.context),error=>/authority/i.test(issue(error)));
  for(const field of ['currentHumanControl','selectedDirectionControl','requestDelivery']){
   const other=active(),raw={operation:'advise',text:'Private.',[field]:{authority:'CONTROL_ONLY_UI_SELECTION',sourceId:'s999',label:'MODEL_SELF_TAGGED'}};
@@ -118,7 +117,7 @@ test('a malformed prepare_message cannot spend its repair slot by finishing as a
  const {payload,settings}=fixture(),context={payload,manifest:{scope,requestId:'operation-malformed-message',sourceRevisions:Object.fromEntries(payload.sources.map(source=>[source.id,source.revision]))}},calls=[];
  await assert.rejects(assistModel(settings,context,undefined,async(_url,args)=>{
   const request=JSON.parse(args.body),wrapper=JSON.parse(request.messages[1].content);calls.push({request,wrapper});
-  return response(calls.length===1?{operation:'prepare_message',answer:ANSWER,draftPlan:'malformed plan'}:{operation:'advise',text:'Only a private strategy, not the promised message.'});
+  return response(calls.length===1?{operation:'prepare_message',answer:{suggestions:[]}}:{operation:'advise',text:'Only a private strategy, not the promised message.'});
  }),error=>/message artifact|artifact_required|still requires/i.test(issue(error)));
  assert.equal(calls.length,2);assert.equal(calls[1].wrapper.originalInput.operationProtocol.requiredArtifact,'message');
  assert.equal(calls[1].request.tool_choice.function.name,'assistant_result');assert.equal(context.manifest.formatRepair.attempts,1);
@@ -133,7 +132,7 @@ test('image carrier, exact delivered body and serialized text measurement use th
  const withoutImage={...prepared.request,messages:[prepared.request.messages[0],{role:'user',content:prepared.request.messages[1].content[0].text}]};assert.equal(prepared.requestBytes,Buffer.byteLength(JSON.stringify(withoutImage)));
 });
 
-test('a valid preparation plan never substitutes for the required complete primary answer',()=>{
+test('valid material declarations never substitute for the required complete primary answer',()=>{
  const app=active();
- assert.throws(()=>parseAssistant({operation:'prepare_message',draftPlan:plan(app.wire)},'discussion',app.context),error=>error.code==='whole_answer_invalid');
+ assert.throws(()=>parseAssistant({operation:'prepare_message',materials:materials(app.wire)},'discussion',app.context),error=>error.code==='whole_answer_invalid');
 });

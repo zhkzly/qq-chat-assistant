@@ -40,7 +40,7 @@ function assertSafeDefault(planning,draft){
 test('private assistance delivers the configured preference to planning and safe controls without replacing the current meaning',async t=>{
  const {controller,calls}=fixture(t);const answer=await controller.assist({text:REQUEST,taskId:'private-configured-preference'});
  assert.equal(answer.suggestions[0].text,WORDING);assert.equal(calls.length,2);assert.equal(calls[0].userRequest.text,REQUEST);
- assertSafeDefault(calls[0],controller.assistantContext().run.payload);assert.equal(calls[1].purpose,'fidelity_check');assert.equal(controller.assistantContext().run.payload.draftingGuidance.objective.text,'这次直接邀请她一起逛展');
+ assertSafeDefault(calls[0],controller.assistantContext().run.payload);assert.equal(calls[1].purpose,'fidelity_check');assert.equal(controller.assistantContext().run.payload.currentHumanControl.text,REQUEST);assert.equal(controller.assistantContext().run.payload.draftingGuidance,undefined);
 });
 
 test('canonical feedback continuation receives the same configured preference and preserves the exact local feedback',async t=>{
@@ -70,20 +70,19 @@ test('local wording criticism carries the prior invitation and humor through gui
   store.appendTurn(scope,{role:'assistant',origin:'user',kind:'discussion',text:'这一轮先照你说的方向回应。',sourceIds:[priorId]});
   const request={text:criticism,taskId:quotePrior?'local-criticism-unauthorized-quote':'local-criticism-guidance'};
   if(quotePrior){
-   await assert.rejects(controller.assist(request),error=>error.code==='primary_authority_reference_missing'&&error.issues?.some(item=>item.path==='draftPlan.quotes[0].authorityRef'));
+   await assert.rejects(controller.assist(request),error=>error.code==='primary_authority_reference_missing'&&error.issues?.some(item=>item.path==='materials[0].authorityRef'));
    assert.equal(store.getCompanion(scope).turns.find(turn=>turn.id===priorId.slice(8)).text,priorText,'missing-reference diagnostics cannot mutate the original private source');
    assert.equal(calls.length,1,'an old private quote without authorization cannot reach fidelity checking');
    assert.equal(controller.usage.get(scope,request.taskId).status,'failed');
   }else{
    const answer=await controller.assist(request);assert.equal(answer.suggestions[0].text,WORDING);assert.equal(calls.length,2);
    const draft=controller.assistantContext().run.payload,currentId=calls[0].userRequest.sourceId;assert.equal(calls[1].purpose,'fidelity_check');
-   assert.equal(draft.purpose,'draft');assert.deepEqual(draft.outboundQuotes,[]);
-   assert.equal(draft.draftingGuidance.objective.text,objective);assert.equal(draft.draftingGuidance.allowedApproach.text,approach);
-   for(const control of [draft.draftingGuidance.objective,draft.draftingGuidance.allowedApproach])assert.deepEqual(control.sourceIds,[priorId,currentId]);
+   assert.equal(draft.purpose,'answer_admission');assert.deepEqual(draft.outboundQuotes,[]);
+   assert.equal(draft.draftingGuidance,undefined);assert.ok(calls[1].evidence.some(source=>source.sourceId===priorId&&source.text===priorText));
    assert.ok(draft.sources.some(source=>source.id==='qq:56701'));
    assert.ok(draft.sources.every(source=>source.type==='qq'),'guidance source IDs do not ship raw private sources');
    const otherLanes=withoutCurrentControl(draft,criticism);assert.equal(draft.currentHumanControl.sourceId,currentId);
-   assert.equal(draft.draftingGuidance.authority,'GENERATED_PROPOSAL');
+   assert.equal(draft.draftingGuidance,undefined);
    assert.equal(JSON.stringify(otherLanes).includes(priorText),false);assert.equal(JSON.stringify(otherLanes).includes(criticism),false);
    assert.equal(JSON.stringify(answer.suggestions).includes(priorText),false);assert.equal(JSON.stringify(answer.suggestions).includes(criticism),false);
    assert.equal(controller.usage.get(scope,request.taskId).status,'complete');

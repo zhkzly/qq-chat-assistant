@@ -35,10 +35,11 @@ test('private HTTP routes enforce scope and local auth, expose actual request, a
   assert.equal(snapshot.total, 0);
   const inspect = await fetch(base + '/api/assistant-context', { headers: { Authorization: 'Bearer synthetic-token' } });
   const captured = await inspect.json();
-  assert.equal(captured.run.payload.userRequest.text, '想分享今天的小事');
+  assert.equal(captured.run.requests[0].payload.userRequest.text, '想分享今天的小事');
+  assert.equal(captured.run.payload.currentHumanControl.text,'想分享今天的小事');assert.equal(captured.run.payload.purpose,'answer_admission');
   assert.equal(captured.run.manifest.requestId, snapshot.companion.turns[1].requestId);
   assert.equal(captured.run.maintenance, 'reviewed_no_change');
   controller.configure({ instruction: '后来改变的旧快速回复指示' });
-  assert.equal(controller.assistantContext().run.payload.userRequest.text, '想分享今天的小事', 'inspector does not recompute input');
+  assert.equal(controller.assistantContext().run.requests[0].payload.userRequest.text, '想分享今天的小事', 'inspector does not recompute input');
   assert.deepEqual(JSON.parse(store.export(scope, 'json').data).messages, []);
 });

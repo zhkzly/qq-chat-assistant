@@ -14,7 +14,7 @@ const { CDP } = require('./cdp.cjs');
 const { actions } = require('./browser-actions.cjs');
 const { withCurrentDraftControls } = require('../tests/fixtures/draft-controls.cjs');
 const { withoutCurrentControl } = require('../tests/fixtures/wording-lanes.cjs');
-const {withCurrentStatementAuthority}=require('../tests/fixtures/current-statement-authority.cjs');
+const {materialRefForText}=require('../tests/fixtures/current-statement-authority.cjs');
 
 const sleep = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds));
 async function until(predicate, label) {
@@ -33,7 +33,9 @@ async function until(predicate, label) {
   const privateFear = 'PRIVATE_BROWSER_FEAR_我怕她嫌我烦';
   const privateNote='PRIVATE_BROWSER_NOTE_只供自己整理的担忧';
   const preference='以后回复简短一些，但不要为了简短忽略她说的事';
-  const optionText='今天实验终于成功了，先帮我想想能分享哪个方向。';
+  const noteOption=process.argv.includes('--shareable-note-option');
+  const optionText=noteOption?'先帮我想想如何分享今天去爬山这件事。':'今天实验终于成功了，先帮我想想能分享哪个方向。';
+  const optionFact=noteOption?'今天去爬山了':'实验终于成功了';
   let selected = scope;
   const controller = new Controller({ store,
     settings: { auto: false, apiKey: 'synthetic-only', model: 'synthetic-assistant', baseUrl: 'http://fixture.invalid/v1',
@@ -49,9 +51,15 @@ async function until(predicate, label) {
       if(payload.purpose==='fidelity_check')return {checkRef:payload.checkRef,verdict:'allow',issues:[]};
       const text=payload.userRequest?.text||'';
       if (text.includes('模拟网络失败')) throw new Error('synthetic-offline');
-      if (payload.purpose === 'draft_prepare') return withCurrentStatementAuthority({answer:{suggestions:[{style:'简短',text:'实验终于成功啦，终于松了口气。'}]},draftPlan: withCurrentDraftControls(payload.selectedOption ?
-        {option:payload.selectedOption,style:'short'} : {quotes:[{sourceId:payload.userRequest.sourceId,text:'实验终于成功了'}],style:'short'},payload) },payload,context.primaryFrameSnapshot.receipt);
-      if (payload.purpose === 'reply') return {kind:'discussion',text:'按真实来信准备。',answer:{suggestions:[{style:'简短',text:'今晚先好好休息，不用急着回我。'}]},draftPlan:withCurrentDraftControls({quotes:[],intent:'reply',style:'short'},payload)};
+      if(payload.purpose==='draft_prepare'){
+        if(payload.selectedOption){
+          const selected=(payload.expressionOptions||[]).find(option=>option.turnId===payload.selectedOption.turnId&&option.index===payload.selectedOption.index),quote=selected?.quotes[0];assert.equal(quote?.text,optionFact);
+          const view=context.primaryFrameSnapshot.payload.sources.find(source=>source.id===quote.sourceId),authority=context.primaryFrameSnapshot.receipt.authorities.find(item=>item.kind==='PROGRAM_SOURCE_AUTHORITY'&&item.targetSourceId===quote.sourceId);assert.ok(view&&authority);
+          return {operation:'prepare_message',materials:[{materialRef:materialRefForText(view,quote.text),authorityRef:authority.authorityRef}],answer:{suggestions:[{style:'简短',text:noteOption?'今天去爬山了，跟你分享一下。':'实验终于成功啦，终于松了口气。'}]}};
+        }
+        return {operation:'prepare_message',currentFacts:['实验终于成功了'],answer:{suggestions:[{style:'简短',text:'实验终于成功啦，终于松了口气。'}]}};
+      }
+      if(payload.purpose==='reply')return {operation:'prepare_message',answer:{suggestions:[{style:'简短',text:'今晚先好好休息，不用急着回我。'}]}};
       if (payload.purpose === 'draft') return { kind: 'draft', text: '可以用你自己的语气分享：',
         suggestions: [{ style: '简短', text: payload.outboundQuotes.length?'实验终于成功啦，终于松了口气。':'今晚先好好休息，不用急着回我。' }] };
       if(payload.actionReceipts?.length)return {kind:'acknowledgment',text:'已按你本次明确的意思处理，具体记录可以查看和撤销。',methodIds:['correction']};
@@ -62,8 +70,11 @@ async function until(predicate, label) {
       if(text===`记住${preference}。`)action={type:'set_preference',text:preference,evidenceQuote:text};
       if(text==='我们也许可以把目标调整一下。')action={type:'set_goal',text:'先多一些自然的双向交流',evidenceQuote:text};
       if(action)return {kind:'discussion',text:'可以核对下面这项具体记录。',actions:[action],methodIds:['correction']};
-      if(text===optionText)return withCurrentStatementAuthority({kind:'options',text:'可以分享终于有进展这件事；你不必把自己的担忧也告诉她。',methodIds:['choose_next_step'],
-        expressionOptions:[{label:'分享实验终于有进展',quotes:[{sourceId:payload.userRequest.sourceId,text:'实验终于成功了'}],style:'short'}]},payload,context.primaryFrameSnapshot.receipt);
+      if(text===optionText&&!noteOption)return {operation:'advise',text:'可以分享终于有进展这件事；你不必把自己的担忧也告诉她。',methodIds:['choose_next_step'],expressionOptions:[{label:'分享实验终于有进展',currentFacts:['实验终于成功了'],style:'short'}]};
+      if(text===optionText&&noteOption){
+        const note=payload.sources.find(source=>source.type==='note'&&source.text==='今天去爬山了');assert.ok(note,'the UI-created shareable note must be delivered');
+        return {kind:'options',text:'可以分享今天去爬山这件事；你不必把自己的担忧也告诉她。',methodIds:['choose_next_step'],expressionOptions:[{label:'分享今天爬山的近况',quotes:[{sourceId:note.id,text:note.text}],style:'short'}]};
+      }
       return { kind: 'discussion', text: '可以先聊清楚你想分享的心情。<img src=x onerror=alert(1)>',methodIds:['clarify'] };
     }
   });
@@ -180,7 +191,7 @@ async function until(predicate, label) {
     await until(()=>calls.length===optionCalls+2&&!controller.assistantBusy,'option to fresh draft context');
     assert.equal(calls.at(-2).payload.userRequest.text,'按选中的方向组织表达');
     assert.ok(calls.at(-2).payload.selectedOption);
-    assert.deepEqual(controller.assistantContext().run.payload.outboundQuotes.map(q=>q.text),['实验终于成功了']);
+    assert.deepEqual(controller.assistantContext().run.payload.outboundQuotes.map(q=>q.text),[optionFact]);
     assert.equal(JSON.stringify(controller.assistantContext().run.payload).includes(privateFear),false);
     assert.equal(controller.snapshot().total,0);
     checks.push('Selecting a discussed expression direction creates a restricted draft without retyping the old private material');
@@ -310,7 +321,7 @@ async function until(predicate, label) {
     checks.push('The actual helper reload functions refuse open settings and preserve scoped unsent inputs, material selection and draft across reload without model calls or sends');
     checks.push('A mismatched-scope recovery deletes no legacy cache; successful recovery clears only its own obsolete two-ID draft aliases');
     const report = { evidence: 'synthetic-browser-execution', result: 'PASS', nativeQQIntegration: false,
-      realModelCalls: 0, timestamp: new Date().toISOString(), checks, screenshot: path.join(artifacts, 'assistant-synthetic.png'), initialScreenshots:[[370,560],[370,640],[370,890],[480,900]].map(([width,height])=>path.join(artifacts,`initial-${width}x${height}.png`)) };
+      realModelCalls:0,optionScenario:noteOption?'preauthorized_note_countercase':'current_fact_option', timestamp: new Date().toISOString(), checks, screenshot: path.join(artifacts, 'assistant-synthetic.png'), initialScreenshots:[[370,560],[370,640],[370,890],[480,900]].map(([width,height])=>path.join(artifacts,`initial-${width}x${height}.png`)) };
     fs.writeFileSync(path.join(artifacts, 'report.json'), JSON.stringify(report, null, 2));
     console.log(JSON.stringify({ result: report.result, checks: checks.length, nativeQQIntegration: false, report: path.join(artifacts, 'report.json') }));
   } finally {

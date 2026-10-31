@@ -56,7 +56,7 @@ test('indexed missing-reference feedback preserves a real restricted handoff wit
   }
   let response={...structuredClone(firstResponse),answer:{suggestions:[{style:'自然',text:'是我给自己记读书笔记的小网页，昨天查找功能终于做好了，还挺开心。你平时怎么留住读到的东西？'}]}};
   if(wrapper.originalInput){
-   assert.match(wrapper.formatError,/draftPlan\.quotes\[0\]\.authorityRef/);assert.match(wrapper.formatError,/draftPlan\.quotes\[1\]\.authorityRef/);
+   assert.match(wrapper.formatError,/materials\[0\]\.authorityRef/);assert.match(wrapper.formatError,/materials\[1\]\.authorityRef/);
    response={...response,draftPlan:bindCurrent(factualPlan(),p)};
   }
   return new Response(JSON.stringify({choices:[{message:{content:JSON.stringify(wireSourceView(response,(wrapper.originalInput?context.extraRequests?.at(-1)?.manifest?.sourceHandles:undefined)||context.manifest.sourceHandles,(wrapper.originalInput?context.extraRequests?.at(-1)?.manifest?.primaryReferences:undefined)||context.manifest.primaryReferences,wrapper.originalInput?context.extraRequests.at(-1).payload.originalInput:context.payload))}}]}),{status:200});

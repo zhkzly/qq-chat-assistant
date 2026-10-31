@@ -94,9 +94,9 @@ function makeSyntheticTransport() {
       }
     }
     if(p.operationProtocol&&result&&typeof result==='object'){
-      const {kind,replyDisposition,...fields}=result;
-      result={operation:result.draftPlan?'prepare_message':'advise',...fields,
-        ...(result.draftPlan?{answer:{suggestions:[{style:'自然',text:'合成传输占位，仅用于验证流程。'}]}}:{})};
+      const {kind,replyDisposition,draftPlan,text,...fields}=result;
+      result=draftPlan?{operation:'prepare_message',...fields,answer:{suggestions:[{style:'自然',text:'合成传输占位，仅用于验证流程。'}]}}
+        :{operation:'advise',...fields,text};
     }
     if(p.requestDeliveryPolicy&&result&&typeof result==='object'&&p.purpose!=='draft'){
       const sourceId=p.intentAuthority?.sourceId||p.userRequest?.sourceId,source=p.sources.find(item=>item.id===sourceId);

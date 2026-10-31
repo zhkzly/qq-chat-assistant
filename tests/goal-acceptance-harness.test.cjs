@@ -27,7 +27,7 @@ test('synthetic transport exercises planning, clarification, private explanation
  const clarification=report.cases.find(item=>item.id==='G2');assert.deepEqual(clarification.stages.map(stage=>stage.purpose),['discussion','fidelity_check']);assert.equal(clarification.reply.suggestions,undefined);
  const indirect=report.cases.find(item=>item.id==='G3');assert.deepEqual(indirect.stages.map(stage=>stage.purpose),['discussion','fidelity_check']);assert.ok(indirect.reply.discussionExplanation.text);
  const experience=report.cases.find(item=>item.id==='G8');assert.equal(experience.guidanceSeeds.length,4);assert.ok(experience.guidanceDelivery[0].entries.every(item=>item.authority==='user_approved_assistance_guidance'));
- const contrary=report.cases.find(item=>item.id==='G8-contrary');assert.ok(contrary.controls[0].allowedApproach.text.includes('最新请求'));assert.deepEqual(contrary.controls[0].avoidances,[]);
+ const contrary=report.cases.find(item=>item.id==='G8-contrary');assert.equal(contrary.admittedContext.payload.currentHumanControl.text,contrary.request);assert.equal(contrary.admittedContext.payload.draftingGuidance,undefined);
  for(const item of report.cases)for(const stage of item.methodDelivery){
   assert.ok(stage.directoryNavigation.every(method=>method.provided&&method.locations.length&&method.authority==='navigation_only'));
   const actual=stage.instructionDelivery.filter(method=>method.provided);
@@ -55,7 +55,7 @@ test('targeted cases select only declared IDs and preserve the newly requested r
  assert.ok(rationale.reply.discussionExplanation.text.includes('不问名字也不邀约'));assert.ok(!rationale.reply.suggestions[0].text.includes('长期目标'));
  const questions=report.cases.find(item=>item.id==='G8-two-questions'),approved=questions.guidanceSeeds.find(item=>item.label==='approved_applicable');
  assert.equal(approved.text,'回应具体近况时，先接住分享，避免连续追问。');assert.ok(questions.reply.suggestions[0].text.includes('项目'));assert.ok(questions.reply.suggestions[0].text.includes('吃饭'));
- assert.ok(!questions.reply.suggestions[0].text.includes('晚饭'));assert.ok(questions.controls[0].allowedApproach.text.includes('两个问题'));assert.deepEqual(questions.controls[0].avoidances,[]);
+ assert.ok(!questions.reply.suggestions[0].text.includes('晚饭'));assert.equal(questions.admittedContext.payload.currentHumanControl.text,questions.request);assert.ok(questions.request.includes('两个问题'));assert.equal(questions.admittedContext.payload.draftingGuidance,undefined);
  assert.equal(report.semanticVerdict,'requires_independent_review');
 });
 test('global caps retain the first incomplete result and prevent later scenario retries',async()=>{

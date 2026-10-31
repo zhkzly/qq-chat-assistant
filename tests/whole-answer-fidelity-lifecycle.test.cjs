@@ -19,8 +19,8 @@ function materialFor(source,text){
  assert.fail('A genuine offered material span must contain the selected original text');
 }
 function prepared(p,{message='我以前也装过一个两层小书架，背板对齐时还调整了一阵。',why='依据这段已准许的真实自述组织表达。',current=false,fragment}={}){
- const human=p.sources.find(source=>source.id===p.intentAuthority.sourceId),source=current?human:p.sources.find(source=>source.type==='note'),ref=fragment?materialFor(source,fragment):whole(source),authorityRef=current?human.authorityChoices.originalUserStatementCandidates.find(item=>item.materialRef===whole(human)).authorityRef:source.authorityChoices.program[0].authorityRef,id=p.intentAuthority.sourceId,c=text=>({text,sourceIds:[id]});
- return {operation:'prepare_message',text:'PRIMARY_PLANNING_NOT_THE_WHOLE_ANSWER',draftPlan:{intent:'reply',quotes:[{materialRef:ref,authorityRef}],guidance:{objective:c('保持本次实际意思'),allowedApproach:c('只用已准许的材料与控制'),avoidances:[]}},answer:{privateExplanation:why,suggestions:[{style:'自然',text:message}]}};
+ const source=current?null:p.sources.find(source=>source.type==='note');
+ return {operation:'prepare_message',...(current?{currentFacts:[fragment]}:{materials:[{materialRef:fragment?materialFor(source,fragment):whole(source),authorityRef:source.authorityChoices.program[0].authorityRef}]}),answer:{privateExplanation:why,suggestions:[{style:'自然',text:message}]}};
 }
 function jsonResponse(value,name){return new Response(JSON.stringify({choices:[{message:name?{tool_calls:[{id:'fidelity-fixture',type:'function',function:{name,arguments:JSON.stringify(value)}}]}:{content:JSON.stringify(value)}}]}),{status:200});}
 async function application(t,producer,{limit=4,noteText}={}){
@@ -65,7 +65,7 @@ test('a checker rejection cannot obtain a second shared repair after the primary
 });
 
 test('invalid material references cannot be laundered by a checker allowance or reach publication',async t=>{
- const app=await application(t,p=>{assert.notEqual(p.purpose,'fidelity_check','program admission must reject invalid references before checking');const value=prepared(p);value.draftPlan.quotes[0].materialRef='m999999';return value;},{noteText:SELF_MATERIAL});
+ const app=await application(t,p=>{assert.notEqual(p.purpose,'fidelity_check','program admission must reject invalid references before checking');const value=prepared(p);value.materials[0].materialRef='m999999';return value;},{noteText:SELF_MATERIAL});
  await assert.rejects(app.assist());assert.equal(app.calls.length,2);assert.equal(app.store.getCompanion(scope).turns.some(turn=>turn.role==='assistant'),false);assert.equal(app.controller.usage.get(scope,'whole-answer-fidelity').status,'failed');
 });
 
@@ -101,7 +101,7 @@ test('source withdrawal during the one candidate-regeneration repair cannot publ
 test('a new explicit-invitation candidate is checked against both original turns under its own current intent',async t=>{
  let invite=false;const invitation='周六要不要一起看看小葱？',app=await application(t,p=>{
   if(p.purpose==='fidelity_check')return {checkRef:p.checkRef,verdict:'allow',issues:[]};
-  if(!invite)return {operation:'advise',text:ADVICE};const id=p.intentAuthority.sourceId,c=text=>({text,sourceIds:[id]});return {operation:'prepare_message',draftPlan:{intent:'reply',quotes:[],guidance:{objective:c('保持本次明确邀请'),allowedApproach:c('照实际原话提议未来活动'),avoidances:[]}},answer:{privateExplanation:'按这次原话中的明确邀请提出选择。',suggestions:[{text:invitation}]}};
+  if(!invite)return {operation:'advise',text:ADVICE};const id=p.intentAuthority.sourceId,c=text=>({text,sourceIds:[id]});return {operation:'prepare_message',answer:{privateExplanation:'按这次原话中的明确邀请提出选择。',suggestions:[{text:invitation}]}};
  });
  await app.assist(HUMAN,'fidelity-no-invite');invite=true;const current='这次我改变主意，想直接邀请她周六一起看看小葱。',reply=await app.assist(current,'fidelity-later-invite'),packet=app.calls.at(-1).p;
  assert.equal(reply.suggestions[0].text,invitation);assert.ok(packet.evidence.some(source=>source.text===HUMAN));assert.ok(packet.evidence.some(source=>source.text===current));assert.equal(packet.currentHumanControl.bodyLocation,'evidence');assert.equal(packet.currentHumanControl.sourceId,packet.intentAuthority.sourceId);assert.equal(packet.evidence.find(source=>source.sourceId===packet.currentHumanControl.sourceId).text,current);assert.equal(app.calls.length,4);assert.notEqual(app.calls[0].taskId,app.calls[2].taskId);

@@ -10,7 +10,7 @@ async function app(t,{close=false}={}){
   calls.push(input);const p=input.payload;if(p.purpose==='fidelity_check')return {checkRef:p.checkRef,verdict:'allow',issues:[]};
   const id=p.intentAuthority.sourceId,control=text=>({text,sourceIds:[id]});
   return {operation:'prepare_message',answer:{suggestions:[{text:'你后面提到的那个进展，现在怎么样啦？'}]},stateReview:'no_change',
-   draftPlan:{quotes:[],intent:'reply',taskUse:'continue',guidance:{objective:control('回应已知的后续进展'),allowedApproach:control('只用当前真实交流'),avoidances:close?[]:[control('保留当前商量的表达分寸')]}},
+   ...(close?{currentFacts:['UNSUPPORTED_CURRENT_FACT']}:{}),
    topicPatch:{operation:close?'complete':'update',topicId:p.topicContext.active.id,progress:['An older optional progress inference.'],observationSourceIds:['qq:91000000000000431'],...(close?{purposeSourceIds:[id],intentQuote:p.userRequest.text}:{})}};
  }});
  t.after(()=>{controller.close();store.close();});controller.scope={...scope};const now=Math.floor(Date.now()/1000);controller.ingest(scope,[raw('91000000000000431',false,{msgTime:String(now-300)}),raw('91000000000000432',false,{msgTime:String(now-60)})]);
@@ -26,8 +26,31 @@ test('an unchanged-input older optional backfill cannot invalidate a checked cor
  assert.equal(a.calls.length,2);assert.equal(reply.suggestions.length,1);assert.deepEqual(a.store.topicView(scope),a.before);assert.equal(a.store.getCompanion(scope).state.version,state);assert.equal(run.topicReceipt,null);assert.equal(run.patchReceipt,null);assert.equal(reply.privateReviewReceipt,undefined);assert.equal(reply.metadataReviewPending.reasonCode,'auxiliary_metadata_rejected');assert.ok(run.auxiliaryErrors.some(e=>e.field==='topicPatch'&&e.code==='inapplicable_optional_proposal'));assert.equal(a.store.messages(scope).some(m=>m.direction==='outgoing'),false);
 });
 
-test('discarding an inapplicable close proposal revalidates the original core against still-active controls',async t=>{
- const a=await app(t,{close:true});await assert.rejects(a.assist(),/avoidances|topic requires/);assert.equal(a.calls.length,1);assert.deepEqual(a.store.topicView(scope),a.before);assert.equal(a.store.getCompanion(scope).turns.some(t=>t.role==='assistant'),false);
+test('discarding an inapplicable close proposal cannot make an unsupported current fact valid',async t=>{
+ const a=await app(t,{close:true});await assert.rejects(a.assist(),/currentFacts|current.*fact|span/i);assert.equal(a.calls.length,1);assert.deepEqual(a.store.topicView(scope),a.before);assert.equal(a.store.getCompanion(scope).turns.some(t=>t.role==='assistant'),false);
+});
+
+test('discarding an older optional backfill preserves declared advice facts and complete permission at the checker',async t=>{
+ const a=await app(t),oldFact='我以前补过自己的旧帆布包内衬。',currentFact='我今天整理好了读书摘记',human=`${currentFact}，也愿意把以前补旧包内衬这件事告诉她；只说我自己的经历，PRIVATE_REASON仍只在这里商量。先给我含具体例子的私下建议。`,body='可以用自己的小进展接话。例如：“今天终于把读书摘记整理好了。我以前也补过自己的旧包内衬。”';
+ const historical=a.store.appendTurn(scope,{role:'user',kind:'discussion',text:oldFact}),calls=[];
+ a.controller.assistantModel=async(_,input)=>{
+  calls.push(input);const p=input.payload;
+  if(p.purpose==='fidelity_check'){
+   assert.deepEqual(p.admittedFragments.map(quote=>quote.text),[oldFact,currentFact]);
+   assert.equal(p.evidence.find(source=>source.sourceId===p.currentHumanControl.sourceId).text,human);
+   return {checkRef:p.checkRef,verdict:'allow',issues:[]};
+  }
+  const receipt=input.manifest.primaryReferences,material=receipt.materials.find(item=>item.sourceId==='private:'+historical.id&&item.end-item.start===oldFact.length),permission=receipt.authorities.find(item=>item.currentInstruction);
+  assert.ok(material&&permission);
+  return {operation:'advise',text:body,currentFacts:[currentFact],materials:[{materialRef:material.materialRef,authorityRef:permission.authorityRef}],stateReview:'no_change',
+   topicPatch:{operation:'update',topicId:p.topicContext.active.id,progress:['An older optional progress inference.'],observationSourceIds:['qq:91000000000000431']}};
+ };
+ const reply=await a.controller.assist({text:human,sourceTurnIds:[historical.id],taskId:'store-domain-advice-material'}),run=a.store.getCompanion(scope).runs.at(-1),currentId=run.payload.currentHumanControl.sourceId;
+ assert.equal(calls.length,2);assert.equal(reply.text,body);assert.equal(reply.suggestions,undefined);assert.deepEqual(a.store.topicView(scope),a.before);
+ assert.ok(run.auxiliaryErrors.some(error=>error.field==='topicPatch'&&error.code==='inapplicable_optional_proposal'));
+ assert.equal(run.payload.purpose,'answer_admission');assert.deepEqual(run.payload.outboundQuotes.map(quote=>quote.text),[oldFact,currentFact]);
+ assert.equal(run.manifest.disclosureBindings.length,2);assert.ok(run.manifest.disclosureBindings.every(binding=>binding.permission.sourceId===currentId&&binding.permission.text===human&&binding.permission.revision===run.manifest.sourceRevisions[currentId]));
+ assert.equal(run.manifest.preparedResponse.message,'absent');assert.equal(run.manifest.preparedResponse.privateBodyOwner,'text');assert.equal(a.store.messages(scope).some(message=>message.direction==='outgoing'),false);
 });
 
 test('explicit uncertainty is never promoted to approval by a private nonblocking concern',()=>{

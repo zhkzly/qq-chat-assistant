@@ -15,7 +15,7 @@ function messagePlan(p){
  const current=p.intentAuthority.sourceId,control=text=>({text,sourceIds:[current]});
  return {intent:'reply',quotes:[{materialRef:whole(note),authorityRef:note.authorityChoices.program[0].authorityRef}],guidance:{objective:control('按这次实际意思介绍已知功能'),allowedApproach:control('只使用独立准入素材'),avoidances:[]}};
 }
-function preparedMessage(p){return {operation:'prepare_message',text:'按本次范围准备完整表达。',draftPlan:messagePlan(p),answer:{suggestions:[{style:'自然',text:MESSAGE}]}};}
+function preparedMessage(p){const note=p.sources.find(source=>source.type==='note');return {operation:'prepare_message',materials:[{materialRef:whole(note),authorityRef:note.authorityChoices.program[0].authorityRef}],answer:{suggestions:[{style:'自然',text:MESSAGE}]}};}
 const allow=p=>({checkRef:p.checkRef,verdict:'allow',issues:[]});
 function toolResponse(value,name){const args=typeof value==='string'?value:JSON.stringify(value);return new Response(JSON.stringify({choices:[{message:{tool_calls:[{id:'fictional-operation-life',type:'function',function:{name,arguments:args}}]}}]}),{status:200});}
 async function until(check,label){for(let n=0;n<120;n++){if(check())return;await new Promise(resolve=>setTimeout(resolve,5));}assert.fail(label);}
@@ -64,7 +64,7 @@ test('automatic advise stays private wait after checking without an original-hum
  const text='先观察她真正想说的细节，这里只提供私下考虑。',app=await application(t,p=>p.purpose==='fidelity_check'?allow(p):({operation:'advise',text})),before=app.store.experiences.draft(scope);
  const reply=await app.controller.assist({text:'结合实际来信提供参考。',purpose:'reply',transient:true,origin:'automatic',materialIds:[app.note.id],taskId:'operation-automatic-advice'});
  assert.equal(reply.kind,'discussion');assert.equal(reply.text,text);assert.equal(reply.replyDisposition,'wait');assert.equal(reply.suggestions,undefined);assert.equal(app.calls.length,2);assert.equal(app.calls.some(call=>call.p.purpose==='draft'),false);
- assert.equal(app.run().manifest.primaryOperation.requiredArtifact,undefined);assert.equal(app.calls[0].p.operationProtocol.requiredArtifact,undefined);
+ assert.equal(app.run().requests[0].manifest.primaryOperation.requiredArtifact,undefined);assert.equal(app.run().manifest.preparedResponse.message,'absent');assert.equal(app.calls[0].p.operationProtocol.requiredArtifact,undefined);
  const context=app.contexts[0],current=context.payload.sources.find(source=>source.id===context.payload.intentAuthority.sourceId);assert.equal(current.type,'request');assert.equal(current.authority,'invocation_control_not_user_evidence');
  assert.equal(app.store.getCompanion(scope).turns.some(turn=>turn.role==='user'),false);noSendOrAdoption(app,before);
 });
@@ -94,7 +94,7 @@ for(const variant of ['mixed','unknown','bad-reference'])test(`raw ${variant} co
   const source=p.sources.find(item=>item.type==='note'&&body(item).includes(secret)),actions=[{type:'forget',sourceId:source.id,targetQuote:secret,evidenceQuote:'忘记'+secret}],statePatch={items:[{text:'UNCOMMITTED_OPERATION_STATE',sourceIds:[p.intentAuthority.sourceId]}]};
   if(variant==='mixed')return {operation:'advise',text:'Private.',draftPlan:messagePlan(p),actions,statePatch};
   if(variant==='unknown')return {operation:'not_an_operation',text:'Private.',actions,statePatch};
-  const value=preparedMessage(p);value.draftPlan.quotes[0].materialRef='m999999';return {...value,actions,statePatch};
+  const value=preparedMessage(p);value.materials[0].materialRef='m999999';return {...value,actions,statePatch};
  });
  target=app.store.saveNote(scope,{text:secret,use:'discussion'});const before=app.store.getCompanion(scope).state.version;
  await assert.rejects(app.assist('忘记'+secret+'；然后按这次真正的范围帮助我。','operation-atomic-'+variant));

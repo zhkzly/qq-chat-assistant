@@ -1,6 +1,7 @@
 'use strict';
 const {sameScopeIfPresent}=require('./source-snapshot.cjs');
 const {assertDraftSourcesCurrent}=require('./draft-material.cjs');
+const {validationError}=require('../validation-issues.cjs');
 
 const originalHuman=source=>source?.role==='user'&&['private','feedback'].includes(source.type)&&
  !['feedback_continue','user_control'].includes(source.kind)&&source.authority!=='invocation_control_not_user_evidence';
@@ -32,4 +33,16 @@ function buildCurrentHumanControl(prepared,info={}){
  return {control:{version:1,authority:'CONTROL_ONLY',sourceId,sourceType:source.type,text:source.text},
   dependencies:[{sourceId,revision:source.revision}]};
 }
-module.exports={buildCurrentHumanControl};
+function currentFactQuotes(prepared,facts,info={}){
+ if(facts===undefined)return [];
+ if(!Array.isArray(facts)||facts.length>8)throw validationError('currentFacts','current_fact_span_invalid','currentFacts must contain at most eight exact current human fact spans');
+ if(!facts.length)return [];
+ let human;
+ try{human=buildCurrentHumanControl(prepared,info).control;}catch(error){throw validationError('currentFacts','current_fact_source_invalid',error.message);}
+ if(!human)throw validationError('currentFacts','current_fact_source_invalid','Current facts require the complete original human statement, not an invocation or generated continuation');
+ return facts.map((text,index)=>{
+  if(typeof text!=='string'||!text.trim()||text.length>4000||!human.text.includes(text))throw validationError(`currentFacts[${index}]`,'current_fact_span_invalid','A current fact must be an exact span of the captured complete human statement');
+  return {sourceId:human.sourceId,text,authorization:{permission:{sourceId:human.sourceId,text:human.text},referent:{sourceId:human.sourceId,text}}};
+ });
+}
+module.exports={buildCurrentHumanControl,currentFactQuotes};

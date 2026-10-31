@@ -4,6 +4,7 @@ const {prepareAssistantRequest,parseAssistant}=require('../src/assistant-model.c
 const {SourceHandleOwner}=require('../src/source-handles.cjs');
 const {canonicalSourceView,wireSourceView}=require('./fixtures/source-wire.cjs');
 const {scope}=require('./fixtures/native.cjs');
+const {primaryOperationFor}=require('../src/primary-operation.cjs');
 const ANSWER={suggestions:[{style:'自然',text:'已选的真实笔记事实'}]};
 function fixture({policy=true,intent=true,required=false}={}){
  const current={id:'private:current',revision:'current-r1',type:'private',role:'user',text:'想把已选笔记告诉她，给我完整表达。'};
@@ -19,7 +20,7 @@ function fixture({policy=true,intent=true,required=false}={}){
 }
 test('canonical operation input DTO restores only exact captured private policy and card witnesses',()=>{
  const f=fixture(),wire=f.prepared.wirePayload,raw=JSON.stringify(wire);
- assert.equal(wire.requestDeliveryPolicy,undefined);assert.equal(wire.operationProtocol.version,'primary-operation-v1');assert.equal(wire.methodCards[0].outputKinds,undefined);
+ assert.equal(wire.requestDeliveryPolicy,undefined);assert.equal(wire.operationProtocol.version,'primary-operation-v2');assert.equal(wire.methodCards[0].outputKinds,undefined);
  assert.deepEqual(canonicalSourceView(wire,f.prepared.sourceWire.receipt,f.payload),f.payload);
  const unbound=canonicalSourceView(wire,f.prepared.sourceWire.receipt);assert.equal(unbound.requestDeliveryPolicy,undefined);assert.equal(unbound.methodCards[0].outputKinds,undefined);
  const different={...f.payload,methodCards:[{...f.payload.methodCards[0],instruction:'Different captured instruction.'}]};
@@ -28,8 +29,8 @@ test('canonical operation input DTO restores only exact captured private policy 
 });
 test('declared plan with an explicit complete answer preserves exact material admission',()=>{
  const f=fixture(),old={kind:'discussion',text:'准备已选笔记。',requestDelivery:f.declaration('both'),draftPlan:f.plan,answer:ANSWER},original=structuredClone(old),wire=f.bridge(old);
- assert.equal(wire.operation,'prepare_message');assert.equal(wire.kind,undefined);assert.equal(wire.requestDelivery,undefined);assert.equal(wire.draftPlan.quotes[0].text,undefined);
- assert.equal(parseAssistant(wire,'discussion',f.context).draftPlan.quotes[0].text,'已选的真实笔记事实');assert.deepEqual(old,original);
+ assert.equal(wire.operation,'prepare_message');assert.equal(wire.kind,undefined);assert.equal(wire.requestDelivery,undefined);assert.equal(wire.materials[0].text,undefined);
+ assert.equal(primaryOperationFor(parseAssistant(wire,'discussion',f.context)).admittedMaterials[0].text,'已选的真实笔记事实');assert.deepEqual(old,original);
 });
 for(const [mode,continuation]of [['private_help','advise'],['editable_message','prepare_message'],['both','prepare_message']])test(`declared ${mode} lookup preserves its explicit continuation`,()=>{
  const f=fixture(),wire=f.bridge({kind:'discussion',text:'先读取。',requestDelivery:f.declaration(mode),lookup:{sourceIds:['note:allowed']}});
@@ -39,9 +40,9 @@ test('private_help plus a plan never becomes preparation and retains the mixed-b
  const f=fixture(),wire=f.bridge({kind:'discussion',text:'只讨论。',requestDelivery:f.declaration('private_help'),draftPlan:f.plan});
  assert.equal(wire.operation,'advise');assert.ok(wire.draftPlan);assert.throws(()=>parseAssistant(wire,'discussion',f.context),/not active for advise/);
 });
-test('editable strategy without plan stays a missing-plan preparation instead of being salvaged as advice',()=>{
+test('editable strategy without an answer stays an incomplete preparation instead of being salvaged as advice',()=>{
  const f=fixture(),wire=f.bridge({kind:'discussion',text:'只有策略。',requestDelivery:f.declaration()});
- assert.equal(wire.operation,'prepare_message');assert.equal(wire.draftPlan,undefined);assert.throws(()=>parseAssistant(wire,'discussion',f.context),/requires a plan object/);
+ assert.equal(wire.operation,'prepare_message');assert.equal(wire.draftPlan,undefined);assert.throws(()=>parseAssistant(wire,'discussion',f.context),/requires answer/);
 });
 test('structured clarification owns its body and never promotes old untyped text',()=>{
  const f=fixture(),blocker={kind:'missing_fact',missing:'具体时间',question:'你哪天有空？',explanation:'安排取决于实际空闲时间。'},wire=f.bridge({kind:'question',text:'OLD_UNTYPED_你什么时候方便？',requestDelivery:{...f.declaration(),blocker}});
@@ -62,12 +63,12 @@ test('wrong proof and missing historical authority are never filled or fixed',()
  for(const authorization of [undefined,{permission:{sourceId:'private:current',text:'想把已选笔记告诉她，给我完整表达。'},referent:{sourceId:'note:allowed',text:'已选的真实笔记事实'}}]){
   const f=fixture(),wire=f.bridge({kind:'discussion',text:'准备。',answer:ANSWER,requestDelivery:f.declaration(),draftPlan:{quotes:[{sourceId:'private:old',text:'OLD_PRIVATE_FACT',...(authorization?{authorization}:{})}]}});
   assert.equal(wire.operation,'prepare_message');assert.throws(()=>parseAssistant(wire,'discussion',f.context));
-  if(!authorization)assert.equal(wire.draftPlan.quotes[0].authorityRef,undefined);else assert.deepEqual(wire.draftPlan.quotes[0].authorization.referent.text,'已选的真实笔记事实');
+  if(!authorization)assert.equal(wire.materials[0].authorityRef,undefined);else assert.deepEqual(wire.materials[0].authorization.referent.text,'已选的真实笔记事实');
  }
 });
 test('mixed cores and malformed kind/text remain rejected while auxiliary data is retained',()=>{
  const f=fixture(),wire=f.bridge({kind:'discussion',text:'准备。',requestDelivery:f.declaration(),draftPlan:f.plan,lookup:{sourceIds:['note:allowed']},actions:[{type:'save_note',evidenceQuote:'未授权动作'}]});
- assert.ok(wire.draftPlan&&wire.lookup);assert.equal(wire.actions[0].evidenceQuote,'未授权动作');assert.throws(()=>parseAssistant(wire,'discussion',f.context),/not active/);
+ assert.ok(wire.materials&&wire.lookup);assert.equal(wire.actions[0].evidenceQuote,'未授权动作');assert.throws(()=>parseAssistant(wire,'discussion',f.context),/not active/);
  for(const invalid of [{kind:'draft',text:'错误主阶段'}, {kind:'discussion',text:''}, {kind:'discussion',text:42}])assert.throws(()=>parseAssistant(f.bridge({...invalid,requestDelivery:f.declaration(),draftPlan:f.plan}),'discussion',f.context));
 });
 test('new operations and non-primary carriers are not legacy-upgraded',()=>{
@@ -122,7 +123,7 @@ test('private_help with a pure clarification plan remains a contradictory privat
 test('required-policy editable clarification needs its existing typed blocker rather than a fabricated one',()=>{
  const f=fixture(),legacy={kind:'question',text:'旧的未类型化正文',draftPlan:{clarification:'你哪天有空？'}};
  const invalid=f.bridge({...legacy,requestDelivery:f.declaration()});assert.equal(invalid.operation,'prepare_message');assert.equal(invalid.blocker,undefined);assert.deepEqual(invalid.draftPlan,legacy.draftPlan);
- assert.throws(()=>parseAssistant(invalid,'discussion',f.context),/clarification/);
+ assert.throws(()=>parseAssistant(invalid,'discussion',f.context),/draftPlan.*not active/);
  const {withRequestDelivery}=require('../scripts/synthetic-request-delivery.cjs');
  const permitted=f.bridge(withRequestDelivery(legacy,f.payload));assert.equal(permitted.operation,'clarify');assert.equal(permitted.text,undefined);assert.equal(permitted.blocker.question,legacy.draftPlan.clarification);
  assert.equal(parseAssistant(permitted,'discussion',f.context).text,legacy.draftPlan.clarification);

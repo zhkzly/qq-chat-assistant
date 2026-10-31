@@ -31,7 +31,7 @@ test('checker issues can identify only real visible paths and supplied original 
  const app=fixture(t),sourceId=app.current.id;
  const bodies={text:app.result.text,'discussionExplanation.text':app.result.discussionExplanation.text,'suggestions[0].text':app.result.suggestions[0].text,'suggestions[0].style':app.result.suggestions[0].style,'expressionOptions[0].label':app.result.expressionOptions[0].label};
  for(const path of ['text','discussionExplanation.text','suggestions[0].text','suggestions[0].style','expressionOptions[0].label']){
-  const verdict=parseFidelityResult({checkRef:'c1',verdict:'reject',issues:[{path,code:'current_boundary',quote:bodies[path],sourceIds:[sourceId],evidence:[{sourceId,quote:app.current.text}],reason:'Scripted rejection exercises a source-bound visible path, not its semantic rating.'}]},app.context);assert.equal(approvalFor(verdict,app.context),undefined);
+  const verdict=parseFidelityResult({checkRef:'c1',verdict:'reject',issues:[{path,code:'current_boundary',quote:bodies[path],sourceIds:[sourceId],evidence:[{sourceId,quote:app.current.text}],reason:'Scripted rejection exercises a source-bound visible path, not its semantic rating.'}]},app.context);assert.equal(verdict.verdict,'allow');assert.equal(verdict.concerns[0].path,path);assert.ok(approvalFor(verdict,app.context));
  }
  const grounded={path:'text',code:'current_boundary',quote:app.result.text,evidence:[{sourceId,quote:app.current.text}],reason:'A mechanically grounded contract probe.'};
  for(const issue of [{...grounded,path:'draftPlan.guidance',reason:'Not visible.'},{...grounded,sourceIds:['private:unoffered'],reason:'Unknown source.'},{...grounded,evidence:[{sourceId:'private:unoffered',quote:app.current.text}],reason:'Unknown original body.'},{...grounded,code:'grant_permission',reason:'Checker cannot grant.'}])assert.throws(()=>parseFidelityResult({checkRef:'c1',verdict:'reject',issues:[issue]},app.context),invalid);
@@ -51,7 +51,7 @@ test('a substituted original evidence body cannot retain the old source-bound al
 });
 
 test('a same-frame parsed rejection cannot be mutated into an allowed checker receipt',t=>{
- const app=fixture(t),rejected=parseFidelityResult({checkRef:'c1',verdict:'reject',issues:[{path:'text',code:'current_boundary',quote:app.result.text,sourceIds:[app.current.id],evidence:[{sourceId:app.current.id,quote:app.current.text}],reason:'A scripted rejection, not a quality rating.'}]},app.context);assert.equal(approvalFor(rejected,app.context),undefined);let immutable=false;
+ const app=fixture(t),rejected=parseFidelityResult({checkRef:'c1',verdict:'reject',issues:[{path:'text',code:'unsupported_fact',quote:app.result.text,basis:'no_support_in_supplied_evidence',reason:'A scripted factual rejection, not a quality rating.'}]},app.context);assert.equal(approvalFor(rejected,app.context),undefined);let immutable=false;
  try{rejected.verdict='allow';rejected.issues=[];}catch(error){assert.equal(error instanceof TypeError,true);immutable=true;}
  if(!immutable){let receipt;try{receipt=approvalFor(rejected,app.context);}catch(error){assert.equal(invalid(error),true);}assert.equal(receipt,undefined,'the original checker decision itself must be privately bound');}
 });
@@ -72,4 +72,22 @@ test('a delivered prior human boundary without typed topic refs is retained unde
  if(error){assert.equal(error.code,'fidelity_context_budget');return;}
  assert.equal(context.payload.evidence.find(source=>source.sourceId===prior.id)?.text,priorText,'the earlier original no-invite boundary is not optional merely because topic controlRefs are absent');
  assert.equal(context.payload.coverage.omittedSourceIds.includes(prior.id),false);assert.equal(context.payload.coverage.omittedSourceIds.includes(extra.id),true);
+});
+
+function optionWitnessFixture(t){
+ const app=fixture(t),tuple={sourceId:app.material.id,text:app.material.text,revision:app.material.revision},options=[{label:'分享已选的真实片段',style:'natural',quotes:[tuple]}],groups=[{index:0,fragments:[{...tuple}]}];
+ app.result.expressionOptions=options;
+ const context=buildFidelityContext(app.prepared,app.result,{...app.info,expressionOptions:options,optionAdmission:{options,groups,sourceRevisions:{[app.material.id]:app.material.revision}}});
+ return {...app,options,groups,context};
+}
+for(const field of ['text','revision'])test(`changing a canonical option tuple ${field} after checking invalidates the original approval`,t=>{
+ const app=optionWitnessFixture(t),checked=parseFidelityResult(allow(app.context),app.context);assert.ok(approvalFor(checked,app.context));
+ app.options[0].quotes[0][field]='A changed unchecked tuple witness';assert.throws(()=>approvalFor(checked,app.context),error=>error.code==='fidelity_binding_invalid');
+});
+test('option fact groups are immutable and replacing their option index cannot reuse the checked frame',t=>{
+ const app=optionWitnessFixture(t),checked=parseFidelityResult(allow(app.context),app.context);
+ assert.deepEqual(app.context.payload.optionMaterials,app.groups);assert.ok(Object.isFrozen(app.context.payload.optionMaterials[0].fragments[0]));
+ assert.throws(()=>{app.context.payload.optionMaterials[0].index=1;},TypeError);
+ app.context.payload={...app.context.payload,optionMaterials:[{...app.context.payload.optionMaterials[0],index:1}]};
+ assert.throws(()=>approvalFor(checked,app.context),error=>error.code==='fidelity_binding_invalid');
 });

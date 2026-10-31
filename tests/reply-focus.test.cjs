@@ -41,7 +41,7 @@ test('both unified model stages preserve exact selected targets as quoted data w
  assert.deepEqual(inputs[0].replyFocus,ids);const selected=inputs[0].sources.find(s=>s.messageId===ids[0]);assert.ok(selected);assert.ok(inputs[1].evidence.some(source=>source.sourceId===selected.id),'the checker reads the exact selected original QQ target');
  for(const input of inputs){assert.equal(input.send,undefined);assert.equal(input.command,undefined);}
  assert.equal(controller.advice.suggestions.length,1);assert.equal(store.messages(scope).length,actualCount);
- assert.equal(controller.assistantContext().run.payload.privateConversation,undefined);assert.equal(controller.assistantContext().run.payload.goal,undefined);assert.deepEqual(controller.assistantContext().run.payload.replyFocus,ids);
+ assert.equal(controller.assistantContext().run.payload.privateConversation,undefined);assert.equal(controller.assistantContext().run.payload.goal,undefined);assert.deepEqual(controller.assistantContext().run.requests[0].payload.replyFocus,ids);
 });
 
 test('changing selected images invalidates a pending unified request even before another request starts',async t=>{

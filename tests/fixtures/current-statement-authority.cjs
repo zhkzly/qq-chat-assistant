@@ -38,7 +38,7 @@ function withCurrentStatementAuthority(value,payload,receipt){
    ...(Array.isArray(value.expressionOptions)?{expressionOptions:value.expressionOptions.map(option=>({...option,quotes:option.quotes?.map(quote)}))}:{})};
  }
  const start=source.delivery?.start||0,material=receipt?.materials?.find(item=>item.sourceId===id&&item.revision===source.revision&&item.start===start&&item.end===start+source.text.length&&item.bodyDigest===digest(source.text));
- const authority=material&&receipt.authorities.find(item=>item.kind==='ORIGINALUSERSTATEMENTCANDIDATE'&&item.materialRef===material.materialRef);
+ const authority=receipt?.authorities.find(item=>item.kind==='ORIGINALUSERSTATEMENTCANDIDATE'&&(material&&item.materialRef===material.materialRef||item.currentInstruction&&item.sourceId===id&&item.revision===source.revision));
  const quote=item=>{
   if(!item||typeof item!=='object'||item.sourceId!==id||item.authorization!==undefined)return item;
   if(!authority||typeof item.text!=='string'||!source.text.includes(item.text))throw new Error('Positive fixture current tuple lacks its exact offered whole statement candidate');

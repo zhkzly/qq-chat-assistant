@@ -7,7 +7,7 @@ const usable=source=>source&&!source.deleted&&!source.excluded&&source.use!=='di
 const originalUser=source=>usable(source)&&source.role==='user'&&['private','feedback'].includes(source.type)&&!['feedback_continue','user_control'].includes(source.kind);
 const DRAFT_MATERIAL_PROTOCOL='旧私下quote附authorization:{permission:{sourceId,text},referent:{sourceId,text}}。permission取原始用户范围许可：当前明确要为已识别QQ问题写回应且指代清楚，可用对应原话，无需“授权”或重抄。referent取素材sourceId且原文含quote。核对完整上下文、指代、已满足条件及最新限制；转述、引用、否定、假设、未满足条件非许可，“这些”不延至无关私事。禁仅私下/禁用/排除/撤回素材；historicalOnly旧许可须lookup/核对，遗漏非许可或撤回。selectedOption限原素材；视图/requestDelivery/authorizationQuote/生成回答不授权。不明私下核对。';
 const MATERIAL_POLICY={version:1};
-function resolveDraftMaterial(payload,plan,{restrictions=payload.privateRestrictions||[],issues:sharedIssues}={}){
+function resolveDraftMaterial(payload,plan,{restrictions=payload.privateRestrictions||[],issues:sharedIssues,explicitCurrentPermission=false,reportedOnly=false,allowEmpty=false}={}){
  const issues=sharedIssues||new ValidationIssues(),start=issues.mark();
  if(payload.draftMaterialPolicy&&payload.draftMaterialPolicy.version!==1)throw new Error('Unsupported draft material authorization policy');
  const byId=new Map((payload.sources||[]).map(source=>[source.id,source]));
@@ -18,19 +18,20 @@ function resolveDraftMaterial(payload,plan,{restrictions=payload.privateRestrict
  if(option&&!Array.isArray(option.quotes))throw new Error('已选表达的原始素材已变化，请重新选择');
  // A model can resolve a natural-language option reference, but that selection
  // is not a UI authorization. Reattach only its exact fragment decisions.
- const planned=option?option.quotes.map(quote=>{
+ const planned=option&&!reportedOnly?option.quotes.map(quote=>{
   const decision=Array.isArray(plan?.quotes)&&plan.quotes.find(item=>item.sourceId===quote.sourceId&&item.text===quote.text);
   const {authorization,...material}=quote;
   return {...material,...(decision?.authorization?{authorization:decision.authorization}:{})};
  }):plan?.quotes;
- if(!plan||!Array.isArray(planned)||planned.length>8||!planned.length&&!(plan.intent==='reply'&&(payload.sources||[]).some(s=>s.type==='qq')))
+ if(!plan||!Array.isArray(planned)||planned.length>8||!planned.length&&!allowEmpty&&!(plan.intent==='reply'&&(payload.sources||[]).some(s=>s.type==='qq')))
   throw new Error('需要明确这次想表达的内容，才能组织草稿');
  const intentSourceId=payload.intentAuthority?.sourceId||payload.userRequest?.sourceId;
- const allowed=new Set([payload.userRequest?.sourceId,intentSourceId,...(payload.allowedMaterialIds||payload.selectedMaterialIds||[])]);
+ const allowed=new Set([...(explicitCurrentPermission?[]:[payload.userRequest?.sourceId,intentSourceId]),...(payload.allowedMaterialIds||payload.selectedMaterialIds||[])]);
+ if(explicitCurrentPermission){allowed.delete(intentSourceId);allowed.delete(payload.userRequest?.sourceId);}
  const bindings=[],sourceIds=new Set(),missingAuthorizations=[],ignoredAuthorizations=[];
  const reference=(ref,label,path)=>{
   const source=plain(ref)&&byId.get(ref.sourceId);
-  if(!source||!usable(source)||Object.keys(ref).some(key=>!['sourceId','text'].includes(key))||typeof ref.text!=='string'||!ref.text.trim()||ref.text.length>4000||!source.text.includes(ref.text))
+  if(!source||!usable(source)||Object.keys(ref).some(key=>!['sourceId','text'].includes(key))||typeof ref.text!=='string'||!ref.text.trim()||ref.text.length>4000&&!(explicitCurrentPermission&&label==='permission'&&source.id===intentSourceId&&ref.text===source.text)||!source.text.includes(ref.text))
    throw validationError(`${path}.authorization.${label}`,'draft_material_reference_invalid',`draftPlan.quotes.authorization.${label}: 披露依据必须逐字对应本次提供的原始来源`);
   return source;
  };

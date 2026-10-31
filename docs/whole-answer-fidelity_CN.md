@@ -1,5 +1,7 @@
 # 完整答复与证据核对
 
+> 本页记录此前冻结的完整答复候选。021 的当前前台契约见[薄前台答复契约](thin-answer-ownership_CN.md)：不再要求正常主调用回传 `draftPlan/guidance/taskUse`，事实准入与完整当前指令分开。以下历史实现身份和证据不自动转为新候选的结论。
+
 当前决策归属及实际第 040 轮状态见[后续说明](decision-ownership_CN.md)。下文保留此前冻结候选的实现说明。
 
 本文记录冻结候选 `1b041c97d6afbde687171409aed023af76b2a7593001123816c5d8bdfd98d5ed`，提示版本为 `goal-context-2026-10-31.7`；它尚未合入主线。旧的独立成稿路线见[历史说明](conversational-evidence_CN.md)。

@@ -10,7 +10,7 @@ const FULL='我看过朋友组装书架。那次只是旁观，我没有亲手�
 const PREFIX='我看过朋友组装书架。';
 const body=source=>source.segments.map(segment=>segment.text??segment.parts.map(part=>part[1]).join('')).join('');
 function whole(source){const first=source.segments[0].materialRef,last=source.segments.at(-1).materialRef;return first===last?first:source.materialChoices.find(item=>item.from===first&&item.to===last).materialRef;}
-function candidate(p,text){const note=p.sources.find(source=>source.type==='note'),id=p.intentAuthority.sourceId,c=text=>({text,sourceIds:[id]});return {operation:'prepare_message',draftPlan:{quotes:[{materialRef:whole(note),authorityRef:note.authorityChoices.program[0].authorityRef}],guidance:{objective:c('回应当前书架话题'),allowedApproach:c('保留原始经历的实际范围'),avoidances:[]}},answer:{suggestions:[{text}]}};}
+function candidate(p,text){const note=p.sources.find(source=>source.type==='note');return {operation:'prepare_message',materials:[{materialRef:whole(note),authorityRef:note.authorityChoices.program[0].authorityRef}],answer:{suggestions:[{text}]}};}
 async function app(t,producer,{partial=false}={}){
  const store=new Store(':memory:'),calls=[],model='synthetic-recovery-evidence',baseUrl='http://fixture.invalid/v1',settings={anonymous:true,auto:false,model,baseUrl,modelResponseMode:'result_tool',assistantRequestBytes:64000,assistantRequestLimit:8,discussionCompactionEnabled:false,realChatConsent:{...scope,model,baseUrl}};
  let initial=true;

@@ -9,7 +9,8 @@ const {wordingControlsForContext}=require('./wording-controls.cjs');
 const {resolveDraftMaterial,assertDraftSourcesCurrent}=require('./draft-material.cjs');
 const {resolveEditingReference}=require('./editing-reference.cjs');
 const {buildMaterialProvenance}=require('./material-provenance.cjs');
-const {buildCurrentHumanControl}=require('./current-human-control.cjs');
+const {buildCurrentHumanControl,currentFactQuotes}=require('./current-human-control.cjs');
+const {validationError}=require('../validation-issues.cjs');
 const {buildSelectedDirectionControl}=require('./selected-direction-control.cjs');
 function buildDraftContext(prepared, plan, info) {
   if (!sameScopeIfPresent({ scope: prepared.manifest.scope }, info.scope)) throw new Error('当前联系人已变化，请重新组织草稿');
@@ -117,21 +118,81 @@ function buildDraftContext(prepared, plan, info) {
   Object.defineProperty(context,'rebuildForRequest',{value:measure=>buildDraftContext(prepared,plan,{...info,requestMeasure:measure})});
   return context;
 }
-function expressionOptionsFor(context, options = []) {
-  if (!Array.isArray(options) || options.length > 3) throw new Error('表达方向最多三项');
-  return options.map(option => {
-    if (!option || typeof option.label !== 'string' || !option.label.trim() || option.label.length > 300 || !Array.isArray(option.quotes) || !option.quotes.length || option.quotes.length > 8)
-      throw new Error('表达方向必须带有可核对的原话');
-    const quotes = option.quotes.map(q => {
-      const source = context.payload.sources.find(s => s.id === q.sourceId);
-      if (!source || !['private','note','qq'].includes(source.type) || typeof q.text !== 'string' || !q.text.trim() || !source.text.includes(q.text)) throw new Error('表达方向引用的来源无效');
-      if (source.type === 'note' && source.use !== 'draft') throw new Error('私下素材不能作为可直接分享的方向');
-      if ((context.restrictions || context.payload.privateRestrictions || []).some(r => r.text?.length > 2 && q.text.length > 2 && (r.text.includes(q.text) || q.text.includes(r.text)))) throw new Error('表达方向包含仅供私下的内容');
-      // A generated direction retains its original tuple, never an enduring
-      // permission decision. A later model selection must rebind evidence.
-      return { sourceId: q.sourceId, text: q.text, revision: source.revision };
-    });
-    return { label: option.label, quotes, style: ['short','casual'].includes(option.style) ? option.style : 'natural' };
+function buildOptionAdmission(context,options=[],info={}) {
+  if(!Array.isArray(options)||options.length>3)throw validationError('expressionOptions','option_shape_invalid','At most three concrete expression directions may be offered');
+  const revisions={},groups=[];
+  const captured=new Map((context.fullAvailableSources||context.payload.sources||[]).map(source=>[source.id,source]));
+  const result=options.map((option,index)=>{
+    const field=`expressionOptions[${index}]`;
+    if(!option||typeof option!=='object'||Array.isArray(option)||Object.keys(option).some(key=>!['label','style','quotes','currentFacts'].includes(key))||typeof option.label!=='string'||!option.label.trim()||option.label.length>300)
+      throw validationError(field,'option_shape_invalid','A direction needs a bounded label and only its own optional fact declarations');
+    const quotes=option.quotes===undefined?[]:option.quotes;
+    if(!Array.isArray(quotes)||quotes.length>8)throw validationError(field+'.quotes','answer_material_limit','Each option allows at most eight currentFacts and historical quotes combined');
+    let material;
+    if(context.primaryFrameSnapshot||option.currentFacts!==undefined){
+      try{material=resolveAnswerMaterial(context,{currentFacts:option.currentFacts,materials:quotes},info);}
+      catch(error){
+        const path=value=>value.replace(/^materials(?=\[|$)/,'quotes').replaceAll('currentFacts and materials','option currentFacts and quotes');
+        if(error.field)error.field=field+'.'+path(error.field);
+        if(error.issues)error.issues=error.issues.map(issue=>({...issue,path:field+'.'+path(issue.path),message:path(issue.message)}));
+        error.message=field+': '+path(error.message);throw error;
+      }
+    }else{
+      // Direct legacy readers still accept their already-canonical tuples.
+      for(const quote of quotes){
+        const source=captured.get(quote?.sourceId);
+        if(!source||!['private','note','qq'].includes(source.type)||typeof quote.text!=='string'||!quote.text.trim()||!source.text.includes(quote.text)||source.type==='note'&&source.use!=='draft')
+          throw validationError(field+'.quotes','answer_material_invalid','The legacy direction quote must still match its live permitted source');
+        if((context.restrictions||context.payload.privateRestrictions||[]).some(r=>r.text?.length>2&&(quote.text.includes(r.text)||r.text.includes(quote.text))))throw validationError(field+'.quotes','answer_material_invalid','The direction contains private-only material');
+      }
+      material={quotes,sourceIds:quotes.map(quote=>quote.sourceId)};
+    }
+    const provenance=buildMaterialProvenance(context,material.quotes,{scope:info.scope||context.manifest.scope});
+    for(const id of material.sourceIds||[]){const source=captured.get(id);if(!source)throw validationError(field,'answer_material_invalid','Option evidence is unavailable');revisions[id]=source.revision;}
+    for(const dependency of provenance.dependencies)revisions[dependency.sourceId]=dependency.revision;
+    const tuples=material.quotes.map(quote=>({sourceId:quote.sourceId,text:quote.text,revision:captured.get(quote.sourceId).revision}));
+    groups.push({index,fragments:tuples});
+    return {label:option.label,quotes:tuples,style:['short','casual'].includes(option.style)?option.style:'natural'};
   });
+  if(Object.keys(revisions).length)assertDraftSourcesCurrent({manifest:{sourceRevisions:revisions}},Object.keys(revisions),{...info,scope:info.scope||context.manifest.scope});
+  return {options:result,groups,sourceRevisions:revisions};
 }
-module.exports={buildDraftContext,expressionOptionsFor};
+function expressionOptionsFor(context,options=[],info={}) {return buildOptionAdmission(context,options,info).options;}
+
+function resolveAnswerMaterial(prepared,declaration={},info={}){
+ const payload=prepared.payload||prepared;
+ const materials=declaration.materials===undefined?[]:declaration.materials;
+ if(!Array.isArray(materials)||materials.length>8)throw validationError('materials','answer_material_invalid','materials must be at most eight actually used private fact fragments');
+ const currentId=payload.intentAuthority?.sourceId,byId=new Map((payload.sources||[]).map(source=>[source.id,source]));
+ for(const [index,quote]of materials.entries())if(quote?.sourceId===currentId||byId.get(quote?.sourceId)?.type==='qq')throw validationError(`materials[${index}]`,'answer_material_scope_invalid','Public QQ needs no material selector; current human facts use exact currentFacts spans, not the instruction as outward material');
+ const current=currentFactQuotes(prepared,declaration.currentFacts,info);
+ if(materials.length+current.length>8)throw validationError('materials','answer_material_limit','currentFacts and materials together allow at most eight actually used private fact fragments');
+ try{return resolveDraftMaterial(payload,{quotes:[...materials,...current],intent:'reply'},{explicitCurrentPermission:true,reportedOnly:true,allowEmpty:true,restrictions:prepared.restrictions||payload.privateRestrictions||[]});}
+ catch(error){
+  const path=value=>value.replace(/draftPlan\.quotes\[(\d+)\]/g,(_match,index)=>Number(index)<materials.length?`materials[${index}]`:`currentFacts[${Number(index)-materials.length}]`).replaceAll('draftPlan.quotes','materials');
+  if(error.field)error.field=path(error.field);if(error.issues)error.issues=error.issues.map(issue=>({...issue,path:path(issue.path),message:path(issue.message)}));error.message=path(error.message);throw error;
+ }
+}
+function buildAnswerAdmission(prepared,declaration={},info={}){
+ const scope=info.scope||prepared.manifest.scope;
+ if(!sameScopeIfPresent({scope:prepared.manifest.scope},scope))throw new Error('Answer admission scope changed');
+ const material=resolveAnswerMaterial(prepared,declaration,{...info,scope}),human=buildCurrentHumanControl(prepared,{...info,scope}),selected=buildSelectedDirectionControl(prepared,{...info,scope});
+ const provenance=buildMaterialProvenance(prepared,material.quotes,{scope}),editing=resolveEditingReference(prepared,{editingReference:declaration.editingReference,editingReferenceBinding:declaration.editingReferenceBinding},{...info,scope});
+ const controls=wordingControlsForContext(prepared,{...info,scope});
+ const dependencies=Object.fromEntries([...provenance.dependencies,...human.dependencies,...controls.sourceRefs].map(ref=>[ref.sourceId,ref.revision]));
+ const revisions={...prepared.manifest.sourceRevisions,...dependencies};
+ assertDraftSourcesCurrent({manifest:{sourceRevisions:revisions}},Object.keys(revisions),{...info,scope});
+ return {payload:{purpose:'answer_admission',promptVersion:PROMPT_VERSION,asOf:prepared.payload.asOf,
+   sources:prepared.payload.sources.filter(source=>source.type==='qq'),outboundQuotes:provenance.quotes,
+   ...(human.control?{currentHumanControl:human.control}:{}),...(selected.control?{selectedDirectionControl:selected.control}:{}),
+   ...(editing?{editingReference:editing.reference}:{}),...(controls.controls.items.length?{wordingControls:controls.controls}:{})},
+  manifest:{requestId:info.requestId||prepared.manifest.requestId,scope:{...scope},purpose:'answer_admission',promptVersion:PROMPT_VERSION,
+   sourceIds:Object.keys(revisions).filter(id=>!id.startsWith('request:')),sourceRevisions:revisions,contextRevision:prepared.manifest.contextRevision,
+   inputArtifactRefs:[...(editing?[editing.dependency]:[]),...(selected.dependency?[selected.dependency]:[])],
+   currentHumanControl:human.control?{version:1,authority:'CONTROL_ONLY',sourceId:human.control.sourceId,revision:revisions[human.control.sourceId],complete:true}:undefined,
+   disclosureBindings:material.bindings,materialProvenance:{version:1,dependencyCount:provenance.dependencies.length},
+   wordingControlEvidence:{sourceRefs:controls.sourceRefs,preferenceRefs:controls.preferenceRefs},
+   preparedResponse:{owner:'primary_answer',message:declaration.suggestions?.length?'provided':'absent',privateExplanation:declaration.discussionExplanation?'provided':'absent',
+    privateBodyOwner:declaration.kind==='draft'?'answer.privateExplanation':'text'}}};
+}
+module.exports={buildDraftContext,expressionOptionsFor,buildOptionAdmission,resolveAnswerMaterial,buildAnswerAdmission};

@@ -42,20 +42,20 @@ for(const declared of [false,true])test(`actual005 strategy-only ${declared?'pre
    return allowed(p);
   }
   assert.match(p.userRequest.text,/能改着发/);
-  if(!wrapper.originalInput)return declared?{operation:'prepare_message',text:actual005.text}:actual005;
+  if(!wrapper.originalInput)return declared?{operation:'prepare_message',}:actual005;
   assert.notEqual(wrapper.purpose,'plain_help_recovery');assert.match(wrapper.task,/operation/);
   if(declared)assert.equal(refs.rawPayload.operationProtocol.requiredArtifact,'message');
   const material=p.sources.find(s=>s.text.startsWith('这是我给自己'));
   const rawId=refs.receipt.bindings.find(binding=>binding.sourceId===material.id).handle,rawMaterial=refs.rawPayload.sources.find(source=>source.id===rawId);
-  const whole=materialRefForText(rawMaterial,material.text),authorityRef=rawMaterial.authorityChoices.originalUserStatementCandidates.find(choice=>choice.materialRef===whole).authorityRef;
-  return {operation:'prepare_message',text:'可以保留你的真实进展，再问她的习惯。',answer:{...answer('就是给自己留读书笔记的，昨天终于能查找了，还挺开心。你平时怎么留住读到的东西？'),privateExplanation:'可以保留你的真实进展，再问她的习惯。'},draftPlan:plan(p,
-   ['这是我给自己记读书笔记的小网页。','昨天第一次把查找功能弄好了，我挺开心。'].map(text=>({materialRef:materialRefForText(rawMaterial,text),authorityRef})))};
+  const authorityRef=rawMaterial.id===refs.rawPayload.intentAuthority.sourceId?refs.rawPayload.currentPermission.authorityRef:rawMaterial.authorityChoices.originalUserStatementCandidates.find(choice=>choice.materialRef===materialRefForText(rawMaterial,material.text)).authorityRef;
+  return {operation:'prepare_message',answer:{...answer('就是给自己留读书笔记的，昨天终于能查找了，还挺开心。你平时怎么留住读到的东西？'),privateExplanation:'可以保留你的真实进展，再问她的习惯。'},materials:
+   ['这是我给自己记读书笔记的小网页。','昨天第一次把查找功能弄好了，我挺开心。'].map(text=>({materialRef:materialRefForText(rawMaterial,text),authorityRef}))};
  });
  actualIncoming(app);app.store.appendTurn(scope,{role:'user',kind:'discussion',text:'这是我给自己记读书笔记的小网页。昨天第一次把查找功能弄好了，我挺开心。想告诉她这个小进展，也想听她平时怎么留住读到的东西。私人担忧_MARKER只是背景，不要发。'});
  const reply=await app.controller.assist({text:'帮我接她这个问题，给我能改着发的表达。'});
  assert.equal(app.calls.length,3);assert.equal(reply.kind,'draft');assert.equal(reply.suggestions.length,1);
  assert.match(reply.discussionExplanation.text,/真实进展/);assert.equal(app.run().manifest.requestDelivery.status,'delivered');
- assert.equal(app.run().requests[0].manifest.requestDelivery.status,'planned');
+ assert.equal(app.run().requests[0].manifest.requestDelivery.status,'prepared');
  assert.equal(app.run().requests[1].purpose,'delivery_repair');assert.equal(app.run().requests.some(r=>r.purpose==='plain_response_recovery'),false);
 });
 for(const [text,purpose]of [
@@ -71,7 +71,7 @@ for(const [text,purpose]of [
 test('no incoming QQ is needed for a current authorized self-share; not inviting still allows complete expression',async t=>{
  const text='不要邀请她。今天我的番茄发芽了，给我一条完整表达告诉她这事。';
  const app=await setup(t,(p,_w,_r,refs)=>p.purpose==='fidelity_check'?allowed(p):
-  withCurrentStatementAuthority({operation:'prepare_message',text:'只分享这件事。',answer:answer('我今天种的番茄发芽了，突然觉得这盆有希望了哈哈。'),draftPlan:plan(p,[{sourceId:refs.rawPayload.intentAuthority.sourceId,text:'今天我的番茄发芽了'}])},refs.rawPayload));
+  ({operation:'prepare_message',answer:answer('我今天种的番茄发芽了，突然觉得这盆有希望了哈哈。'),currentFacts:['今天我的番茄发芽了']}));
  const reply=await app.controller.assist({text});assert.equal(reply.suggestions.length,1);assert.equal(app.calls.length,2);assert.equal(app.calls[1].p.evidence.some(source=>source.type==='qq'),false);
 });
 for(const kind of ['missing_fact','missing_authorization'])test(`specific private ${kind} blocker stops before wording`,async t=>{
@@ -79,15 +79,15 @@ for(const kind of ['missing_fact','missing_authorization'])test(`specific privat
  const reply=await app.controller.assist({text:'帮我告诉她住址，但我还没决定分享范围。'});
  assert.equal(reply.kind,'question');assert.equal(app.calls.length,2);assert.equal(app.run().manifest.requestDelivery.status,'blocked');
 });
-test('missing message plan cannot be salvaged by rejected auxiliary state or plain fallback; one repair only',async t=>{
- const app=await setup(t,p=>({operation:'prepare_message',text:actual005.text,statePatch:{unauthorized:'bad'}}));
- await assert.rejects(app.controller.assist({text:'给我能改着发的表达。'}),/prepare_message requires a plan object/);
+test('missing complete answer cannot be salvaged by rejected auxiliary state or plain fallback; one repair only',async t=>{
+ const app=await setup(t,p=>({operation:'prepare_message',statePatch:{unauthorized:'bad'}}));
+ await assert.rejects(app.controller.assist({text:'给我能改着发的表达。'}),/answer|whole_answer/);
  assert.equal(app.calls.length,2);assert.equal(app.run().status,'failed');assert.equal(app.calls[1].wrapper.purpose,'discussion');
 });
 test('shared HTTP quota includes structured fulfillment repair and cannot skip the final check',async t=>{
- const app=await setup(t,(p,w)=>!w.originalInput?actual005:{operation:'prepare_message',text:'准备回应',answer:answer('接住当前的具体内容。'),draftPlan:plan(p)}, {limit:2});
+ const app=await setup(t,(p,w)=>!w.originalInput?actual005:{operation:'prepare_message',answer:answer('接住当前的具体内容。')}, {limit:2});
  actualIncoming(app);await assert.rejects(app.controller.assist({text:'给我能改着发的表达。'}),/预算|上限/);
- assert.equal(app.calls.length,2);assert.equal(app.run().requests[0].manifest.requestDelivery.status,'planned');assert.notEqual(app.run().manifest.requestDelivery?.status,'delivered');
+ assert.equal(app.calls.length,2);assert.equal(app.run().requests[0].manifest.requestDelivery.status,'prepared');assert.notEqual(app.run().manifest.requestDelivery?.status,'delivered');
 });
 test('current authority excludes older quotes, and sticky delivery cannot downgrade after lookup',()=>{
  const p={purpose:'discussion',requestDeliveryPolicy:{version:1},intentAuthority:{sourceId:'private:current'},sources:[{id:'private:old',type:'private',role:'user',text:'以前写过'}, {id:'private:current',type:'private',role:'user',text:'现在帮我写话'}],taskContext:{auxiliaryPolicy:'best_effort'}};
@@ -110,7 +110,7 @@ test('actual lookup continuation preserves the request-local obligation through 
   if(!p.lookupHistory.length)return {operation:'lookup',continuation:'prepare_message',text:actual005.text,lookup:{sourceIds:[p.sources.find(s=>s.type==='qq').id]}};
   assert.equal(refs.rawPayload.operationProtocol.requiredArtifact,'message');
   if(!w.originalInput)return {operation:'advise',text:actual005.text};
-  return {operation:'prepare_message',text:'按已确认的本轮意思组织表达。',answer:answer('你做这个小网页最喜欢哪一部分？'),draftPlan:plan(p)};
+  return {operation:'prepare_message',answer:answer('你做这个小网页最喜欢哪一部分？')};
  });
  actualIncoming(app);await app.controller.assist({text:'帮我给她一句能改着发的话。'});
  assert.equal(app.calls.length,4);assert.equal(app.run().requests[0].manifest.requestDelivery.status,'looking_up');
@@ -127,8 +127,8 @@ for(const kind of ['discussion','question'])test(`terminal ${kind} without a blo
 });
 test('terminal strategy uses the one task fulfillment repair under original evidence and produces actual wording',async t=>{
  const app=await setup(t,(p,w)=>p.purpose==='fidelity_check'?allowed(p):
-  w.originalInput?{operation:'prepare_message',text:'完成这次表达。',answer:answer('你做这个网页最喜欢哪一部分？'),draftPlan:plan(p)}:
-  {operation:'prepare_message',text:'准备组织表达',draftPlan:plan(p)});
+  w.originalInput?{operation:'prepare_message',answer:answer('你做这个网页最喜欢哪一部分？')}:
+  {operation:'prepare_message'});
  const request='给我能改着发的话。 PRIVATE_TERMINAL_MARKER只是私下背景。';actualIncoming(app);const reply=await app.controller.assist({text:request});
  assert.equal(reply.suggestions.length,1);assert.equal(app.calls.length,3);assert.equal(app.run().manifest.requestDelivery.status,'delivered');
  const repair=app.calls[1],check=app.calls[2];assert.equal(repair.wrapper.purpose,'discussion');assert.equal(repair.p.userRequest.text,request,'regeneration retains original human controls');assert.equal(check.p.purpose,'fidelity_check');
@@ -159,16 +159,15 @@ test('lookup exhaustion with no remaining HTTP budget fails visibly and preserve
 });
 test('a terminal delivery failure cannot obtain a second fulfillment repair after preparation used it',async t=>{
  const app=await setup(t,(p,w)=>p.purpose==='fidelity_check'?{checkRef:p.checkRef,verdict:'reject',issues:[{path:'suggestions[0].text',code:'unsupported_fact',quote:p.candidate.suggestions[0].text,basis:'no_support_in_supplied_evidence',reason:'Scripted rejection tests the already spent shared repair.'}]}:
-  w.originalInput?{operation:'prepare_message',text:'准备表达',answer:answer('昨天我完成了一个没有提供来源的小项目。'),draftPlan:plan(p)}:actual005);
+  w.originalInput?{operation:'prepare_message',answer:answer('昨天我完成了一个没有提供来源的小项目。')}:actual005);
  actualIncoming(app);await assert.rejects(app.controller.assist({text:'给我完整表达。'}),error=>error.code==='request_delivery_repair_exhausted');
  assert.equal(app.calls.length,3);assert.equal(app.run().status,'failed');
 });
 test('source-bound intent does not grant disclosure of a discussion-only note, even during repair',async t=>{
  let hiddenId;
  const app=await setup(t,(p,_w,_r,refs)=>{
-  const current=refs.rawPayload.sources.find(source=>source.id===refs.rawPayload.intentAuthority.sourceId),currentText=current.segments.map(segment=>segment.text??segment.parts.map(part=>part[1]).join('')).join('');
-  const note=refs.rawPayload.sources.find(source=>source.type==='note'),authorityRef=current.authorityChoices.originalUserStatementCandidates.find(choice=>choice.materialRef===materialRefForText(current,currentText)).authorityRef;
-  return {operation:'prepare_message',text:'准备表达',answer:answer('Only an admitted fact could appear here.'),draftPlan:plan(p,[{materialRef:materialRefForText(note,'PRIVATE_ONLY_NOTE'),authorityRef}])};
+  const note=refs.rawPayload.sources.find(source=>source.type==='note'),authorityRef=refs.rawPayload.currentPermission.authorityRef;
+  return {operation:'prepare_message',answer:answer('Only an admitted fact could appear here.'),materials:[{materialRef:materialRefForText(note,'PRIVATE_ONLY_NOTE'),authorityRef}]};
  });
  hiddenId=`note:${app.store.saveNote(scope,{text:'PRIVATE_ONLY_NOTE',use:'discussion'}).id}`;
  actualIncoming(app);await assert.rejects(app.controller.assist({text:'给我一条完整表达，但私下笔记不可发。'}),/私下讨论|未能对应/);
@@ -176,7 +175,7 @@ test('source-bound intent does not grant disclosure of a discussion-only note, e
 });
 test('scope change while fulfillment repair is pending prevents publication',async t=>{
  let finish;
- const app=await setup(t,(p,w)=>!w.originalInput?actual005:new Promise(resolve=>{finish=()=>resolve({operation:'prepare_message',text:'准备表达',answer:answer('回应当前问题。'),draftPlan:plan(p)});}));
+ const app=await setup(t,(p,w)=>!w.originalInput?actual005:new Promise(resolve=>{finish=()=>resolve({operation:'prepare_message',answer:answer('回应当前问题。')});}));
  actualIncoming(app);const pending=app.controller.assist({text:'给我能改着发的话。'});
  for(let i=0;i<20&&!finish;i++)await new Promise(resolve=>setImmediate(resolve));
  assert.ok(finish);app.controller.scope={...scope,peerUid:'u_other',peerUin:'2222222222'};app.controller.epoch++;app.controller.invalidateAssistant();finish();
@@ -185,13 +184,13 @@ test('scope change while fulfillment repair is pending prevents publication',asy
 test('a wrong advice selection remains visible and is not human-intent proof',async t=>{
  const app=await setup(t,p=>p.purpose==='fidelity_check'?allowed(p):{operation:'advise',text:actual005.text});
  actualIncoming(app);const reply=await app.controller.assist({text:'帮我给她一条能改着发的表达。'});
- assert.equal(app.calls.length,2);assert.equal(reply.suggestions,undefined);assert.equal(app.run().manifest.requestDelivery.interpretation.mode,'private_help');assert.equal(app.run().manifest.primaryOperation.operation,'advise');
+ assert.equal(app.calls.length,2);assert.equal(reply.suggestions,undefined);assert.equal(app.run().manifest.requestDelivery.interpretation.mode,'private_help');assert.equal(app.run().requests[0].manifest.primaryOperation.operation,'advise');assert.equal(reply.text,actual005.text);
  // Independent actual-output review must still reject this task mismatch;
  // an executable operation still cannot prove the model correctly understood the human request.
 });
 test('only one fulfillment correction is allowed across the entire request, including lookup passes',async t=>{
  const app=await setup(t,(p,w)=>w.originalInput?{operation:'lookup',continuation:'prepare_message',text:actual005.text,lookup:{sourceIds:[p.sources.find(s=>s.type==='qq').id]}}:
-  {operation:'prepare_message',text:actual005.text}, {limit:8});
+  {operation:'prepare_message',}, {limit:8});
  actualIncoming(app);await assert.rejects(app.controller.assist({text:'给我完整可改发的话。'}),error=>error.code==='request_delivery_repair_exhausted');
  assert.equal(app.calls.length,3);assert.equal(app.run().status,'failed');
  assert.equal(app.run().requests.filter(request=>request.purpose==='delivery_repair').length,1);

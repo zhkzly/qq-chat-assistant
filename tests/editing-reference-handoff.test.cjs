@@ -73,7 +73,7 @@ test('an observed reply reference offers each outgoing leaf and explicit plan ch
  const model=controller.assistantModel;
  controller.assistantModel=async(settings,input,signal)=>{
   const output=await model(settings,input,signal);
-  if(input.payload.editingReferences?.length>1){output.draftPlan.editingReference=reference;output.answer.suggestions=[{style:'自然',text:input.payload.editingReferences[1].text.replace(/^原来/,'')}];}
+  if(input.payload.editingReferences?.length>1){output.editingReference={choice:input.payload.editingReferences[1].choice};output.answer.suggestions=[{style:'自然',text:input.payload.editingReferences[1].text.replace(/^原来/,'')}];}
   return output;
  };
  const reply=await controller.assist({text:'从上一轮实际给我的原句改，去掉开头。',sourceTurnIds:[prior.id]});
@@ -91,7 +91,7 @@ test('parser and result schema preserve only an offered handle and program-owned
  const plan=withCurrentDraftControls({quotes:[],intent:'reply',editingReference:{choice:offered.choice}},prepared.payload);
  const parsed=parseAssistant({kind:'discussion',text:'改这句。',draftPlan:plan},'discussion',prepared);assert.deepEqual(parsed.draftPlan.editingReference,prior.suggestions[0].artifactRef);
  const schema=prepareAssistantRequest({model:'claude-sonnet-4-6'},prepared.payload).request.tools[0].function.parameters;
- assert.equal(schema.properties.draftPlan.properties.editingReference.properties.choice.type,'string');assert.equal(schema.properties.draftPlan.properties.editingReference.oneOf,undefined);
+ assert.equal(schema.properties.editingReference.properties.choice.type,'string');assert.equal(schema.properties.editingReference.oneOf,undefined);
  for(const invalid of [{...prior.suggestions[0].artifactRef,text:'MODEL_REPLACEMENT'},prior.artifactRef,{...prior.suggestions[0].artifactRef,version:99},{choice:'e99'}])
   assert.throws(()=>parseAssistant({kind:'discussion',text:'改这句。',draftPlan:{...plan,editingReference:invalid}},'discussion',prepared),/editingReference/);
 });

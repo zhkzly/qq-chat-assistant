@@ -70,13 +70,13 @@ test('malformed nested tool arguments get one same-carrier repair without weaken
  const answer={suggestions:[{style:'自然',text:'这个玩法听着挺有意思。'}]};
  const control=text=>({text,sourceIds:[id]}),valid={draftPlan:{quotes:[],intent:'reply',guidance:{objective:control('接住游戏分享'),allowedApproach:control('保留人与关卡的反差'),avoidances:[control('不邀约')]}}};
  const bodies=[];
- const transport=async(_url,args)=>{const body=JSON.parse(args.body);bodies.push(body);return {ok:true,json:async()=>({choices:[{message:bodies.length===1?{content:null,tool_calls:[{function:{name:'assistant_result',arguments:JSON.stringify({draftPlan:'<parameter name="_">true',kind:'draft',text:'invalid'})}}]}:{content:JSON.stringify({operation:'prepare_message',draftPlan:valid.draftPlan,answer})}}]})};};
+ const transport=async(_url,args)=>{const body=JSON.parse(args.body);bodies.push(body);return {ok:true,json:async()=>({choices:[{message:bodies.length===1?{content:null,tool_calls:[{function:{name:'assistant_result',arguments:JSON.stringify({draftPlan:'<parameter name="_">true',kind:'draft',text:'invalid'})}}]}:{content:JSON.stringify({operation:'prepare_message',answer})}}]})};};
  const result=await assistModel(settings,context,undefined,transport);
- assert.deepEqual(result.draftPlan.guidance,valid.draftPlan.guidance);assert.equal(bodies.length,2);
+ assert.equal(result.kind,'draft');assert.equal(result.draftPlan,undefined);assert.equal(bodies.length,2);
  assert.equal(bodies[0].tool_choice.function.name,'assistant_result');assert.equal(bodies[1].tool_choice.function.name,'assistant_result');assert.equal(bodies[1].response_format,undefined);
  assert.deepEqual(canonicalSourceView(JSON.parse(bodies[1].messages[1].content).originalInput,context.extraRequests[0].manifest.sourceHandles,context.resultContext?.payload||context.payload),context.payload);assert.equal(context.manifest.formatRepair.responseMode,'model_default');
  const bad={payload:context.payload,manifest:{}};let calls=0;
- await assert.rejects(assistModel(settings,bad,undefined,async()=>{calls++;return {ok:true,json:async()=>({choices:[{message:calls===1?{content:null,tool_calls:[{function:{name:'assistant_result',arguments:'{"draftPlan":"broken"}'}}]}:{content:JSON.stringify({operation:'prepare_message',draftPlan:{quotes:[],intent:'reply'},answer})}}]})};}),/current effective topic requires/);
+ await assert.rejects(assistModel(settings,bad,undefined,async()=>{calls++;return {ok:true,json:async()=>({choices:[{message:calls===1?{content:null,tool_calls:[{function:{name:'assistant_result',arguments:'{"draftPlan":"broken"}'}}]}:{content:JSON.stringify({operation:'prepare_message',answer:{suggestions:'broken'}})}}]})};}),/answer|suggestions/);
  assert.equal(calls,2,'the alternate carrier is still exactly one format repair');
 });
 

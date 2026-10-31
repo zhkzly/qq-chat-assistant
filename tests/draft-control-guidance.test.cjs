@@ -30,11 +30,11 @@ test('legacy replay keeps its prior planning contract and a clarification does n
   const question=parseAssistant({kind:'question',text:'我还缺少会影响表达的必要事实。',draftPlan:{clarification:'你说的是哪种情况？'}},'discussion',payload);
   assert.equal(question.kind,'question');assert.equal(question.draftPlan.guidance,undefined);
 });
-test('one structural repair teaches the same required current-control contract even without an active topic',async()=>{
+test('one structural repair keeps whole-answer ownership without the isolated legacy guidance contract',async()=>{
   const context={payload:{...payload,purpose:'discussion'},manifest:{}},requests=[],settings={model:'synthetic',anonymous:true,baseUrl:'http://synthetic.invalid/v1'};
-  const result=await assistModel(settings,context,undefined,async(_,request)=>{requests.push(JSON.parse(request.body));return {ok:true,json:async()=>({choices:[{message:{content:JSON.stringify({operation:'prepare_message',text:envelope().text,answer:{suggestions:[{text:'先接住她的吐槽。'}]},draftPlan:(requests.length===1?envelope():envelope(complete)).draftPlan})}}]})};});
-  assert.equal(requests.length,2);assert.deepEqual(result.draftPlan.guidance,complete);
+  const result=await assistModel(settings,context,undefined,async(_,request)=>{requests.push(JSON.parse(request.body));return {ok:true,json:async()=>({choices:[{message:{content:JSON.stringify({operation:'prepare_message',answer:requests.length===1?{suggestions:'malformed'}:{suggestions:[{text:'先接住她的吐槽。'}]}})}}]})};});
+  assert.equal(requests.length,2);assert.equal(result.kind,'draft');assert.equal(result.draftPlan,undefined);
   const repair=JSON.parse(requests[1].messages[1].content);
-  assert.match(requests[1].messages[0].content,/draftControlPolicy.required须objective\/allowedApproach\/avoidances/);assert.ok(repair.task.includes('draftControlPolicy'));
-  assert.equal(repair.originalInput.taskContext.draftControlPolicy.intentSourceId,repair.originalInput.intentAuthority.sourceId);assert.deepEqual(result.draftPlan.guidance,complete);assert.ok(!repair.task.includes('没有当前有效话题，不强制guidance'));
+  assert.equal(requests[1].messages[0].content.includes('draftControlPolicy.required须objective/allowedApproach/avoidances'),false);assert.match(repair.task,/answer/);
+  assert.equal(repair.originalInput.taskContext.draftControlPolicy,undefined);assert.equal(result.kind,'draft');assert.equal(result.draftPlan,undefined);assert.ok(!repair.task.includes('没有当前有效话题，不强制guidance'));
 });

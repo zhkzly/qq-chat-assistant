@@ -97,8 +97,7 @@ async function integrationFixture(t,{privateOnly=false}={}){
     const control=text=>({text,sourceIds:[sourceId]});
     let quotes=[structuredClone(actualQuote)];
     if(privateOnly){
-     const note=p.sources.find(source=>source.type==='note'),current=p.sources.find(source=>source.id===sourceId),currentText=current.segments.map(segment=>segment.text??segment.parts.map(part=>part[1]).join('')).join('');
-     const authorityRef=current.authorityChoices.originalUserStatementCandidates.find(choice=>choice.materialRef===materialRefForText(current,currentText)).authorityRef;
+     const note=p.sources.find(source=>source.type==='note'),authorityRef=p.currentPermission.authorityRef;
      quotes=[{materialRef:materialRefForText(note,actualQuote.text),authorityRef}];
     }
     content=JSON.stringify({kind:'discussion',text:'按这次允许分享的经历回应。',answer:{suggestions:[{style:'自然',text:body}]},requestDelivery,draftPlan:{quotes,intent:'reply',guidance:{objective:control('回应她当前对旧包的分享'),allowedApproach:control('仅用已经允许分享的真实旧包经历'),avoidances:[]}}});

@@ -128,7 +128,7 @@ test('restricted final draft repairs the whole typed reply using only its valida
   assert.equal(calls[1].response_format, undefined); assert.equal(calls[1].tool_choice.function.name,'draft_result');
 });
 
-test('draft_prepare still requires structured source-bound plans, including after repair', async t => {
+test('normal draft_prepare requires a complete structured answer after its shared repair', async t => {
   const purpose = 'draft_prepare';
   const { context, turn } = fixture(t, purpose), control = text => ({ text, sourceIds: [`private:${turn.id}`] });
   context.payload.topicContext.active = { id: 'active-topic', lifecycle: 'active', objective: '一起散步', direction: '直接邀请', constraints: ['不编造共同经历'] };
@@ -136,7 +136,7 @@ test('draft_prepare still requires structured source-bound plans, including afte
   const calls = [], result = await assistModel(settings, context, undefined, async (_url, request) => {
     calls.push(JSON.parse(request.body)); return calls.length === 1 ? resultTool({ draftPlan: '<parameter name="_">true' }) : response(JSON.stringify(valid));
   });
-  assert.equal(calls.length, 2); assert.deepEqual(result.draftPlan.guidance, valid.draftPlan.guidance);
+  assert.equal(calls.length, 2); assert.equal(result.kind,'draft');assert.equal(result.draftPlan,undefined);assert.deepEqual(result.suggestions.map(item=>item.text),valid.answer.suggestions.map(item=>item.text));
   assert.equal(requestPayload(calls[1]).purpose, purpose);assert.equal(calls[1].tool_choice.function.name,'assistant_result');assert.equal(calls[1].response_format,undefined);assert.equal(context.manifest.formatRepair.deliveryContract,true);
   assert.equal(context.manifest.responseRecovery, undefined);
   let failedCalls = 0;
@@ -147,7 +147,7 @@ test('draft_prepare still requires structured source-bound plans, including afte
   assert.throws(() => parseAssistant({ draftPlan: { quotes: [], intent: 'reply' } }, purpose, context.payload), /draftPlan.guidance.*(?:objective|allowedApproach|avoidances)/);
 });
 
-test('reply invalid plans get one strict structured repair while valid plans still reach restricted drafting', async t => {
+test('reply invalid carriers get one repair while complete answers retain isolated legacy projection coverage', async t => {
   const { args, context, turn } = fixture(t, 'reply'), control = text => ({ text, sourceIds: [`private:${turn.id}`] });
   context.payload.topicContext.active = { id: 'reply-topic', lifecycle: 'active', objective: '一起散步', direction: '直接邀请', constraints: ['不编造共同经历'] };
   const calls = [], help = await assistModel(settings, context, undefined, async (_url, request) => {
@@ -157,14 +157,14 @@ test('reply invalid plans get one strict structured repair while valid plans sti
   assert.equal(calls.length, 2); assert.equal(help.kind, 'question'); assert.deepEqual(Object.keys(help).sort(), ['deliveryBlocker','kind','replyDisposition','requestDelivery','text']);
   assert.equal(requestPayload(calls[1]).purpose, 'reply');assert.equal(calls[1].tool_choice.function.name,'assistant_result');assert.equal(calls[1].response_format,undefined);
   assert.equal(help.deliveryBlocker.question,'你这周有空一起散步吗？');assert.equal(help.text,help.deliveryBlocker.question);assert.equal(help.draftPlan,undefined); assert.equal(help.suggestions, undefined); assert.equal(context.manifest.responseRecovery, undefined);
-  assert.equal(context.manifest.formatRepair.planningCarrier, true); assert.equal(context.extraRequests[0].purpose, 'delivery_repair');
+  assert.equal(context.manifest.formatRepair.deliveryContract, true); assert.equal(context.extraRequests[0].purpose, 'delivery_repair');
   const prepared = buildContext(args), valid = { answer:{suggestions:[{text:'这周有空一起出去走走吗？'}]},draftPlan: { quotes: [], intent: 'reply', guidance: { objective: control('邀请一起散步'),
     allowedApproach: control('直接邀请'), avoidances: [control('不编造共同经历')] } } };
   prepared.payload.topicContext.active = context.payload.topicContext.active;
   let count = 0;
   const planned = await assistModel(settings, prepared, undefined, async () => { count++; return resultTool(valid); });
-  assert.equal(count, 1); assert.deepEqual(planned.draftPlan.guidance, valid.draftPlan.guidance); assert.equal(prepared.manifest.responseRecovery, undefined);
-  const final = buildDraftContext(prepared, planned.draftPlan, args);
+  assert.equal(count, 1); assert.equal(planned.kind,'draft');assert.equal(planned.draftPlan,undefined);assert.deepEqual(planned.suggestions.map(item=>item.text),valid.answer.suggestions.map(item=>item.text)); assert.equal(prepared.manifest.responseRecovery, undefined);
+  const final = buildDraftContext(prepared, valid.draftPlan, args);
   assert.equal(final.payload.purpose, 'draft'); assert.equal(final.payload.draftingGuidance.objective.text, '邀请一起散步');
   assert.equal(final.payload.privateConversation, undefined); assert.equal(JSON.stringify(final.payload).includes('PRIVATE_MOTIVE_SENTINEL'), false);
 });

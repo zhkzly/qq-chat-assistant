@@ -5,7 +5,10 @@ const { Store } = require('../src/store.cjs');
 const { normalize } = require('../src/messages.cjs');
 const { buildContext, buildDraftContext, PROMPT_VERSION } = require('../src/assistant-context.cjs');
 const { prepareAssistantRequest, assistModel, imageContextFor, canonicalSourceView } = require('./fixtures/assistant-protocol.cjs');
-const { scope, raw } = require('./fixtures/native.cjs');
+const {scope,raw}=require('./fixtures/native.cjs');
+const {SourceHandleOwner}=require('../src/source-handles.cjs');
+const {buildAnswerAdmission}=require('../src/context/wording-view.cjs');
+const {buildFidelityContext}=require('../src/whole-answer-fidelity.cjs');
 const settings = { baseUrl: 'http://synthetic.invalid/v1', model: 'synthetic-vision', anonymous: true };
 const response = content => ({ ok: true, json: async () => ({ choices: [{ message: { content } }] }) });
 function fixture(t) {
@@ -93,19 +96,19 @@ test('private help and its bounded structured recovery retain the same image att
   assert.ok(calls.every(body => JSON.parse(body).messages[1].content.length === images.length + 1));
   assert.ok(!JSON.stringify(prepared.extraRequests).includes('data:image/'));
 });
-test('draft projection and structured delivery repair retain the actual image-source attribution', async t => {
-  const { prepared, args, images } = fixture(t), calls = [];
-  prepared.payload.purpose = 'draft_prepare'; prepared.payload.mediaContext = prepared.mediaContext;
-  const planned = await assistModel(settings, prepared, undefined, async (_, request) => { calls.push(request.body); return response(calls.length === 1 ? 'invalid response' : JSON.stringify({ draftPlan: withCurrentDraftControls({ intent: 'reply', quotes: [] },prepared.payload),answer:{suggestions:[{text:'哈哈，这张还挺逗的'}]} })); });
-  const first = userPayload(calls[0]), repair = userPayload(calls[1]);
-  assert.ok(Array.isArray(JSON.parse(calls[1]).messages[1].content));
-  assert.deepEqual(repair.imageContext.attached,first.imageContext.attached);assert.deepEqual(repair.originalInput.imageContext.attached,first.imageContext.attached);
-  assert.equal(prepared.extraRequests[0].manifest.imageCount,images.length);assert.deepEqual(prepared.extraRequests[0].manifest.imageContext.attached,canonicalSourceView(first,prepared.manifest.sourceHandles).imageContext.attached);
-  assert.deepEqual(prepared.payload.imageContext.attached,canonicalSourceView(first,prepared.manifest.sourceHandles).imageContext.attached);
-  const draft = buildDraftContext(prepared.resultContext || prepared, planned.draftPlan, args);
-  assert.deepEqual(draft.images, images); assert.deepEqual(draft.payload.imageContext.attached,canonicalSourceView(first,prepared.manifest.sourceHandles).imageContext.attached);
-  for (const key of ['goal', 'userRequest', 'privateConversation']) assert.equal(draft.payload[key], undefined);
-  await assistModel(settings, draft, undefined, async (_, request) => { calls.push(request.body); return response(JSON.stringify({ kind: 'draft', text: '参考表达', suggestions: [{ style: '自然', text: '哈哈，这张还挺逗的' }] })); });
-  assert.deepEqual(canonicalSourceView(userPayload(calls[2]),draft.manifest.sourceHandles).imageContext.attached,canonicalSourceView(first,prepared.manifest.sourceHandles).imageContext.attached);
-  assert.equal(draft.payload.promptVersion, PROMPT_VERSION);
+test('whole-answer repair and its factual checker retain the actual image-source attribution',async t=>{
+ const {prepared:original,args,images}=fixture(t),calls=[],configured={...settings,sourceHandleOwner:new SourceHandleOwner({scope,taskId:args.requestId})};
+ const prepared=buildContext({...args,settings:configured,purpose:'draft_prepare',images,mediaContext:original.mediaContext});
+ const result=await assistModel(configured,prepared,undefined,async(_,request)=>{calls.push(request.body);return response(calls.length===1?'invalid response':JSON.stringify({operation:'prepare_message',answer:{suggestions:[{text:'哈哈，这张还挺逗的'}]}}));});
+ const first=userPayload(calls[0]),repair=userPayload(calls[1]);
+ assert.ok(Array.isArray(JSON.parse(calls[1]).messages[1].content));assert.deepEqual(repair.imageContext.attached,first.imageContext.attached);assert.deepEqual(repair.originalInput.imageContext.attached,first.imageContext.attached);
+ assert.equal(prepared.extraRequests[0].manifest.imageCount,images.length);assert.deepEqual(prepared.extraRequests[0].manifest.imageContext.attached,canonicalSourceView(first,prepared.manifest.sourceHandles).imageContext.attached);
+ assert.equal(result.kind,'draft');assert.equal(result.draftPlan,undefined);assert.equal(result.suggestions[0].text,'哈哈，这张还挺逗的');
+ const effective=prepared.resultContext||prepared,admitted=buildAnswerAdmission(effective,result,{...args,settings:configured}),check=buildFidelityContext(effective,result,{...args,settings:configured,admittedContext:admitted});
+ assert.deepEqual(check.images,images);assert.deepEqual(check.payload.imageContext.attached,effective.payload.imageContext.attached);
+ await assistModel(configured,check,undefined,async(_,request)=>{calls.push(request.body);const payload=userPayload(request.body);assert.equal(payload.purpose,'fidelity_check');assert.equal(payload.candidate.suggestions[0].text,result.suggestions[0].text);return response(JSON.stringify({checkRef:payload.checkRef,verdict:'allow',issues:[]}));});
+ assert.equal(calls.length,3);assert.deepEqual(JSON.parse(calls[2]).messages[1].content.slice(1).map(part=>part.image_url.url),images.map(image=>image.url));
+ assert.deepEqual(canonicalSourceView(userPayload(calls[2]),check.manifest.sourceHandles).imageContext.attached,canonicalSourceView(first,prepared.manifest.sourceHandles).imageContext.attached);
+ for(const image of images)assert.ok(check.manifest.sourceRevisions['qq:'+image.messageId]);
+ assert.equal(admitted.payload.promptVersion,PROMPT_VERSION);
 });

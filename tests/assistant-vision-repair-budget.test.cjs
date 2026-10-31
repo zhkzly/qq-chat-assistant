@@ -46,7 +46,7 @@ test('vision planning repair rebudgets the full wrapper without attaching pixels
     return { ok: true, json: async () => ({ choices: [{ message: { content: JSON.stringify(response) } }] }) };
   });
   assert.equal(calls.length, 2);
-  assert.equal(result.draftPlan.intent, 'reply');
+  assert.equal(result.kind,'draft');assert.equal(result.draftPlan,undefined);assert.equal(result.suggestions[0].text,'Synthetic complete image response.');
   assert.ok(context.resultContext, 'the actual repaired context must be retained for the next stage');
   assert.ok(context.resultContext.payload.sources.length < beforeSourceCount, 'the full repair wrapper must cause real bounded source repacking');
   for(const id of context.essentialSourceIds)assert.equal(context.resultContext.payload.sources.find(source=>source.id===id)?.text,context.payload.sources.find(source=>source.id===id)?.text,'evict optional rows without shrinking an essential original');

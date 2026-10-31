@@ -33,13 +33,13 @@ const response=value=>({ok:true,json:async()=>({choices:[{message:{content:JSON.
 
 function fixture(t,mode){
  const store=new Store(':memory:'),requests=[];let priorId;
- const settings={anonymous:true,baseUrl:'http://fixture.invalid/v1',model:'synthetic-carrier-recovery',auto:false,assistantRequestLimit:3,
+ const settings={anonymous:true,baseUrl:'http://fixture.invalid/v1',model:'synthetic-carrier-recovery',modelResponseMode:'result_tool',auto:false,assistantRequestLimit:3,
   realChatConsent:{...scope,baseUrl:'http://fixture.invalid/v1',model:'synthetic-carrier-recovery'}};
  const controller=new Controller({store,settings,memoryModel:null,compactionModel:null,read:async()=>{throw Error('This regression cannot read native QQ');},
   assistantModel:(configured,context,signal)=>assistModel(configured,context,signal,async(_url,request)=>{
    const wire=JSON.parse(request.body),payload=payloadFor(wire);requests.push({wire,payload});
    if(payload.purpose==='fidelity_check')return response({checkRef:payload.checkRef,verdict:'allow',issues:[]});
-   if(requests.length===1)return response({kind:'discussion',text:'保留你想邀请她的意思，换自然的说法。',answer:{suggestions:[{text:'还能分别计数，要不要一起拼，看看谁找到的边角多？'}]},draftPlan:{intent:'reply',quotes:[]}});
+   if(requests.length===1)return response({kind:'discussion',text:'保留你想邀请她的意思，换自然的说法。',answer:{suggestions:'MALFORMED_COMPLETE_ANSWER'},draftPlan:{intent:'reply',quotes:[]}});
    if(payload.originalInput){
     const captured=context.extraRequests?.at(-1)?.payload?.originalInput||context.payload,manifest=context.extraRequests?.at(-1)?.manifest||context.manifest;
     const original=canonicalSourceView(payload.originalInput,manifest.sourceHandles,captured),currentId=original.userRequest.sourceId,ref=text=>({text,sourceIds:[priorId,currentId]});
@@ -60,25 +60,14 @@ for(const mode of ['guidance_only','new_material'])test(`structured repair prese
  const {store,controller,requests,priorId}=fixture(t,mode),taskId=`carrier-repair-${mode}`,text=CRITICISM+(mode==='new_material'?`另外${NEW_MATERIAL}，愿意告诉她这点。`:'');
  const answer=await controller.assist({taskId,text});assert.equal(answer.kind,'draft');assert.equal(requests.length,3);
  const receipts=store.getCompanion(scope).runs.at(-1).requests;
- const normal={...requests[0],payload:canonicalSourceView(requests[0].payload,receipts[0].manifest.sourceHandles,receipts[0].payload)},repair={...requests[1],payload:canonicalSourceView(requests[1].payload,receipts[1].manifest.sourceHandles,receipts[1].payload)},checked=canonicalSourceView(requests[2].payload,receipts[2].manifest.sourceHandles,receipts[2].payload),run=store.getCompanion(scope).runs.at(-1),draft=require('../src/context/composer-evidence.cjs').projectComposerEvidence(run.payload),currentId=normal.payload.userRequest.sourceId;
- assert.match(normal.wire.messages[0].content,/quotes:\[\{materialRef,authorityRef\?\}\]/);
- assert.match(normal.wire.messages[0].content,/quotes≤8；仅当前精确QQ素材可省authorityRef，其他来源必需/);
- assert.match(normal.wire.messages[0].content,/动作\/提问\/口吻入guidance/);
- assert.match(repair.payload.task,/guidance只是有来源的动作\/方式提议/);assert.match(repair.payload.task,/不能把私人理由当外发素材/);
- assert.match(repair.payload.task,/原始用户发言候选不是许可/);
- assert.match(repair.payload.task,/完整上下文的指代、否定、引用、条件和最新限制/);
- assert.match(normal.wire.messages[0].content,/不切许可条件\/否定/);
- assert.match(normal.wire.messages[0].content,/UI只原精确范围/);
- assert.match(normal.wire.messages[0].content,/目录、模式、助手产物不授权/);
- assert.match(repair.payload.task,/不抄sourceId\/text\/authorization\/authorizationQuote/);
- assert.doesNotMatch(repair.payload.task,/只回应实际QQ时才可quotes:\[\]/);
- assert.ok(repair.payload.task.includes('选最小相关获准素材'),'repair must retain actual newly authorized meaning without forwarding the whole private source');
+ const normal={...requests[0],payload:canonicalSourceView(requests[0].payload,receipts[0].manifest.sourceHandles,receipts[0].payload)},repair={...requests[1],payload:canonicalSourceView(requests[1].payload,receipts[1].manifest.sourceHandles,receipts[1].payload)},checked=canonicalSourceView(requests[2].payload,receipts[2].manifest.sourceHandles,receipts[2].payload),run=store.getCompanion(scope).runs.at(-1),draft=require('../src/context/composer-evidence.cjs').projectComposerEvidence({...run.payload,purpose:'draft'}),currentId=normal.payload.userRequest.sourceId;
+ const schema=normal.wire.tools[0].function.parameters;assert.ok(schema.properties.answer&&schema.properties.currentFacts&&schema.properties.materials);assert.equal(schema.properties.draftPlan,undefined);
+ assert.match(repair.payload.task,/answer/);assert.equal(repair.wire.tool_choice.function.name,'assistant_result');assert.equal(requests[1].payload.originalInput.taskContext.draftControlPolicy,undefined);
  assert.equal(repair.payload.originalInput.userRequest.text,text);assert.equal(repair.payload.originalInput.sources.find(source=>source.id===priorId).text,PRIOR);
- assert.equal(checked.purpose,'fidelity_check');assert.equal(draft.purpose,'draft');assert.equal(draft.draftingGuidance.objective.text,OBJECTIVE);assert.equal(draft.draftingGuidance.allowedApproach.text,APPROACH);
- assert.deepEqual(draft.draftingGuidance.objective.sourceIds,[priorId,currentId]);assert.deepEqual(draft.draftingGuidance.allowedApproach.sourceIds,[priorId,currentId]);
+ assert.equal(checked.purpose,'fidelity_check');assert.equal(run.payload.purpose,'answer_admission');assert.equal(run.payload.draftingGuidance,undefined);
  assert.deepEqual(admittedQuotes(draft.outboundQuotes,run.payload.outboundQuotes,run.manifest.sourceRevisions),mode==='new_material'?[{sourceId:currentId,text:NEW_MATERIAL}]:[]);
  assert.ok(draft.sources.every(source=>source.type==='qq'),'private instructions are control references, not raw composer sources');
- const other=withoutCurrentControl(draft,text);assert.equal(draft.currentHumanControl.sourceId,currentId);assert.equal(draft.draftingGuidance.authority,'GENERATED_PROPOSAL');
+ const other=withoutCurrentControl(draft,text);assert.equal(draft.currentHumanControl.sourceId,currentId);assert.equal(draft.draftingGuidance,undefined);
  for(const privateBody of [PRIOR,CRITICISM,'PRIVATE_PRIOR_REASON'])assert.equal(JSON.stringify(other).includes(privateBody),false);
  assert.ok(answer.suggestions.every(item=>![PRIOR,CRITICISM,'PRIVATE_PRIOR_REASON'].some(privateBody=>item.text.includes(privateBody))));
  assert.equal(store.getCompanion(scope).turns.find(turn=>turn.id===priorId.slice('private:'.length)).text,PRIOR);
@@ -88,10 +77,10 @@ for(const mode of ['guidance_only','new_material'])test(`structured repair prese
 
 test('a repaired plan still cannot promote old private instructions into unauthorized outbound quotes',async t=>{
  const {store,controller,requests,priorId}=fixture(t,'unauthorized_old_quote'),taskId='carrier-repair-old-quote-denied';
- await assert.rejects(controller.assist({taskId,text:CRITICISM}),/draftPlan\.quotes\[0\]\.authorityRef/);
+ await assert.rejects(controller.assist({taskId,text:CRITICISM}),/materials\[0\]\.authorityRef/);
  assert.equal(store.getCompanion(scope).turns.find(turn=>turn.id===priorId.slice(8)).text,PRIOR,'rejected bindings cannot rewrite the private instruction source');
  assert.equal(requests.length,2,'the unauthorized repaired plan must not purchase a wording call');
  assert.ok(!requests.some(request=>request.payload.purpose==='draft'));
  const budget=controller.usage.get(scope,taskId);assert.equal(budget.status,'failed');assert.equal(budget.attempts,2);assert.equal(budget.limit,3);
- const run=store.getCompanion(scope).runs.find(run=>run.id===taskId);assert.equal(run.status,'failed');assert.equal(run.manifest.formatRepair.planningCarrier,true);
+ const run=store.getCompanion(scope).runs.find(run=>run.id===taskId);assert.equal(run.status,'failed');assert.equal(run.manifest.formatRepair.deliveryContract,true);
 });

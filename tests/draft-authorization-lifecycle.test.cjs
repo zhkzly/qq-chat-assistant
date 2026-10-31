@@ -30,7 +30,7 @@ test('separate permission evidence is an artifact dependency and its deletion pu
  const {store,controller,permission,inputs,respond}=fixture(t),reply=await respond(),id=`private:${permission.id}`;
  const check=inputs.find(input=>input.payload.purpose==='fidelity_check');
  assert.ok(check.payload.evidence.some(source=>source.sourceId===id&&source.text.includes('愿意告诉她')),'the checker reads the original permission without granting it');
- const draft=controller.assistantContext().run;assert.equal(draft.payload.purpose,'draft');
+ const draft=controller.assistantContext().run;assert.equal(draft.payload.purpose,'answer_admission');
  assert.ok(draft.manifest.sourceRevisions[id]);
  assert.equal(JSON.stringify(draft.payload).includes('私人原因'),false);
  assert.equal(JSON.stringify(draft.payload).includes('愿意告诉她'),false);

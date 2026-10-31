@@ -23,14 +23,14 @@ function assertVisible(turn,expected){assert.equal(uiBody(turn),expected);assert
 function completePrimary(value,primary,draftPlan){
  if(typeof value==='string')return value;
  if(value.kind==='question')return {operation:'clarify',blocker:value.deliveryBlocker};
- return {operation:'prepare_message',text:primary,draftPlan,answer:{suggestions:value.suggestions?.length?value.suggestions:[{text:value.text}],...(Object.hasOwn(value,'privateExplanation')?{privateExplanation:value.privateExplanation}:{})}};
+ return {operation:'prepare_message',materials:draftPlan.quotes,...(draftPlan.editingReference?{editingReference:draftPlan.editingReference}:{}),answer:{suggestions:value.suggestions?.length?value.suggestions:[{text:value.text}],...(Object.hasOwn(value,'privateExplanation')?{privateExplanation:value.privateExplanation}:{})}};
 }
 async function application(t,{primary=WRONG,final=()=>({kind:'draft',text:MESSAGE}),facts=[YESTERDAY,TODAY],previous=false,legacy=false,advise=false}={}){
  t.mock.timers.enable({apis:['Date'],now:Date.parse('2026-09-30T10:00:00.000Z')});const store=new Store(':memory:'),notes=[];
  notes.push(store.saveNote(scope,{text:facts[0],use:'draft'}));t.mock.timers.setTime(Date.parse('2026-10-01T10:00:00.000Z'));for(const text of facts.slice(1))notes.push(store.saveNote(scope,{text,use:'draft'}));
  const calls=[],contexts=[],model='synthetic-whole-prepared-response',baseUrl='http://fixture.invalid/v1';
  const controller=new Controller({store,compactionModel:null,settings:{anonymous:true,auto:false,model,baseUrl,modelResponseMode:'result_tool',assistantRequestLimit:6,discussionCompactionEnabled:false,realChatConsent:{...scope,model,baseUrl}},read:async command=>command==='bind'?scope:{messages:[]},
-  assistantModel:(settings,context,signal)=>{contexts.push(context);if(legacy){const p=context.payload;calls.push({p});if(p.purpose==='fidelity_check')return {checkRef:p.checkRef,verdict:'allow',issues:[]};const id=p.intentAuthority.sourceId,c=text=>({text,sourceIds:[id]}),value=final(p,{},calls.length-1);const {operation,...fields}=completePrimary(value,primary,{intent:'reply',quotes:p.sources.filter(source=>source.type==='note'&&source.use==='draft').map(source=>({sourceId:source.id,text:source.text})),guidance:{objective:c('说明实际事实'),allowedApproach:c('保留真实范围'),avoidances:[]}});return {kind:'discussion',...fields};}
+  assistantModel:(settings,context,signal)=>{contexts.push(context);if(legacy){const p=context.payload;calls.push({p});if(p.purpose==='fidelity_check')return {checkRef:p.checkRef,verdict:'allow',issues:[]};const id=p.intentAuthority.sourceId,c=text=>({text,sourceIds:[id]}),value=final(p,{},calls.length-1);const {operation,...fields}=completePrimary(value,primary,{intent:'reply',quotes:p.sources.filter(source=>source.type==='note'&&source.use==='draft').map(source=>({sourceId:source.id,text:source.text})),guidance:{objective:c('说明实际事实'),allowedApproach:c('保留真实范围'),avoidances:[]}});return {kind:'discussion',...fields,text:primary,draftPlan:{intent:'reply',quotes:p.sources.filter(source=>source.type==='note'&&source.use==='draft').map(source=>({sourceId:source.id,text:source.text})),guidance:{objective:c('说明实际事实'),allowedApproach:c('保留真实范围'),avoidances:[]}}};}
    return assistModel(settings,context,signal,async(_url,args)=>{const request=JSON.parse(args.body),wrapper=JSON.parse(request.messages[1].content),p=wrapper.originalInput||wrapper;calls.push({request,wrapper,p});const value=p.purpose==='fidelity_check'?{checkRef:p.checkRef,verdict:'allow',issues:[]}:advise?{operation:'advise',text:primary}:completePrimary(await final(p,wrapper,calls.length-1),primary,plan(p));return toolResponse(value,p.purpose);});}});
  t.after(()=>{controller.close();store.close();});controller.updateStatus({phase:'ready',account:{uid:scope.accountUid,uin:scope.accountUin}});await controller.bind(scope.peerUin);controller.live({scope,messages:[raw('91000000000000341',false,{msgTime:'1790848740',elements:[{textElement:{content:'你这个小网页现在已经能查找了吗？'}}]})]});
  const prior=previous?store.appendTurn(scope,{role:'assistant',kind:'draft',origin:'user',requestId:'whole-response-prior',text:MESSAGE,suggestions:[{style:'自然',text:MESSAGE}],sourceIds:notes.map(note=>'note:'+note.id)}):null;
@@ -41,7 +41,7 @@ for(const primary of [WRONG,CORRECT])test(`primary audit rationale is never fabr
  const app=await application(t,{primary}),reply=await app.assist();
  assert.equal(reply.kind,'draft');assert.equal(reply.suggestions[0].text,MESSAGE);assert.equal(reply.discussionExplanation,undefined,'neither wrong nor correct planner prose is a final explanation fallback');
  assert.equal(app.calls.length,2);assert.equal(uiBody(reply).includes(primary),false);const saved=app.store.getCompanion(scope).turns.find(turn=>turn.id===reply.id);assert.deepEqual(saved.discussionExplanation,undefined);assertVisible(saved,saved.text);
- assert.deepEqual(app.run().manifest.preparedResponse,{owner:'primary_candidate',message:'provided',privateExplanation:'absent'});
+ assert.deepEqual(app.run().manifest.preparedResponse,{owner:'primary_answer',message:'provided',privateBodyOwner:'answer.privateExplanation',privateExplanation:'absent'});
 });
 
 test('the complete raw primary owns its explicit explanation and individually stored outward message',async t=>{
@@ -49,7 +49,7 @@ test('the complete raw primary owns its explicit explanation and individually st
  assert.deepEqual(reply.discussionExplanation,{kind:'discussion',text:FINAL_WHY});assert.equal(reply.suggestions[0].text,MESSAGE);assertVisible(reply,FINAL_WHY);assertVisible(saved,FINAL_WHY);
  assert.equal(JSON.stringify(reply).includes(WRONG),false);assert.equal(app.calls.length,2);assert.equal(app.calls[1].request.tools[0].function.name,'fidelity_result');
  const schema=app.calls[0].request.tools[0].function.parameters.properties.answer;assert.equal(schema.properties.privateExplanation.type,'string');assert.equal(schema.properties.message,undefined);
- assert.deepEqual(app.run().manifest.preparedResponse,{owner:'primary_candidate',message:'provided',privateExplanation:'provided'});
+ assert.deepEqual(app.run().manifest.preparedResponse,{owner:'primary_answer',message:'provided',privateBodyOwner:'answer.privateExplanation',privateExplanation:'provided'});
 });
 
 for(const secondFact of [TODAY,'今天查找功能还没有做成，目前还不能使用。'])test(`compatible or genuinely conflicting source facts and the actual e1 remain complete inputs (${secondFact===TODAY?'compatible':'contradictory'})`,async t=>{

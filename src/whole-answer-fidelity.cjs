@@ -5,7 +5,7 @@ const {validationError}=require('./validation-issues.cjs');
 const {sameScopeIfPresent}=require('./context/source-snapshot.cjs');
 const {sourceClosure}=require('./provenance.cjs');
 const {candidateFields,candidatePaths,normalizeCandidatePath}=require('./candidate-field-paths.cjs');
-const VERSION='whole-answer-fidelity-v2';
+const VERSION='whole-answer-fidelity-v3';
 const marks=new WeakMap(),clone=value=>structuredClone(value);
 const plain=value=>value&&typeof value==='object'&&!Array.isArray(value);
 const hash=value=>createHash('sha256').update(JSON.stringify(value)).digest('hex');
@@ -51,10 +51,12 @@ function buildFidelityContext(prepared,result,info={}){
  const scope=info.scope||prepared.manifest?.scope;
  if(!sameScopeIfPresent({scope:prepared.manifest?.scope},scope))throw fail('scope','fidelity_binding_invalid','Fidelity scope changed');
  const options=info.expressionOptions||result.expressionOptions||[],candidate=visibleCandidate(result,options);
- const revisions={...prepared.manifest?.sourceRevisions,...info.admittedContext?.manifest?.sourceRevisions};
+ const optionMaterials=info.optionAdmission?.groups||options.map((option,index)=>({index,fragments:option.quotes||[]}));
+ const revisions={...prepared.manifest?.sourceRevisions,...info.admittedContext?.manifest?.sourceRevisions,...info.optionAdmission?.sourceRevisions};
  const intentId=prepared.payload.intentAuthority?.sourceId;
  const required=new Set([intentId,...(prepared.essentialSourceIds||[]),
   ...(info.admittedContext?.payload.outboundQuotes||[]).map(item=>item.sourceId),
+  ...optionMaterials.flatMap(option=>option.fragments.map(fragment=>fragment.sourceId)),...Object.keys(info.optionAdmission?.sourceRevisions||{}),
   ...(prepared.payload.topicContext?.controlRefs||[]).map(item=>item.sourceId)]);
  const sourceMap=new Map(),contexts=[...(info.sourceContexts||[]),prepared];
  const captured=new Map((prepared.fullAvailableSources||prepared.payload.sources||[]).map(source=>[source.id,source]));
@@ -81,7 +83,7 @@ function buildFidelityContext(prepared,result,info={}){
   }
  }
  const unavailableRoots=[];
- for(const quote of info.admittedContext?.payload.outboundQuotes||[]){
+ for(const quote of [...(info.admittedContext?.payload.outboundQuotes||[]),...optionMaterials.flatMap(option=>option.fragments)]){
   const note=captured.get(quote.sourceId);if(note?.type!=='note'||!note.evidenceSourceIds?.length)continue;
   try{
    const closure=sourceClosure(captured,[note.id]);
@@ -117,6 +119,7 @@ function buildFidelityContext(prepared,result,info={}){
   candidate:freeze(clone(candidate)),candidatePaths:candidatePaths(candidate),evidence,
   ...(intentId?{intentAuthority:{sourceId:intentId}}:{}),
   admittedFragments:admitted.map(({sourceId,text})=>({sourceId,text})),
+  ...(optionMaterials.some(option=>option.fragments.length)?{optionMaterials:clone(optionMaterials)}:{}),
   ...(info.admittedContext?.payload.currentHumanControl?{currentHumanControl:{sourceId:info.admittedContext.payload.currentHumanControl.sourceId,authority:'CONTROL_ONLY',bodyLocation:'evidence'}}:{}),
   ...(info.admittedContext?.payload.selectedDirectionControl?{selectedDirectionControl:clone(info.admittedContext.payload.selectedDirectionControl)}:{}),
   ...(info.admittedContext?.payload.editingReference?{priorArtifact:clone(info.admittedContext.payload.editingReference)}:{}),
@@ -157,7 +160,7 @@ function buildFidelityContext(prepared,result,info={}){
   asOf:prepared.payload.asOf,goal:prepared.payload.goal,goalVersion:prepared.manifest.goalVersion,
   admitted:info.admittedContext?.payload.outboundQuotes,currentHuman:info.admittedContext?.payload.currentHumanControl,selectedDirection:info.admittedContext?.payload.selectedDirectionControl,
   revisions:context?.manifest.sourceRevisions||revisions,artifacts:(context?.manifest||manifest).inputArtifactRefs||[],
-  evidenceHash:hash(context?.payload||payload),authorizedImages:prepared.images||[],images:context?.images||images,sourceWitness:[...sourceMap.values()].map(source=>[source.id,source.revision,source.type,source.role,source.at,source.text,source.delivery,source.evidenceRevisions])});
+  evidenceHash:hash(context?.payload||payload),optionWitness:options.map(option=>({label:option.label,style:option.style,quotes:option.quotes||[]})),authorizedImages:prepared.images||[],images:context?.images||images,sourceWitness:[...sourceMap.values()].map(source=>[source.id,source.revision,source.type,source.role,source.at,source.text,source.delivery,source.evidenceRevisions])});
  const bound=binding(),candidateHash=hash(candidate),fields=new Map(candidateFields(candidate).map(field=>[field.path,field.value])),paths=new Set(payload.candidatePaths);
  const bodyAt=path=>fields.get(path);
  const frame=Object.freeze({candidateHash,bindingHash:bound,paths,sourceIds:new Set(sourceIds),bodyAt,evidenceAt:id=>payload.evidence.find(source=>source.sourceId===id),
@@ -178,7 +181,7 @@ function parseFidelityResult(value,input){
   !['allow','reject','uncertain'].includes(data.verdict)||!Array.isArray(data.issues)||data.issues.length>12||
   data.concerns!==undefined&&(!Array.isArray(data.concerns)||data.concerns.length>12))
   throw fail('checkRef','fidelity_result_invalid','Return only this checkRef, allow/reject/uncertain and bounded issues; never rewrite or execute');
- const softCodes=['pragmatic_ambiguity','style','helpfulness','coverage_gap'];
+ const softCodes=['current_boundary','pragmatic_ambiguity','style','helpfulness','coverage_gap'];
  const concerns=[],issues=[];
  const address=(path,field)=>{
   const canonical=normalizeCandidatePath(path,input.payload.candidatePaths);
@@ -192,16 +195,17 @@ function parseFidelityResult(value,input){
  const quoted=(path,quote)=>typeof quote==='string'&&quote.trim()&&quote.length<=1200&&typeof frame.bodyAt(path)==='string'&&frame.bodyAt(path).includes(quote);
  const concern=(raw,index,field=`concerns[${index}].path`)=>{
   const item=plain(raw)?{...raw,path:address(raw.path,field)}:raw;
-  if(!plain(item)||Object.keys(item).some(key=>!['path','code','quote','reason'].includes(key))||!softCodes.includes(item.code)||
+  if(!plain(item)||Object.keys(item).some(key=>!['path','code','quote','sourceIds','evidence','reason'].includes(key))||!softCodes.includes(item.code)||
    typeof item.reason!=='string'||!item.reason.trim()||item.reason.length>500||item.quote!==undefined&&!quoted(item.path,item.quote))
    throw fail(`concerns[${index}]`,'fidelity_result_invalid','Nonblocking concerns cite a visible path; they are private diagnostics, not new facts or warnings');
+  if(item.sourceIds!==undefined&&(!Array.isArray(item.sourceIds)||item.sourceIds.some(id=>!frame.sourceIds.has(id)))||item.evidence!==undefined&&(!Array.isArray(item.evidence)||item.evidence.length>8||item.evidence.some(ref=>!plain(ref)||Object.keys(ref).some(key=>!['sourceId','quote'].includes(key))||typeof ref.quote!=='string'||!ref.quote.trim()||!frame.evidenceAt(ref.sourceId)?.text.includes(ref.quote))))throw fail(`concerns[${index}].evidence`,'fidelity_result_invalid','Private concerns cannot invent evidence witnesses');
   concerns.push(clone(item));
  };
  for(const [index,raw]of data.issues.entries()){
   if(softCodes.includes(raw?.code)){concern(raw,index,`issues[${index}].path`);continue;}
   const issue=plain(raw)?{...raw,path:address(raw.path,`issues[${index}].path`),...(Object.hasOwn(raw,'relatedPath')?{relatedPath:address(raw.relatedPath,`issues[${index}].relatedPath`)}:{})}:raw;
   if(!plain(issue)||Object.keys(issue).some(key=>!['path','code','quote','sourceIds','evidence','basis','relatedPath','relatedQuote','reason'].includes(key))||
-   !['unsupported_fact','private_disclosure','current_boundary','omitted_qualifier','evidence_mismatch','internal_conflict'].includes(issue.code)||!quoted(issue.path,issue.quote)||
+   !['unsupported_fact','private_disclosure','omitted_qualifier','evidence_mismatch','internal_conflict'].includes(issue.code)||!quoted(issue.path,issue.quote)||
    typeof issue.reason!=='string'||!issue.reason.trim()||issue.reason.length>500||
    issue.sourceIds!==undefined&&(!Array.isArray(issue.sourceIds)||issue.sourceIds.length>16||issue.sourceIds.some(id=>!frame.sourceIds.has(id))))
    throw fail(`issues[${index}]`,'fidelity_result_invalid','A blocking defect requires an exact visible claim and captured evidence grounding, not reviewer confidence');

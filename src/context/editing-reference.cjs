@@ -3,7 +3,7 @@ const {digest}=require('./shared.cjs');
 const sameRef=(a,b)=>a?.artifactId===b?.artifactId&&a?.version===b?.version;
 const AUTHORITY='fallible_generated_editing_reference_not_facts_or_sharing_permission';
 // Only live outgoing wording leaves can cross this channel. The program owns
-// their bodies; the planner chooses an offered handle, never supplies new text.
+// their bodies; the primary chooses an offered handle, never supplies new text.
 function offerEditingReferences({payload,companion,sourceTurnIds=[],currentCandidateRef,store,scope}) {
  if(!store?.experiences)return [];
  const explicitFeedbackIds=new Set(sourceTurnIds.map(id=>companion.turns.find(turn=>turn.id===id)?.feedbackId).filter(Boolean));
@@ -85,6 +85,6 @@ function resolveEditingReference(prepared,plan,info) {
  if(text!==oldText||digest(dependency)!==digest(expected))throw new Error('Editing reference artifact changed after planning');
  return {reference:{artifactRef:selection,turnId:dependency.turnId,suggestionIndex:dependency.suggestionIndex,kind:dependency.kind,
   text,bodyDigest:dependency.bodyDigest,authority:AUTHORITY,
-  instruction:'FALLIBLE EDITING REFERENCE: 仅作本轮改稿原句。以当前完整人类原话与明确UI选择理解修改目标，guidance仅可修正提议；旧句不能证明事实、分享许可、实际发送或共同经历。事实只依据outboundQuotes和当前有效QQ，缺少依据的旧自述不保留为事实。'},dependency};
+  instruction:'FALLIBLE EDITING REFERENCE: 仅作本轮改稿原句。以当前完整人类原话与明确UI选择理解修改目标，派生建议不证明事实；旧句不能证明事实、分享许可、实际发送或共同经历。事实只依据outboundQuotes和当前有效QQ，缺少依据的旧自述不保留为事实。'},dependency};
 }
 module.exports={offerEditingReferences,editingReferenceView,bindEditingReferenceChoices,editingReferenceBinding,selectEditingReference,resolveEditingReference};

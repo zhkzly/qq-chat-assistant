@@ -14,6 +14,7 @@ function withRequestDelivery(value,payload){
 // a global response upgrader. A current statement is a candidate, not a grant.
 function withCurrentStatementAuthority(value,payload){
  if(!payload.primaryReferenceProtocol||!value?.draftPlan?.quotes?.length)return value;
+ if(payload.currentPermission&&payload.userRequest?.sourceId===payload.intentAuthority?.sourceId)return value;
  const id=payload.intentAuthority?.sourceId,source=payload.sources?.find(item=>item.id===id);
  if(!source||source.role!=='user'||!['private','feedback'].includes(source.type)||['user_control','feedback_continue'].includes(source.kind))throw new Error('Synthetic positive statement requires an original current user source');
  const atoms=[],bounds=new Map();let offset=0,body='';
@@ -53,7 +54,18 @@ function withPrimaryOperation(value,payload){
   const {text,draftPlan,...aux}=fields;
   return {operation:'clarify',...aux,blocker:delivery?.blocker||{kind:'missing_fact',missing:question,question}};
  }
- if(value.draftPlan||delivery&&delivery.mode!=='private_help')return {operation:'prepare_message',...fields};
+ if(value.draftPlan||delivery&&delivery.mode!=='private_help'){
+  const {text,draftPlan,...answer}=fields;
+  if(!draftPlan||typeof draftPlan!=='object'||Array.isArray(draftPlan))return {operation:'prepare_message',...answer,...(draftPlan!==undefined?{draftPlan}:{})};
+  const currentFacts=[],materials=[],currentId=payload.intentAuthority?.sourceId;
+  for(const quote of draftPlan.quotes||[]){
+   if(quote?.sourceId===currentId&&typeof quote.text==='string'&&quote.text&&payload.userRequest?.text.includes(quote.text)){currentFacts.push(quote.text);continue;}
+   const source=payload.sources?.find(source=>source.id===quote?.sourceId);
+   if(source?.type==='qq'&&typeof quote.text==='string'&&quote.text&&source.text?.includes(quote.text))continue;
+   materials.push(quote);
+  }
+  return {operation:'prepare_message',...answer,...(currentFacts.length?{currentFacts}:{}),...(materials.length?{materials}:{}),...(draftPlan.editingReference!==undefined?{editingReference:draftPlan.editingReference}:{})};
+ }
  return {operation:'advise',...fields};
 }
 module.exports={withRequestDelivery,withCurrentStatementAuthority,withPrimaryOperation};

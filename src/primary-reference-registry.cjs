@@ -64,7 +64,7 @@ class PrimaryReferenceOwner{
  constructor({scope=null,taskId='standalone'}={}){this.#scope=scopeIdentity(scope);this.#taskId=taskId;}
  matches(scope,taskId){return digest(scopeIdentity(scope))===digest(this.#scope)&&taskId===this.#taskId;}
  get size(){return this.#entries.size;}
- preview(payload){
+ preview(payload,{foreground=false}={}){
   const projected=clone(payload),input=projected?.originalInput||projected;
   const original=payload?.originalInput||payload;
   if(!input||typeof input!=='object'||['draft','memory','discussion_compaction'].includes(input.purpose))throw fail('$','primary_reference_phase_invalid','reference choices are only a foreground planning contract');
@@ -90,6 +90,18 @@ class PrimaryReferenceOwner{
     Number.isSafeInteger(range.originalCharLength)&&range.originalCharLength>=range.end&&['delivered','partial'].includes(range.status);
    if(sourceById.has(source.id))throw fail('sources','primary_reference_offer_invalid','a delivered source may occur only once');
    sourceById.set(source.id,{source:clone(source),text,available});
+   if(foreground&&source.id===intentId){
+    if(originalUser(source)){
+     input.userRequest={sourceId:source.id,text};
+     if(available&&range.status!=='partial'){
+      const offered=entry('authority',{kind:'ORIGINALUSERSTATEMENTCANDIDATE',sourceId:source.id,revision:source.revision,currentInstruction:true});
+      offeredAuthorities.set(offered.authorityRef,offered);receiptAuthorities.push(offered);
+      input.currentPermission={authorityRef:offered.authorityRef,authority:'original_current_human_statement_candidate_not_grant',bodyLocation:'userRequest'};
+     }
+    }
+    return undefined;
+   }
+   if(foreground&&source.type==='qq'){view.text=text;return view;}
    const {atoms,sentences}=rangesFor(text),choices=new Map(),atomicKeys=new Set(),atomicMaterials=[];
    let usedParts=0,coveredEnd=0;
    const boundary=offset=>{
@@ -164,7 +176,7 @@ class PrimaryReferenceOwner{
    if(!view.authorityChoices.program.length)delete view.authorityChoices.program;
    if(!view.authorityChoices.originalUserStatementCandidates.length){delete view.authorityChoices.originalUserStatementCandidates;delete view.authorityChoices.candidateMeaning;}
    return view;
-  });
+  }).filter(Boolean);
   input.primaryReferenceProtocol={version:VERSION};
   freeze(projected);
   const bindingId=digest({scope:this.#scope,taskId:this.#taskId,materials:receiptMaterials,authorities:receiptAuthorities,boundaries:receiptBoundaries});
@@ -205,7 +217,9 @@ class PrimaryReferenceOwner{
       throw fail(path,'authority_target_mismatch','program source authority applies only to its exact offered material target');
      return undefined;
     }
-    const permission=offeredMaterials.get(found.materialRef);
+    const current=found.currentInstruction&&sourceById.get(found.sourceId);
+    const permission=found.currentInstruction&&current?.available&&current.source.revision===found.revision
+     ?{metadata:{sourceId:found.sourceId},text:current.text}:offeredMaterials.get(found.materialRef);
     if(!permission)throw fail(path,'unknown_authority_reference','the original user statement was not delivered in this request');
     return {permission:{sourceId:permission.metadata.sourceId,text:permission.text},referent:{sourceId:material.sourceId,text:material.text}};
    },
