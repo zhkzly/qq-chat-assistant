@@ -5,7 +5,7 @@ const { randomUUID, createHash } = require('node:crypto');
 const { rank } = require('./memory-search.cjs');
 const { ExperienceStore } = require('./experience-store.cjs');
 const { assertPreferenceAuthority, sourceClosure } = require('./provenance.cjs');
-const { PROCESSOR_VERSION, prepareRelationshipPatch, writeRelationshipRecords, relationshipView, decisionRevisions, repairRelationshipTransitions, invalidateRelationshipDecision } = require('./relationship-store.cjs');
+const { PROCESSOR_VERSION, prepareRelationshipPatch, writeRelationshipRecords, relationshipView, decisionRevisions, decisionEvidence, repairRelationshipTransitions, invalidateRelationshipDecision } = require('./relationship-store.cjs');
 const { emptyTopics, pruneTopics, topicView, prepareTopicPatch, normalizeTopicPatch } = require('./topic-store.cjs');
 const { DiscussionCompactionStore, validateDiscussionTurnFingerprints } = require('./discussion-compaction-store.cjs');
 const {readOriginalEvidence,coverageFor,requireOriginals}=require('./original-evidence.cjs');
@@ -817,6 +817,9 @@ class Store {
   knowledgeDirectory(scope) {
     // Navigation over existing derived rows. Admission still checks their
     // revision-bound sources; this read does not scan or rank raw history.
+    // An empty scoped read must not create migration receipts for an account
+    // or contact that has no knowledge. Nonempty legacy rows still upgrade.
+    const records=this._memoryRecords(scope);if(!records.length)return records;
     this.ensureKnowledgeMigration(scope);return this._memoryRecords(scope);
   }
   searchMemory(scope, query='', options={}) {
@@ -865,26 +868,57 @@ class Store {
       event.end=original.text.length;
       if(offset)source.segment={offset,end:original.text.length,total:original.text.length};
     }
-    const prior=this._memoryRecords(scope),query=core.sources.map(s=>s.text.slice(0,300)).join(' ');
-    const pinned=prior.filter(r=>r.kind==='commitment'||r.recordType==='episode'||r.reviewComplete===false||r.recordType==='relationship_event'||r.recordType==='claim'&&r.aspect==='boundary').sort((a,b)=>Date.parse(b.lastEvidenceAt)-Date.parse(a.lastEvidenceAt)).slice(0,8);
-    const candidates=[...new Map([...pinned,...rank(prior,query,{limit:12})].map(r=>[r.id,r])).values()];
+    const prior=this._memoryRecords(scope),byId=new Map(prior.map(item=>[item.id,item])),query=core.sources.map(s=>s.text.slice(0,300)).join(' ');
     const originals=new Map(this._rawMemorySources(scope).map(source=>[source.id,source]));
-    for(const item of candidates) {
-      const target=core.priorMemory[{item:'items',episode:'episodes',claim:'claims',relationship_event:'events'}[item.recordType]];if(!target)continue;
-      const roots=sourceClosure(originals,item.sourceIds),needed=roots.filter(source=>!core.sources.some(delivered=>delivered.id===source.id&&!delivered.segment)&&!core.contextSources.some(delivered=>delivered.id===source.id));
-      const previousLength=core.contextSources.length;
-      core.contextSources.push(...needed.map(source=>({...source,scope:{...scope}})));target.push(item);
-      if(bytes()>size){target.pop();core.contextSources.length=previousLength;}
-    }
     // A bare 'cancel it' needs the preceding exchange, not lexical topic overlap.
-    // Read a bounded window of already-reviewed sources without moving its cursor.
+    // Choose the bounded original window before resolving dependent update
+    // targets. Summary language and topic keywords cannot decide their identity.
     const anchor=core.sources.filter(s=>!s.deleted).map(s=>s.at).sort()[0];
+    let neighbors=[];
     if(anchor) {
       const reviewed=new Set(this.db.prepare("SELECT source_id FROM memory_journal WHERE scope_key=? AND status='reviewed'").all(key).map(r=>r.source_id));
-      const neighbors=this._rawMemorySources(scope).filter(s=>reviewed.has(s.id)&&s.at<=anchor&&!core.reviewedSourceIds.includes(s.id)).sort((a,b)=>b.at.localeCompare(a.at)).slice(0,6);
-      for(const source of neighbors){if(core.contextSources.some(delivered=>delivered.id===source.id))continue;core.contextSources.push({...source,scope:{...scope}});if(bytes()>size)core.contextSources.pop();}
-      core.contextSources.sort((a,b)=>a.at.localeCompare(b.at));
+      neighbors=[...originals.values()].filter(s=>!s.deleted&&reviewed.has(s.id)&&s.at<=anchor&&!core.reviewedSourceIds.includes(s.id)).sort((a,b)=>b.at.localeCompare(a.at)).slice(0,6);
     }
+    const selectedOriginalIds=new Set();
+    for(const source of [...core.sources.filter(source=>!source.deleted),...neighbors]){
+      try{for(const root of sourceClosure(originals,[source.id]))selectedOriginalIds.add(root.id);}catch{ /* Unavailable provenance never becomes update authority. */ }
+    }
+    const dependentIds=new Set();
+    const dependencies=this.db.prepare('SELECT id FROM memory_dependencies WHERE scope_key=? AND source_id=?');
+    for(const id of selectedOriginalIds)for(const row of dependencies.all(key,id))dependentIds.add(row.id);
+    const dependent=[...dependentIds].map(id=>byId.get(id)).filter(Boolean).sort((a,b)=>(a.aspect||a.activityKey||a.kind||'').localeCompare(b.aspect||b.activityKey||b.kind||'')||a.id.localeCompare(b.id));
+    const pinned=prior.filter(r=>r.kind==='commitment'||r.recordType==='episode'||r.reviewComplete===false||r.recordType==='relationship_event'||r.recordType==='claim'&&r.aspect==='boundary').sort((a,b)=>Date.parse(b.lastEvidenceAt)-Date.parse(a.lastEvidenceAt)).slice(0,8);
+    const candidates=[...new Map([...dependent,...pinned,...rank(prior,query,{limit:12})].map(r=>[r.id,r])).values()].slice(0,24);
+    const addOriginals=roots=>{
+      for(const source of roots)if(!core.sources.some(delivered=>delivered.id===source.id&&!delivered.segment)&&!core.contextSources.some(delivered=>delivered.id===source.id))core.contextSources.push({...source,scope:{...scope}});
+    };
+    for(const item of candidates){
+      const target=core.priorMemory[{item:'items',episode:'episodes',claim:'claims',relationship_event:'events'}[item.recordType]];if(!target)continue;
+      const decision=decisionEvidence(item,byId),required=[...new Set([...item.sourceIds,...Object.keys(decision.sourceRevisions)])];
+      let roots,reason=decision.available?null:'decision_unavailable';
+      try{
+        roots=sourceClosure(originals,required);
+        if(Object.entries({...item.sourceRevisions,...decision.sourceRevisions}).some(([id,revision])=>originals.get(id)?.revision!==revision))reason='originals_unavailable';
+      }catch{reason='originals_unavailable';}
+      const offered=item.transition?.successorId?{...item,evidenceOffer:{decisionSourceRevisions:decision.sourceRevisions}}:item;
+      const previousLength=core.contextSources.length;
+      if(!reason){
+        // A target and all canonical/decision originals are one budget unit.
+        // Roll back the entire unit before offering incomplete navigation.
+        addOriginals(roots);target.push(offered);
+        if(bytes()<=size)continue;
+        target.pop();core.contextSources.length=previousLength;reason='originals_exceed_batch_budget';
+      }
+      // Inactive interpretations must stay visible even when their decision
+      // evidence was withdrawn. Their summaries confer no write permission.
+      target.push({...offered,evidenceOffer:{...offered.evidenceOffer,authority:'read_only',reason}});
+      if(bytes()>size)target.pop();
+    }
+    for(const source of neighbors){
+      const previousLength=core.contextSources.length;
+      try{addOriginals(sourceClosure(originals,[source.id]));if(bytes()>size)core.contextSources.length=previousLength;}catch{core.contextSources.length=previousLength;}
+    }
+    core.contextSources.sort((a,b)=>a.at.localeCompare(b.at)||a.id.localeCompare(b.id));
     const deliveredIds=new Set([...core.sources,...core.contextSources].filter(source=>!source.deleted).map(source=>source.id));
     for(const row of this.db.prepare('SELECT record FROM memory_pending_proposals WHERE scope_key=? ORDER BY rowid LIMIT 4').all(key)){
       const proposal=JSON.parse(row.record);
@@ -986,7 +1020,7 @@ class Store {
         const old=previous.get(retirement.id);if(!['item','episode'].includes(old.recordType))throw new Error('Typed records require relationshipPatch retirement');checked.push(build({id:old.id,kind:old.kind,text:old.text,sourceIds:[...new Set([...old.sourceIds,...sourceList(retirement.sourceIds)])],topicKeys:old.topicKeys,status:retirement.status,certainty:old.certainty},old.recordType,{retiring:true}));
       }
       if(new Set(checked.map(c=>c.id)).size!==checked.length)throw new Error('Duplicate memory update');
-      const relationships=result.relationshipPatch?prepareRelationshipPatch(this,scope,result.relationshipPatch,{sourceIds:[...allowed],sourceRevisions:Object.fromEntries([...raw].map(([id,s])=>[id,s.revision])),previousIds:new Set(previous.keys()),reviewedSourceIds:batch.reviewedSourceIds,deliveredSources:actualDelivery}):[];
+      const relationships=result.relationshipPatch?prepareRelationshipPatch(this,scope,result.relationshipPatch,{sourceIds:[...allowed],sourceRevisions:Object.fromEntries([...raw].map(([id,s])=>[id,s.revision])),previousIds:new Set(previous.keys()),readOnlyIds:new Set([...previous.values()].filter(item=>item.evidenceOffer?.authority==='read_only').map(item=>item.id)),reviewedSourceIds:batch.reviewedSourceIds,journalSourceIds:batch.events.map(event=>event.id),deliveredSources:actualDelivery}):[];
       if(relationships.some(record=>checked.some(legacy=>legacy.id===record.id)))throw new Error('One memory record cannot receive competing legacy and typed transition writes');
       for(const item of checked) {
         this.db.prepare('INSERT INTO memory_records VALUES(?,?,?,?) ON CONFLICT(scope_key,id) DO UPDATE SET kind=excluded.kind,record=excluded.record').run(key,item.id,item.recordType,JSON.stringify(item));

@@ -9,6 +9,18 @@ const hash=value=>createHash('sha256').update(JSON.stringify(value)).digest('hex
 const typed=r=>r.recordType==='claim'||r.recordType==='relationship_event';
 const decisionRevisions=record=>record.transition?.sourceRevisions||{};
 const dependencyRevisions=record=>({...record.sourceRevisions,...decisionRevisions(record)});
+function decisionEvidence(record,byId){
+  const sourceRevisions=decisionRevisions(record);
+  if(record.transition?.evidenceValidity==='unavailable')return {sourceRevisions,available:false};
+  const successorId=record.transition?.successorId;
+  if(!successorId)return {sourceRevisions,available:true};
+  // Older distinct-successor rows retain a direct record edge rather than a
+  // decision-source index. Read only that successor's canonical support; never
+  // recursively expand its later transitions or use summaries as evidence.
+  const successor=byId.get(successorId);
+  if(!successor||successor.id===record.id||successor.transition?.successorId===record.id)return {sourceRevisions,available:false};
+  return {sourceRevisions:{...sourceRevisions,...successor.sourceRevisions},available:true};
+}
 function invalidateRelationshipDecision(record){
   const {proposal,sourceIds,sourceRevisions,...transition}=record.transition;
   const next={...record,transition:{...transition,sourceIds:[],sourceRevisions:{},evidenceValidity:'unavailable'},version:record.version+1,updatedAt:new Date().toISOString()};
@@ -76,6 +88,10 @@ function prepareRelationshipPatch(store,scope,input,options={}) {
       const prior=transitionById.get(target.id);if(!prior||prior.version!==target.expectedVersion||options.previousIds&&!options.previousIds.has(prior.id))throw new Error('Stale or unavailable understanding transition target');return prior;
     });
     if(new Set(transitionTargets.map(target=>target.id)).size!==transitionTargets.length)throw new Error('Understanding transition targets must be distinct');
+    const targets=[...new Map([old,...transitionTargets].filter(Boolean).map(target=>[target.id,target])).values()];
+    const decisions=new Map(targets.map(target=>[target.id,decisionEvidence(target,transitionById)]));
+    if(targets.some(target=>options.readOnlyIds?.has(target.id)||!decisions.get(target.id).available))throw new Error('Understanding target is read-only until its necessary original decision evidence is available');
+    if(targets.some(target=>Object.entries({...target.sourceRevisions,...decisions.get(target.id).sourceRevisions}).some(([id,revision])=>raw.get(id)?.revision!==revision)))throw new Error('Stale understanding target original evidence');
     for(const prior of transitionTargets)if(prior.recordType!==type&&prior.recordType!=='item')throw new Error('Understanding transitions cannot change record type');
     if(old&&transitionTargets.length&&(transitionTargets.length!==1||transitionTargets[0].id!==old.id))throw new Error('An existing relationship update must target only itself; omit outer id for a distinct successor');
     const reaffirm=value.transition?.operation==='reaffirm';
@@ -91,11 +107,18 @@ function prepareRelationshipPatch(store,scope,input,options={}) {
     const inPlaceTransition=!!old&&transitionTargets.length===1&&transitionTargets[0].id===old.id;
     if(inPlaceTransition&&!reaffirm&&(value.transition.operation!=='supersede'||value.lifecycle!=='superseded'))throw new Error('An in-place transition must reaffirm or explicitly supersede the existing understanding; omit outer id for a distinct successor');
     const historicalRevision=inPlaceTransition&&!reaffirm;
-    const required=[...new Set([...value.sourceIds,...(old?.sourceIds||[]),...transitionTargets.flatMap(target=>target.sourceIds)])];
+    const required=[...new Set([...value.sourceIds,...targets.flatMap(target=>[...target.sourceIds,...Object.keys(decisions.get(target.id).sourceRevisions)])])];
     const originalRoots=sourceClosure(raw,required).map(source=>source.id);
     const delivered=options.deliveredSources||options.batchSources||[];
     const readCoverage=requireOriginals(raw,delivered,scope,originalRoots,{complete:!!old||retiring||transitionTargets.length>0});
-    if(options.reviewedSourceIds&&!old&&!transitionTargets.length&&!value.sourceIds.some(id=>options.reviewedSourceIds.includes(id)))throw new Error('New relationship knowledge needs evidence read in this batch');
+    // Newly noticed facts may come from old originals actually reread now.
+    // Every old root must be complete, even if the writer also cites a current
+    // question. Current journal segments retain their existing partial policy.
+    if(options.reviewedSourceIds&&!old&&!retiring&&!transitionTargets.length){
+      const journalIds=options.journalSourceIds||options.reviewedSourceIds;
+      const oldRoots=originalRoots.filter(id=>!journalIds.includes(id));
+      if(oldRoots.length)requireOriginals(raw,delivered,scope,oldRoots,{complete:true});
+    }
     let refs=historicalRevision?old.sourceIds:retiring||reaffirm?[...new Set([...old.sourceIds,...value.sourceIds])]:value.sourceIds;
     let closure=sourceClosure(raw,refs);
     if(!retiring&&type==='claim'&&value.assertionKind==='stated'&&value.subject==='contact'){
@@ -233,4 +256,4 @@ function personUnderstanding(store,scope,options={}){
   }
   return result;
 }
-module.exports={PROCESSOR_VERSION,prepareRelationshipPatch,writeRelationshipRecords,relationshipView,personUnderstanding,decisionRevisions,repairRelationshipTransitions,invalidateRelationshipDecision};
+module.exports={PROCESSOR_VERSION,prepareRelationshipPatch,writeRelationshipRecords,relationshipView,personUnderstanding,decisionRevisions,decisionEvidence,repairRelationshipTransitions,invalidateRelationshipDecision};
