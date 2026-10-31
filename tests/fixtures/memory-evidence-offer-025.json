@@ -1,0 +1,117 @@
+{
+  "evidence": "Actual candidate025 HTTP1 fictional initial proposals and HTTP4 private question, replayed offline; not semantic ratings.",
+  "source": ".goal-runs/memory-v4-observation-01-candidate025-live/transport.json",
+  "sourceSha256": "0f8c2fcee39f7a319fa302310c5a66f1ce819e92707dcb49f521e7e57f161368",
+  "initialInput": {
+    "version": "evidence-backed-understanding-2026-10-31.2",
+    "batchId": "b7d4ab888c45cf594",
+    "review": {
+      "sourceCount": 1,
+      "deletedCount": 0,
+      "segmentCount": 0
+    },
+    "sources": [
+      {
+        "type": "qq",
+        "text": "这周换班有点累，暂时没空跑步，跑步还是喜欢的。",
+        "at": "2026-09-01T10:30:00.000Z",
+        "role": "contact",
+        "direction": "incoming",
+        "use": "discussion",
+        "id": "s1",
+        "sequence": "q1",
+        "author": "contact"
+      }
+    ],
+    "contextSources": [],
+    "priorMemory": {
+      "items": [],
+      "episodes": [],
+      "claims": [],
+      "events": []
+    },
+    "baseState": {
+      "version": 1,
+      "focus": ""
+    }
+  },
+  "initial": {
+    "batchId": "b7d4ab888c45cf594",
+    "reviewedAll": true,
+    "episodes": [],
+    "relationshipPatch": {
+      "claims": [
+        {
+          "subject": "contact",
+          "aspect": "interest",
+          "text": "She still likes running.",
+          "assertionKind": "stated",
+          "epistemicStatus": "supported",
+          "sourceIds": [
+            "s1"
+          ],
+          "applicabilityKind": "unspecified",
+          "attribution": "speaker"
+        },
+        {
+          "subject": "contact",
+          "aspect": "recent_context",
+          "text": "She says the shift change has been somewhat tiring this week and she temporarily has no time to run.",
+          "assertionKind": "stated",
+          "epistemicStatus": "supported",
+          "sourceIds": [
+            "s1"
+          ],
+          "applicabilityKind": "temporary",
+          "attribution": "speaker"
+        }
+      ],
+      "events": [],
+      "retire": []
+    }
+  },
+  "questionInput": {
+    "version": "evidence-backed-understanding-2026-10-31.2",
+    "batchId": "beaad8d825dfff9a2",
+    "review": {
+      "sourceCount": 1,
+      "deletedCount": 0,
+      "segmentCount": 0
+    },
+    "sources": [
+      {
+        "type": "private",
+        "text": "关于她现在的生活节奏和跑步，我目前可靠知道什么？",
+        "at": "2026-09-01T10:48:00.000Z",
+        "role": "user",
+        "use": "discussion",
+        "kind": "discussion",
+        "version": 1,
+        "id": "s1"
+      }
+    ],
+    "contextSources": [
+      {
+        "type": "qq",
+        "text": "这周换班有点累，暂时没空跑步，跑步还是喜欢的。",
+        "at": "2026-09-01T10:30:00.000Z",
+        "role": "contact",
+        "direction": "incoming",
+        "use": "discussion",
+        "id": "c1",
+        "sequence": "q1",
+        "author": "contact"
+      }
+    ],
+    "priorMemory": {
+      "items": [],
+      "episodes": [],
+      "claims": [],
+      "events": []
+    },
+    "baseState": {
+      "version": 1,
+      "focus": ""
+    }
+  }
+}

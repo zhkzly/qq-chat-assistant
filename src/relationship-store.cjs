@@ -7,6 +7,71 @@ const {requireOriginals}=require('./original-evidence.cjs');
 const PROCESSOR_VERSION='evidence-backed-understanding-2026-10-31.2';
 const hash=value=>createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const typed=r=>r.recordType==='claim'||r.recordType==='relationship_event';
+const decisionRevisions=record=>record.transition?.sourceRevisions||{};
+const dependencyRevisions=record=>({...record.sourceRevisions,...decisionRevisions(record)});
+function decisionEvidence(record,byId){
+  const sourceRevisions=decisionRevisions(record);
+  if(record.transition?.evidenceValidity==='unavailable')return {sourceRevisions,available:false};
+  const successorId=record.transition?.successorId;
+  if(!successorId)return {sourceRevisions,available:true};
+  // Older distinct-successor rows retain a direct record edge rather than a
+  // decision-source index. Read only that successor's canonical support; never
+  // recursively expand its later transitions or use summaries as evidence.
+  const successor=byId.get(successorId);
+  if(!successor||successor.id===record.id||successor.transition?.successorId===record.id)return {sourceRevisions,available:false};
+  return {sourceRevisions:{...sourceRevisions,...successor.sourceRevisions},available:true};
+}
+function invalidateRelationshipDecision(record){
+  const {proposal,sourceIds,sourceRevisions,...transition}=record.transition;
+  const next={...record,transition:{...transition,sourceIds:[],sourceRevisions:{},evidenceValidity:'unavailable'},version:record.version+1,updatedAt:new Date().toISOString()};
+  // Losing the reason for deactivation is uncertainty, not a new positive
+  // observation. Keep canonical support and the opaque anti-resurrection keys.
+  if(record.lifecycle!=='active'){
+    next.reviewComplete=false;
+  }
+  const coverage=record.semanticReview?.coverage,kept=new Set(Object.keys(record.sourceRevisions||{}));
+  const factCoverage=coverage&&{...coverage,
+    sourceRevisions:Object.fromEntries(Object.entries(coverage.sourceRevisions||{}).filter(([id])=>kept.has(id))),
+    reads:(coverage.reads||[]).filter(read=>kept.has(read.sourceId))};
+  if(factCoverage)for(const field of ['completeSourceIds','requiredSourceIds','missingSourceIds','partialSourceIds'])factCoverage[field]=(coverage[field]||[]).filter(id=>kept.has(id));
+  next.semanticReview={...record.semanticReview,...(record.lifecycle!=='active'?{status:'inactive_decision_needs_review'}:{}),...(factCoverage?{coverage:factCoverage}:{})};
+  return next;
+}
+function repairRelationshipTransitions(store,scope){
+  const key=store.scopeKey(scope);let changed=0;
+  for(const record of store._memoryRecords(scope).filter(typed)){
+    const transition=record.transition;
+    if(!transition?.proposal||transition.targets?.length!==1||transition.targets[0].id!==record.id)continue;
+    const next={...record};
+    if(record.lifecycle!=='active'){
+      const prior=record.revisions?.find(revision=>revision.version===transition.targets[0].expectedVersion);
+      next.retiredSemanticSignatures=[...new Set([...(record.retiredSemanticSignatures||[]),prior?.semanticSignature].filter(Boolean))];
+    }
+    if(!transition.sourceRevisions){
+      // Pre-fix rows already retained exact original-read revisions. Reuse that
+      // captured proof, never today's revised source text or current time.
+      const ids=transition.proposal.sourceIds||[],coverage=record.semanticReview?.coverage;
+      const proofs=coverage?.sourceRevisions||{};
+      if(ids.length&&ids.every(id=>proofs[id]&&coverage.completeSourceIds?.includes(id))){
+        // Coverage can include unrelated delivered sources; dependency closure
+        // is limited to the proposal and its original provenance roots.
+        const byId=new Map(store.db.prepare('SELECT record FROM memory_sources WHERE scope_key=? AND deleted=0').all(key).map(row=>{const source=JSON.parse(row.record);return [source.id,source];}));
+        let roots=[];try{roots=sourceClosure(byId,ids);}catch{}
+        if(roots.length&&roots.every(source=>proofs[source.id]===source.revision))next.transition={...transition,sourceIds:ids,sourceRevisions:Object.fromEntries(roots.map(source=>[source.id,source.revision])),evidenceValidity:'valid'};
+        else Object.assign(next,invalidateRelationshipDecision(next));
+      }else Object.assign(next,invalidateRelationshipDecision(next));
+    }
+    const encoded=JSON.stringify(next);
+    if(encoded===JSON.stringify(record))continue;
+    store.db.prepare('UPDATE memory_records SET record=? WHERE scope_key=? AND id=?').run(encoded,key,record.id);
+    store.db.prepare('DELETE FROM memory_dependencies WHERE scope_key=? AND id=?').run(key,record.id);
+    for(const [sourceId,revision] of Object.entries(dependencyRevisions(next)))store.db.prepare('INSERT INTO memory_dependencies VALUES(?,?,?,?)').run(key,record.id,sourceId,revision);
+    changed++;
+  }
+  if(changed)store.db.prepare('UPDATE memory_meta SET version=version+1 WHERE scope_key=?').run(key);
+  return changed;
+}
+const meaningFields={claim:['text','subject','aspect','assertionKind','epistemicStatus','lifecycle','applicabilityKind','attribution','condition','context','validFrom','validUntil'],relationship_event:['text','activityKey','eventKind','actor','occurredAt']};
 function prepareRelationshipPatch(store,scope,input,options={}) {
   const patch=normalizeRelationshipPatch(input),raw=new Map(store._rawMemorySources(scope).map(s=>[s.id,s]));
   const allowed=new Set(options.sourceIds||[]),records=store._memoryRecords(scope),existing=records.filter(typed),byId=new Map(existing.map(r=>[r.id,r])),transitionById=new Map(records.filter(record=>typed(record)||record.recordType==='item').map(record=>[record.id,record]));
@@ -14,7 +79,7 @@ function prepareRelationshipPatch(store,scope,input,options={}) {
   const build=(value,type,retiring=false)=>{
     if(value.sourceIds.some(id=>!allowed.has(id)||!raw.has(id)))throw new Error('Unavailable or undelivered relationship evidence');
     if(options.sourceRevisions&&value.sourceIds.some(id=>options.sourceRevisions[id]!==raw.get(id).revision))throw new Error('Stale relationship source');
-    const old=value.id&&(retiring?transitionById:byId).get(value.id);
+    let old=value.id&&(retiring?transitionById:byId).get(value.id);
     if(value.id&&!old)throw new Error('Unknown relationship record');
     if(old&&old.recordType!==type)throw new Error('Relationship record type cannot change');
     if(old&&value.expectedVersion!==undefined&&old.version!==value.expectedVersion)throw new Error('Stale relationship object version');
@@ -22,12 +87,39 @@ function prepareRelationshipPatch(store,scope,input,options={}) {
     const transitionTargets=(value.transition?.targets||[]).map(target=>{
       const prior=transitionById.get(target.id);if(!prior||prior.version!==target.expectedVersion||options.previousIds&&!options.previousIds.has(prior.id))throw new Error('Stale or unavailable understanding transition target');return prior;
     });
-    const required=[...new Set([...value.sourceIds,...(old?.sourceIds||[]),...transitionTargets.flatMap(target=>target.sourceIds)])];
+    if(new Set(transitionTargets.map(target=>target.id)).size!==transitionTargets.length)throw new Error('Understanding transition targets must be distinct');
+    const targets=[...new Map([old,...transitionTargets].filter(Boolean).map(target=>[target.id,target])).values()];
+    const decisions=new Map(targets.map(target=>[target.id,decisionEvidence(target,transitionById)]));
+    if(targets.some(target=>options.readOnlyIds?.has(target.id)||!decisions.get(target.id).available))throw new Error('Understanding target is read-only until its necessary original decision evidence is available');
+    if(targets.some(target=>Object.entries({...target.sourceRevisions,...decisions.get(target.id).sourceRevisions}).some(([id,revision])=>raw.get(id)?.revision!==revision)))throw new Error('Stale understanding target original evidence');
+    for(const prior of transitionTargets)if(prior.recordType!==type&&prior.recordType!=='item')throw new Error('Understanding transitions cannot change record type');
+    if(old&&transitionTargets.length&&(transitionTargets.length!==1||transitionTargets[0].id!==old.id))throw new Error('An existing relationship update must target only itself; omit outer id for a distinct successor');
+    const reaffirm=value.transition?.operation==='reaffirm';
+    if(reaffirm){
+      if(transitionTargets.length!==1||transitionTargets[0].recordType!==type)throw new Error('Reaffirm exactly one same-type understanding');
+      const prior=transitionTargets[0];
+      if(value.expectedVersion!==undefined&&value.expectedVersion!==prior.version)throw new Error('Stale relationship object version');
+      if(prior.lifecycle!=='active'||meaningFields[type].some(field=>field!=='text'&&(prior[field]??null)!==(value[field]??null)))throw new Error('Reaffirm requires the same entity, applicability and temporal scope; use an explicit revision transition for changes');
+      // Reaffirming is one versioned reread of the same understanding, even
+      // when the writer supplies only the transition target and no outer id.
+      old=prior;
+    }
+    const inPlaceTransition=!!old&&transitionTargets.length===1&&transitionTargets[0].id===old.id;
+    if(inPlaceTransition&&!reaffirm&&(value.transition.operation!=='supersede'||value.lifecycle!=='superseded'))throw new Error('An in-place transition must reaffirm or explicitly supersede the existing understanding; omit outer id for a distinct successor');
+    const historicalRevision=inPlaceTransition&&!reaffirm;
+    const required=[...new Set([...value.sourceIds,...targets.flatMap(target=>[...target.sourceIds,...Object.keys(decisions.get(target.id).sourceRevisions)])])];
     const originalRoots=sourceClosure(raw,required).map(source=>source.id);
     const delivered=options.deliveredSources||options.batchSources||[];
     const readCoverage=requireOriginals(raw,delivered,scope,originalRoots,{complete:!!old||retiring||transitionTargets.length>0});
-    if(options.reviewedSourceIds&&!old&&!transitionTargets.length&&!value.sourceIds.some(id=>options.reviewedSourceIds.includes(id)))throw new Error('New relationship knowledge needs evidence read in this batch');
-    let refs=retiring?[...new Set([...old.sourceIds,...value.sourceIds])]:value.sourceIds;
+    // Newly noticed facts may come from old originals actually reread now.
+    // Every old root must be complete, even if the writer also cites a current
+    // question. Current journal segments retain their existing partial policy.
+    if(options.reviewedSourceIds&&!old&&!retiring&&!transitionTargets.length){
+      const journalIds=options.journalSourceIds||options.reviewedSourceIds;
+      const oldRoots=originalRoots.filter(id=>!journalIds.includes(id));
+      if(oldRoots.length)requireOriginals(raw,delivered,scope,oldRoots,{complete:true});
+    }
+    let refs=historicalRevision?old.sourceIds:retiring||reaffirm?[...new Set([...old.sourceIds,...value.sourceIds])]:value.sourceIds;
     let closure=sourceClosure(raw,refs);
     if(!retiring&&type==='claim'&&value.assertionKind==='stated'&&value.subject==='contact'){
       const direct=closure.filter(s=>s.type==='qq'&&s.role==='contact');
@@ -45,17 +137,25 @@ function prepareRelationshipPatch(store,scope,input,options={}) {
     const dates=refs.map(id=>raw.get(id).at).sort();
     if(old&&dates.at(-1)<old.lastEvidenceAt)throw new Error('Older backfill cannot replace newer relationship evidence');
     if(old&&options.reviewedSourceIds){const fresh=value.sourceIds.filter(id=>options.reviewedSourceIds.includes(id));const freshAt=fresh.map(id=>raw.get(id).at).sort().at(-1);const completing=old.reviewComplete===false&&fresh.some(id=>old.sourceIds.includes(id));if(freshAt&&freshAt<old.lastEvidenceAt&&!completing)throw new Error('Older newly reviewed evidence cannot retire or replace a later interpretation');}
-    const {id,expectedVersion,topicKeys:inputTopics,...semantic}=value;
+    const {id,expectedVersion,topicKeys:inputTopics,transition:requestedTransition,...proposedSemantic}=value;
+    const semantic={...proposedSemantic};
+    if(reaffirm)semantic.text=old.text;
+    if(historicalRevision){
+      // Self-supersession marks this existing interpretation historical. Its
+      // wording/provenance stays intact; proposed rewording belongs to audit.
+      for(const field of meaningFields[type]){if(old[field]===undefined)delete semantic[field];else semantic[field]=old[field];}
+      semantic.lifecycle='superseded';
+    }
     const reviewComplete=originalRoots.every(id=>readCoverage.completeSourceIds.includes(id));
     const sourceRevisions=Object.fromEntries(closure.map(s=>[s.id,s.revision]));
-    const body=retiring?{...old,lifecycle:value.lifecycle,...(type==='item'?{status:'superseded'}:{}),sourceIds:refs}: {...semantic,sourceIds:refs,topicKeys:value.topicKeys||[],lifecycle:value.lifecycle||'active'};
+    const body=retiring?{...old,lifecycle:value.lifecycle,...(type==='item'?{status:'superseded'}:{}),sourceIds:refs}: {...semantic,sourceIds:refs,topicKeys:historicalRevision?old.topicKeys||[]:value.topicKeys||[],lifecycle:value.lifecycle||'active'};
     const signature=hash({type,...semantic,sourceIds:[...refs].sort(),sourceRevisions:Object.fromEntries(Object.entries(sourceRevisions).sort(([a],[b])=>a.localeCompare(b)))});
     // Retirement changes the record's evidence, but must not erase the identity
     // of the rejected interpretation. Replaying it is an idempotent no-op;
     // genuinely new source revisions produce a different evidence signature.
-    const retired=!id&&[...existing,...checked].find(r=>r.lifecycle!=='active'&&r.retiredSemanticSignatures?.includes(signature));
+    const retired=!id&&!requestedTransition&&[...existing,...checked].find(r=>r.lifecycle!=='active'&&r.retiredSemanticSignatures?.includes(signature));
     if(retired)return retired;
-    const duplicate=!id&&[...existing,...checked].find(r=>r.semanticSignature===signature);
+    const duplicate=!id&&!requestedTransition&&[...existing,...checked].find(r=>r.semanticSignature===signature);
     const previous=old||duplicate;
     if(duplicate&&duplicate.reviewComplete===reviewComplete){
       const topicKeys=[...new Set([...(duplicate.topicKeys||[]),...(inputTopics||[])])].slice(0,8);
@@ -67,21 +167,31 @@ function prepareRelationshipPatch(store,scope,input,options={}) {
       firstEvidenceAt:dates[0],lastEvidenceAt:dates.at(-1),at:dates.at(-1),reportedAt:dates.at(-1),reviewedAt:new Date().toISOString(),
       semanticReview:{status:reviewComplete?'evidence_reviewed':'partial_originals',reviewedAt:new Date().toISOString(),coverage:readCoverage},knowledgeSchemaVersion:2,
       createdAt:previous?.createdAt||new Date().toISOString(),updatedAt:new Date().toISOString()};
+    if(previous?.retiredSemanticSignatures)result.retiredSemanticSignatures=previous.retiredSemanticSignatures;
     if(retiring){
       result.retiredSemanticSignatures=[...new Set([...(old.retiredSemanticSignatures||[]),old.semanticSignature].filter(Boolean))];
       for(const field of ['firstEvidenceAt','lastEvidenceAt','at','reportedAt'])if(old[field]!==undefined)result[field]=old[field];
       if(old.reportedAt===undefined)delete result.reportedAt;
       result.retirement={sourceIds:value.sourceIds,reviewedAt:result.reviewedAt};result.semanticReview.status='retired_from_originals';
     }
-    if(type==='relationship_event') {result.occurredAt=retiring?old.occurredAt??null:value.occurredAt||null;result.occurrenceTimeStatus=retiring?old.occurrenceTimeStatus||'unknown':value.occurredAt?'known':'unknown';result.origin=retiring?old.origin:closure.every(s=>s.type==='qq')?'qq_observation':'user_report';}
+    if(historicalRevision){
+      result.retiredSemanticSignatures=[...new Set([...(old.retiredSemanticSignatures||[]),old.semanticSignature].filter(Boolean))];
+      // Marking an interpretation historical does not create new support or
+      // change its evidence clocks. Reaffirmation uses admitted source dates:
+      // rereads stay dated; genuine additional support can advance evidence.
+      for(const field of ['firstEvidenceAt','lastEvidenceAt','at','reportedAt'])if(old[field]!==undefined)result[field]=old[field];
+      if(old.reportedAt===undefined)delete result.reportedAt;
+    }
+    if(type==='relationship_event') {result.occurredAt=retiring||inPlaceTransition?old.occurredAt??null:value.occurredAt||null;result.occurrenceTimeStatus=retiring||inPlaceTransition?old.occurrenceTimeStatus||'unknown':value.occurredAt?'known':'unknown';result.origin=retiring||inPlaceTransition?old.origin:closure.every(s=>s.type==='qq')?'qq_observation':'user_report';}
     if(old)result.revisions=[...(old.revisions||[]),{version:old.version,semanticSignature:old.semanticSignature,operation:retiring?value.lifecycle:value.transition?.operation||'revision',reviewedAt:result.reviewedAt}];
     if(transitionTargets.length){
-      result.transition={...value.transition,reviewedAt:result.reviewedAt};
+      result.transition={...value.transition,reviewedAt:result.reviewedAt,...(inPlaceTransition?{
+        proposal:{...proposedSemantic,topicKeys:inputTopics||[]},sourceIds:value.sourceIds,
+        sourceRevisions:Object.fromEntries(sourceClosure(raw,value.sourceIds).map(source=>[source.id,source.revision])),evidenceValidity:'valid'
+      }:{})};
       for(const prior of transitionTargets){
-        if(prior.recordType!==type&&prior.recordType!=='item')throw new Error('Understanding transitions cannot change record type');
+        if(inPlaceTransition)continue;
         const operation=value.transition.operation;
-        if(operation==='reaffirm'&&transitionTargets.length!==1)throw new Error('Reaffirm exactly one understanding');
-        if(operation==='reaffirm'&&prior.text!==value.text)throw new Error('Changed understanding requires an explicit revision transition');
         checked.push({...prior,lifecycle:operation==='contest'?'contested':'superseded',...(prior.recordType==='item'?{status:'superseded',semanticReview:{status:'reinterpreted_from_originals',successorId:result.id,reviewedAt:result.reviewedAt}}:{}),version:prior.version+1,
           transition:{operation,successorId:result.id,reviewedAt:result.reviewedAt},updatedAt:result.reviewedAt,
           revisions:[...(prior.revisions||[]),{version:prior.version,semanticSignature:prior.semanticSignature,operation,reviewedAt:result.reviewedAt}]});
@@ -93,7 +203,7 @@ function prepareRelationshipPatch(store,scope,input,options={}) {
   for(const e of patch.events)checked.push(build(e,'relationship_event'));
   for(const r of patch.retire) {const old=transitionById.get(r.id);if(!old)throw new Error('Unknown relationship retirement');checked.push(build(r,old.recordType,true));}
   const unique=new Map();
-  for(const record of checked){const prior=unique.get(record.id);if(prior&&prior.semanticSignature!==record.semanticSignature)throw new Error('Conflicting relationship updates for one record');unique.set(record.id,record);}
+  for(const record of checked){const prior=unique.get(record.id);if(prior&&prior!==record)throw new Error('Conflicting relationship updates for one record');unique.set(record.id,record);}
   return [...unique.values()];
 }
 function writeRelationshipRecords(store,scope,records) {
@@ -103,7 +213,7 @@ function writeRelationshipRecords(store,scope,records) {
     if(old?.record===JSON.stringify(r))continue;
     store.db.prepare('INSERT INTO memory_records VALUES(?,?,?,?) ON CONFLICT(scope_key,id) DO UPDATE SET kind=excluded.kind,record=excluded.record').run(key,r.id,r.recordType,JSON.stringify(r));
     store.db.prepare('DELETE FROM memory_dependencies WHERE scope_key=? AND id=?').run(key,r.id);
-    for(const [sourceId,revision] of Object.entries(r.sourceRevisions))store.db.prepare('INSERT INTO memory_dependencies VALUES(?,?,?,?)').run(key,r.id,sourceId,revision);
+    for(const [sourceId,revision] of Object.entries(dependencyRevisions(r)))store.db.prepare('INSERT INTO memory_dependencies VALUES(?,?,?,?)').run(key,r.id,sourceId,revision);
     changed++;written.push(r);
   }
   if(written.some(r=>r.recordType==='relationship_event'))store.experiences.observeRelationshipEvents(scope,written);
@@ -146,4 +256,4 @@ function personUnderstanding(store,scope,options={}){
   }
   return result;
 }
-module.exports={PROCESSOR_VERSION,prepareRelationshipPatch,writeRelationshipRecords,relationshipView,personUnderstanding};
+module.exports={PROCESSOR_VERSION,prepareRelationshipPatch,writeRelationshipRecords,relationshipView,personUnderstanding,decisionRevisions,decisionEvidence,repairRelationshipTransitions,invalidateRelationshipDecision};

@@ -51,7 +51,7 @@ test('supplemental idle deadline retains a pending public checkpoint and the fix
 test('scheduled legal legacy item receives one bounded rereview and remains an incomplete semantic checkpoint',async t=>{
  const fixture=makeSyntheticTransport();let writes=0;
  const session=await setup(t,{condition:OBSERVATION_CONDITION,settings:{...settings,memoryBatchThreshold:1},transport:async(url,args)=>{
-  const p=input(args);if(p.batchId){writes++;if(p.review.purpose==='semantic_recovery')return packet({batchId:p.batchId,reviewedAll:true,relationshipPatch:{claims:[],events:[],retire:[]},episodes:[]});const source=p.sources.find(row=>!row.deleted);return packet({batchId:p.batchId,reviewedAll:true,items:[{kind:'fact',text:source.text,sourceIds:[source.id],topicKeys:[],status:'active',certainty:'stated'}],episodes:[],retire:[]});}return fixture(url,args);
+  const p=input(args);if(p.batchId){writes++;if(p.review?.purpose==='semantic_recovery')return packet({batchId:p.batchId,reviewedAll:true,relationshipPatch:{claims:[],events:[],retire:[]},episodes:[]});const source=p.sources.find(row=>!row.deleted);return packet({batchId:p.batchId,reviewedAll:true,items:[{kind:'fact',text:source.text,sourceIds:[source.id],topicKeys:[],status:'active',certainty:'stated'}],episodes:[],retire:[]});}return fixture(url,args);
  }});
  const checkpoint=await session.idleUntil('2026-10-29T12:00:10.000Z',{wallTimeoutMs:1000});
  assert.equal(writes,2);assert.equal(checkpoint.memory_status.pending,0);assert.equal(checkpoint.memory_status.semanticPending,1);assert.equal(checkpoint.memory_status.recoveryReady,0);assert.equal(checkpoint.memory_status.recoveryDeferred,1);assert.deepEqual(checkpoint.memory_status.errors,[]);assert.equal(checkpoint.product_coverage.semanticPending,0);
