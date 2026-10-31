@@ -398,8 +398,20 @@ class Store {
       }
       if(turn.semanticReview!==undefined){
         const review=turn.semanticReview;
-        if(turn.role!=='assistant'||!plain(review)||Object.keys(review).some(key=>!['status','candidateHash','bindingHash','exhaustive'].includes(key))||!['reviewed','incomplete'].includes(review.status)||review.exhaustive!==false||!['candidateHash','bindingHash'].every(key=>typeof review[key]==='string'&&/^[a-f0-9]{64}$/.test(review[key])))throw new Error('Invalid semantic audit delivery metadata');
-        saved.semanticReview={...review};
+        if(turn.role!=='assistant'||!plain(review)||Object.keys(review).some(key=>!['status','candidateHash','bindingHash','exhaustive','findings'].includes(key))||!['reviewed','incomplete'].includes(review.status)||review.exhaustive!==false||!['candidateHash','bindingHash'].every(key=>typeof review[key]==='string'&&/^[a-f0-9]{64}$/.test(review[key])))throw new Error('Invalid semantic audit delivery metadata');
+        const findings=review.findings||[];
+        if(!Array.isArray(findings))throw new Error('Invalid semantic audit findings');
+        const fields=new Map(require('./candidate-field-paths.cjs').candidateFields({text:turn.text||'',discussionExplanation:turn.discussionExplanation,suggestions:turn.suggestions||[],expressionOptions:turn.expressionOptions||[]}).map(field=>[field.path,field.value]));
+        const originals=new Map(this._rawMemorySources(scope,record).map(source=>[source.id,source]));
+        const refs=new Map((turn.artifactMetadata?.inputSourceRefs||[]).map(ref=>[ref.sourceId,ref.revision]));
+        const normalized=findings.map(finding=>{
+          if(!plain(finding)||Object.keys(finding).some(key=>!['kind','path','code','quote','reason','evidence'].includes(key))||!['reported_defect','concern'].includes(finding.kind)||!fields.has(finding.path)||typeof finding.code!=='string'||!finding.code.trim()||finding.code.length>80||typeof finding.reason!=='string'||!finding.reason.trim()||finding.reason.length>1200||finding.quote!==undefined&&(typeof finding.quote!=='string'||!finding.quote.trim()||!fields.get(finding.path).includes(finding.quote)))throw new Error('Invalid candidate-bound semantic finding');
+          const evidence=finding.evidence||[];if(!Array.isArray(evidence))throw new Error('Invalid semantic finding evidence');
+          for(const ref of evidence){const original=originals.get(ref.sourceId);if(!plain(ref)||Object.keys(ref).some(key=>!['sourceId','quote','revision'].includes(key))||!original||original.deleted||original.excluded||original.use==='disabled'||original.revision!==ref.revision||refs.get(ref.sourceId)!==ref.revision||typeof ref.quote!=='string'||!ref.quote.trim()||!original.text.includes(ref.quote))throw new Error('Unavailable semantic finding witness');}
+          return {...finding,...(evidence.length?{evidence:evidence.map(ref=>({...ref}))}:{})};
+        });
+        saved.semanticReview={...review,...(normalized.length?{findings:normalized}:{})};
+        if(normalized.length)saved.sourceIds=[...new Set([...(saved.sourceIds||[]),...normalized.flatMap(finding=>(finding.evidence||[]).map(ref=>ref.sourceId))])];
       }
       if(turn.responseRecovery!==undefined){
         if(turn.role!=='assistant')throw new Error('Response recovery is assistant program metadata');
@@ -699,6 +711,7 @@ class Store {
     const write=(source,operation,mode=operation==='remove'?'forget':'correct')=>{
       changed++;
       if(oldIds.has(source.id))this.experiences.invalidateSources(scope,[source.id],{mode});
+      this.experiences.pruneSemanticReview(scope,record,{sourceIds:[source.id]});
       // The journal stores identities only. Removed/revised text cannot survive
       // in old queued events or be restored by a delayed consolidation response.
       this.db.prepare("UPDATE memory_journal SET status='superseded' WHERE scope_key=? AND source_id=? AND status='pending'").run(key,source.id);

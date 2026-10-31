@@ -196,10 +196,10 @@ test('an option cannot exceed eight facts by splitting five current and five val
  app.store.saveNote(scope,{text:'旧的独立事实。',use:'draft'});
  await assert.rejects(app.initial(),/eight|八|at most|limit|最多|currentFacts and/);assert.equal(app.checks.length,0);assert.equal(app.store.getCompanion(scope).turns.some(turn=>turn.role==='assistant'),false);
 });
-test('a scripted private-disclosure refusal retains the whole unmet condition and private reason without publishing an option',async t=>{
+test('a private-disclosure report retains the whole unmet condition and privately accompanies its option',async t=>{
  const human='实验终于成功了，但只有确认可以公开之后才告诉她；现在还没有确认。PRIVATE_CONDITION_REASON只在这里讨论。先帮我想一个方向。',app=await currentOptionApplication(t,{human,options:[{label:'分享实验终于成功了',currentFacts:['实验终于成功了']}],rejectConditions:true});
- await assert.rejects(app.initial(),/核对|repair|修复/);assert.ok(app.checks.length>=1);
- assert.ok(app.checks.every(check=>check.evidence.some(source=>source.text===human)));assert.equal(app.store.getCompanion(scope).turns.some(turn=>turn.role==='assistant'),false);
+ const reply=await app.initial();assert.ok(app.checks.length>=1);assert.ok(reply.semanticReview.findings.some(f=>f.code==='private_disclosure'));
+ assert.ok(app.checks.every(check=>check.evidence.some(source=>source.text===human)));assert.equal(app.store.getCompanion(scope).turns.filter(turn=>turn.role==='assistant').length,1);
 });
 for(const change of ['withdraw','revision'])test(`a stored current fact option cannot reuse its exact tuple after source ${change}`,async t=>{
  const app=await currentOptionApplication(t,{human:OPTION_HUMAN,options:CURRENT_OPTIONS}),turn=await app.initial(),quote=turn.expressionOptions[0].quotes[0],before=app.calls.length;

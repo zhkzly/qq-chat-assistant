@@ -18,22 +18,22 @@ for(const mode of ['malformed','transport'])test(`${mode} semantic audit deliver
  const app=await application(t,p=>{if(p.purpose!=='fidelity_check')return candidate(GOOD);if(mode==='transport')throw Error('Scripted checker connection failure');return 'MALFORMED_CHECKER_JSON';}),reply=await app.assist();
  assert.equal(reply.suggestions[0].text,GOOD);assert.equal(reply.semanticReview.status,'incomplete');assert.equal(reply.semanticReview.exhaustive,false);assert.equal(app.calls.length,2);assert.equal(app.ledger().attempts,2);assert.equal(app.ledger().requests.some(r=>r.purpose==='delivery_repair'),false);assert.equal(app.store.messages(scope).some(m=>m.direction==='outgoing'),false);
 });
-test('a valid fabrication finding alongside malformed metadata triggers the one bounded regeneration',async t=>{
+test('a fabrication report alongside malformed metadata stays visible without rewriting the candidate',async t=>{
  let primary=0,check=0;const app=await application(t,p=>{
   if(p.purpose!=='fidelity_check')return candidate(++primary===1?BAD:GOOD);
   if(++check===2)return report();
   return report([{path:'not-a-path',code:'unsupported_fact',quote:'absent',reason:'Malformed adjacent report.'},{path:'suggestions[0].text',code:'unsupported_fact',quote:BAD,reason:'No supplied original says the user planted mint last night.'}]);
  }),reply=await app.assist();
- assert.equal(reply.suggestions[0].text,GOOD);assert.equal(reply.semanticReview.status,'reviewed');assert.equal(app.calls.length,4);assert.equal(app.ledger().attempts,4);assert.equal(app.ledger().requests.filter(r=>r.purpose==='delivery_repair').length,1);assert.equal(app.store.getCompanion(scope).turns.filter(t=>t.role==='assistant').some(t=>t.suggestions?.some(s=>s.text===BAD)),false);
+ assert.equal(reply.suggestions[0].text,BAD);assert.equal(reply.semanticReview.status,'incomplete');assert.ok(reply.semanticReview.findings.some(f=>f.quote===BAD));assert.equal(app.calls.length,2);assert.equal(app.ledger().attempts,2);assert.equal(app.ledger().requests.filter(r=>r.purpose==='delivery_repair').length,0);
 });
-test('a concrete unadmitted private disclosure is not released as incomplete help',async t=>{
+test('a private disclosure report stays visible as a fallible judgment, not automatic permission or correction',async t=>{
  const privateText='家人的检查安排只留在这里。';let primary=0,checks=0;const app=await application(t,(p,_w,_i,{store})=>{
   if(p.purpose!=='fidelity_check')return candidate(++primary===1?privateText:GOOD);
   if(++checks===2)return report();
   const source=p.evidence.find(s=>s.text===privateText);assert.ok(source);
   return report([{path:'suggestions[0].text',code:'private_disclosure',quote:privateText,reason:'The actual copied private fact was not admitted.',evidence:[{sourceId:source.sourceId,quote:source.text}]}]);
  });app.store.appendTurn(scope,{role:'user',kind:'discussion',text:privateText});const reply=await app.assist();
- assert.equal(reply.suggestions[0].text,GOOD);assert.equal(app.calls.length,4);assert.equal(app.store.getCompanion(scope).turns.filter(t=>t.role==='assistant').some(t=>t.suggestions?.some(s=>s.text===privateText)),false);
+ assert.equal(reply.suggestions[0].text,privateText);assert.equal(app.calls.length,2);assert.ok(reply.semanticReview.findings.some(f=>f.code==='private_disclosure'));assert.equal(app.ledger().requests.filter(r=>r.purpose==='delivery_repair').length,0);
 });
 test('spent primary repair plus malformed audit preserves the original shared ledger and marks incomplete',async t=>{
  const app=await application(t,(p,_w,index)=>p.purpose==='fidelity_check'?'INVALID_CHECKER_JSON':index===0?{operation:'prepare_message',answer:{suggestions:[{text:GOOD}],privateExplanation:{invalid:'object'}}}:candidate(GOOD)),reply=await app.assist();

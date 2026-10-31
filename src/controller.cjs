@@ -14,7 +14,7 @@ const fingerprint=value=>createHash('sha256').update(JSON.stringify(value)).dige
 const FORGOTTEN_REQUEST='所选来源已从助手参考中移除。仅使用仍可用的信息继续本次帮助，不复述已移除内容。';
 const {SourceHandleOwner}=require('./source-handles.cjs');
 const {primaryOperationFor}=require('./primary-operation.cjs');
-const {buildFidelityContext,buildFidelityRepairContext,parseFidelityResult,deliveryFor,incompleteFidelity}=require('./whole-answer-fidelity.cjs');
+const {buildFidelityContext,parseFidelityResult,deliveryFor,incompleteFidelity}=require('./whole-answer-fidelity.cjs');
 const {assertDraftSourcesCurrent}=require('./context/draft-material.cjs');
 const {editable,validateTerminalDelivery,blockerRenderingWitness,deliveryStatus,clarificationBody}=require('./request-delivery.cjs');
 function inFlightMessageRequirement(owner,scope){
@@ -750,8 +750,8 @@ class Controller extends EventEmitter {
         break;
       }
       if(!result||result.lookup)throw new Error('本次信息整理未能完成，请重试；原始输入已保存');
-      let reviewed,discussionExplanation,expressionOptions,optionAdmission,checkInput,checked,approval,fidelityRegenerationUsed=false;
-      for(;;){
+      let reviewed,discussionExplanation,expressionOptions,optionAdmission,checkInput,checked,approval;
+      {
         const proposal=topicProposals.at(-1);
         if(proposal?.context===context&&this.store.previewTopicPatch){
           const preview=this.store.previewTopicPatch(scope,proposal.patch,topicOptions(proposal));
@@ -785,19 +785,12 @@ class Controller extends EventEmitter {
         checkInput=buildFidelityContext(primaryContext,result,{scope,requestId,store:this.store,settings,admittedContext:admitted,expressionOptions,optionAdmission,sourceContexts:capturedRequests});
         checked=await invokeFidelity(checkInput);if(!current())return;
         approval=deliveryFor(checked,checkInput);
-        if(approval){context.manifest.fidelity={...checkInput.manifest.fidelity,...approval};break;}
-        const ledger=budget.snapshot(),used=fidelityRegenerationUsed||ledger.requests.some(request=>request.purpose==='delivery_repair');
-        if(checked.verdict==='uncertain'||used||ledger.remaining<2){const error=new Error('完整答复核对未完成，且不能继续修复；输入与已取得原文已保留');error.code=used?'request_delivery_repair_exhausted':checked.verdict==='uncertain'?'fidelity_coverage_uncertain':'fidelity_repair_budget';throw error;}
-        relationshipProposals.length=0;topicProposals.length=0;experienceProposals.length=0;stagedReview=null;
-        fidelityRegenerationUsed=true;
-        const retry=buildFidelityRepairContext(primaryContext,checkInput);
-        Object.defineProperty(retry,'sourceHandleOwner',{value:settings.sourceHandleOwner,writable:true,configurable:true});
-        Object.defineProperty(retry,'fidelityRepair',{value:{candidate:checkInput.payload.candidate,issues:checked.issues}});
-        Object.defineProperty(retry,'requestStage',{value:'delivery_repair'});
-        retry.manifest.fidelityRegeneration={rejectedCandidateHash:checkInput.manifest.fidelity.candidateHash,issues:checked.issues};
-        context=retry;result=await invoke(retry);if(!current())return;
-        if(result.lookup||result.actions?.length){const error=new Error('核对修复尚需新的原文读取或独立操作；没有发布未经再次核对的候选，输入已保留');error.code='fidelity_repair_nonterminal';throw error;}
+        if(!approval){const error=new Error('这次建议的来源或候选绑定已变化；输入已保留');error.code='fidelity_binding_invalid';throw error;}
+        // A semantic review is a fallible second opinion for a manual-copy
+        // coach. It cannot veto, rewrite, or buy another provider request.
+        context.manifest.fidelity={...checkInput.manifest.fidelity,...approval,publicationPolicy:'manual_review'};
       }
+
       const methodIds=(result.methodIds||[]).filter(id=>methodFor(id));
       const generationStages=capturedRequests.filter(request=>request.manifest).map(request=>({stageId:request.manifest.stageId,purpose:request.purpose,
         deliveredMethodRefs:[...new Map([...(request.manifest.methodTrace?.catalog||[]).map(method=>({...method,guidanceLevel:'catalog'})),...(request.manifest.methodTrace?.delivered||[]).map(method=>({...method,guidanceLevel:'full_card'}))].map(method=>[method.id,method])).values()].map(method=>({methodId:method.id,version:method.version,guidanceLevel:method.guidanceLevel})),reportedUsedMethodRefs:request.manifest.methodTrace?.reported?.map(id=>({methodId:id,version:methodFor(id)?.version}))??null}));
@@ -855,7 +848,7 @@ class Controller extends EventEmitter {
           ?{reasonCode:'auxiliary_metadata_rejected',sourceIds:[intentId],sourceRevisions:{[intentId]:intent.revision}}:undefined;
         const privateReviewReceipt=!metadataReviewPending&&responseRecovery?.kind!=='private_help'&&privateReviewed.length?{applied:true,sourceIds:privateReviewed}:undefined;
         const saved=this.store.appendTurn(scope,{role:'assistant',kind:result.kind,text:result.text,discussionExplanation,requestId,suggestions:result.suggestions,origin:invocation.origin,replyDisposition:result.replyDisposition||(purpose==='reply'&&!result.suggestions?.length?'unavailable':undefined),
-          sourceIds:[...new Set([...context.manifest.sourceIds,...capturedRequests.flatMap(r=>r.manifest?.sourceIds||[])])],expressionOptions,methodIds,actionReceipts:receipts,generationStages,responseRecovery,privateReviewReceipt,metadataReviewPending,semanticReview:approval?.reviewStatus?{status:approval.reviewStatus,candidateHash:approval.candidateHash,bindingHash:approval.bindingHash,exhaustive:false}:undefined,
+          sourceIds:[...new Set([...context.manifest.sourceIds,...capturedRequests.flatMap(r=>r.manifest?.sourceIds||[])])],expressionOptions,methodIds,actionReceipts:receipts,generationStages,responseRecovery,privateReviewReceipt,metadataReviewPending,semanticReview:approval?.reviewStatus?{status:approval.reviewStatus,candidateHash:approval.candidateHash,bindingHash:approval.bindingHash,exhaustive:false,findings:approval.findings||[]}:undefined,
           artifactMetadata:{generationStages,goalVersion:companion.goal.version,inputArtifactRefs:assertArtifactInputs(context),inputSourceRefs:
             [...new Map(capturedRequests.flatMap(request=>Object.entries({...request.manifest?.discussionCompaction?.sourceRevisions,...request.manifest?.sourceRevisions}))).entries()].filter(([sourceId])=>/^(qq|private|note):/.test(sourceId)).map(([sourceId,revision])=>({sourceId,revision})),
             discussionTurnFingerprints:Object.assign({},...capturedRequests.map(request=>({...request.manifest?.discussionCompaction?.turnFingerprints,...Object.fromEntries((request.manifest?.discussionReads||[]).filter(read=>['delivered','partial'].includes(read.delivery?.status)&&read.turnFingerprint).map(read=>[read.turnId,read.turnFingerprint]))}))),model:settings.model,promptVersion:context.payload.promptVersion}});

@@ -46,7 +46,7 @@ function noPublication(app){
 
 test('unusable optional audit witnesses remain private diagnostics and expose incomplete review without new authority',async t=>{
  const app=await application(t,p=>({checkRef:p.checkRef,auditProtocol:'sparse-defects-v1',issues:[{...badAdvisory,code:'current_boundary',quote:MESSAGE}],concerns:[badAdvisory]})),reply=await app.assist(),ledger=noExtraRequests(app);
- assert.equal(ledger.status,'complete');assert.equal(reply.suggestions[0].text,MESSAGE);assert.equal(reply.semanticReview.status,'incomplete');assert.equal(reply.warning,undefined);assert.equal(JSON.stringify(reply).includes(DIAGNOSTIC),false);assert.deepEqual(app.calls[1].admittedFragments,[]);assert.equal(app.store.relationshipView(scope).claims.length,0);assert.equal(app.store.memoryStatus(scope).pendingProposals,0);
+ assert.equal(ledger.status,'complete');assert.equal(reply.suggestions[0].text,MESSAGE);assert.equal(reply.semanticReview.status,'incomplete');assert.equal(reply.warning,undefined);assert.ok(reply.semanticReview.findings.some(f=>f.reason===DIAGNOSTIC));assert.equal(reply.suggestions[0].text.includes(DIAGNOSTIC),false);assert.deepEqual(app.calls[1].admittedFragments,[]);assert.equal(app.store.relationshipView(scope).claims.length,0);assert.equal(app.store.memoryStatus(scope).pendingProposals,0);
  const check=app.contexts.at(-1).manifest.fidelity;assert.equal(check.exhaustive,false);assert.equal(check.issues.length,0);assert.ok(check.diagnostics.length>=2);assert.equal(app.store.memorySources(scope).some(source=>source.id==='s999'),false);
 });
 test('uncertain private interpretation remains advice and invalid optional witnesses mark the audit incomplete without regeneration',async t=>{

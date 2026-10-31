@@ -49,7 +49,7 @@ test('a malformed explicitly typed explanation remains invalid rather than being
  for(const explanation of [{text:WHY},[WHY],7,'x'.repeat(1001)])assert.throws(()=>parseAssistant(response(false,{explanation}),'discussion',payload(),{}));
 });
 
-test('the actual controller discards a rejected candidate explanation when regeneration needs a canonical blocker',async t=>{
+test('a semantic rejection does not replace the actual candidate with an automatic blocker',async t=>{
  const store=new Store(':memory:'),calls=[],planning='PLANNING_ONLY_PARAPHRASE：再问一遍用户要分享什么？';
  const controller=new Controller({store,compactionModel:null,settings:{anonymous:true,auto:false,baseUrl:'http://fixture.invalid/v1',model:'synthetic-clarifier-owner',assistantRequestLimit:4,discussionCompactionEnabled:false,
   realChatConsent:{...scope,baseUrl:'http://fixture.invalid/v1',model:'synthetic-clarifier-owner'}},read:async command=>command==='bind'?scope:{messages:[]},
@@ -58,8 +58,7 @@ test('the actual controller discards a rejected candidate explanation when regen
    return {kind:'discussion',text:planning,answer:{privateExplanation:planning,suggestions:[{text:'昨天我完成了一个未提供来源的小项目。'}]},requestDelivery:{mode:'editable_message',sourceId:id,quote:current.text},draftPlan:{intent:'reply',quotes:[],guidance:{objective:control('回应她的实际问题'),allowedApproach:control('仅用已经核对的素材'),avoidances:[]}}};}});
  t.after(()=>{controller.close();store.close();});controller.updateStatus({phase:'ready',account:{uid:scope.accountUid,uin:scope.accountUin}});await controller.bind(scope.peerUin);
  controller.live({scope,messages:[raw('72057594049927937141',false,{elements:[{textElement:{content:'最近有什么新鲜的小事？'}}]})]});
- const answer=await controller.assist({text:HUMAN,taskId:'clarification-body-owner',purpose:'discussion'}),saved=store.getCompanion(scope).turns.find(turn=>turn.id===answer.id),expected=WHY+'\n\n'+QUESTION;
- assert.equal(calls.length,4,'one complete candidate, one rejection, one shared regeneration and one exact blocker check');assert.equal(answer.kind,'question');assert.equal(answer.text,expected);assert.equal(answer.discussionExplanation,undefined);
- assert.ok(saved);assert.equal(saved.text,expected);assert.equal(saved.discussionExplanation,undefined);visible(saved,expected);assert.equal(uiBody(saved).includes(planning),false);assert.equal(uiBody(saved).includes(OLD),false);
- assert.equal(store.messages(scope).some(message=>message.direction==='outgoing'),false);
+ const answer=await controller.assist({text:HUMAN,taskId:'clarification-body-owner',purpose:'discussion'}),saved=store.getCompanion(scope).turns.find(turn=>turn.id===answer.id);
+ assert.equal(calls.length,2,'primary candidate plus its fallible semantic review, no automatic blocker rewrite');assert.equal(answer.kind,'draft');assert.equal(answer.suggestions[0].text,'昨天我完成了一个未提供来源的小项目。');assert.ok(answer.semanticReview.findings.some(f=>f.quote===answer.suggestions[0].text));assert.ok(saved);
+ assert.equal(answer.suggestions[0].text.includes(QUESTION),false);assert.equal(store.messages(scope).some(message=>message.direction==='outgoing'),false);
 });

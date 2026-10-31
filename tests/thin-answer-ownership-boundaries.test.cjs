@@ -93,7 +93,7 @@ test('a real older private fact cannot masquerade as an exact current-original f
  await assert.rejects(app.assist(CONTROL),error=>typed(error,'current_fact_span_invalid'));assert.equal(app.calls.length,2);assert.equal(app.store.getCompanion(scope).turns.some(item=>item.role==='assistant'),false);
 });
 
-test('exact current binding does not grant private disclosure, and one whole-candidate repair must pass the original again',async t=>{
+test('exact current binding does not grant private disclosure, and its semantic criticism remains visible without a rewrite',async t=>{
  const privateReason='家里这周的安排让我很焦虑。',human=FACT+'这句可以告诉她。只在这里私下说：'+privateReason+'不要告诉她。',why='最后只分享已明确愿意对外说的网页近况。';let checks=0;
  const app=await application(t,(p,wrapper)=>{
   if(p.purpose==='fidelity_check'){
@@ -103,8 +103,8 @@ test('exact current binding does not grant private disclosure, and one whole-can
   }
   return wrapper.originalInput?primary(FACT,{currentFacts:[FACT],why}):primary(privateReason,{currentFacts:[privateReason],why:'This rejected explanation must never be published.'});
  }),reply=await app.assist(human);
- assert.equal(app.calls.length,4);assert.equal(checks,2);assert.equal(reply.suggestions[0].text,FACT);assert.equal(reply.discussionExplanation.text,why);assert.equal(JSON.stringify(reply).includes(privateReason),false);
- const ledger=app.controller.usage.get(scope,'thin-answer-boundaries');assert.equal(ledger.requests.filter(item=>item.purpose==='delivery_repair').length,1);assert.equal(ledger.attempts,4);
+ assert.equal(app.calls.length,2);assert.equal(checks,1);assert.equal(reply.suggestions[0].text,privateReason);assert.ok(reply.semanticReview.findings.some(f=>f.code==='private_disclosure'));
+ const ledger=app.controller.usage.get(scope,'thin-answer-boundaries');assert.equal(ledger.requests.filter(item=>item.purpose==='delivery_repair').length,0);assert.equal(ledger.attempts,2);
  assert.equal(app.store.getCompanion(scope).turns.filter(item=>item.role==='assistant').length,1);
 });
 
@@ -113,14 +113,14 @@ for(const [name,declare,message,human]of [
  ['an undeclared private reason',false,'家里这周的安排让我很焦虑。','只在这里私下说：家里这周的安排让我很焦虑。不要告诉她。'],
  ['negated sharing permission',true,FACT,FACT+'但这件事不要告诉她，只在这里说。'],
  ['an unmet sharing condition',true,FACT,'只有她先问我的网页，才可以说“'+FACT+'”；她现在还没问，这轮先不透露。']
-])test(`${name} remains subject to the exact-candidate checker`,async t=>{
+])test(`${name} retains an exact-candidate private sharing concern without an automatic rewrite`,async t=>{
  const app=await application(t,p=>{
   if(p.purpose!=='fidelity_check')return primary(message,declare?{currentFacts:[message]}:{});
   const original=p.evidence.find(item=>item.sourceId===p.intentAuthority.sourceId);assert.equal(original.text,human);assert.equal(p.candidate.suggestions[0].text,message);
   return {checkRef:p.checkRef,factual:factualReview(p,{}),verdict:'reject',issues:[{path:'suggestions[0].text',code:'private_disclosure',quote:message,evidence:[{sourceId:original.sourceId,quote:human}],reason:'An exact primary span is neither a completeness proof nor permission to disclose against original negation or conditions.'}]};
  });
- await assert.rejects(app.assist(human),error=>error.code==='request_delivery_repair_exhausted');assert.equal(app.calls.length,4);assert.equal(app.store.getCompanion(scope).turns.some(item=>item.role==='assistant'),false);
- assert.equal(app.controller.usage.get(scope,'thin-answer-boundaries').requests.filter(item=>item.purpose==='delivery_repair').length,1);
+ const reply=await app.assist(human);assert.equal(reply.suggestions[0].text,message);assert.ok(reply.semanticReview.findings.some(f=>f.code==='private_disclosure'&&f.quote===message));assert.equal(app.calls.length,2);assert.equal(app.store.getCompanion(scope).turns.filter(item=>item.role==='assistant').length,1);
+ assert.equal(app.controller.usage.get(scope,'thin-answer-boundaries').requests.filter(item=>item.purpose==='delivery_repair').length,0);
 });
 
 test('only the complete answer owns one visible private explanation and individually revocable message leaves',async t=>{

@@ -124,6 +124,11 @@ class ExperienceStore {
       // candidate. Independent parent prose and sibling bodies stay readable;
       // retained raw turns and artifact hashes remain unchanged.
       if(turn.kind==='draft'&&(turn.suggestions||[]).some((item,index)=>item.text&&item.text===turn.text&&projected.suggestions[index]?.availability==='unavailable'))projected.text='';
+      if(projected.semanticReview?.findings?.length){
+        const fields=new Map(require('./candidate-field-paths.cjs').candidateFields(projected).map(field=>[field.path,field.value])),before=projected.semanticReview.findings;
+        const findings=availability==='stale'?[]:before.filter(finding=>fields.has(finding.path)&&fields.get(finding.path).trim()&&(!finding.quote||fields.get(finding.path).includes(finding.quote))&&(finding.evidence||[]).every(ref=>live.get(ref.sourceId)?.revision===ref.revision&&live.get(ref.sourceId)?.text?.includes(ref.quote)));
+        if(findings.length!==before.length)projected.semanticReview={...projected.semanticReview,status:'incomplete',findings};
+      }
       return [projected];
     });
   }
@@ -578,6 +583,25 @@ class ExperienceStore {
     });
   }
 
+  pruneSemanticReview(scope,record,{sourceIds=[],artifactRefs=[]}={}) {
+    const retained=record||this._raw(scope),sources=new Set(sourceIds),artifacts=new Set(artifactRefs.map(refKey));let changed=false;
+    for(const turn of retained.turns||[]){
+      if(!turn.semanticReview?.findings?.length)continue;
+      const before=turn.semanticReview.findings;
+      const all=(turn.sourceIds||[]).some(id=>sources.has(id))||turn.artifactRef&&artifacts.has(refKey(turn.artifactRef));
+      const filtered=all?[]:before.filter(finding=>{
+        if((finding.evidence||[]).some(ref=>sources.has(ref.sourceId)))return false;
+        for(const [field,index]of [['suggestions',/^suggestions\[(\d+)\]\./],['expressionOptions',/^expressionOptions\[(\d+)\]\./]]){
+          const match=index.exec(finding.path),reference=match&&turn[field]?.[Number(match[1])]?.artifactRef;
+          if(reference&&artifacts.has(refKey(reference)))return false;
+        }
+        return true;
+      });
+      if(filtered.length!==before.length){turn.semanticReview={...turn.semanticReview,status:'incomplete',findings:filtered};changed=true;}
+    }
+    if(changed&&!record)this.db.prepare('UPDATE companion SET record=? WHERE scope_key=?').run(this.store._serializeCompanion(retained),this.scopeKey(scope));
+    return changed;
+  }
   invalidateSources(scope, ids, { mode = 'correct', artifactRefs=[] } = {}) {
     return this._transaction(() => {
       const changed = new Set(ids), affected = new Set(artifactRefs.map(refKey));
@@ -621,6 +645,7 @@ class ExperienceStore {
         if(item.status!=='invalidated'){item.status = 'invalidated'; item.version++;} if (mode === 'forget') { item.text = ''; item.applicability = ''; }
         this._put(scope, 'adaptation', item.id, item);
       }
+      this.pruneSemanticReview(scope,null,{sourceIds:[...changed],artifactRefs:[...affected].map(key=>{const at=key.lastIndexOf('@');return {artifactId:key.slice(0,at),version:Number(key.slice(at+1))};})});
       return [...changed];
     });
   }

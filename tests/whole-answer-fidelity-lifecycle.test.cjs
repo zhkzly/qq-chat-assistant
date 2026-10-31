@@ -48,21 +48,21 @@ test('the primary whole why/message candidate is admitted then checked without a
  assert.equal(app.store.experiences.draft(scope),null);assert.equal(app.store.messages(scope).some(record=>record.direction==='outgoing'),false);
 });
 
-test('a scripted rejection of a why/body discrepancy regenerates the whole candidate once and rechecks original unselected qualifiers',async t=>{
+test('a why/body discrepancy retains actual original qualifiers in its private review without regenerating',async t=>{
  let checks=0;const bad='我以前独自装过一个四层书架。',badWhy='原文没有本人组装经历，不能把旁观当成亲历。',app=await application(t,(p,wrapper)=>{
   if(p.purpose==='fidelity_check'){checks++;assert.ok(p.evidence.some(source=>source.text===ORIGINAL_QUALIFIER));if(checks===1){assert.equal(p.candidate.suggestions[0].text,bad);assert.equal(p.candidate.discussionExplanation.text,badWhy);return {checkRef:p.checkRef,factual:factualReview(p,{'suggestions[0].text':[{quote:bad,kind:'assertion',support:'unsupported',basis:'source_contradiction',evidence:[{sourceId:p.evidence.find(source=>source.text===ORIGINAL_QUALIFIER).sourceId,quote:ORIGINAL_QUALIFIER}]}],'discussionExplanation.text':[{quote:badWhy,kind:'advice'}]}),verdict:'reject',issues:[{path:'suggestions[0].text',code:'internal_conflict',quote:bad,relatedPath:'discussionExplanation.text',relatedQuote:badWhy,reason:'Scripted rejection tests the lifecycle, not model quality.'}]};}return {checkRef:p.checkRef,factual:factualReview(p,{'suggestions[0].text':[{quote:OPINION,kind:'opinion'}]}),verdict:'allow',issues:[]};}
   if(!wrapper.originalInput){const value=prepared(p,{message:bad,why:badWhy,fragment:'我只看过朋友组装书架，'});value.statePatch={items:[{text:'REJECTED_CANDIDATE_STATE_NOT_COMMITTED',sourceIds:[p.intentAuthority.sourceId]}]};return value;}
   return prepared(p,{message:OPINION,why:'保留真实看法与未来打算，不补亲历事件。',current:true,fragment:OPINION});
  },{noteText:ORIGINAL_QUALIFIER});
- const before=app.store.getCompanion(scope).state.version,human='这次先不要邀请。'+OPINION+'这两句可以告诉她。',reply=await app.assist(human);assert.equal(app.calls.length,4);assert.equal(checks,2);assert.equal(reply.suggestions[0].text,OPINION);assert.deepEqual(visibleCandidate(reply),app.calls[3].p.candidate);
- assert.equal(app.calls[1].p.admittedFragments[0].text,'我只看过朋友组装书架，');assert.equal(app.calls[3].p.evidence.find(source=>source.text===human).text,human);assert.equal(app.controller.usage.get(scope,'whole-answer-fidelity').requests.filter(request=>request.purpose==='delivery_repair').length,1);
- assert.equal(app.store.getCompanion(scope).turns.filter(turn=>turn.role==='assistant').length,1);assert.equal(JSON.stringify(reply).includes(bad),false);assert.equal(app.store.getCompanion(scope).state.version,before);
+ const before=app.store.getCompanion(scope).state.version,human='这次先不要邀请。'+OPINION+'这两句可以告诉她。',reply=await app.assist(human);assert.equal(app.calls.length,2);assert.equal(checks,1);assert.equal(reply.suggestions[0].text,bad);assert.deepEqual(visibleCandidate(reply),app.calls[1].p.candidate);assert.ok(reply.semanticReview.findings.some(f=>f.quote===bad));
+ assert.equal(app.calls[1].p.admittedFragments[0].text,'我只看过朋友组装书架，');assert.equal(app.calls[1].p.evidence.find(source=>source.text===human).text,human);assert.equal(app.controller.usage.get(scope,'whole-answer-fidelity').requests.filter(request=>request.purpose==='delivery_repair').length,0);
+ assert.equal(app.store.getCompanion(scope).turns.filter(turn=>turn.role==='assistant').length,1);assert.ok(app.store.getCompanion(scope).state.version>=before);
 });
 
-test('a checker rejection cannot obtain a second shared repair after the primary format repair was already spent',async t=>{
+test('a checker criticism cannot obtain a second shared repair after primary format repair',async t=>{
  const bad='我以前独自装过一个四层书架。',app=await application(t,(p,_wrapper,index)=>{if(index===0)return {operation:'prepare_message',draftPlan:'malformed plan',answer:{suggestions:[{text:'Unusable candidate.'}]}};if(p.purpose==='fidelity_check'){const source=p.evidence.find(source=>source.text===SELF_MATERIAL);return {checkRef:p.checkRef,factual:factualReview(p,{'suggestions[0].text':[{quote:bad,kind:'assertion',support:'unsupported',basis:'source_contradiction',evidence:[{sourceId:source.sourceId,quote:source.text}]}]}),verdict:'reject',issues:[{path:'suggestions[0].text',code:'evidence_mismatch',quote:bad,evidence:[{sourceId:source.sourceId,quote:source.text}],reason:'Scripted terminal rejection preserves the explicit two-layer material.'}]};}const value=prepared(p,{message:bad});value.statePatch={items:[{text:'UNAPPROVED_STATE_EFFECT',sourceIds:[p.intentAuthority.sourceId]}]};return value;},{noteText:SELF_MATERIAL});
- const before=app.store.getCompanion(scope).state.version;await assert.rejects(app.assist('按所选原话准备表达。'),error=>error.code==='request_delivery_repair_exhausted');
- const ledger=app.controller.usage.get(scope,'whole-answer-fidelity');assert.equal(app.calls.length,3);assert.equal(ledger.attempts,3);assert.equal(ledger.requests.filter(request=>request.purpose==='delivery_repair').length,1);assert.equal(app.store.getCompanion(scope).state.version,before);assert.equal(app.store.getCompanion(scope).turns.some(turn=>turn.role==='assistant'),false);
+ const before=app.store.getCompanion(scope).state.version,reply=await app.assist('按所选原话准备表达。');assert.equal(reply.suggestions[0].text,bad);assert.ok(reply.semanticReview.findings.length);
+ const ledger=app.controller.usage.get(scope,'whole-answer-fidelity');assert.equal(app.calls.length,3);assert.equal(ledger.attempts,3);assert.equal(ledger.requests.filter(request=>request.purpose==='delivery_repair').length,1);assert.ok(app.store.getCompanion(scope).state.version>=before);assert.equal(app.store.getCompanion(scope).turns.filter(turn=>turn.role==='assistant').length,1);
 });
 
 test('invalid material references cannot be laundered by a checker allowance or reach publication',async t=>{
@@ -90,13 +90,13 @@ for(const event of ['account','contact','QQ','withdrawal'])test(`a delayed check
  release();await pending.catch(()=>{});assert.equal(app.store.getCompanion(scope).turns.some(turn=>turn.role==='assistant'),false);assert.equal(app.store.messages(scope).some(record=>record.direction==='outgoing'),false);
 });
 
-test('source withdrawal during the one candidate-regeneration repair cannot publish or recheck a stale answer',async t=>{
- let release,enter;const bad='我以前装过一个四层书架。',entered=new Promise(resolve=>{enter=resolve;}),app=await application(t,(p,wrapper)=>{
-  if(p.purpose==='fidelity_check'){const source=p.evidence.find(source=>source.text===SELF_MATERIAL);return {checkRef:p.checkRef,factual:factualReview(p,{'suggestions[0].text':[{quote:bad,kind:'assertion',support:'unsupported',basis:'source_contradiction',evidence:[{sourceId:source.sourceId,quote:source.text}]}]}),verdict:'reject',issues:[{path:'suggestions[0].text',code:'evidence_mismatch',quote:bad,evidence:[{sourceId:source.sourceId,quote:source.text}],reason:'Scripted rejection starts the one repair against the supplied two-layer original.'}]};}
-  if(wrapper.originalInput)return new Promise(resolve=>{release=()=>resolve(prepared(p));enter();});return prepared(p,{message:bad});
+test('source withdrawal while a concrete review is pending cannot publish the stale candidate or review copies',async t=>{
+ let release,enter;const entered=new Promise(resolve=>{enter=resolve;}),app=await application(t,p=>{
+  if(p.purpose!=='fidelity_check')return prepared(p);
+  return new Promise(resolve=>{release=()=>resolve({checkRef:'c1',auditProtocol:'sparse-defects-v1',issues:[{path:'suggestions[0].text',quote:p.candidate.suggestions[0].text,code:'unsupported_fact',reason:'A pending private review is not publication authority.'}]});enter();});
  },{noteText:SELF_MATERIAL});
- const pending=app.assist();pending.catch(()=>{});t.after(()=>release?.());await Promise.race([entered,pending.then(()=>{throw Error('Expected a controlled regeneration repair');})]);app.store.forgetSource(scope,'note:'+app.note.id);release();await pending.catch(()=>{});
- assert.equal(app.calls.length,3);assert.equal(app.controller.usage.get(scope,'whole-answer-fidelity').requests.filter(request=>request.purpose==='delivery_repair').length,1);assert.equal(app.store.getCompanion(scope).turns.some(turn=>turn.role==='assistant'),false);
+ const pending=app.assist();pending.catch(()=>{});t.after(()=>release?.());await entered;app.store.forgetSource(scope,'note:'+app.note.id);release();await pending.catch(()=>{});
+ assert.equal(app.calls.length,2);assert.equal(app.controller.usage.get(scope,'whole-answer-fidelity').requests.filter(request=>request.purpose==='delivery_repair').length,0);assert.equal(app.store.getCompanion(scope).turns.some(turn=>turn.role==='assistant'),false);
 });
 
 test('a new explicit-invitation candidate is checked against both original turns under its own current intent',async t=>{
@@ -126,13 +126,13 @@ test('a malformed checker labels incomplete after a primary structural repair wi
  const reply=await app.assist();assert.equal(reply.semanticReview.status,'incomplete');assert.equal(app.calls.length,3);assert.equal(app.controller.usage.get(scope,'whole-answer-fidelity').requests.filter(request=>request.purpose==='delivery_repair').length,1);assert.equal(app.store.getCompanion(scope).turns.filter(turn=>turn.role==='assistant').length,1);
 });
 
-test('a valid factual rejection and malformed optional diagnostics still use only the one whole-candidate regeneration and recheck',async t=>{
+test('a factual criticism survives malformed optional diagnostics without a whole-candidate regeneration',async t=>{
  let checks=0;const bad='我今天刚忙完，最近过得很充实。',known='今天你种的小葱又多了两片新叶。',question='你最近愿意分享的哪件真实小事，让你印象最深？',app=await application(t,(p,wrapper)=>{
   if(p.purpose==='fidelity_check')return {checkRef:p.checkRef,factual:factualReview(p,++checks===1?{'suggestions[0].text':[{quote:bad,kind:'assertion',support:'unsupported',basis:'no_support_in_supplied_evidence',reason:{sourceId:'s999'}}]}:{}),issues:[],concerns:{sourceId:'s999'}};
   if(wrapper.originalInput){assert.match(wrapper.task,/通用忙碌近况/);return {operation:'prepare_message',answer:{suggestions:[{text:known}],privateExplanation:question}};}
   return {operation:'prepare_message',answer:{suggestions:[{text:bad}],privateExplanation:'这是一个没有具体编造的填空框架。'}};
  });
- const reply=await app.assist('先接她这条，也让我分享一点真实近况。');assert.equal(app.calls.length,4);assert.equal(reply.suggestions[0].text,known);assert.equal(reply.discussionExplanation.text,question);assert.equal(app.controller.usage.get(scope,'whole-answer-fidelity').requests.filter(request=>request.purpose==='delivery_repair').length,1);
+ const reply=await app.assist('先接她这条，也让我分享一点真实近况。');assert.equal(app.calls.length,2);assert.equal(reply.suggestions[0].text,bad);assert.ok(reply.semanticReview.findings.some(f=>f.quote===bad));assert.equal(app.controller.usage.get(scope,'whole-answer-fidelity').requests.filter(request=>request.purpose==='delivery_repair').length,0);
 });
 
 test('existing exact currentFacts admission supports requested work facts after structural repair without licensing private reasons',async t=>{

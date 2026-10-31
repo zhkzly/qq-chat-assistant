@@ -278,6 +278,15 @@ async function companionAction(path,args){
 function button(text,run,className='text-button'){const element=document.createElement('button');element.type='button';element.className=className;element.textContent=text;element.onclick=run;return element}
 function paragraph(text,className=''){const p=document.createElement('p');p.textContent=text;p.className=className;return p}
 function assistantVisibleBody(turn){return [...new Set([turn.discussionExplanation?.text,turn.text].filter(text=>typeof text==='string'&&text.length))].join('\n\n')}
+function appendSemanticFindings(container,turn,paths){
+ for(const finding of turn.semanticReview?.findings||[]){
+  if(!paths.includes(finding.path))continue;
+  const block=document.createElement('div');block.className='semantic-review-finding';block.dataset.semanticFinding=finding.kind;block.dataset.semanticPath=finding.path;
+  block.append(paragraph('核对提示（模型意见，可能有误）','muted'),paragraph([finding.quote?`「${finding.quote}」`:'',finding.reason].filter(Boolean).join('\n'),'muted'));
+  if(finding.evidence?.length){const details=document.createElement('details'),title=document.createElement('summary');title.textContent='核对引用的原话';details.append(title);for(const ref of finding.evidence)details.append(paragraph(ref.quote,'muted'));block.append(details)}
+  container.append(block);
+ }
+}
 function responseRecoveryKind(turn){
  const kind=turn?.responseRecovery?.kind;
  return turn?.role==='assistant'&&['private_help','restricted_draft'].includes(kind)?kind:null;
@@ -391,13 +400,14 @@ function renderCompanion(){
    const explanation=turn.role==='assistant'&&typeof turn.discussionExplanation?.text==='string'?turn.discussionExplanation.text:'';
    if(explanation){const block=document.createElement('div');block.className='discussion-explanation';block.append(paragraph('这次的考虑 · 私下讨论','muted'));const text=paragraph(explanation,'turn-text');text.dataset.discussionExplanation='true';block.append(text);article.append(block)}
    if(!explanation||turn.text!==explanation)article.append(paragraph(turn.text||'','turn-text'));
+   appendSemanticFindings(article,turn,['text','discussionExplanation.text']);
    if(turn.semanticReview?.status==='incomplete'){const notice=paragraph('建议已生成；本次内容核对未完成，采用前请确认具体事实和私下信息。','muted semantic-review');notice.dataset.semanticReview='incomplete';article.append(notice)}
    const recoveryKind=responseRecoveryKind(turn);if(recoveryKind&&turn.responseRecovery.metadataApplied===false){const notice=paragraph(recoveryKind==='private_help'?'已先给出建议；部分背景整理未完成。':'表达参考 · 请核对','muted response-recovery');notice.dataset.responseRecovery=recoveryKind;article.append(notice)}
    else if(turn.metadataReviewPending?.reasonCode==='auxiliary_metadata_rejected'){const notice=paragraph('建议已保留；这次背景整理待复核。','muted response-recovery');notice.dataset.metadataReview='pending';article.append(notice)}
-   for(const suggestion of recoveryKind==='private_help'?[]:turn.suggestions||[]){if(!suggestion.text?.trim()||suggestion.availability==='unavailable')continue;const card=document.createElement('div');card.className='assistant-suggestion';card.append(paragraph(suggestion.style||'参考表达','muted'),paragraph(suggestion.text||''));card.append(button('采用到草稿',()=>{if(expected===scopeKey&&epoch===historyEpoch)adopt(suggestion.text,turn.id,suggestion.artifactRef?[suggestion.artifactRef]:[])}));card.append(button('反馈这条表达',()=>{if(expected===scopeKey&&epoch===historyEpoch)openFeedback(turn,suggestion)}));card.querySelector('button').dataset.action='adopt';article.append(card)}
+   for(const [suggestionIndex,suggestion] of (recoveryKind==='private_help'?[]:turn.suggestions||[]).entries()){if(!suggestion.text?.trim()||suggestion.availability==='unavailable')continue;const card=document.createElement('div');card.className='assistant-suggestion';card.append(paragraph(suggestion.style||'参考表达','muted'),paragraph(suggestion.text||''));appendSemanticFindings(card,turn,[`suggestions[${suggestionIndex}].text`,`suggestions[${suggestionIndex}].style`]);card.append(button('采用到草稿',()=>{if(expected===scopeKey&&epoch===historyEpoch)adopt(suggestion.text,turn.id,suggestion.artifactRef?[suggestion.artifactRef]:[])}));card.append(button('反馈这条表达',()=>{if(expected===scopeKey&&epoch===historyEpoch)openFeedback(turn,suggestion)}));card.querySelector('button').dataset.action='adopt';article.append(card)}
    for(const [index,choice] of (recoveryKind==='private_help'?[]:turn.expressionOptions||[]).entries()){
     if(!choice.label?.trim()||choice.availability==='unavailable')continue;
-    const card=document.createElement('div');card.className='expression-option';card.append(paragraph(choice.label||choice.intent||'一个可表达的方向'));
+    const card=document.createElement('div');card.className='expression-option';card.append(paragraph(choice.label||choice.intent||'一个可表达的方向'));appendSemanticFindings(card,turn,[`expressionOptions[${index}].label`]);
     card.append(button('用这个方向写',()=>{if(expected!==scopeKey||epoch!==historyEpoch)return;submitAssistant('draft',{text:$('assistant-input').value.trim()||'按选中的方向组织表达',selectedOption:{turnId:turn.id,index},sourceTurnIds:[turn.id]})},'secondary'));article.append(card);
    }
    if(turn.role==='user')article.append(button('继续聊这段',()=>{if(expected!==scopeKey||epoch!==historyEpoch)return;selectedDiscussion=turn.id;composerEditVersion++;$('assistant-input').placeholder='继续说说这段讨论里你想调整或表达的意思…';$('assistant-input').focus();$('assistant-status').textContent='这次会联系所选讨论继续；不会直接把整段私下内容写给她。'}));

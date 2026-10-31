@@ -44,13 +44,13 @@ test('invalid optional prepared metadata keeps the complete checked candidate an
  assert.equal(app.store.messages(scope).some(message=>message.direction==='outgoing'),false);
 });
 
-test('a plausible private pragmatic concern preserves the exact candidate without consuming a repair or showing its warning',async t=>{
+test('a plausible private pragmatic concern preserves the exact candidate without consuming a repair, showing its concern separately',async t=>{
  const marker='PRIVATE_UNCERTAIN_SOCIAL_READING',app=await application(t,p=>p.purpose==='fidelity_check'?{checkRef:p.checkRef,factual:factualReview(p,{}),verdict:'reject',issues:[],concerns:[{path:'suggestions[0].text',code:'pragmatic_ambiguity',quote:p.candidate.suggestions[0].text,reason:marker}]}:candidate(p)),reply=await app.assist();
- assert.equal(app.calls.length,2);assert.deepEqual(visibleCandidate(reply),app.calls[1].p.candidate);assert.equal(JSON.stringify(reply).includes(marker),false);assert.equal(JSON.stringify(app.run().requests).includes(marker),true,'private checker diagnostics retain the concern');
+ assert.equal(app.calls.length,2);assert.deepEqual(visibleCandidate(reply),app.calls[1].p.candidate);assert.ok(reply.semanticReview.findings.some(finding=>finding.reason===marker));assert.equal(reply.suggestions[0].text.includes(marker),false);assert.equal(JSON.stringify(app.run().requests).includes(marker),true,'private checker diagnostics retain the concern');
  assert.equal(app.controller.usage.get(scope,'decision-ownership-lifecycle').requests.filter(request=>request.purpose==='delivery_repair').length,0);
 });
 
-for(const defect of ['invented_self_event'])test(`a grounded ${defect} rejects once, regenerates the whole candidate and rechecks within one shared repair`,async t=>{
+for(const defect of ['invented_self_event'])test(`a grounded ${defect} is reported for manual judgment without automatically regenerating the candidate`,async t=>{
  const bad=defect==='invented_self_event'?'我昨天也给自己养的花盆换了土。':'下次我们一起去给花盆换土吧。';let checks=0;
  const app=await application(t,(p,wrapper)=>{
   if(p.purpose==='fidelity_check'){
@@ -60,8 +60,8 @@ for(const defect of ['invented_self_event'])test(`a grounded ${defect} rejects o
   }
   return candidate(p,wrapper.originalInput?GOOD:bad);
  });
- const reply=await app.assist();assert.equal(app.calls.length,4);assert.equal(checks,2);assert.equal(reply.suggestions[0].text,GOOD);assert.deepEqual(visibleCandidate(reply),app.calls[3].p.candidate);assert.equal(JSON.stringify(reply).includes(bad),false);
- const ledger=app.controller.usage.get(scope,'decision-ownership-lifecycle');assert.equal(ledger.requests.filter(request=>request.purpose==='delivery_repair').length,1);assert.equal(new Set(app.calls.map(call=>call.taskId)).size,1);assert.equal(app.calls.every(call=>call.request.model==='synthetic-decision-ownership'),true);assert.equal(app.calls.some(call=>call.p.purpose==='draft'),false);assert.equal(app.store.getCompanion(scope).turns.filter(turn=>turn.role==='assistant').length,1);assert.equal(app.store.messages(scope).some(message=>message.direction==='outgoing'),false);
+ const reply=await app.assist();assert.equal(app.calls.length,2);assert.equal(checks,1);assert.equal(reply.suggestions[0].text,bad);assert.deepEqual(visibleCandidate(reply),app.calls[1].p.candidate);assert.ok(reply.semanticReview.findings.some(finding=>finding.quote===bad));
+ const ledger=app.controller.usage.get(scope,'decision-ownership-lifecycle');assert.equal(ledger.requests.filter(request=>request.purpose==='delivery_repair').length,0);assert.equal(new Set(app.calls.map(call=>call.taskId)).size,1);assert.equal(app.calls.every(call=>call.request.model==='synthetic-decision-ownership'),true);assert.equal(app.calls.some(call=>call.p.purpose==='draft'),false);assert.equal(app.store.getCompanion(scope).turns.filter(turn=>turn.role==='assistant').length,1);assert.equal(app.store.messages(scope).some(message=>message.direction==='outgoing'),false);
 });
 
 test('a sourced current social-boundary concern retains the exact answer without a repair',async t=>{

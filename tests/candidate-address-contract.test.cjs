@@ -117,7 +117,7 @@ async function application(t,producer){
  return {store,controller,calls,assist:()=>controller.assist({text:'想接她这条，也想分享一点自己的真实近况。',taskId:'candidate-address-independent-lifecycle'}),run:()=>store.getCompanion(scope).runs.at(-1)};
 }
 
-test('a qualified factual reject reaches full regeneration and recheck inside the existing four-request budget',async t=>{
+test('a qualified factual report normalizes its address without invoking either old automatic continuation',async t=>{
  for(const repairKind of ['grounded_candidate','private_question'])await t.test(repairKind,async t=>{
   let checks=0;const app=await application(t,(p,wrapper)=>{
    if(p.purpose==='fidelity_check'){
@@ -128,9 +128,8 @@ test('a qualified factual reject reaches full regeneration and recheck inside th
    if(wrapper.originalInput&&repairKind==='private_question')return {operation:'clarify',blocker:{kind:'missing_fact',missing:'用户愿意分享的真实近况',question:QUESTION}};
    return candidate(p,wrapper.originalInput?GOOD:BAD);
   }),reply=await app.assist(),ledger=app.controller.usage.get(scope,'candidate-address-independent-lifecycle');
-  assert.equal(app.calls.length,4);assert.equal(checks,2);assert.equal(ledger.requests.filter(request=>request.purpose==='delivery_repair').length,1);assert.deepEqual(app.calls.map(call=>call.p.purpose),['discussion','fidelity_check','discussion','fidelity_check']);assert.equal(new Set(app.calls.map(call=>call.taskId)).size,1);
-  assert.equal(app.calls[1].context.manifest.fidelity.addressNormalizations[0].canonical,'suggestions[0].text');assert.equal(app.calls[1].context.manifest.fidelityOutput.raw.includes('candidate.suggestions[0].text'),true,'raw checker evidence retains its original model address');
-  if(repairKind==='private_question'){assert.equal(reply.kind,'question');assert.equal(reply.text,QUESTION);assert.deepEqual(app.calls[3].p.candidatePaths,['text']);assert.equal(reply.suggestions,undefined);}else{assert.equal(reply.suggestions[0].text,GOOD);assert.equal(app.calls[3].p.candidate.suggestions[0].text,GOOD);}
-  assert.equal(JSON.stringify(reply).includes(BAD),false);assert.equal(app.run().status,'complete');assert.equal(app.store.getCompanion(scope).turns.filter(turn=>turn.role==='assistant').length,1);assert.equal(app.store.messages(scope).some(message=>message.direction==='outgoing'),false);
+  assert.equal(app.calls.length,2);assert.equal(checks,1);assert.equal(ledger.requests.filter(request=>request.purpose==='delivery_repair').length,0);assert.deepEqual(app.calls.map(call=>call.p.purpose),['discussion','fidelity_check']);assert.equal(new Set(app.calls.map(call=>call.taskId)).size,1);
+  assert.equal(app.calls[1].context.manifest.fidelity.addressNormalizations[0].canonical,'suggestions[0].text');assert.equal(app.calls[1].context.manifest.fidelityOutput.raw.includes('candidate.suggestions[0].text'),true);
+  assert.equal(reply.suggestions[0].text,BAD);assert.ok(reply.semanticReview.findings.some(f=>f.path==='suggestions[0].text'&&f.quote===BAD));assert.equal(app.run().status,'complete');assert.equal(app.store.getCompanion(scope).turns.filter(turn=>turn.role==='assistant').length,1);assert.equal(app.store.messages(scope).some(message=>message.direction==='outgoing'),false);
  });
 });

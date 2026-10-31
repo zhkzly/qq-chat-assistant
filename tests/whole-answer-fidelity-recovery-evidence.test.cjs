@@ -24,13 +24,13 @@ async function app(t,producer,{partial=false}={}){
  return {store,controller,calls,note,assist:()=>controller.assist({text:'用已选原话回应她，准确保留我的实际经历。',materialIds:[note.id],taskId:'recovery-evidence'})};
 }
 
-test('the single regeneration receives the complete original qualifier first restored only for the checker',async t=>{
+test('the private review retains complete original qualifiers without a regeneration wrapper',async t=>{
  let checks=0;const repaired='我看过朋友装书架，不过那次只是旁观，还没有亲手装过。',a=await app(t,(p,wrapper)=>{
   if(p.purpose==='fidelity_check'){checks++;assert.ok(p.evidence.some(source=>source.text===FULL));const source=p.evidence.find(source=>source.text===FULL);return checks===1?{checkRef:p.checkRef,factual:factualReview(p,{'suggestions[0].text':[{quote:p.candidate.suggestions[0].text,kind:'assertion',support:'unsupported',basis:'necessary_factual_qualification',qualification:'negation',evidence:[{sourceId:source.sourceId,quote:source.text}]}]}),verdict:'reject',issues:[{path:'suggestions[0].text',code:'omitted_qualifier',quote:p.candidate.suggestions[0].text,evidence:[{sourceId:source.sourceId,quote:source.text}],reason:'The candidate drops a decisive original qualification.'}]}:{checkRef:p.checkRef,auditProtocol:'sparse-defects-v1',issues:[]};}
   const note=p.sources.find(source=>source.type==='note');if(!wrapper.originalInput){assert.equal(body(note),PREFIX);return candidate(p,'我亲手装过书架。');}
   assert.equal(body(note),FULL,'repair must read the actual omitted qualifier, not infer it from a checker reason');return candidate(p,repaired);
  },{partial:true});
- const reply=await a.assist();assert.equal(a.calls.length,4);assert.equal(reply.suggestions[0].text,repaired);assert.equal(a.calls.some(call=>call.p.purpose==='draft'),false);const run=a.store.getCompanion(scope).runs.at(-1);assert.ok(run.requests.find(request=>request.purpose==='delivery_repair').manifest.fidelityRestoration.sourceIds.includes('note:'+a.note.id));assert.equal(a.store.messages(scope).some(message=>message.direction==='outgoing'),false);
+ const reply=await a.assist();assert.equal(a.calls.length,2);assert.equal(reply.suggestions[0].text,'我亲手装过书架。');assert.ok(reply.semanticReview.findings.some(f=>f.code==='omitted_qualifier'&&f.evidence?.some(ref=>ref.quote===FULL)));assert.equal(a.calls.some(call=>call.p.purpose==='draft'),false);assert.equal(a.calls.some(call=>call.wrapper.fidelityIssues),false);assert.equal(a.store.messages(scope).some(message=>message.direction==='outgoing'),false);
 });
 
 test('every retained earlier-only body gets its original revision fence and stale earlier bodies are omitted',t=>{
@@ -46,12 +46,12 @@ for(const failure of ['transport','http'])test(`a checker ${failure} failure con
  const reply=await a.assist();assert.equal(reply.semanticReview.status,'incomplete');assert.equal(a.calls.length,2);assert.equal(a.controller.usage.get(scope,'recovery-evidence').attempts,2);assert.equal(a.store.getCompanion(scope).turns.filter(turn=>turn.role==='assistant').length,1);
 });
 
-for(const allow of [true,false])test(`terminal state and pending understanding proposals ${allow?'commit only after allowance':'do not survive a rejected candidate regeneration'}`,async t=>{
+for(const allow of [true,false])test(`terminal state and pending understanding proposals ${allow?'commit after a no-defect report':'remain independent of a semantic criticism'}`,async t=>{
  let checks=0;const marker='我周六下午有空',a=await app(t,(p,wrapper)=>{
   if(p.purpose==='fidelity_check'){assert.equal(a.store.relationshipView(scope).claims.length,0);assert.equal(a.store.getCompanion(scope).state.items.length,0);checks++;const source=p.evidence.find(source=>source.text===FULL);return !allow&&checks===1?{checkRef:p.checkRef,factual:factualReview(p,{text:[{quote:p.candidate.text,kind:'assertion',support:'unsupported',basis:'source_contradiction',evidence:[{sourceId:source.sourceId,quote:source.text}]}]}),verdict:'reject',issues:[{path:'text',code:'evidence_mismatch',quote:p.candidate.text,evidence:[{sourceId:source.sourceId,quote:source.text}],reason:'Scripted concrete first-hand claim rejection tests proposal staging.'}]}:{checkRef:p.checkRef,auditProtocol:'sparse-defects-v1',issues:[]};}
   return {operation:'advise',text:!allow&&!wrapper.originalInput?'我昨天亲手装过一个四层书架。':'A complete private explanation.',...(!wrapper.originalInput?{statePatch:{items:[{text:marker,sourceIds:[p.intentAuthority.sourceId]}]},relationshipPatch:{claims:[{text:marker,sourceIds:[p.intentAuthority.sourceId],subject:'self',aspect:'recent_context',assertionKind:'reported',epistemicStatus:'supported'}]}}:{})};
  });
- await a.assist();assert.equal(a.store.relationshipView(scope).claims.length,0,'foreground proposals never become active profile knowledge');assert.equal(a.store.memoryStatus(scope).pendingProposals,allow?1:0);if(allow)assert.equal(a.store.getCompanion(scope).runs.at(-1).relationshipReceipt.queued,true);assert.equal(a.store.getCompanion(scope).state.items.length,allow?1:0);assert.equal(a.store.getCompanion(scope).turns.filter(turn=>turn.role==='assistant').length,1);
+ await a.assist();assert.equal(a.store.relationshipView(scope).claims.length,0,'foreground proposals never become active profile knowledge');assert.equal(a.store.memoryStatus(scope).pendingProposals,1);if(allow)assert.equal(a.store.getCompanion(scope).runs.at(-1).relationshipReceipt.queued,true);assert.equal(a.store.getCompanion(scope).state.items.length,1);assert.equal(a.store.getCompanion(scope).turns.filter(turn=>turn.role==='assistant').length,1);
 });
 
 

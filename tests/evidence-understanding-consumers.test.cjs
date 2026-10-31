@@ -119,7 +119,7 @@ test('known QQ response and one private material question can be delivered toget
  assert.equal(app.calls.length,2);assert.equal(reply.text,'');assert.equal(reply.suggestions.length,1);assert.match(reply.discussionExplanation.text,/What real recent detail/);assert.deepEqual(app.calls[1].admittedFragments,[]);
 });
 
-test('an actual valid hard reject with a bad optional source handle still reaches exactly one regeneration and recheck',async t=>{
+test('an actual factual report survives a bad optional source handle without automatic regeneration',async t=>{
  let checks=0,primaries=0;const invented='I repaired a shelf yesterday.';
  const app=await application(t,p=>{
   if(p.purpose==='fidelity_check'){
@@ -128,8 +128,7 @@ test('an actual valid hard reject with a bad optional source handle still reache
   primaries++;return {operation:'prepare_message',answer:{suggestions:[{text:primaries===1?invented:'Your shelf sounds like a satisfying project.'}]}};
  });
  const reply=await app.controller.assist({text:'Respond to the known shelf, without inventing any personal history.',taskId:'valid-reject-invalid-advisory'});
- assert.equal(app.calls.length,4);assert.equal(primaries,2);assert.equal(checks,2);assert.notEqual(reply.suggestions[0].text,invented);
- const run=app.store.getCompanion(scope).runs.at(-1),checksRun=run.requests.filter(request=>request.purpose==='fidelity_check');
- assert.ok(checksRun[0].manifest.fidelity.diagnostics.some(item=>item.code==='audit_invalid_concern'));assert.equal(checksRun[1].manifest.fidelity.reviewStatus,'incomplete');
- assert.equal(app.controller.usage.get(scope,'valid-reject-invalid-advisory').requests.filter(request=>request.purpose==='delivery_repair').length,1);assert.equal(app.store.messages(scope).some(message=>message.direction==='outgoing'),false);
+ assert.equal(app.calls.length,2);assert.equal(primaries,1);assert.equal(checks,1);assert.equal(reply.suggestions[0].text,invented);assert.ok(reply.semanticReview.findings.some(f=>f.quote===invented));
+ const run=app.store.getCompanion(scope).runs.at(-1),checksRun=run.requests.filter(request=>request.purpose==='fidelity_check');assert.ok(checksRun[0].manifest.fidelity.diagnostics.some(item=>item.code==='audit_invalid_concern'));
+ assert.equal(app.controller.usage.get(scope,'valid-reject-invalid-advisory').requests.filter(request=>request.purpose==='delivery_repair').length,0);assert.equal(app.store.messages(scope).some(message=>message.direction==='outgoing'),false);
 });

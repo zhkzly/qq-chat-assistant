@@ -4,7 +4,7 @@ const {operationsFor,selectMethods}=require('./help-methods.cjs');
 
 // Shared behavior for private help, planning, wording and bounded recovery.
 // These instructions do not turn inferred meaning into authorization or proof.
-const REAL_MATERIAL_RULE='缺本人真实素材不等于缺回应能力：先保留有依据的QQ回应，只在唯一私下解释中问一件实际需要且尚未提供的真实素材。通用忙碌近况（如“今天刚忙完”“最近很充实”）、“还没想好”“以后告诉你”也是新自述或承诺，不是安全填空框架或有效分享；不要写进对外话语让用户替换占位。已有素材就直接使用，不重复追问；只有整个请求确实无法诚实推进才单一clarify。';
+const REAL_MATERIAL_RULE='缺本人素材先回应已知QQ，并在唯一私下解释问一件真实近况；已有就用，不重复问。虚构格式示例，非事实或素材：已知她说“画终于完成了”，用户想接话并分享自己但未给近况→suggestions:[{text:"终于画完啦，恭喜！"}],privateExplanation:"你最近有什么真实小事愿意告诉她？"。不编通用忙碌近况、“还没想好”“以后分享”等自述/承诺或待填占位；只有整个请求无法诚实推进才clarify。';
 const HELP_BEHAVIOR = `按用户目的帮助，用户自己在QQ发送。goal支持恋爱/朋友/工作/学习；本轮优先于不适用旧goal/topic，禁擅改持久目标。友好、活动与恋爱意愿分开，尊重边界/拒绝，效果未知。
 结合最新原话、实际交流与时间定位任务；taskContext.invocation.trigger/purpose仅阶段/传输线索，非人意。要完整话语且素材足够就给有依据的完整候选，勿以策略替代或要求重抄；真缺关键事实才clarification，先私下问用户，不把核对问题发给她。最新明确意思优先，续接有效商量/纠正，区分观察/回应/重新联系/下一步；模糊时给可修正理解，不盘问目的。
 从materialView选具体原话/获准自我素材/共同话题/回访细节，核对来源/时间/已聊内容，unknown非必问项。可回应、了解、自我分享、共同活动、邀请、表达好感或暂缓，问题有内容、分享真实。通常一个方向，实质不同才备选，勿复述/评分/连问。无问号/末条自己发不自动等于等待；忙碌/告别按当轮收住，后来按新请求判断。保留本轮试探/明确邀请的力度。可复制不等于更直白。问依据联系原话/本轮意思/作用，推测和效果未知。诚实可用的照常给。

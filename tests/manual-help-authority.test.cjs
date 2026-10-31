@@ -23,7 +23,7 @@ test('sparse no-defect report is a bounded review, never an exhaustive semantic 
 test('a valid concrete fabrication finding survives a malformed adjacent finding and extra metadata',()=>{
  const app=fixture(),good={...defect(),extraOptional:'cannot erase the real defect'},bad={...defect(),path:'not-offered'};
  const checked=parseFidelityResult({...report([bad,good]),verdict:'allow'},app.input);
- assert.equal(checked.issues.length,1);assert.equal(checked.issues[0].code,'unsupported_fact');assert.equal(checked.reviewStatus,'incomplete');assert.equal(deliveryFor(checked,app.input),undefined);
+ assert.equal(checked.issues.length,1);assert.equal(checked.issues[0].code,'unsupported_fact');assert.equal(checked.reviewStatus,'incomplete');assert.ok(deliveryFor(checked,app.input).findings.some(item=>item.kind==='reported_defect'));
 });
 test('unavailable or malformed audit yields an honest incomplete receipt, not allow',()=>{
  for(const value of ['not JSON',{checkRef:'c1',verdict:'allow',issues:[]}]){
@@ -37,13 +37,13 @@ test('private interpretation and condition uncertainty stay diagnostic, not fact
 });
 test('same source admission never licenses a second unadmitted private fact',()=>{
  const app=fixture({copy:SECRET,admitted:[FACT]}),checked=parseFidelityResult(report([defect('private_disclosure',SECRET,[{sourceId:app.source.id,quote:SECRET}])]),app.input);
- assert.equal(checked.issues[0].code,'private_disclosure');assert.equal(deliveryFor(checked,app.input),undefined);
+ assert.equal(checked.issues[0].code,'private_disclosure');assert.ok(deliveryFor(checked,app.input).findings.some(item=>item.kind==='reported_defect'));
 });
 test('program-authorized QQ cannot acquire invented privacy, newer private exclusion remains a separate witness',()=>{
  const qq={id:'qq:910000000000000123',type:'qq',role:'contact',revision:'qq-r1',text:'今天培训一整天。'},restriction={id:'private:new-exclusion',type:'private',kind:'discussion',role:'user',revision:'restriction-r1',text:'培训这件事只作背景，这轮别向她提。'};
  for(const exclude of [false,true]){
   const app=fixture({copy:qq.text,extra:[qq,...(exclude?[restriction]:[])]}),checked=parseFidelityResult(report([defect('private_disclosure',qq.text,[{sourceId:qq.id,quote:qq.text},...(exclude?[{sourceId:restriction.id,quote:restriction.text}]:[])])]),app.input);
-  assert.equal(checked.issues.length,exclude?1:0);assert.equal(!!deliveryFor(checked,app.input),!exclude);
+  assert.equal(checked.issues.length,exclude?1:0);assert.equal(deliveryFor(checked,app.input).findings.length,exclude?1:0);
  }
 });
 test('incomplete audit cannot bypass candidate/evidence/account binding or cross-frame reuse',()=>{
@@ -81,12 +81,12 @@ test('native wire decoding cannot let unrelated source references erase a valid 
  for(const noise of [{extra:{sourceId:'s999'}},{reason:{sourceId:'s999'}},{related:{sourceId:'s999',path:'absent'}},{evidence:[{sourceId:'s999',quote:'irrelevant for no-support finding'}]}]){
   const app=fixture(),wire=new SourceHandleOwner({scope,taskId:'wire-hard-finding'}).preview(app.input.payload,{sourceRevisions:app.input.manifest.sourceRevisions});wire.commit();Object.defineProperty(app.input,'sourceWireSnapshot',{value:wire});
   const checked=parseFidelityResult(report([{...defect(),...noise}]),app.input);
-  assert.equal(checked.issues.length,1);assert.equal(checked.issues[0].code,'unsupported_fact');assert.equal(deliveryFor(checked,app.input),undefined);
+  assert.equal(checked.issues.length,1);assert.equal(checked.issues[0].code,'unsupported_fact');assert.ok(deliveryFor(checked,app.input).findings.some(item=>item.kind==='reported_defect'));
  }
 });
 test('malformed historical census containers cannot erase an already valid native hard finding',()=>{
  for(const factual of [[{path:'suggestions[0].text',statements:{}}],[null],[{statements:[null,{}]}]]){
   const app=fixture(),checked=parseFidelityResult({...report([defect()]),factual},app.input);
-  assert.equal(checked.issues.length,1);assert.equal(checked.issues[0].code,'unsupported_fact');assert.equal(deliveryFor(checked,app.input),undefined);assert.equal(checked.reviewStatus,'incomplete');
+  assert.equal(checked.issues.length,1);assert.equal(checked.issues[0].code,'unsupported_fact');assert.ok(deliveryFor(checked,app.input).findings.some(item=>item.kind==='reported_defect'));assert.equal(checked.reviewStatus,'incomplete');
  }
 });

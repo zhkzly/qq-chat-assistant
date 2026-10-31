@@ -5,7 +5,7 @@ const {validationError}=require('./validation-issues.cjs');
 const {sameScopeIfPresent}=require('./context/source-snapshot.cjs');
 const {sourceClosure}=require('./provenance.cjs');
 const {candidateFields,candidatePaths,candidateScopes,normalizeCandidatePath}=require('./candidate-field-paths.cjs');
-const VERSION='whole-answer-fidelity-v8';
+const VERSION='whole-answer-fidelity-v9';
 const AUDIT_PROTOCOL='sparse-defects-v1';
 const marks=new WeakMap(),clone=value=>structuredClone(value);
 const plain=value=>value&&typeof value==='object'&&!Array.isArray(value);
@@ -366,7 +366,7 @@ function parseSparseFidelityResult(value,input){
    // metadata has no authority and cannot invalidate the independent finding.
    const item=decode({path:raw.path,quote:raw.quote,code});
    const path=address(item.path);if(path&&path!==item.path&&input.manifest){input.manifest.fidelity.addressNormalizations=[...(input.manifest.fidelity.addressNormalizations||[]),{field:`issues[${index}].path`,received:item.path,canonical:path}];}if(!path||!quoteAt(path,item.quote))throw Error('The defect lacks an exact candidate path/quote');
-   const reason=typeof reasonRaw==='string'&&reasonRaw.trim()?reasonRaw.slice(0,1200):'The audit reported this concrete factual or disclosure defect.';
+   const reason=typeof reasonRaw==='string'&&reasonRaw.trim()?reasonRaw.trim().slice(0,1200):'The audit reported this concrete factual or disclosure defect.';
    if(reasonRaw!==undefined&&(typeof reasonRaw!=='string'||!reasonRaw.trim()))diagnostic('audit_invalid_reason',`Finding ${index} optional reason is not usable`);
    const needsEvidence=['evidence_mismatch','omitted_qualifier','private_disclosure'].includes(code),evidence=[];
    if(needsEvidence){
@@ -379,7 +379,7 @@ function parseSparseFidelityResult(value,input){
    }else if(raw.evidence!==undefined)diagnostic('audit_irrelevant_evidence',`Finding ${index} does not need a source witness for this code`);
 
    if(!['unsupported_fact','evidence_mismatch','omitted_qualifier','internal_conflict','private_disclosure'].includes(code)){
-    concerns.push({path,code:typeof code==='string'?code.slice(0,80):'untyped_concern',quote:item.quote,reason:reason||'An untyped semantic concern needs human judgment.'});
+    concerns.push({path,code:typeof code==='string'&&code.trim()?code.trim().slice(0,80):'untyped_concern',quote:item.quote,reason:reason||'An untyped semantic concern needs human judgment.'});
     diagnostic('audit_untyped_finding',`Finding ${index} is diagnostic rather than a concrete typed defect`);return;
    }
    if(['evidence_mismatch','omitted_qualifier','private_disclosure'].includes(code)&&!evidence.length)throw Error('This defect needs an original source witness');
@@ -413,7 +413,16 @@ function parseSparseFidelityResult(value,input){
   }
  }
  if(data.concerns!==undefined&&!Array.isArray(data.concerns))diagnostic('audit_invalid_concern','Optional concerns are not an array');
- if(Array.isArray(data.concerns))for(const raw of data.concerns){try{const item=decode(raw),path=address(item.path);if(path&&typeof item.reason==='string'&&item.reason.trim())concerns.push({path,code:String(item.code||'semantic_uncertainty').slice(0,80),reason:item.reason.slice(0,1200),...(quoteAt(path,item.quote)?{quote:item.quote}:{})});else diagnostic('audit_invalid_concern','A concern is missing its candidate path or reason');}catch(error){diagnostic('audit_invalid_concern',error.message);}}
+ if(Array.isArray(data.concerns))for(const raw of data.concerns){try{
+  const item=decode(raw),path=address(item.path);
+  if(path&&typeof item.reason==='string'&&item.reason.trim()){
+   const normalizedCode=typeof item.code==='string'?item.code.trim():'',normalizedReason=item.reason.trim();
+   if(!normalizedCode||normalizedCode.length>80)diagnostic('audit_invalid_concern_code','Optional advisory code is missing or outside its bounded representation');
+   if(normalizedReason.length>1200)diagnostic('audit_concern_reason_bound','Optional advisory reason exceeds the visible bound');
+   if(item.quote!==undefined&&!quoteAt(path,item.quote))diagnostic('audit_invalid_concern_quote','Optional advisory quote is not an exact candidate span');
+   concerns.push({path,code:normalizedCode&&normalizedCode.length<=80?normalizedCode:'semantic_uncertainty',reason:normalizedReason.slice(0,1200),...(quoteAt(path,item.quote)?{quote:item.quote}:{})});
+  }else diagnostic('audit_invalid_concern','A concern is missing its candidate path or reason');
+ }catch(error){diagnostic('audit_invalid_concern',error.message);}}
  const unique=values=>[...new Map(values.map(item=>[JSON.stringify(item),item])).values()];
  return auditResult(input,{issues:unique(issues),concerns:unique(concerns),diagnostics,complete:validEnvelope&&!diagnostics.length});
 }
@@ -422,9 +431,40 @@ function parseFidelityResult(value,input){
 }
 function deliveryFor(result,input){
  const frame=input?.fidelityFrameSnapshot,mark=result&&marks.get(result);
- if(!frame||mark?.frame!==frame||mark.hash!==hash(result)||result.issues?.length)return undefined;
+ if(!frame||mark?.frame!==frame||mark.hash!==hash(result))return undefined;
  frame.assert();
- if(input.payload.auditProtocol===AUDIT_PROTOCOL&&['reviewed','incomplete'].includes(result.reviewStatus))return Object.freeze({version:VERSION,candidateHash:frame.candidateHash,bindingHash:frame.bindingHash,reviewStatus:result.reviewStatus,exhaustive:false});
+ if(input.payload.auditProtocol===AUDIT_PROTOCOL&&['reviewed','incomplete'].includes(result.reviewStatus)){
+  const findings=[];let projectionIncomplete=false;
+  const bounded=(value,max,fallback)=>{
+   if(typeof value!=='string'||!value.trim()){projectionIncomplete=true;return fallback;}
+   const text=value.trim();if(text.length>max)projectionIncomplete=true;return text.slice(0,max);
+  };
+  // Public review metadata is best-effort model feedback, never another
+  // publication prerequisite. Mechanical frame checks remain outside this
+  // projection and the final Store transaction still validates provenance.
+  for(const [kind,items]of [['reported_defect',result.issues],['concern',result.concerns]])for(const item of items||[]){
+   if(!plain(item)){projectionIncomplete=true;continue;}
+   const path=normalizeCandidatePath(item.path,input.payload.candidatePaths);
+   if(!path){projectionIncomplete=true;continue;}
+   const code=bounded(item.code,80,'semantic_uncertainty'),reason=bounded(item.reason,1200,'这条核对意见未能完整展示，采用前请自行确认。'),finding={kind,path,code,reason};
+   if(item.quote!==undefined){
+    if(typeof item.quote==='string'&&item.quote.trim()&&item.quote.length<=6000&&frame.bodyAt(path)?.includes(item.quote))finding.quote=item.quote;
+    else projectionIncomplete=true;
+   }
+   if(item.evidence!==undefined){
+    if(!Array.isArray(item.evidence))projectionIncomplete=true;
+    else{const evidence=[];for(const ref of item.evidence){
+      const original=plain(ref)&&frame.evidenceAt(ref.sourceId),revision=original&&input.manifest.sourceRevisions[ref.sourceId];
+      if(original&&revision&&typeof ref.quote==='string'&&ref.quote.trim()&&original.text.includes(ref.quote))evidence.push({sourceId:ref.sourceId,quote:ref.quote,revision});
+      else projectionIncomplete=true;
+     }if(evidence.length)finding.evidence=evidence;
+    }
+   }
+   findings.push(finding);
+  }
+  if(projectionIncomplete&&input.manifest)input.manifest.fidelity={...input.manifest.fidelity,advisoryProjectionIncomplete:true};
+  return freeze({version:VERSION,candidateHash:frame.candidateHash,bindingHash:frame.bindingHash,reviewStatus:projectionIncomplete?'incomplete':result.reviewStatus,exhaustive:false,findings});
+ }
  return approvalFor(result,input);
 }
 function buildFidelityRepairContext(prepared,checkedInput){

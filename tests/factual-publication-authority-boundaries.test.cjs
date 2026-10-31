@@ -138,7 +138,7 @@ async function application(t,producer,{limit=4,human=HUMAN}={}){
 }
 const wireDecision=(p,statements={},extra={})=>({checkRef:p.checkRef,verdict:'allow',issues:[],factual:p.candidatePaths.map(path=>({path,statements:statements[path]||[]})),...extra});
 
-test('raw typed unsupported plus reported allow reaches exactly the existing regeneration and recheck, preserving useful QQ help and a private real-material question',async t=>{
+test('raw typed unsupported cannot masquerade as approval and is shown without replacing the primary answer',async t=>{
  let checks=0,primaries=0;const repaired='薄荷终于冒新叶了。',question='你最近有什么愿意分享的真实小事？';
  const app=await application(t,p=>{
   if(p.purpose==='fidelity_check'){
@@ -147,12 +147,13 @@ test('raw typed unsupported plus reported allow reaches exactly the existing reg
   }
   primaries++;return {operation:'prepare_message',answer:{suggestions:[{text:primaries===1?UNSUPPORTED:repaired}],privateExplanation:primaries===1?CAVEAT:question}};
  });
- const reply=await app.assist();assert.equal(app.calls.length,4);assert.equal(primaries,2);assert.equal(checks,2);assert.equal(reply.text,'');assert.equal(reply.suggestions[0].text,repaired);assert.equal(reply.discussionExplanation.text,question);assert.equal(JSON.stringify(reply).includes(UNSUPPORTED),false);
- const ledger=app.controller.usage.get(scope,'factual-authority-task');assert.equal(ledger.attempts,4);assert.equal(ledger.requests.filter(request=>request.purpose==='delivery_repair').length,1);assert.equal(ledger.limit,4);
- const checkRuns=app.store.getCompanion(scope).runs.at(-1).requests.filter(request=>request.purpose==='fidelity_check');assert.equal(checkRuns[0].manifest.fidelity.reportedVerdict,undefined);assert.equal(checkRuns[0].manifest.fidelity.verdict,'reject');assert.ok(checkRuns[0].manifest.fidelity.diagnostics.length);assert.equal(app.store.messages(scope).some(message=>message.direction==='outgoing'),false);
+ const reply=await app.assist();assert.equal(app.calls.length,2);assert.equal(primaries,1);assert.equal(checks,1);assert.equal(reply.text,'');assert.equal(reply.suggestions[0].text,UNSUPPORTED);assert.ok(reply.semanticReview.findings.some(f=>f.quote===UNSUPPORTED));
+ const ledger=app.controller.usage.get(scope,'factual-authority-task');assert.equal(ledger.attempts,2);assert.equal(ledger.requests.filter(request=>request.purpose==='delivery_repair').length,0);assert.equal(ledger.limit,4);
+ const checkRuns=app.store.getCompanion(scope).runs.at(-1).requests.filter(request=>request.purpose==='fidelity_check');assert.equal(checkRuns[0].manifest.fidelity.reportedVerdict,undefined);assert.ok(checkRuns[0].manifest.fidelity.diagnostics.length);assert.equal(app.store.messages(scope).some(message=>message.direction==='outgoing'),false);
 });
 
-for(const limit of [2,4])test(`a repeated unsupported factual allowance cannot publish or exceed the shared task budget ${limit}`,async t=>{
+for(const limit of [2,4])test(`an unsupported factual report cannot automatically consume the remaining task budget ${limit}`,async t=>{
  const app=await application(t,p=>p.purpose==='fidelity_check'?wireDecision(p,{'suggestions[0].text':[unsupported()]}):{operation:'prepare_message',answer:{suggestions:[{text:UNSUPPORTED}],privateExplanation:CAVEAT}},{limit});
- await assert.rejects(app.assist());assert.equal(app.calls.length,limit);assert.equal(app.controller.usage.get(scope,'factual-authority-task').attempts,limit);assert.equal(app.store.getCompanion(scope).turns.some(turn=>turn.role==='assistant'),false);assert.ok(app.store.getCompanion(scope).turns.some(turn=>turn.role==='user'&&turn.text===HUMAN));assert.equal(app.store.messages(scope).some(message=>message.direction==='outgoing'),false);
+ const reply=await app.assist();assert.equal(reply.suggestions[0].text,UNSUPPORTED);assert.ok(reply.semanticReview.findings.some(f=>f.quote===UNSUPPORTED));const ledger=app.controller.usage.get(scope,'factual-authority-task');assert.equal(ledger.attempts,2);assert.equal(ledger.limit,limit);assert.equal(ledger.requests.filter(request=>request.purpose==='delivery_repair').length,0);
+
 });

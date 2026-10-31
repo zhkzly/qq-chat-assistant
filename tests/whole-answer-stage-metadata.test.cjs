@@ -23,7 +23,7 @@ test('real primary auxiliary rejection is recorded once and checker generation s
  assert.equal(run.auxiliaryErrors.length,1);assert.equal(primary.manifest.auxiliaryErrors.length,1);assert.equal(checker.manifest.auxiliaryErrors,undefined);assert.ok(primary.manifest.methodTrace.delivered.length>0);assert.deepEqual(checker.manifest.methodTrace.delivered,[]);assert.deepEqual(checker.manifest.methodTrace.catalog,[]);assert.deepEqual(checker.manifest.methodTrace.operationalDelivery.ids,[]);assert.equal(checker.payload.methodCards,undefined);assert.equal(checker.payload.methodCatalog,undefined);assert.deepEqual(stages.find(item=>item.purpose==='fidelity_check').deliveredMethodRefs,[]);assert.equal(stages.find(item=>item.purpose==='fidelity_check').reportedUsedMethodRefs,null);assert.ok(stages.filter(item=>item.purpose==='discussion').at(-1).deliveredMethodRefs.length>0);
 });
 
-test('one four-stage rejection and regeneration retains the primary auxiliary error once without attributing it to later requests',async t=>{
+test('two-stage manual review retains a primary auxiliary error once and never attributes it to an automatic rewrite',async t=>{
  const {Controller:ProductController}=require('../src/controller.cjs'),{assistModel}=require('../src/assistant-model.cjs');
  const store=new Store(':memory:'),calls=[],model='synthetic-four-stage-metadata',baseUrl='http://fixture.invalid/v1',settings={auto:false,anonymous:true,model,baseUrl,modelResponseMode:'result_tool',assistantRequestLimit:4,discussionCompactionEnabled:false,realChatConsent:{...scope,model,baseUrl}};
  const controller=new ProductController({store,settings,compactionModel:null,read:async()=>{throw Error('No QQ reads');},assistantModel:(configured,input,signal)=>assistModel(configured,input,signal,async(_url,args)=>{
@@ -35,8 +35,6 @@ test('one four-stage rejection and regeneration retains the primary auxiliary er
  })});
  t.after(()=>{controller.close();store.close();});controller.scope={...scope};controller.ingest(scope,[raw('91000000000000422')]);
  const reply=await controller.assist({text:'先私下理解，不要写给她。',taskId:'four-stage-metadata'}),run=store.getCompanion(scope).runs.find(item=>item.id===reply.requestId),ledger=controller.usage.get(scope,reply.requestId);
- assert.equal(calls.length,4);assert.deepEqual(run.requests.map(item=>item.purpose),['discussion','fidelity_check','delivery_repair','fidelity_check']);assert.equal(ledger.attempts,4);assert.equal(ledger.requests.filter(item=>item.purpose==='delivery_repair').length,1);assert.equal(reply.text,'The repaired complete private answer.');
- assert.equal(run.auxiliaryErrors.length,1);assert.equal(run.requests[0].manifest.auxiliaryErrors.length,1);
- for(const stage of run.requests.slice(1))assert.equal(stage.manifest.auxiliaryErrors,undefined,stage.purpose+' must not claim the producer auxiliary error');
- assert.equal(run.requests[2].manifest.primaryOperation.operation,'advise');assert.ok(run.requests[2].manifest.fidelityRegeneration.rejectedCandidateHash);assert.equal(store.messages(scope).some(message=>message.direction==='outgoing'),false);
+ assert.equal(calls.length,2);assert.deepEqual(run.requests.map(item=>item.purpose),['discussion','fidelity_check']);assert.equal(ledger.attempts,2);assert.equal(ledger.requests.filter(item=>item.purpose==='delivery_repair').length,0);assert.equal(reply.text,'The action has happened. The action has not happened.');assert.ok(reply.semanticReview.findings.some(f=>f.code==='internal_conflict'));
+ assert.equal(run.auxiliaryErrors.length,1);assert.equal(run.requests[0].manifest.auxiliaryErrors.length,1);assert.equal(run.requests[1].manifest.auxiliaryErrors,undefined);assert.equal(run.requests[1].manifest.fidelityRegeneration,undefined);assert.equal(store.messages(scope).some(message=>message.direction==='outgoing'),false);
 });

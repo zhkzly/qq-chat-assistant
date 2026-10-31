@@ -17,6 +17,7 @@ function projectVisibleTurn(turn){
  const notices=[];
  if(turn.semanticReview?.status==='incomplete')notices.push({text:'建议已生成；本次内容核对未完成，采用前请确认具体事实和私下信息。'});
  const references=[];
+ for(const finding of turn.semanticReview?.findings||[])references.push({label:'核对提示（模型意见，可能有误）',text:[finding.quote?`「${finding.quote}」`:'',finding.reason,...(finding.evidence||[]).map(ref=>ref.quote)].filter(Boolean).join('\n')});
  if(turn.methodBasis)references.push({label:'本次参考',text:typeof turn.methodBasis==='string'?turn.methodBasis:JSON.stringify(turn.methodBasis)});
  if(turn.method)references.push({label:'模型标记的方法',text:typeof turn.method==='string'?turn.method:turn.method.label||turn.method.id||''});
  if(recovery&&turn.responseRecovery.metadataApplied===false)notices.push({text:recovery==='private_help'?'已先给出建议；部分背景整理未完成。':'表达参考 · 请核对'});
