@@ -21,12 +21,31 @@ function selectPlanningContext({options,snapshot,candidates,view,budget,coreInve
   const asOf=payload.asOf;
   const {selected,automaticTurn,eligibleTurns,explicitTurnIds,inRecentWindow,validQQ,foldedPrivateIds,essentialIds,recentPlan,timeSegments,timeCandidateIds,timePriorityIds,recentPrivateIds,reviewing,privateRequest,relevantRecord,queryText,protectedPendingIds,selectedProposal,proposals,intentSource,topicView,compacted,coveredTurnIds,candidatePool,preferredCandidateTurnIds}=candidates;
   let recentContextPlan=null;const recentPriorityIds=new Set(),recentAdmissions=[],privatePriorityIds=new Set(),requiredPrivateTurnIds=new Set();
-  let taskTextReferences=true,compactedPlanningViews=false;
+  let taskTextReferences=true,compactedPlanningViews=false,humanContextView=true;const priorDirectionIds=new Set();
   const explicitLookupRequests=[...retrievedSources,...sourceLookupIds.map(id=>({id:id.startsWith('private:')?id:`private:${id}`})).filter(source=>!retrievedSources.some(item=>item.id===source.id))];
   const explicitLookupIds=[...new Set(explicitLookupRequests.map(source=>source.id))];
   const discoveryPriorityIds=new Set(),sourceOrder=new Map(all.map((source,index)=>[source.id,index]));
   const refresh = () => {
+    // Eligibility is part of the measured offer, not a late discount after a
+    // source has already lost its admission trial to an inflated menu.
+    let laterQQ=true;
+    for(const message of [...validQQ].reverse()){
+      const id=`qq:${message.messageId}`,source=selected.get(id);
+      if(!source){laterQQ=false;continue;}
+      const {historicalOnly,continuationCoverage,...body}=source;
+      selected.set(id,laterQQ?{...body,...(source.delivery?.status==='partial'?{continuationCoverage:'source_body_partial'}:{})}:{...body,historicalOnly:true,continuationCoverage:'later_messages_omitted'});
+      if(source.delivery?.status==='partial')laterQQ=false;
+    }
+    let laterPrivate=true;
+    for(const original of all.filter(source=>source.type==='private'||source.type==='feedback').reverse()){
+      if(original.kind==='feedback_continue'&&intentSource.type==='feedback'&&selected.get(intentSource.id)?.revision===intentSource.revision&&selected.get(intentSource.id)?.delivery?.status!=='partial')continue;
+      const source=selected.get(original.id);if(!source){laterPrivate=false;continue;}
+      const {historicalOnly,continuationCoverage,...body}=source;
+      selected.set(original.id,laterPrivate?{...body,...(source.delivery?.status==='partial'?{continuationCoverage:'source_body_partial'}:{})}:{...body,historicalOnly:true,continuationCoverage:'later_private_sources_omitted'});
+      if(source.delivery?.status==='partial')laterPrivate=false;
+    }
     payload.sources = [...selected.values()].sort((a,b)=>(sourceOrder.get(a.id)??Number.MAX_SAFE_INTEGER)-(sourceOrder.get(b.id)??Number.MAX_SAFE_INTEGER)); payload.allowedMaterialIds=payload.sources.filter(s=>s.type==='note'&&s.use==='draft').map(s=>s.id);
+    if(payload.consultationSupport){payload.consultationSupport.sourceIds=payload.consultationSupport.sourceIds.filter(id=>selected.has(id));if(!payload.consultationSupport.sourceIds.length)delete payload.consultationSupport;}
     if(explicitLookupIds.length)payload.evidenceDelivery={version:'source-delivery-v1',explicitLookups:sourceDeliveryManifest(all,payload.sources,explicitLookupRequests).explicitLookups};
     for(const entry of payload.retrievedDiscussion||[])if(entry.role==='user'){const source=selected.get(entry.sourceId);entry.availability=source?source.delivery?.status||'delivered':'needs_lookup';if(source)entry.revision=source.revision;}
     if(payload.memoryDiscovery){
@@ -54,6 +73,15 @@ function selectPlanningContext({options,snapshot,candidates,view,budget,coreInve
     if(payload.topicContext.active)payload.topicContext.active.sourceAvailability=!payload.topicContext.active.omittedSourceRefCount&&payload.topicContext.active.sourceIds.every(id=>selected.has(id)&&selected.get(id).delivery?.status!=='partial')?'delivered':'lookup_required';
     payload.replyFocus=replyMessageIds.filter(id=>selected.has(`qq:${id}`));
     payload.taskContext=taskContext({records,sources:payload.sources,scope,coverage,generationOrigin,currentSourceId:current.id,responsePreference,recentContextPlan,asOf:payload.asOf,viewerTimeZone,invocation,purpose,replyMessageIds});
+    const recentHumanContext=humanContextView?eligibleTurns.filter(entry=>entry.role==='user'&&entry.id!==turn.id).slice(-3).flatMap(entry=>{
+      const source=selected.get(`private:${entry.id}`);return source&&source.delivery?.status!=='partial'?[{sourceId:source.id,at:source.at,role:'user',bodyLocation:'sources',...(priorDirectionIds.has(source.id)?{status:'needs_current_interpretation'}:{})}]:[];
+    }):[];
+    if(recentHumanContext.length)payload.taskContext.recentHumanContext=recentHumanContext;
+    const recentHumanIds=new Set(recentHumanContext.map(reference=>reference.sourceId));
+    const priorHumanDirections=[...priorDirectionIds].filter(id=>!recentHumanIds.has(id)).flatMap(id=>{
+      const source=selected.get(id);return source&&source.delivery?.status!=='partial'?[{sourceId:id,at:source.at,role:'user',bodyLocation:'sources',status:'needs_current_interpretation'}]:[];
+    });
+    if(priorHumanDirections.length)payload.taskContext.priorHumanDirections=priorHumanDirections;
     payload.taskContext.draftControlPolicy={version:1,required:true,requiredFields:['objective','allowedApproach','avoidances'],intentSourceId:intentSource.id};
     if(taskTextReferences){
       payload.taskContext.sourceTextLocation='sources';
@@ -79,6 +107,7 @@ function selectPlanningContext({options,snapshot,candidates,view,budget,coreInve
     // Keep each original body intact in sources. Under pressure, chronology
     // points to that body instead of serializing the same QQ text twice.
     if(!fits(payload)&&!taskTextReferences){taskTextReferences=true;refresh();}
+    if(!fits(payload)&&humanContextView){humanContextView=false;refresh();}
     for (const key of ['items']) while (!fits(payload) && state[key].length) { state[key].pop(); payload.omittedStateEntries++; }
     // Move the canonical operations to the measured system channel under
     // payload pressure; this is relocation, never a title-only help request.
@@ -149,6 +178,26 @@ function selectPlanningContext({options,snapshot,candidates,view,budget,coreInve
     if(selected.has(source.id))essentialIds.add(source.id);
   };
   for(const source of retrievedSources)admitExplicit(source);
+  // Reuse only actual previously admitted original fragments, never every
+  // input reference or generated wording. Consultation support outlives the
+  // editable candidate's TTL without becoming a persistent sharing grant.
+  const priorSupport=[];
+  for(const entry of eligibleTurns.filter(entry=>entry.role==='assistant'&&entry.origin!=='automatic').slice(-2)){
+    const run=(companion.runs||[]).find(run=>run.status==='complete'&&(run.replyId===entry.id||run.id===entry.requestId));
+    if(!run)continue;
+    for(const quote of (run.payload?.outboundQuotes||[]).slice(0,8)){
+      const source=byId.get(quote.sourceId),revision=run.manifest?.sourceRevisions?.[quote.sourceId];
+      if(!source||source.revision!==revision||typeof quote.text!=='string'||!source.text.includes(quote.text))continue;
+      const binding=(run.manifest?.disclosureBindings||[]).find(binding=>binding.material.sourceId===quote.sourceId&&binding.material.text===quote.text);
+      const ids=[...new Set([quote.sourceId,...(binding?[binding.permission.sourceId,binding.referent.sourceId]:[])])];
+      if(ids.some(id=>!byId.has(id)||run.manifest?.sourceRevisions?.[id]!==byId.get(id).revision))continue;
+      for(const id of ids)admitExplicit(byId.get(id));
+      if(ids.every(id=>selected.has(id)&&selected.get(id).delivery?.status!=='partial')){
+        priorSupport.push({sourceId:quote.sourceId,text:quote.text});for(const id of ids)privatePriorityIds.add(id);
+      }
+    }
+  }
+  if(priorSupport.length)payload.consultationSupport={sourceIds:[...new Set(priorSupport.map(fragment=>fragment.sourceId))],authority:'previously_admitted_original_support_not_new_sharing_permission',bodyLocation:'sources'};
   const discovery=options.memoryDiscovery;
   const directory=Array.isArray(discovery?.directory)?discovery.directory:discovery?.directory?.items||discovery?.directory?.entries||[];
   if(directory.length||discovery?.sources?.length){
@@ -224,6 +273,17 @@ function selectPlanningContext({options,snapshot,candidates,view,budget,coreInve
   for (const n of companion.notes.filter(n => n.kind === 'preference' && n.use !== 'disabled').slice(-12).reverse()) {
     const id=`note:${n.id}`;
     includeGrounded({sourceId:id,text:redact(n.text),sourceIds:[id]},payload.preferences,['sourceId','text','sourceIds'],true);
+  }
+  // A legacy preference classification is only a lookup hint. Read its human
+  // original on demand without promoting the old summary into a stable control.
+  let directionBytes=0;
+  for(const record of coreInventory.filter(record=>record.recordType==='item'&&record.kind==='preference'&&record.status==='active'&&record.reviewComplete===false&&supportedByAvailable(record,byId,scope)).slice(0,3)){
+    for(const id of record.sourceIds||[]){
+      const source=byId.get(id);if(!source||source.role!=='user'||!['private','feedback'].includes(source.type)||directionBytes+bytes(source)>6000)continue;
+      admitExplicit(source);
+      if(selected.has(id)&&selected.get(id).delivery?.status!=='partial'){priorDirectionIds.add(id);directionBytes+=bytes(source);}
+    }
+    refresh();
   }
   // This inventory is local and already maintained by the existing memory
   // engine. A dated summary is not proof that an old circumstance still holds.
@@ -375,15 +435,17 @@ function selectPlanningContext({options,snapshot,candidates,view,budget,coreInve
   if (relationshipContext && sameScopeIfPresent(relationshipContext, scope)) {
     payload.relationshipContext = { version: relationshipContext.version, asOf: relationshipContext.asOf,
       claims: [], events: [], activities: [], coverage: sanitize(relationshipContext.coverage || {}) };
-    const common = ['id','version','text','sourceIds','sourceRevisions','evidenceValidity','applicability','currentApplicability','reviewComplete','topicKeys','firstEvidenceAt','lastEvidenceAt'];
+    const common = ['id','version','text','sourceIds','sourceRevisions','evidenceValidity','applicability','currentApplicability','reviewComplete','topicKeys','firstEvidenceAt','lastEvidenceAt','reportedAt','reviewedAt','applicabilityKind','attribution','condition','readCategory'];
+    const categories=new Map();
+    for(const subject of ['self','contact','dyad'])for(const category of ['knownFacts','recentCircumstances','uncertainties','boundaries'])for(const claim of relationshipContext.understanding?.[subject]?.[category]||[])categories.set(claim.id,category);
     const claims=(relationshipContext.claims||[]).filter(claim=>relevantRecord(claim)||claim.aspect==='boundary'&&claim.lifecycle!=='withdrawn'&&claim.lifecycle!=='superseded');
     let relationshipEvidenceBytes=0;
     const admitRelationship=record=>{const extra=(record.sourceIds||[]).filter(id=>!selected.has(id)).reduce((n,id)=>n+bytes(byId.get(id)||{}),bytes(record));if(!reviewing&&relationshipEvidenceBytes+extra>7000)return false;relationshipEvidenceBytes+=extra;return true;};
     for (const claim of claims.slice(0,reviewing?24:6)) if(admitRelationship(claim))
-      includeGrounded(claim, payload.relationshipContext.claims, [...common,'subject','aspect','assertionKind','epistemicStatus','lifecycle','validFrom','validUntil','context']);
+      includeGrounded({...claim,...(categories.has(claim.id)?{readCategory:categories.get(claim.id)}:{})}, payload.relationshipContext.claims, [...common,'subject','aspect','assertionKind','epistemicStatus','lifecycle','validFrom','validUntil','context']);
     const eventKeys=new Set((relationshipContext.events||[]).filter(relevantRecord).map(event=>event.activityKey));
     for (const event of (relationshipContext.events || []).filter(event=>reviewing||eventKeys.has(event.activityKey)).slice(-24).reverse()) if(admitRelationship(event))
-      includeGrounded(event, payload.relationshipContext.events, [...common,'activityKey','eventKind','actor','occurredAt','lifecycle','assertionKind','epistemicStatus','origin']);
+      includeGrounded(event, payload.relationshipContext.events, [...common,'activityKey','eventKind','actor','occurredAt','occurrenceTimeStatus','lifecycle','assertionKind','epistemicStatus','origin']);
     payload.relationshipContext.events.sort((a,b)=>String(a.occurredAt||a.lastEvidenceAt||'').localeCompare(String(b.occurredAt||b.lastEvidenceAt||'')));
     const eventIds = new Set(payload.relationshipContext.events.map(event => event.id));
     for (const activity of (relationshipContext.activities || []).slice(0, 8)) {
@@ -600,6 +662,10 @@ function selectPlanningContext({options,snapshot,candidates,view,budget,coreInve
   payload.sources.sort((a, b) => order.get(a.id) - order.get(b.id));
   };
   settleSelection();
+  // Final eligibility/catalog settlement may free envelope space. Retry the
+  // same ranked optional queue under the same layer and request ceilings.
+  for(const source of optionalRetrieved)tryOptionalRaw(byId.get(source.id),source.retrievalScore);
+  settleSelection();
   // End with the current factual position and exact current request. Neither
   // derived summaries nor old assistant prose becomes the active instruction.
   // Grounding can release space after optional source eviction. Reconsider
@@ -634,6 +700,6 @@ function selectPlanningContext({options,snapshot,candidates,view,budget,coreInve
   const delivery=sourceDeliveryManifest(all,payload.sources,explicitLookupRequests);
   if(delivery.explicitLookups.length)payload.evidenceDelivery={version:delivery.version,explicitLookups:delivery.explicitLookups};
   if(!fits(payload)){reclaimOptionalRecent(new Set(explicitLookupIds));settleSelection();}
-  return {payload,coreItems,optionalRawLimit,optionalRawIds,optionalRetrieved,recentContextPlan,recentPriorityIds,recentInitialAdditionalBytes};
+  return {payload,coreItems,optionalRawLimit,optionalRawIds,optionalRetrieved,recentContextPlan,recentPriorityIds,recentInitialAdditionalBytes,consultationSupport:priorSupport.filter(fragment=>selected.has(fragment.sourceId)).map(fragment=>({...fragment,revision:byId.get(fragment.sourceId).revision}))};
 }
 module.exports={selectPlanningContext};

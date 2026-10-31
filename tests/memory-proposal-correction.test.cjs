@@ -36,7 +36,8 @@ test('captured failed existing preference update gets one same-batch correction 
       const body=JSON.parse(request.body),p=input(request);requests.push(body);
       if(requests.length===1){
         first=p;const alias=p.priorMemory.items.find(item=>item.kind==='preference').id;
-        assert.match(body.messages[0].content,/Every proposed item.*fresh explicitPreference:true, including updates/);
+        assert.match(body.messages[0].content,/single logical knowledge writer/);
+        assert.match(body.messages[0].content,/local feedback is not a recurring preference/);
         // Rebind only the prior-record alias to this independently rebuilt Store.
         rejected={...noop(p),items:[{...rejectedItem,id:alias}]};
         return response(rejected,mode);
@@ -48,9 +49,10 @@ test('captured failed existing preference update gets one same-batch correction 
       assert.equal(p.validationError.code,'memory_preference_attestation_required');assert.equal(p.validationError.field,'items[0].explicitPreference');
       assert.match(p.validationError.allowedShape,/kind=preference.*explicitPreference:true/);
       if(mode==='result_tool'){
-        const rule=body.tools[0].function.parameters.properties.items.items;
-        assert.match(rule.properties.explicitPreference.description,/EVERY.*including existing id updates/);
-        assert.equal(rule.anyOf,undefined,'flat schema preserves existing proxy conversion and padding paths');
+        const properties=body.tools[0].function.parameters.properties;
+        assert.equal(properties.items,undefined,'normal schema does not recreate the legacy parallel knowledge lane');
+        assert.ok(properties.relationshipPatch.properties.claims.items.properties.applicabilityKind);
+        assert.equal(properties.relationshipPatch.anyOf,undefined,'flat schema preserves existing proxy conversion and padding paths');
       }else assert.deepEqual(body.response_format,{type:'json_object'});
       return response({...rejected,items:[{...rejected.items[0],explicitPreference:true}]},mode);
     });

@@ -6,8 +6,10 @@ const path = require('node:path');
 const vm = require('node:vm');
 const { createRequire } = require('node:module');
 const { randomUUID } = require('node:crypto');
+const { AsyncLocalStorage } = require('node:async_hooks');
 
 const ADAPTER_VERSION = 'qq-assistant-runtime-session-v2';
+const OBSERVATION_CONDITION='scheduled_idle_public_memory_observation_v1';
 const SCOPE = Object.freeze({ accountUid: 'eval_replay_owner', accountUin: '1111111111',
   peerUid: 'eval_replay_contact', peerUin: '3333333333' });
 const clone = value => value === undefined ? undefined : structuredClone(value);
@@ -16,6 +18,29 @@ function timestamp(value, label) {
   const n = typeof value === 'string' && /(?:Z|[+-]\d\d:\d\d)$/.test(value) ? Date.parse(value) : NaN;
   if (!Number.isFinite(n)) throw new Error(`${label} requires a timezone-aware ISO timestamp`);
   return n;
+}
+
+// A read-model capture, not rendered DOM. Keep only the relationship branch
+// actually selected by renderRelationship; other background panels come from
+// their public state inputs, without inventing or reconciling understandings.
+function projectPublicMemory(state){
+  const view=state.relationship||{},relationship={branch_by_subject:{}},companion=state.companion||{};
+  for(const subject of ['self','contact','dyad']){
+    if(view.understanding?.[subject]){
+      relationship.branch_by_subject[subject]='person_understanding';
+      relationship.understanding||={version:view.understanding.version};
+      relationship.understanding[subject]=Object.fromEntries(['knownFacts','recentCircumstances','uncertainties','boundaries'].map(key=>[key,view.understanding[subject][key]||[]]));
+    }else{relationship.branch_by_subject[subject]='legacy_flat';relationship[subject]=view[subject]||[];}
+  }
+  relationship.activities=(view.activities||[]).map(activity=>({...activity,text:(view.events||[]).filter(event=>event.activityKey===activity.activityKey).at(-1)?.text||'已有相关记录'}));
+  const current=companion.state;
+  const currentState=current?{focus:current.focus,possiblyStale:current.possiblyStale,items:current.items||[],openThreads:(current.openThreads||[]).filter(item=>item.status!=='closed'),unknowns:current.unknowns||[]}:null;
+  const notes=companion.notes||[];
+  return clone({scope:state.scope,capture_scope:'public_read_model_ui_selected_branch_not_rendered_dom',relationship,
+    companion:{goal:companion.goal,state:currentState,notes,preference_note_ids:notes.filter(note=>note.kind==='preference').map(note=>note.id),
+      pendingActions:companion.pendingActions||[],actionReceipts:(companion.actionReceipts||[]).slice(-5)},
+    experience:{cases:state.experience?.cases||[],adaptations:state.experience?.adaptations||[]},
+    memory_status:state.memoryStatus,maintenance_schedule:state.maintenanceSchedule});
 }
 
 function virtualClock(asOf, emit) {
@@ -78,7 +103,7 @@ function makeSyntheticTransport() {
     const wrapper = JSON.parse(content), p = wrapper.originalInput || wrapper;
     let result;
     if (p.purpose === 'fidelity_check') result = {checkRef:p.checkRef,verdict:'allow',issues:[]};
-    else if (p.batchId) result = { batchId: p.batchId, reviewedAll: true, items: [], episodes: [], retire: [] };
+    else if (p.batchId) result = { batchId: p.batchId, reviewedAll: true, relationshipPatch:{claims:[],events:[],retire:[]},episodes:[] };
     else if (p.purpose === 'discussion_compaction') result = { summary: 'Synthetic transport summary; no semantic quality evidence.',
       reviewedTurnIds: p.turns.map(turn => turn.id), quoteRefs: [] };
     else if (p.purpose === 'draft') result = { kind: 'draft', text: 'Synthetic transport output; no semantic quality evidence.',
@@ -113,7 +138,7 @@ function makeSyntheticTransport() {
 
 /** Keep one product instance for one fictional episode; replace only boundaries. */
 async function createReplaySession({ sourceRoot, asOf, history = [], goal = '', settings, transport, onTrace,
-  maxTimerCallbacks = 1000, settleTimeoutMs = 65000 } = {}) {
+  maxTimerCallbacks = 1000, settleTimeoutMs = 65000, condition } = {}) {
   if (!sourceRoot || !settings || !settings.baseUrl || !settings.model || (!settings.apiKey && !settings.anonymous))
     throw new Error('Replay requires sourceRoot and explicit product model settings');
   if (typeof transport !== 'function') throw new Error('Replay requires an explicit fetch-like transport; no default model calls');
@@ -121,7 +146,10 @@ async function createReplaySession({ sourceRoot, asOf, history = [], goal = '', 
     throw new Error('maxTimerCallbacks must be 1..10000');
   if (!Number.isSafeInteger(settleTimeoutMs) || settleTimeoutMs < 1 || settleTimeoutMs > 180000)
     throw new Error('settleTimeoutMs must be 1..180000');
-  const trace = [], pending = new Set(), failures = [], failedErrors = new Set();
+  if(condition!==undefined&&condition!==OBSERVATION_CONDITION)throw new Error('Unknown supplemental runtime condition');
+  const supplemental=condition===OBSERVATION_CONDITION;
+  const trace = [], pending = new Map(), failures = [], taskFailures=[], failedErrors = new Set(),ownership=new AsyncLocalStorage();
+  let taskSequence=0;
   let clock, closed = false, server, store, controller, transportCount = 0;
   const emit = (component, event, details = {}) => {
     const entry = { adapterVersion: ADAPTER_VERSION, sequence: trace.length + 1,
@@ -129,11 +157,12 @@ async function createReplaySession({ sourceRoot, asOf, history = [], goal = '', 
     trace.push(entry); onTrace?.(entry); return entry;
   };
   clock = virtualClock(asOf, emit);
-  const recordFailure = (error, location) => {
-    if (!failedErrors.has(error)) { failedErrors.add(error); failures.push({ error, location }); }
+  const recordFailure = (error, location,owner='foreground') => {
+    if (!failedErrors.has(error)) { failedErrors.add(error); failures.push({ error, location,owner });taskFailures.push({error:errorInfo(error),location,owner}); }
   };
-  const observePromise = (value, component, method) => {
-    const promise = Promise.resolve(value); pending.add(promise);
+  const observePromise = (value, component, method,owner='foreground') => {
+    const promise = Promise.resolve(value),task={taskId:++taskSequence,component,method,owner};pending.set(promise,task);
+    if(supplemental)emit('runtime_task','started',task);
     promise.then(result => {
       pending.delete(promise);
       // The product intentionally returns a maintenance status for its UI.
@@ -141,23 +170,27 @@ async function createReplaySession({ sourceRoot, asOf, history = [], goal = '', 
       // caller whose only awaited operation was a timer advance.
       if (component === 'controller' && method === 'maintainMemory' && ['error', 'rejected'].includes(result?.status)) {
         const error = new Error(`Product memory maintenance ${result.status}`);
-        error.code = `memory_maintenance_${result.status}`; recordFailure(error, `${component}.${method}`);
+        error.code = `memory_maintenance_${result.status}`; recordFailure(error, `${component}.${method}`,owner);
       }
-    }, error => { pending.delete(promise); recordFailure(error, `${component}.${method}`); });
+      if(supplemental)emit('runtime_task','finished',{...task,status:result?.status||'fulfilled'});
+    }, error => { pending.delete(promise); recordFailure(error, `${component}.${method}`,owner);if(supplemental)emit('runtime_task','finished',{...task,status:'rejected',error:errorInfo(error)}); });
     return promise;
   };
   const tracedTransport = async (url, args) => {
-    const id = ++transportCount;
+    const id = ++transportCount,started=Date.now(),owner=ownership.getStore()||'foreground';
     let request; try { request = JSON.parse(args.body); } catch { request = String(args.body || ''); }
     const destination = new URL(url);
-    emit('model_transport', 'request', { requestId: id, destination: { origin: destination.origin, path: destination.pathname }, request });
+    emit('model_transport', 'request', { requestId: id, ...(supplemental?{owner}:{}),wall_started_at:new Date(started).toISOString(),destination: { origin: destination.origin, path: destination.pathname }, request });
+    const aborted=()=>emit('model_transport','abort_signal',{requestId:id,owner,wall_elapsed_ms:Date.now()-started,reason:errorInfo(args.signal.reason)});
+    if(supplemental&&args.signal){args.signal.addEventListener('abort',aborted,{once:true});if(args.signal.aborted)aborted();}
     try {
       const response = await transport(url, args);
       if (!response || typeof response.clone !== 'function') throw new TypeError('Replay transport must return a fetch Response');
       const body = await response.clone().text(); let output; try { output = JSON.parse(body); } catch { output = body; }
-      emit('model_transport', 'response', { requestId: id, status: response.status, response: output });
+      emit('model_transport', 'response', { requestId: id, ...(supplemental?{owner}:{}),wall_elapsed_ms:Date.now()-started,status: response.status, response: output });
       return response;
-    } catch (error) { emit('model_transport', 'error', { requestId: id, error: errorInfo(error) }); throw error; }
+    } catch (error) { emit('model_transport', 'error', { requestId: id, ...(supplemental?{owner}:{}),wall_elapsed_ms:Date.now()-started,error: errorInfo(error) }); throw error; }
+    finally{if(supplemental&&args.signal)args.signal.removeEventListener('abort',aborted);}
   };
   const runtime = loadProduct(sourceRoot, clock, tracedTransport), scope = { ...SCOPE }, introduced = new Map();
   const sourceAliases = Object.create(null), privateAliases = Object.create(null), noteAliases = Object.create(null), sourceDates = new Map();
@@ -208,13 +241,15 @@ async function createReplaySession({ sourceRoot, asOf, history = [], goal = '', 
     object[method] = function (...args) {
       emit(component, 'call', { method, args: project(args) });
       let result;
-      try { result = original.apply(this, args); }
+      const assistantWork=component==='assistant_adapter'||component==='compaction_adapter'||component==='controller'&&['assist','suggest'].includes(method);
+      const owner=assistantWork?'foreground':ownership.getStore()||(supplemental&&component==='controller'&&method==='maintainMemory'&&!args[0]?.force?'background_memory':'foreground');
+      try { result = ownership.run(owner,()=>original.apply(this,args)); }
       catch (error) { emit(component, 'error', { method, error: errorInfo(error) }); throw error; }
       if (result && typeof result.then === 'function') {
         const reported = result.then(value => { emit(component, 'result', { method, result: value }); return value; }, error => {
           emit(component, 'error', { method, error: errorInfo(error) }); throw error;
         });
-        return tracked ? observePromise(reported, component, method) : reported;
+        return tracked ? observePromise(reported, component, method,owner) : reported;
       }
       emit(component, 'result', { method, result }); return result;
     };
@@ -236,19 +271,21 @@ async function createReplaySession({ sourceRoot, asOf, history = [], goal = '', 
     await new Promise((resolve, reject) => { server.once('error', reject); server.listen(0, '127.0.0.1', resolve); });
     const origin = `http://127.0.0.1:${server.address().port}`;
     const ensureOpen = () => { if (closed) throw new Error('Replay session is closed'); };
-    async function settle({ reportErrors = true } = {}) {
-      const deadline = Date.now() + settleTimeoutMs;
+    async function settle({ reportErrors = true,includeBackground=!supplemental,timeoutMs=settleTimeoutMs } = {}) {
+      const deadline = Date.now() + timeoutMs;
+      const waited=()=>[...pending].filter(([,task])=>includeBackground||task.owner!=='background_memory').map(([promise])=>promise);
       for (;;) {
-        if (!pending.size) { await new Promise(resolve => setImmediate(resolve)); if (!pending.size) break; }
+        if (!waited().length) { await new Promise(resolve => setImmediate(resolve)); if (!waited().length) break; }
         const remaining = deadline - Date.now();
-        if (remaining <= 0) throw new Error(`Replay did not settle within ${settleTimeoutMs}ms`);
+        if (remaining <= 0){const error=new Error(`Replay did not settle within ${timeoutMs}ms`);error.code='runtime_settle_timeout';throw error;}
         let timer;
-        try { await Promise.race([Promise.allSettled([...pending]), new Promise((_, reject) => {
-          timer = setTimeout(() => reject(new Error(`Replay did not settle within ${settleTimeoutMs}ms`)), remaining);
+        try { await Promise.race([Promise.allSettled(waited()), new Promise((_, reject) => {
+          timer = setTimeout(() => {const error=new Error(`Replay did not settle within ${timeoutMs}ms`);error.code='runtime_settle_timeout';reject(error);}, remaining);
         })]); } finally { clearTimeout(timer); }
       }
-      if (reportErrors && failures.length) {
-        const failure = failures.shift(); failures.length = 0;
+      const failureIndex=failures.findIndex(failure=>includeBackground||failure.owner!=='background_memory');
+      if (reportErrors && failureIndex!==-1) {
+        const [failure]=failures.splice(failureIndex,1);if(!supplemental)failures.length=0;
         const error = new Error(`Replay task failed at ${failure.location}: ${failure.error.message}`, { cause: failure.error });
         error.code = failure.error.code || 'replay_task_failed'; throw error;
       }
@@ -264,12 +301,49 @@ async function createReplaySession({ sourceRoot, asOf, history = [], goal = '', 
       if (!response.ok) throw new Error(`Product ${route} HTTP ${response.status}: ${result.error}`);
       return result;
     }
+    // Observe the same public state consumed by the assistant window. This
+    // performs no maintenance, source restoration or semantic reconstruction.
+    async function publicMemoryView() {
+      ensureOpen();
+      emit('product_http', 'request', { method: 'GET', route: '/api/state' });
+      const response = await fetch(`${origin}/api/state`, { headers: { Authorization: `Bearer ${token}` } });
+      const result = await response.json();
+      emit('product_http', 'response', { method: 'GET', route: '/api/state', status: response.status, result });
+      if (!response.ok) throw new Error(`Product /api/state HTTP ${response.status}: ${result.error}`);
+      return {...projectPublicMemory(result),as_of:new Date(clock.now()).toISOString()};
+    }
     const snapshot = () => {
       ensureOpen(); const product = controller.snapshot(), companion = store.getCompanion(scope);
       return clone({ ...product, adapterVersion: ADAPTER_VERSION, evidenceBoundary: 'fictional_qq_boundary_product_integration',
         asOf: new Date(clock.now()).toISOString(), companion, sources: store.memorySources(scope), derivedMemory: store._memoryRecords(scope),
-        runs: companion.runs, sourceAliases, privateAliases, noteAliases, controllerTimers: clock.inspect() });
+        runs: companion.runs, sourceAliases, privateAliases, noteAliases, controllerTimers: clock.inspect(),
+        ...(supplemental?{runtime:{condition,event_clock:new Date(clock.now()).toISOString(),pending_tasks:[...pending.values()],failures:taskFailures,model_transport_invocations:transportCount},
+          attribution:{source_identities:store._rawMemorySources(scope).map(({id,revision,type,role,at})=>({source_id:id,revision,type,role,at})),source_aliases:{...sourceAliases,...privateAliases,...noteAliases}}}:{}) });
     };
+    async function idleUntil(iso,{wallTimeoutMs=65000}={}){
+      ensureOpen();if(!supplemental)throw new Error('Declared idle checkpoints require the supplemental observation condition');
+      if(!Number.isSafeInteger(wallTimeoutMs)||wallTimeoutMs<1||wallTimeoutMs>65000)throw new Error('Idle native deadline must be 1..65000ms');
+      const target=timestamp(iso,'idleUntil');if(target<clock.now())throw new Error('Replay clock cannot move backward');
+      const started=Date.now(),deadline=started+wallTimeoutMs,failureStart=taskFailures.length;let fired=0,reason=null;
+      const wait=async()=>{const remaining=deadline-Date.now();if(remaining<=0){const error=new Error('Idle native deadline elapsed');error.code='runtime_settle_timeout';throw error;}await settle({includeBackground:true,reportErrors:false,timeoutMs:remaining});};
+      try{
+        await wait();
+        for(let next;(next=clock.next())&&next.due<=target;){
+          if(++fired>maxTimerCallbacks)throw new Error(`Replay timer advance exceeded ${maxTimerCallbacks} callbacks`);
+          clock.set(Math.max(clock.now(),next.due));
+          try{const work=clock.fire(next);if(work&&typeof work.then==='function')observePromise(work,'controller_timer','callback','background_memory');}catch(error){recordFailure(error,'controller_timer','background_memory');}
+          await wait();
+        }
+      }catch(error){reason=error.code==='runtime_settle_timeout'?'native_deadline':'checkpoint_error';if(reason==='checkpoint_error')recordFailure(error,'idle_checkpoint','background_memory');}
+      // User questions retain their authored event time even when a provider is
+      // still pending. The Controller, not the observer, decides cancellation.
+      clock.set(target);
+      const current=controller.snapshot(),status=current.memoryStatus,coverage=current.relationship?.understanding?.coverage||current.relationship?.coverage,newFailures=taskFailures.slice(failureStart);
+      if(!reason)reason=newFailures.length?'task_failure':pending.size?'pending_task':status?.pending?'pending_source_review':status?.error||Array.isArray(status?.errors)&&status.errors.length?'memory_error':status?.semanticPending||coverage?.semanticPending?'partial_semantic_review':status?.pendingProposals?'pending_proposals':coverage?.bootstrapPending?'pending_bootstrap':null;
+      const receipt=clone({condition,status:reason?'incomplete':'complete',reason,as_of:new Date(target).toISOString(),wall_elapsed_ms:Date.now()-started,wall_timeout_ms:wallTimeoutMs,
+        completion_scope:'scheduled_work_and_product_review_coverage_not_semantic_quality',timer_callbacks:fired,pending_tasks:[...pending.values()],failures:newFailures,memory_status:status,product_coverage:coverage});
+      emit('memory_checkpoint','observed',receipt);return receipt;
+    }
     const resolveAlias=id=>sourceAliases[id]||privateAliases[id]||noteAliases[id];
     async function saveObservedNotes(events,{historical=false}={}){
       ensureOpen();await settle();
@@ -307,7 +381,7 @@ async function createReplaySession({ sourceRoot, asOf, history = [], goal = '', 
       controller.changedContext();return snapshot();
     }
     const session = { adapterVersion: ADAPTER_VERSION, sourceRoot: runtime.root, scope, trace, controller, store, sourceAliases, privateAliases, noteAliases,
-      post, snapshot,
+      post, snapshot, publicMemoryView,idleUntil,
       registerPrivateInput(event,turn){
         if(!turn||typeof event.id!=='string'||resolveAlias(event.id))throw new Error('Cannot map an unavailable or duplicate private input');
         privateAliases[event.id]=`private:${turn.id}`;sourceDates.set(event.id,timestamp(event.at,'private input'));
@@ -354,7 +428,7 @@ async function createReplaySession({ sourceRoot, asOf, history = [], goal = '', 
         await settle(); let fired = 0;
         for (let next; (next = clock.next()) && next.due <= target;) {
           if (++fired > maxTimerCallbacks) throw new Error(`Replay timer advance exceeded ${maxTimerCallbacks} callbacks`);
-          clock.set(next.due);
+          clock.set(supplemental?Math.max(clock.now(),next.due):next.due);
           try { await clock.fire(next); } catch (error) { recordFailure(error, 'controller_timer'); }
           await settle();
         }
@@ -385,9 +459,11 @@ async function createReplaySession({ sourceRoot, asOf, history = [], goal = '', 
       },
       async close() {
         if (closed) return; controller.close(); clock.clear();
-        await settle({ reportErrors: false });
-        closed = true; server.closeAllConnections?.();
-        await new Promise((resolve, reject) => server.close(error => error ? reject(error) : resolve())); store.close();
+        let cleanupError;
+        try{await settle({reportErrors:false,includeBackground:true,timeoutMs:supplemental?Math.min(4000,settleTimeoutMs):settleTimeoutMs});}
+        catch(error){cleanupError=errorInfo(error);if(!supplemental)throw error;}
+        finally{if(supplemental||!cleanupError){closed=true;server.closeAllConnections?.();await new Promise((resolve,reject)=>server.close(error=>error?reject(error):resolve()));store.close();}}
+        return clone({status:cleanupError?'closed_pending_tasks':'closed',pending_tasks:[...pending.values()],...(cleanupError?{error:cleanupError}:{})});
       } };
     controller.updateStatus({ phase: 'ready', account: { uid: scope.accountUid, uin: scope.accountUin } });
     await post('/api/bind', { uin: scope.peerUin });
@@ -402,4 +478,4 @@ async function createReplaySession({ sourceRoot, asOf, history = [], goal = '', 
   }
 }
 
-module.exports = { ADAPTER_VERSION, createReplaySession, makeSyntheticTransport };
+module.exports = { ADAPTER_VERSION, OBSERVATION_CONDITION, createReplaySession, makeSyntheticTransport,projectPublicMemory };

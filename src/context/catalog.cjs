@@ -43,7 +43,7 @@ function projectActualActions(actions, byId, scope) {
   return (actions || []).flatMap(action => {
     if (action.kind === 'user_reported_activity') {
       if (!action.sourceRevisions || !action.sourceIds?.every(id => action.sourceRevisions[id]) || !supportedByAvailable(action, byId, scope)) return [];
-      return [{ ...pick(action, ['kind','activityId','eventAt','sourceIds','sourceRevisions']), authority: 'reported_not_directly_observed' }];
+      return [{ ...pick(action, ['kind','activityId','eventAt','reportedAt','occurrenceTimeStatus','sourceIds','sourceRevisions']), authority: 'reported_not_directly_observed' }];
     }
     const id = `qq:${action.messageId}`;
     if (byId.get(id)?.type !== 'qq') return [];
@@ -54,7 +54,7 @@ function projectObservations(observations, byId, scope) {
   return (observations || []).flatMap(observation => {
     if (observation.kind === 'activity_event') {
       if (!observation.sourceRevisions || !observation.sourceIds?.every(id => observation.sourceRevisions[id]) || !supportedByAvailable(observation, byId, scope)) return [];
-      return [{ ...pick(observation, ['kind','relationshipEventId','eventKind','text','sourceIds','sourceRevisions','eventAt','lifecycle']),
+      return [{ ...pick(observation, ['kind','relationshipEventId','eventKind','text','sourceIds','sourceRevisions','eventAt','reportedAt','occurrenceTimeStatus','lifecycle']),
         authority: observation.sourceIds.every(id => byId.get(id)?.type === 'qq') ? 'derived_from_qq_statements' : 'derived_from_user_report' }];
     }
     const id = observation.sourceId || `qq:${observation.messageId}`;
@@ -82,7 +82,7 @@ function coreCatalog(inventory,byId,scope,{queryText='',asOf=''}={}){
     const stable=typed?item.lifecycle==='active'&&item.assertionKind==='stated'&&item.epistemicStatus==='supported':
       ['fact','preference'].includes(item.kind)&&item.status==='active'&&['stated','supported'].includes(item.certainty||'stated');
     if(!stable||item.reviewComplete===false||!supportedByAvailable(item,byId,scope)||coreSeen.has(item.id))continue;
-    const summary=sanitize(pick(item,['id','version','kind','recordType','status','certainty','lifecycle','reviewComplete','subject','aspect','text','assertionKind','epistemicStatus','sourceIds','firstEvidenceAt','lastEvidenceAt','validFrom','validUntil','context','applicability','currentApplicability']));
+    const summary=sanitize(pick(item,['id','version','kind','recordType','status','certainty','lifecycle','reviewComplete','subject','aspect','text','assertionKind','epistemicStatus','sourceIds','firstEvidenceAt','lastEvidenceAt','reportedAt','reviewedAt','validFrom','validUntil','context','applicability','currentApplicability','applicabilityKind','condition','attribution']));
     summary.authority='validated_historical_summary_originals_available_by_lookup';
     summary.sourceRefs=item.sourceIds.map(sourceId=>({sourceId,revision:byId.get(sourceId).revision}));
     summary.currentStatus=summary.currentApplicability||summary.applicability||'not_established_by_old_evidence';

@@ -86,3 +86,22 @@ test('the fidelity envelope cannot advertise reply rewriting or auxiliary writes
  assert.deepEqual(Object.keys(envelope.tools[0].function.parameters.properties).sort(),['checkRef','concerns','issues','verdict']);
  assert.deepEqual(envelope.tools[0].function.parameters.required,['checkRef','verdict','issues']);
 });
+
+
+test('the background result declares logical knowledge semantics without reviving the foreground writer or legacy profile lane',()=>{
+ const memory=responseEnvelope({model:'gpt-6-luna'},'memory').tools[0].function.parameters,properties=memory.properties;
+ assert.deepEqual(new Set(memory.required),new Set(['batchId','reviewedAll','episodes','relationshipPatch']));
+ assert.equal(properties.items,undefined);assert.equal(properties.retire,undefined);
+ const claim=properties.relationshipPatch.properties.claims.items.properties;
+ assert.deepEqual(claim.applicabilityKind.enum,['local','temporary','recurring','conditional','unspecified']);
+ assert.deepEqual(claim.attribution.enum,['speaker','user_report','third_party_report','hypothesis','unspecified']);
+ assert.ok(claim.condition);assert.ok(claim.validFrom);assert.ok(claim.validUntil);
+ assert.deepEqual(claim.transition.properties.operation.enum,['reaffirm','supersede','change_over_time','contest','merge']);
+ assert.deepEqual(claim.transition.properties.targets.items.required,['id','expectedVersion']);
+ assert.ok(properties.relationshipPatch.properties.events.items.properties.occurredAt);
+ assert.equal(properties.relationshipPatch.properties.events.items.required.includes('occurredAt'),false,'unknown occurrence is omitted, never mechanically copied from report time');
+ for(const purpose of ['discussion','reply','draft_prepare','review']){
+  const schema=responseEnvelope({model:'gpt-6-luna'},purpose,{purpose,experienceProposalPolicy:{enabled:true}}).tools[0].function.parameters;
+  assert.equal(schema.properties.relationshipPatch,undefined,purpose+' cannot advertise parallel active-profile writes');
+ }
+});

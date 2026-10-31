@@ -47,7 +47,7 @@ for(const declared of [false,true])test(`actual005 strategy-only ${declared?'pre
   if(declared)assert.equal(refs.rawPayload.operationProtocol.requiredArtifact,'message');
   const material=p.sources.find(s=>s.text.startsWith('这是我给自己'));
   const rawId=refs.receipt.bindings.find(binding=>binding.sourceId===material.id).handle,rawMaterial=refs.rawPayload.sources.find(source=>source.id===rawId);
-  const authorityRef=rawMaterial.id===refs.rawPayload.intentAuthority.sourceId?refs.rawPayload.currentPermission.authorityRef:rawMaterial.authorityChoices.originalUserStatementCandidates.find(choice=>choice.materialRef===materialRefForText(rawMaterial,material.text)).authorityRef;
+  const authorityRef=rawMaterial.id===refs.rawPayload.intentAuthority.sourceId?refs.rawPayload.currentPermission.authorityRef:rawMaterial.authorityChoices.originalUserStatementCandidates[0].authorityRef;
   return {operation:'prepare_message',answer:{...answer('就是给自己留读书笔记的，昨天终于能查找了，还挺开心。你平时怎么留住读到的东西？'),privateExplanation:'可以保留你的真实进展，再问她的习惯。'},materials:
    ['这是我给自己记读书笔记的小网页。','昨天第一次把查找功能弄好了，我挺开心。'].map(text=>({materialRef:materialRefForText(rawMaterial,text),authorityRef}))};
  });

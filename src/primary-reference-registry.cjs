@@ -171,12 +171,18 @@ class PrimaryReferenceOwner{
     if(selected.quotes?.some(quote=>quote.sourceId===source.id&&quote.revision===source.revision&&quote.text===fragment.text))
      authority({kind:'PROGRAM_SOURCE_AUTHORITY',targetSourceId:source.id,targetRevision:source.revision,start:material.start,end:material.end,materialRef:material.materialRef});
    }
-   if(available&&originalUser(source)&&source.delivery?.status!=='partial'&&!(source.historicalOnly&&source.id!==intentId))
-    for(const material of choices.values())authority({kind:'ORIGINALUSERSTATEMENTCANDIDATE',materialRef:material.materialRef,sourceId:source.id,revision:source.revision,start:material.start,end:material.end});
+   if(available&&originalUser(source)&&source.delivery?.status!=='partial'&&!(source.historicalOnly&&source.id!==intentId)){
+    if(foreground)authority({kind:'ORIGINALUSERSTATEMENTCANDIDATE',sourceId:source.id,revision:source.revision,wholeOriginal:true});
+    else for(const material of choices.values())authority({kind:'ORIGINALUSERSTATEMENTCANDIDATE',materialRef:material.materialRef,sourceId:source.id,revision:source.revision,start:material.start,end:material.end});
+   }
    if(!view.authorityChoices.program.length)delete view.authorityChoices.program;
    if(!view.authorityChoices.originalUserStatementCandidates.length){delete view.authorityChoices.originalUserStatementCandidates;delete view.authorityChoices.candidateMeaning;}
    return view;
   }).filter(Boolean);
+  if(foreground)for(const field of ['recentHumanContext','priorHumanDirections'])if(Array.isArray(input.taskContext?.[field]))input.taskContext[field]=input.taskContext[field].flatMap(reference=>{
+    const delivered=sourceById.get(reference.sourceId);
+    return delivered?.available&&originalUser(delivered.source)&&delivered.source.delivery?.status!=='partial'?[{...reference,text:delivered.text}]:[];
+   });
   input.primaryReferenceProtocol={version:VERSION};
   freeze(projected);
   const bindingId=digest({scope:this.#scope,taskId:this.#taskId,materials:receiptMaterials,authorities:receiptAuthorities,boundaries:receiptBoundaries});
@@ -217,8 +223,8 @@ class PrimaryReferenceOwner{
       throw fail(path,'authority_target_mismatch','program source authority applies only to its exact offered material target');
      return undefined;
     }
-    const current=found.currentInstruction&&sourceById.get(found.sourceId);
-    const permission=found.currentInstruction&&current?.available&&current.source.revision===found.revision
+    const current=(found.currentInstruction||found.wholeOriginal)&&sourceById.get(found.sourceId);
+    const permission=(found.currentInstruction||found.wholeOriginal)&&current?.available&&current.source.revision===found.revision
      ?{metadata:{sourceId:found.sourceId},text:current.text}:offeredMaterials.get(found.materialRef);
     if(!permission)throw fail(path,'unknown_authority_reference','the original user statement was not delivered in this request');
     return {permission:{sourceId:permission.metadata.sourceId,text:permission.text},referent:{sourceId:material.sourceId,text:material.text}};

@@ -10,7 +10,7 @@ const OLD='以后回复用短句，不用表情，直接一点，语气轻松，
 function fixture(t,{core=false,feedback=false,text='这轮不要用短句，可以加点表情，含蓄一点。邀请她一起听歌。',old=OLD}={}){
  const store=new Store(':memory:');t.after(()=>store.close());
  const declaration=store.appendTurn(scope,{role:'user',kind:'discussion',text:old});
- if(core){const batch=store.memoryBatch(scope);assert.equal(store.applyMemoryBatch(scope,batch,{reviewedSourceIds:batch.reviewedSourceIds,items:[{kind:'preference',text:old,sourceIds:[`private:${declaration.id}`],explicitPreference:true}],episodes:[],retire:[]}).applied,true);}
+ if(core){const batch=store.memoryBatch(scope);assert.equal(store.applyMemoryBatch(scope,batch,{reviewedSourceIds:batch.reviewedSourceIds,items:[],episodes:[],retire:[],relationshipPatch:{claims:[{subject:'self',aspect:'stated_preference',text:old,sourceIds:[`private:${declaration.id}`],assertionKind:'stated',epistemicStatus:'supported',applicabilityKind:'recurring'}]}}).applied,true);}
  else store.saveNote(scope,{kind:'preference',use:'discussion',text:old,evidenceSourceIds:[`private:${declaration.id}`]});
  const asOf=new Date(Date.now()+(core?4*86400000:1000)).toISOString();
  store.add(scope,[normalize(raw('62001',false,{msgTime:String(Math.floor(Date.parse(asOf)/1000)-60),elements:[{elementType:1,textElement:{content:'刚发现这首歌有现场版'}}]}),scope)]);

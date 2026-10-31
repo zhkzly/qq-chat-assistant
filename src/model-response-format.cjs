@@ -1,6 +1,6 @@
 'use strict';
 const {TOPIC_PROTOCOL}=require('./topic-schema.cjs');
-const {SUBJECTS,ASSERTIONS,EPISTEMIC,LIFECYCLES,EVENT_KINDS,ASPECTS}=require('./relationship-schema.cjs');
+const {SUBJECTS,ASSERTIONS,EPISTEMIC,LIFECYCLES,EVENT_KINDS,ASPECTS,APPLICABILITY,ATTRIBUTION,TRANSITIONS}=require('./relationship-schema.cjs');
 const {auxiliaryReview}=require('./help-behavior.cjs');
 const {candidatePaths}=require('./candidate-field-paths.cjs');
 const string={type:'string'},integer={type:'integer'},boolean={type:'boolean'};
@@ -20,8 +20,9 @@ const topicFields={operation:choice(TOPIC_PROTOCOL.operations),topicId:string,ob
 const topicPatch=object(Object.fromEntries(TOPIC_PROTOCOL.patchFields.map(key=>[key,topicFields[key]])),['operation']);
 const common={id:string,expectedVersion:integer,text:string,sourceIds:strings,topicKeys:strings};
 const claim=object({...common,subject:choice(SUBJECTS),aspect:choice(ASPECTS),assertionKind:choice(ASSERTIONS),epistemicStatus:choice(EPISTEMIC),
- lifecycle:choice(LIFECYCLES),validFrom:string,validUntil:string,context:string},['text','sourceIds','subject','aspect','assertionKind','epistemicStatus']);
-const event=object({...common,activityKey:string,eventKind:choice(EVENT_KINDS),actor:choice(['self','contact','both','unknown']),occurredAt:string},['text','sourceIds','activityKey','eventKind','actor']);
+ lifecycle:choice(LIFECYCLES),validFrom:string,validUntil:string,context:string,applicabilityKind:choice(APPLICABILITY),attribution:choice(ATTRIBUTION),condition:string,
+ transition:object({operation:choice(TRANSITIONS),targets:array(object({id:string,expectedVersion:integer},['id','expectedVersion']))},['operation','targets'])},['text','sourceIds','subject','aspect','assertionKind','epistemicStatus']);
+const event=object({...common,activityKey:string,eventKind:choice(EVENT_KINDS),actor:choice(['self','contact','both','unknown']),occurredAt:string,transition:claim.properties.transition},['text','sourceIds','activityKey','eventKind','actor']);
 const retirement=object({id:string,expectedVersion:integer,sourceIds:strings,lifecycle:choice(['superseded','withdrawn'])},['id','expectedVersion','sourceIds','lifecycle']);
 const relationshipPatch=object({claims:array(claim),events:array(event),retire:array(retirement)});
 const expressionOption=object({label:string,quotes:{...array(quote),description:'Optional historical private fact quotes for THIS option only; with currentFacts combined at most 8.'},currentFacts:{...strings,description:'Optional exact current human fact spans for THIS option only. With quotes combined at most 8; source binding is not disclosure permission.'},style:string},['label']);
@@ -51,7 +52,7 @@ const schemas={
  draft_result:object({kind:choice(['draft','discussion','question']),text:{...string,description:'For kind=draft, only the complete outward message body, 1..1200 characters; keep private reasoning in privateExplanation. For kind=question, the blocker owns its canonical body.'},privateExplanation:{...string,description:'Optional FINAL private explanation for kind=draft, at most 6000 characters; omitted or blank means absent. Own its factual reasoning together with the outward message; a primary planning comment is not verified truth.'},deliveryBlocker,suggestions:array(object({style:string,text:string},['style','text'])),methodIds:strings,replyDisposition:choice(['wait','clarify','unavailable'])},['kind','text']),
  fidelity_result:object({checkRef:string,verdict:choice(['allow','reject','uncertain']),issues:array(object({path:string,code:choice(['unsupported_fact','private_disclosure','omitted_qualifier','evidence_mismatch','internal_conflict']),quote:string,sourceIds:strings,evidence:array(object({sourceId:string,quote:string},['sourceId','quote'])),basis:choice(['no_support_in_supplied_evidence']),relatedPath:string,relatedQuote:string,reason:string},['path','code','quote','reason'])),concerns:array(object({path:string,code:choice(['current_boundary','pragmatic_ambiguity','style','helpfulness','coverage_gap']),quote:string,sourceIds:strings,evidence:array(object({sourceId:string,quote:string},['sourceId','quote'])),reason:string},['path','code','reason']))},['checkRef','verdict','issues']),
  discussion_compaction_result:object({summary:string,reviewedTurnIds:strings,quoteRefs:array(quoteRef)},['summary','reviewedTurnIds','quoteRefs']),
- memory_result:object({batchId:string,reviewedAll:boolean,items:array(memoryItem),episodes:array(episode),retire:array(memoryRetirement),relationshipPatch},['batchId','reviewedAll','items','episodes','retire'])
+ memory_result:object({batchId:string,reviewedAll:boolean,episodes:array(episode),relationshipPatch},['batchId','reviewedAll','episodes','relationshipPatch'])
 };
 function responseEnvelope(settings,purpose,payload) {
  if(settings.modelResponseMode==='plain_text')return {};
@@ -68,6 +69,7 @@ function responseEnvelope(settings,purpose,payload) {
   const withPaths=rule=>({...rule,items:{...rule.items,properties:{...rule.items.properties,path:choice([...paths]),
     ...(rule.items.properties.relatedPath?{relatedPath:choice([...paths])}:{})}}});
   properties.issues=withPaths(properties.issues);properties.concerns=withPaths(properties.concerns);
+  properties.concerns={...properties.concerns,items:{...properties.concerns.items,properties:{...properties.concerns.items.properties,code:string}}};
   schema={...schema,properties};
  }
  if(name==='draft_result'&&(payload?.originalInput||payload)?.requestDeliveryObligation){
@@ -81,7 +83,9 @@ function responseEnvelope(settings,purpose,payload) {
   const taskPayload=payload.originalInput||payload;
   const properties={...schema.properties};
   if(taskPayload.workingState?.ownership==='evidence_only_task_controls_in_topicContext')properties.statePatch=object({items:array(reference)});
-  if(!auxiliaryReview({...taskPayload,purpose}))delete properties.relationshipPatch;
+  // The foreground is responsive help, not a parallel semantic profile writer.
+  // Legacy decoded proposals may queue for the background original-evidence pass.
+  delete properties.relationshipPatch;
   if(taskPayload.experienceProposalPolicy?.enabled!==true)delete properties.experienceProposals;
   if(taskPayload.generationOrigin==='qq_observation')delete properties.actions;
   schema={...schema,properties};

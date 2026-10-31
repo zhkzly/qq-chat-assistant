@@ -4,6 +4,7 @@
 const fs=require('node:fs'),path=require('node:path');
 const {execFileSync}=require('node:child_process');
 const {hash}=require('./eval-replay.cjs');
+const {OBSERVATION_CONDITION}=require('./eval-runtime-session.cjs');
 const ROOT=path.resolve(__dirname,'..');
 const MAIN_ROOT='/home/zhkzly/pycodes/qq-chat-assistant';
 // Match ui/app.js assistantVisibleBody and assistant-thread rendering. These
@@ -59,29 +60,35 @@ function selectedSettings(filename){
 }
 function createAdapterFactory(options={}){
  const sourceRoot=fs.realpathSync(options.sourceRoot||ROOT),live=options.live===true;
+ const supplemental=options.condition===OBSERVATION_CONDITION;
+ if(options.condition!==undefined&&!supplemental)throw Error('Unknown supplemental observation condition');
+ if(options.prefixPreparation!==undefined&&options.prefixPreparation!=='controlled_rebuild')throw Error('Use the explicitly identified supplemental condition instead of normal-host identity');
  const selected=live?selectedSettings(options.settingsFile||path.join(MAIN_ROOT,'data/settings.json')):null;
  const settings=selected?.settings||{model:'synthetic-replay-only',baseUrl:'http://fixture.invalid/v1',anonymous:true};
  const cap=options.maxHttp??16,ceiling=live?64:512;if(!Number.isSafeInteger(cap)||cap<1||cap>ceiling)throw Error(`Replay HTTP cap must be 1..${ceiling} across all selected episodes`);
- let attempts=0;const requests=[],implementationHash=sourceIdentity(sourceRoot);
+ let attempts=0,blockedAttempts=0;const requests=[],implementationHash=sourceIdentity(sourceRoot);
  const destination=new URL(settings.baseUrl);
  const metadata={name:'qq-assistant-public-api',version:'2',implementation_hash:implementationHash,source_root:sourceRoot,
   adapter_runtime_hash:hash(fs.readFileSync(path.join(__dirname,'eval-runtime-session.cjs'),'utf8')),
   evidence:live?'live_model_synthetic_events_product_integration':'synthetic_transport_product_integration',desktop_qq:false,
-  prefix_preparation:'controlled_current_product_memory_rebuild',preparation_is_scheduler_test:false,
+  prefix_preparation:supplemental?'scheduled_only_no_forced_prefix':'controlled_current_product_memory_rebuild',preparation_is_scheduler_test:false,
+  ...(supplemental?{condition:OBSERVATION_CONDITION,native_idle_deadline_ms:65000,idle_outer_headroom_ms:2000,foreground_wall_timeout_ms:300000,ordinary_actions_wait:'foreground_only',idle_wait:'declared_scheduled_work_only',clock:'virtual_source_events_native_provider_elapsed'}:{}),
   model:settings.model,destination:{origin:destination.origin,path:destination.pathname},settings_hash:selected?.digest||null,max_http:cap};
  const redact=value=>typeof value==='string'&&settings.apiKey?value.split(settings.apiKey).join('[redacted]'):value;
  const clean=value=>JSON.parse(JSON.stringify(value,(_key,v)=>redact(v)));
  const {createReplaySession,makeSyntheticTransport}=require('./eval-runtime-session.cjs');
  const offline=makeSyntheticTransport();
  const transport=async(url,args)=>{
-  if(attempts>=cap){const error=Error('Global replay HTTP limit reached');error.code='replay_http_limit';throw error;}
+  if(attempts>=cap){blockedAttempts++;const error=Error('Global replay HTTP limit reached');error.code='replay_http_limit';throw error;}
   if(new URL(url).origin!==destination.origin)throw Error('Replay model destination changed');
   if(selected&&hash(fs.readFileSync(selected.filename,'utf8'))!==selected.digest)throw Error('Selected model configuration changed during replay');
-  const item={sequence:++attempts,request:JSON.parse(args.body),status:'running'};requests.push(item);
+  const started=Date.now(),item={sequence:++attempts,request:JSON.parse(args.body),status:'running',wall_started_at:new Date(started).toISOString()};requests.push(item);
+  const onAbort=()=>{item.abort_requested=true;item.abort_elapsed_ms=Date.now()-started;};args.signal?.addEventListener('abort',onAbort,{once:true});if(args.signal?.aborted)onAbort();
   try{const response=await(live?fetch(url,args):offline(url,args));item.http_status=response.status;item.response_body=await response.clone().text();item.status='received';return response;}
   catch(error){item.status='error';item.error={code:error.code||'transport_error',message:String(error.message)};throw error;}
+  finally{item.wall_elapsed_ms=Date.now()-started;args.signal?.removeEventListener('abort',onAbort);}
  };
- return {identity:metadata,redact:clean,summary:()=>({http_attempts:attempts,requests:clean(requests),settings_unchanged:selected?hash(fs.readFileSync(selected.filename,'utf8'))===selected.digest:null}),
+ return {identity:metadata,redact:clean,summary:()=>({http_attempts:attempts,blocked_attempts:blockedAttempts,requests:clean(requests),settings_unchanged:selected?hash(fs.readFileSync(selected.filename,'utf8'))===selected.digest:null}),
   async create(){
    let session,requestIndex=0;const knownReplies=new Set(),generatedReplies=new Set();
    const fromTurn=projectVisibleTurn;
@@ -92,12 +99,12 @@ function createAdapterFactory(options={}){
    };
    return {protocol_version:1,identity:metadata,
     async open(initial,{goal}){
-     session=await createReplaySession({sourceRoot,asOf:initial.as_of,history:initial.qq_events,goal,settings:{...settings,auto:false},transport});
+     session=await createReplaySession({sourceRoot,asOf:initial.as_of,history:initial.qq_events,goal,settings:{...settings,auto:false},transport,...(supplemental?{condition:OBSERVATION_CONDITION}:{})});
      await restore(initial.private_events||[]);
      for(const turn of session.snapshot().companion?.turns||[])if(turn.role==='assistant')knownReplies.add(turn.id);
      // Checkpoint reconstruction is separate from evaluating automatic scheduling.
      // Build this implementation's own derived records from the frozen raw prefix.
-     for(let batch=0;session.snapshot().memoryStatus?.pending>0;batch++){
+     for(let batch=0;!supplemental&&session.snapshot().memoryStatus?.pending>0;batch++){
       if(batch>=16)throw Error('Prefix preparation exceeded the declared 16 maintenance checkpoints');
       const before=session.snapshot().memoryStatus;
       await session.post('/api/memory-maintain');
@@ -106,6 +113,8 @@ function createAdapterFactory(options={}){
      }
     },
     async advanceTo(at){await session.advanceTo(at);},
+    async idleUntil(at,options){return clean(await session.idleUntil(at,options));},
+    async publicMemoryView(){return clean(await session.publicMemoryView());},
     async observe(events){await session.deliver(events);},
     async observePrivate(events){
      const outputs=[];
@@ -133,7 +142,7 @@ function createAdapterFactory(options={}){
     async drainOutputs(){const outputs=session.snapshot().companion.turns.filter(turn=>turn.role==='assistant'&&!knownReplies.has(turn.id));for(const turn of outputs){knownReplies.add(turn.id);generatedReplies.add(turn.id);}return outputs.map(fromTurn);},
     async currentOutput(){const snapshot=session.snapshot(),id=snapshot.advice?.turnId;return id?fromTurn(snapshot.companion.turns.find(t=>t.id===id)):null;},
     async diagnostics(){return clean({snapshot:session.snapshot(),trace:session.trace});},
-    async close(){if(session)await session.close();}
+    async close(){if(session)return await session.close();}
    };
   }};
 }

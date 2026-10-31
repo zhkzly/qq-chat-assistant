@@ -219,7 +219,8 @@ test('two connections cannot overwrite an already committed topic or revised sou
   const recorded=first.getCompanion(scope);
   assert.throws(()=>first.add(scope,[{...message,text:'Uncommitted change'},{...message,messageId:'invalid-draft',kind:'draft'}]),/provenance/);
   assert.deepEqual(first.getCompanion(scope),recorded);assert.deepEqual(first.topicView(scope),topic);
-  assert.equal(first.db.prepare('PRAGMA user_version').get().user_version,1);
+  assert.equal(first.db.prepare('PRAGMA user_version').get().user_version,2);
+  assert.equal(second.db.prepare('PRAGMA user_version').get().user_version,2);
 });
 
 test('a source-grounded private task phase and unknowns do not require inventing QQ observations', t=>{

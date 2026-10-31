@@ -10,7 +10,7 @@ const { Store } = require('../src/store.cjs');
 const { normalize } = require('../src/messages.cjs');
 const { scope, raw } = require('./fixtures/native.cjs');
 const user = (s,text) => s.appendTurn(scope,{role:'user',kind:'discussion',text});
-const options = s => ({baseRevision:s.getCompanion(scope).revision,sourceIds:s.memorySources(scope).map(x=>x.id),sourceRevisions:Object.fromEntries(s.memorySources(scope).map(x=>[x.id,x.revision]))});
+const options = s => {const sources=s.memorySources(scope),read=s.readOriginalEvidence(scope,{sourceIds:sources.map(source=>source.id),maxBytes:100000});assert.equal(read.coverage.complete,true,'fictional semantic writer actually reads all original evidence');return {baseRevision:s.getCompanion(scope).revision,sourceIds:sources.map(x=>x.id),sourceRevisions:Object.fromEntries(sources.map(x=>[x.id,x.revision])),deliveredSources:read.sources};};
 const claim = (sourceId,extra={}) => ({subject:'contact',aspect:'recent_context',text:'她说本周在准备考试',assertionKind:sourceId.startsWith('qq:')?'stated':'reported',epistemicStatus:'supported',sourceIds:[sourceId],...extra});
 const complete = (batch,extra={}) => ({reviewedSourceIds:batch.reviewedSourceIds,items:[],episodes:[],retire:[],...extra});
 
@@ -53,7 +53,7 @@ test('same evidence and interpretation is idempotent while conflicting interpret
 test('activity timelines keep later cancellation despite older invitation arriving afterwards',t=>{
   const s=new Store(':memory:');t.after(()=>s.close());
   const cancel=normalize(raw('72057594037927999',false,{msgTime:'1791926000',elements:[{textElement:{content:'周日电影先取消吧'}}]}),scope);s.add(scope,[cancel]);
-  const event=(m,eventKind)=>({activityKey:'sunday-film',eventKind,actor:'contact',text:m.text,sourceIds:[`qq:${m.messageId}`]});
+  const event=(m,eventKind)=>({activityKey:'sunday-film',eventKind,actor:'contact',text:m.text,occurredAt:new Date(m.timestamp).toISOString(),sourceIds:[`qq:${m.messageId}`]});
   assert.equal(s.applyRelationshipPatch(scope,{events:[event(cancel,'cancellation')]},options(s)).applied,true);
   const invite=normalize(raw('72057594037927997',true,{msgTime:'1791726000',elements:[{textElement:{content:'周日一起看电影吗'}}]}),scope);s.add(scope,[invite]);
   assert.equal(s.applyRelationshipPatch(scope,{events:[{...event(invite,'invitation'),actor:'self'}]},options(s)).applied,true);
@@ -137,7 +137,7 @@ test('historical relationship view hides future evidence and sharing does not ov
   const s=new Store(':memory:');t.after(()=>s.close());
   const add=(id,at,eventKind,text)=>{
     const m=normalize(raw(id,false,{msgTime:String(Date.parse(at)/1000),elements:[{textElement:{content:text}}]}),scope);s.add(scope,[m]);
-    const r=s.applyRelationshipPatch(scope,{events:[{activityKey:'film',eventKind,actor:'contact',text,sourceIds:[`qq:${id}`]}]},options(s));assert.equal(r.applied,true);
+    const r=s.applyRelationshipPatch(scope,{events:[{activityKey:'film',eventKind,actor:'contact',text,occurredAt:at,sourceIds:[`qq:${id}`]}]},options(s));assert.equal(r.applied,true);
   };
   add('72057594037927990','2026-10-10T10:00:00Z','acceptance','周日可以一起看');
   add('72057594037927991','2026-10-11T10:00:00Z','sharing','想起来电影有个有趣的情节');
@@ -178,14 +178,14 @@ test('structural migration is atomic and future schema versions are rejected wit
   db.exec("CREATE TABLE schema_migrations(version INTEGER PRIMARY KEY,applied_at TEXT NOT NULL,description TEXT NOT NULL); CREATE TRIGGER migration_failure BEFORE INSERT ON schema_migrations BEGIN SELECT RAISE(ABORT,'synthetic migration failure'); END;");db.close();
   assert.throws(()=>new Store(filename),/synthetic migration failure/);db=new DatabaseSync(filename);
   assert.equal(db.prepare("SELECT name FROM sqlite_master WHERE name='memory_records'").get(),undefined);assert.equal(db.prepare('PRAGMA user_version').get().user_version,0);db.exec('DROP TRIGGER migration_failure');db.close();
-  let s=new Store(filename);assert.equal(s.db.prepare('PRAGMA user_version').get().user_version,1);s.close();
+  let s=new Store(filename);assert.equal(s.db.prepare('PRAGMA user_version').get().user_version,2);s.close();
   const future=path.join(dir,'future.db');db=new DatabaseSync(future);db.exec('PRAGMA user_version=99');db.close();
   assert.throws(()=>new Store(future),/newer|unsupported/i);db=new DatabaseSync(future);assert.equal(db.prepare("SELECT count(*) n FROM sqlite_master WHERE type='table'").get().n,0);db.close();
 });
 
 test('an older new batch cannot retire later evidence merely by citing that later evidence too',t=>{
   const s=new Store(':memory:');t.after(()=>s.close());const newer=normalize(raw('72057594037927999',false,{msgTime:'1791926000'}),scope);s.add(scope,[newer]);let b=s.memoryBatch(scope);
-  s.applyMemoryBatch(scope,b,complete(b,{relationshipPatch:{events:[{activityKey:'movie',eventKind:'cancellation',actor:'contact',text:'这次取消',sourceIds:[`qq:${newer.messageId}`]}]}}));
+  s.applyMemoryBatch(scope,b,complete(b,{relationshipPatch:{events:[{activityKey:'movie',eventKind:'cancellation',actor:'contact',text:'这次取消',occurredAt:new Date(newer.timestamp).toISOString(),sourceIds:[`qq:${newer.messageId}`]}]}}));
   const event=s.relationshipView(scope).events[0];const older=normalize(raw('72057594037927990',false,{msgTime:'1791726000'}),scope);s.add(scope,[older]);b=s.memoryBatch(scope);
   const result=s.applyMemoryBatch(scope,b,complete(b,{relationshipPatch:{retire:[{id:event.id,expectedVersion:event.version,lifecycle:'withdrawn',sourceIds:[`qq:${older.messageId}`,`qq:${newer.messageId}`]}]}}));
   assert.equal(result.applied,false);assert.equal(s.relationshipView(scope).activities[0].status,'cancelled');

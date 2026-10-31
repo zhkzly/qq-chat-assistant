@@ -5,7 +5,7 @@ const {validationError}=require('./validation-issues.cjs');
 const {sameScopeIfPresent}=require('./context/source-snapshot.cjs');
 const {sourceClosure}=require('./provenance.cjs');
 const {candidateFields,candidatePaths,normalizeCandidatePath}=require('./candidate-field-paths.cjs');
-const VERSION='whole-answer-fidelity-v3';
+const VERSION='whole-answer-fidelity-v4';
 const marks=new WeakMap(),clone=value=>structuredClone(value);
 const plain=value=>value&&typeof value==='object'&&!Array.isArray(value);
 const hash=value=>createHash('sha256').update(JSON.stringify(value)).digest('hex');
@@ -176,13 +176,27 @@ function parseFidelityResult(value,input){
  const frame=input?.fidelityFrameSnapshot;if(!frame)throw fail('checkRef','fidelity_binding_invalid','A checker result requires its private captured frame');frame.assert();
  if(plain(value)&&marks.has(value)){if(marks.get(value).frame!==frame||marks.get(value).hash!==hash(value))throw fail('checkRef','fidelity_binding_invalid','Checker result belongs to another candidate or was modified');return value;}
  let data=typeof value==='string'?parseModelJson(value):value;
- if(input.sourceWireSnapshot)data=input.sourceWireSnapshot.decode(data);
  if(!plain(data)||Object.keys(data).some(key=>!['checkRef','verdict','issues','concerns'].includes(key))||data.checkRef!=='c1'||
-  !['allow','reject','uncertain'].includes(data.verdict)||!Array.isArray(data.issues)||data.issues.length>12||
-  data.concerns!==undefined&&(!Array.isArray(data.concerns)||data.concerns.length>12))
+  !['allow','reject','uncertain'].includes(data.verdict)||!Array.isArray(data.issues)||data.issues.length>12)
   throw fail('checkRef','fidelity_result_invalid','Return only this checkRef, allow/reject/uncertain and bounded issues; never rewrite or execute');
  const softCodes=['current_boundary','pragmatic_ambiguity','style','helpfulness','coverage_gap'];
- const concerns=[],issues=[];
+ const concerns=[],issues=[],unusableAdvisory=[];
+ const unusableSoft=new Set();
+ if(input.sourceWireSnapshot&&!input.sourceWireSnapshot.isCanonical?.(data)){
+  const wire=input.sourceWireSnapshot,original=data,hard=original.issues.filter(issue=>!softCodes.includes(issue?.code));
+  data=wire.decode({...original,issues:hard,concerns:undefined});
+  const optionalDecode=(raw,field)=>{
+   let failed=false;const decoded=wire.decode({concerns:[raw]},{isolateFields:['concerns'],onRejected:(_field,error)=>{failed=true;unusableAdvisory.push({field,code:error.code,message:error.message.slice(0,700),raw:String(JSON.stringify(raw)).slice(0,1600)});}});
+   return {failed,value:failed?raw:decoded.concerns[0]};
+  };
+  let hardIndex=0;data.issues=original.issues.map((raw,index)=>{
+   if(!softCodes.includes(raw?.code))return data.issues[hardIndex++];
+   const decoded=optionalDecode(raw,`issues[${index}]`);if(decoded.failed)unusableSoft.add(index);return decoded.value;
+  });
+  if(Array.isArray(original.concerns))data.concerns=original.concerns.slice(0,12).flatMap((raw,index)=>{const decoded=optionalDecode(raw,`concerns[${index}]`);return decoded.failed?[]:[decoded.value];});
+  else data.concerns=original.concerns;
+  if(Array.isArray(original.concerns)&&original.concerns.length>12)unusableAdvisory.push({field:'concerns',code:'advisory_limit',omittedCount:original.concerns.length-12});
+ }
  const address=(path,field)=>{
   const canonical=normalizeCandidatePath(path,input.payload.candidatePaths);
   if(canonical===undefined)throw fail(field,'fidelity_candidate_path_invalid',`${field}: received ${JSON.stringify(path)}; choose an offered candidate-relative path: ${input.payload.candidatePaths.join(', ')}`);
@@ -195,14 +209,18 @@ function parseFidelityResult(value,input){
  const quoted=(path,quote)=>typeof quote==='string'&&quote.trim()&&quote.length<=1200&&typeof frame.bodyAt(path)==='string'&&frame.bodyAt(path).includes(quote);
  const concern=(raw,index,field=`concerns[${index}].path`)=>{
   const item=plain(raw)?{...raw,path:address(raw.path,field)}:raw;
-  if(!plain(item)||Object.keys(item).some(key=>!['path','code','quote','sourceIds','evidence','reason'].includes(key))||!softCodes.includes(item.code)||
+  if(!plain(item)||Object.keys(item).some(key=>!['path','code','quote','sourceIds','evidence','reason'].includes(key))||typeof item.code!=='string'||!item.code.trim()||item.code.length>80||
    typeof item.reason!=='string'||!item.reason.trim()||item.reason.length>500||item.quote!==undefined&&!quoted(item.path,item.quote))
    throw fail(`concerns[${index}]`,'fidelity_result_invalid','Nonblocking concerns cite a visible path; they are private diagnostics, not new facts or warnings');
   if(item.sourceIds!==undefined&&(!Array.isArray(item.sourceIds)||item.sourceIds.some(id=>!frame.sourceIds.has(id)))||item.evidence!==undefined&&(!Array.isArray(item.evidence)||item.evidence.length>8||item.evidence.some(ref=>!plain(ref)||Object.keys(ref).some(key=>!['sourceId','quote'].includes(key))||typeof ref.quote!=='string'||!ref.quote.trim()||!frame.evidenceAt(ref.sourceId)?.text.includes(ref.quote))))throw fail(`concerns[${index}].evidence`,'fidelity_result_invalid','Private concerns cannot invent evidence witnesses');
   concerns.push(clone(item));
  };
+ const optionalConcern=(raw,index,field)=>{
+  try{concern(raw,index,field);}catch(error){unusableAdvisory.push({field:field||`concerns[${index}]`,code:error.code||'invalid_advisory',message:error.message,raw:String(JSON.stringify(raw)).slice(0,1600)});}
+ };
  for(const [index,raw]of data.issues.entries()){
-  if(softCodes.includes(raw?.code)){concern(raw,index,`issues[${index}].path`);continue;}
+  if(unusableSoft.has(index))continue;
+  if(softCodes.includes(raw?.code)){optionalConcern(raw,index,`issues[${index}].path`);continue;}
   const issue=plain(raw)?{...raw,path:address(raw.path,`issues[${index}].path`),...(Object.hasOwn(raw,'relatedPath')?{relatedPath:address(raw.relatedPath,`issues[${index}].relatedPath`)}:{})}:raw;
   if(!plain(issue)||Object.keys(issue).some(key=>!['path','code','quote','sourceIds','evidence','basis','relatedPath','relatedQuote','reason'].includes(key))||
    !['unsupported_fact','private_disclosure','omitted_qualifier','evidence_mismatch','internal_conflict'].includes(issue.code)||!quoted(issue.path,issue.quote)||
@@ -219,10 +237,14 @@ function parseFidelityResult(value,input){
    throw fail(`issues[${index}]`,'fidelity_grounding_missing','Ground a concrete original conflict, unsupported factual assertion, or exact other candidate statement; social/style readings alone cannot veto');
   issues.push(clone(issue));
  }
- for(const [index,item]of (data.concerns||[]).entries())concern(item,index);
- if(data.verdict==='allow'&&issues.length||data.verdict==='reject'&&!issues.length&&!concerns.length)throw fail('issues','fidelity_result_invalid','Allow has no blocking defect; rejection needs one, and concerns never block');
- const verdict=data.verdict==='reject'&&!issues.length&&concerns.length?'allow':data.verdict;
- if(input.manifest)input.manifest.fidelity={...input.manifest.fidelity,reportedVerdict:data.verdict};
+ if(Array.isArray(data.concerns))for(const [index,item]of data.concerns.slice(0,12).entries())optionalConcern(item,index);
+ else if(data.concerns!==undefined)unusableAdvisory.push({field:'concerns',code:'invalid_advisory_container',raw:JSON.stringify(data.concerns).slice(0,1600)});
+ if(Array.isArray(data.concerns)&&data.concerns.length>12)unusableAdvisory.push({field:'concerns',code:'advisory_limit',omittedCount:data.concerns.length-12});
+ if(data.verdict==='allow'&&issues.length||data.verdict==='reject'&&!issues.length&&!concerns.length&&!unusableAdvisory.length)throw fail('issues','fidelity_result_invalid','Allow has no blocking defect; rejection needs one, and concerns never block');
+ // A malformed optional diagnostic neither vetoes a valid core decision nor
+ // supplies the missing proof needed to turn an unsupported rejection into allow.
+ const verdict=data.verdict==='reject'&&!issues.length&&concerns.length?'allow':data.verdict==='reject'&&!issues.length?'uncertain':data.verdict;
+ if(input.manifest)input.manifest.fidelity={...input.manifest.fidelity,reportedVerdict:data.verdict,...(unusableAdvisory.length?{unusableAdvisory}:{})};
  const result=freeze({checkRef:'c1',verdict,issues,...(concerns.length?{concerns}:{})});marks.set(result,{frame,hash:hash(result)});input.sourceWireSnapshot?.markCanonical(result);return result;
 }
 function buildFidelityRepairContext(prepared,checkedInput){

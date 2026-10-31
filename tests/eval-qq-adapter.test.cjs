@@ -1,6 +1,7 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
 const {createAdapterFactory,projectVisibleTurn,memoryPreparationProgressed}=require('../scripts/eval-qq-adapter.cjs');
+const {runMemoryEpisode}=require('../scripts/eval-memory-understanding.cjs');
 const sourceRoot=require('node:path').resolve(__dirname,'..'),asOf='2026-10-29T12:00:00.000Z';
 
 // Field shapes and labels derive from ui/app.js assistantVisibleBody and thread rendering.
@@ -26,6 +27,34 @@ test('prefix preparation accepts committed segment cursor progress and rejects u
  assert.equal(memoryPreparationProgressed(before,{...after,lastReview:null}),false);
  assert.equal(memoryPreparationProgressed(before,{...after,lastReview:{batchId:'batch-a',segments:[{sourceId:'private:long',offset:7709,end:7709}]}}),false);
  assert.equal(memoryPreparationProgressed(after,{...after,version:3}),false);
+});
+test('supplemental scheduled-idle condition leaves prefix maintenance to the existing idle timer',async t=>{
+ const factory=createAdapterFactory({sourceRoot,maxHttp:12,condition:'scheduled_idle_public_memory_observation_v1'}),adapter=await factory.create();t.after(()=>adapter.close());
+ assert.equal(factory.identity.prefix_preparation,'scheduled_only_no_forced_prefix');assert.equal(factory.identity.condition,'scheduled_idle_public_memory_observation_v1');
+ assert.equal(factory.identity.foreground_wall_timeout_ms,300000);assert.equal(factory.identity.native_idle_deadline_ms,65000);assert.equal(factory.identity.idle_outer_headroom_ms,2000);
+ await adapter.open({as_of:asOf,qq_events:[],private_events:[{id:'idle-private',at:'2026-10-29T11:59:00Z',role:'user',text:'实际原始上下文。',provenance:'archived_context'}]},{goal:'保持真实自然的交流。'});
+ const before=await adapter.publicMemoryView();assert.ok(before.memory_status.pending>0);assert.equal(factory.summary().http_attempts,0);
+ await adapter.advanceTo('2026-10-29T12:00:10.000Z');
+ // Ten seconds is shorter than the unchanged native default idle policy. An
+ // observer must retain pending work instead of forcing a ready profile.
+ assert.equal(factory.summary().http_attempts,0);
+ const checkpoint=await adapter.idleUntil(new Date(before.maintenance_schedule.nextAt).toISOString(),{wallTimeoutMs:1000});assert.equal(checkpoint.status,'complete');
+ const after=await adapter.publicMemoryView(),{trace}=await adapter.diagnostics();
+ assert.ok(after.memory_status.processed>before.memory_status.processed);
+ assert.ok(trace.some(e=>e.component==='controller'&&e.method==='maintainMemory'&&e.event==='call'&&!e.args[0].force));
+ assert.ok(!trace.some(e=>e.component==='product_http'&&e.route==='/api/memory-maintain'));
+ assert.equal(factory.summary().http_attempts,1);
+ assert.throws(()=>createAdapterFactory({sourceRoot,prefixPreparation:'normal_host'}),/explicitly identified/);
+ assert.throws(()=>createAdapterFactory({sourceRoot,condition:'force-profile'}),/Unknown supplemental/);
+});
+test('supplemental global HTTP cap retains actual pending view and incomplete fixed foreground request',async()=>{
+ const factory=createAdapterFactory({sourceRoot,maxHttp:1,condition:'scheduled_idle_public_memory_observation_v1'}),adapter=await factory.create();
+ const item={schema_version:1,policy_version:'raw-memory-observation-v1',id:'actual-quota-contract',runtime_goal:'只根据真实原文理解。',initial:{as_of:asOf,qq_events:[],private_events:[{id:'original-private',at:'2026-10-29T11:59:00Z',role:'user',text:'原始已知近况。',provenance:'archived_context'}]},
+  steps:[{id:'s1',as_of:'2026-10-29T12:18:00Z',qq_events:[],private_events:[],source_updates:[],request:{id:'fixed-after-idle',at:'2026-10-29T12:18:00Z',text:'原定问题不因后台预算而换掉。'},external_observation:{user_quiet_ms:600000,wall_timeout_ms:1000,before_request:['visible_memory'],after_request:['assistant_answer','visible_memory_after_idle']}}]};
+ const result=await runMemoryEpisode({item,adapter});assert.equal(result.status,'incomplete');assert.equal(result.steps[0].status,'execution_error');assert.equal(result.steps[0].output,null);
+ assert.equal(result.steps[0].request_receipt.wall_timeout_ms,300000);assert.equal(result.steps[0].request_receipt.status,'failed');assert.ok(Number.isFinite(result.steps[0].request_receipt.wall_elapsed_ms));
+ assert.ok(result.steps[0].memory_observations.some(row=>row.phase==='before_request'));assert.equal(factory.summary().http_attempts,1);assert.ok(factory.summary().blocked_attempts>=1);
+ const requests=result.steps[0].diagnostics.trace.filter(row=>row.component==='product_http'&&row.route==='/api/assistant'&&row.event==='request');assert.equal(requests.length,1);assert.equal(requests[0].args.text,item.steps[0].request.text);
 });
 test('a valid long private source completes preparation through contiguous committed segments',async t=>{
  const factory=createAdapterFactory({sourceRoot,maxHttp:12}),adapter=await factory.create();t.after(()=>adapter.close());

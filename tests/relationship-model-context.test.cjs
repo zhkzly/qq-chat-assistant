@@ -9,6 +9,7 @@ const { assistModel, parseAssistant, SYSTEM } = require('./fixtures/assistant-pr
 const { scope, raw } = require('./fixtures/native.cjs');
 const settings = { baseUrl: 'http://fixture.invalid/v1', model: 'synthetic', anonymous: true };
 const response = value => ({ ok: true, json: async () => ({ choices: [{ message: { content: JSON.stringify(value) } }] }) });
+const semanticOptions=(store,sourceIds)=>{const read=store.readOriginalEvidence(scope,{sourceIds,maxBytes:100000});assert.equal(read.coverage.complete,true);return {baseRevision:store.getCompanion(scope).revision,sourceIds,sourceRevisions:read.coverage.sourceRevisions,deliveredSources:read.sources};};
 
 function fixture(t, text = '我对她有好感，想多认识她，帮我说出来。') {
   const store = new Store(':memory:');
@@ -242,7 +243,7 @@ test('an old relative-week claim without an end date reaches the model as unspec
   store.add(scope, [record]);
   const sourceId = `qq:${record.messageId}`;
   const applied = store.applyRelationshipPatch(scope, { claims: [{ subject: 'contact', aspect: 'recent_context', text: '她说这周备考、周五考完', assertionKind: 'stated', epistemicStatus: 'supported', validFrom: at, sourceIds: [sourceId] }] },
-    { baseRevision: store.getCompanion(scope).revision, sourceIds: [sourceId] });
+    semanticOptions(store,[sourceId]));
   assert.equal(applied.applied, true);
   const turn = store.appendTurn(scope, { role: 'user', kind: 'discussion', text: '现在可以按这个周五约她吗？' });
   const context = buildContext({ scope, records: store.messages(scope), companion: store.getCompanion(scope), turn, requestId: 'relative-week', coverage: { status: 'partial' },
@@ -251,7 +252,8 @@ test('an old relative-week claim without an end date reaches the model as unspec
   assert.equal(context.payload.relationshipContext.claims[0].applicability, 'unspecified');
   assert.equal(context.payload.relationshipContext.claims[0].validUntil, undefined);
   assert.match(RELATIONSHIP_PROTOCOL, /anchored to the original source at/);
-  assert.ok(SYSTEM.includes(RELATIONSHIP_PROTOCOL) && MEMORY_SYSTEM.includes(RELATIONSHIP_PROTOCOL), 'both real model stages receive the same time-grounding rule');
+  assert.equal(SYSTEM.includes(RELATIONSHIP_PROTOCOL),false,'foreground help is not a parallel semantic profile writer');
+  assert.ok(MEMORY_SYSTEM.includes(RELATIONSHIP_PROTOCOL),'the evidence-backed background writer retains the canonical time-grounding rule');
 });
 
 test('a source-backed user-reported shared activity reaches context with its reported authority and never becomes a QQ send', t => {
@@ -260,7 +262,7 @@ test('a source-backed user-reported shared activity reaches context with its rep
   const report = store.appendTurn(scope, { role: 'user', kind: 'discussion', text: activityText });
   const sourceId = `private:${report.id}`;
   assert.equal(store.applyRelationshipPatch(scope, { events: [{ activityKey: 'cooperative-game', eventKind: 'occurred', actor: 'both', text: '用户报告一起玩过合作游戏', sourceIds: [sourceId] }] },
-    { baseRevision: store.getCompanion(scope).revision, sourceIds: [sourceId] }).applied, true);
+    semanticOptions(store,[sourceId])).applied, true);
   const turn = store.appendTurn(scope, { role: 'user', kind: 'discussion', text: '回顾一下这次一起玩的体验，然后考虑下次怎么继续认识。' });
   const experienceContext = store.experiences.context(scope, { query: '合作游戏' });
   const args = { scope, records: [], companion: store.getCompanion(scope), turn, requestId: 'reported-activity', coverage: { status: 'empty' }, availableSources: store.memorySources(scope), experienceContext };
@@ -268,6 +270,9 @@ test('a source-backed user-reported shared activity reaches context with its rep
   const action = context.payload.experienceContext.cases.flatMap(item => item.actualActions).find(action => action.kind === 'user_reported_activity');
   assert.ok(action);
   assert.equal(action.authority, 'reported_not_directly_observed');
+  assert.equal(action.eventAt??null,null,'an unknown reported occurrence cannot become the report timestamp in experience context');
+  assert.equal(action.reportedAt,report.createdAt);
+  assert.equal(action.occurrenceTimeStatus,'unknown');
   assert.deepEqual(action.sourceIds, [sourceId]);
   assert.equal(action.messageId, undefined);
   assert.equal(context.payload.sources.find(source => source.id === sourceId).text, activityText);
@@ -283,7 +288,7 @@ test('forgotten user-reported activity cannot return through a captured experien
   const report = store.appendTurn(scope, { role: 'user', kind: 'discussion', text: 'FORGOTTEN_ACTIVITY_SYNTHETIC 我们昨天一起去看展了。' });
   const sourceId = `private:${report.id}`;
   assert.equal(store.applyRelationshipPatch(scope, { events: [{ activityKey: 'exhibition', eventKind: 'occurred', actor: 'both', text: '用户报告一起看展', sourceIds: [sourceId] }] },
-    { baseRevision: store.getCompanion(scope).revision, sourceIds: [sourceId] }).applied, true);
+    semanticOptions(store,[sourceId])).applied, true);
   const staleExperience = store.experiences.context(scope, { query: '看展' });
   assert.ok(staleExperience.cases.length);
   assert.equal(store.forgetSource(scope, sourceId), true);

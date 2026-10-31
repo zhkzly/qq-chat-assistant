@@ -102,7 +102,7 @@ function wordingControlsForContext(prepared,info={}){
   const typed=record.subject!==undefined;
   const userPreference=typed?record.subject==='self'&&record.aspect==='stated_preference'&&record.lifecycle==='active'&&record.assertionKind==='stated'&&record.epistemicStatus==='supported':
    record.kind==='preference'&&record.status==='active'&&record.certainty==='stated';
-  if(!userPreference||record.reviewComplete!==true||record.use==='disabled'||record.context||/如果|除非|只有|时候|有时|偶尔/.test(record.text)||
+  if(!userPreference||record.reviewComplete!==true||record.use==='disabled'||record.context||record.condition||['local','temporary','conditional','unspecified'].includes(record.applicabilityKind)||/如果|除非|只有|时候|有时|偶尔/.test(record.text)||
     ['inactive','needs_review','expired','not_yet_valid'].includes(record.currentApplicability||record.applicability)||
     record.validFrom&&Date.parse(record.validFrom)>asOf||record.validUntil&&Date.parse(record.validUntil)<asOf)continue;
   const evidence=supported(record.sourceIds);if(!evidence)continue;

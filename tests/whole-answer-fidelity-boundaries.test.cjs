@@ -33,7 +33,7 @@ test('checker issues can identify only real visible paths and supplied original 
  for(const path of ['text','discussionExplanation.text','suggestions[0].text','suggestions[0].style','expressionOptions[0].label']){
   const verdict=parseFidelityResult({checkRef:'c1',verdict:'reject',issues:[{path,code:'current_boundary',quote:bodies[path],sourceIds:[sourceId],evidence:[{sourceId,quote:app.current.text}],reason:'Scripted rejection exercises a source-bound visible path, not its semantic rating.'}]},app.context);assert.equal(verdict.verdict,'allow');assert.equal(verdict.concerns[0].path,path);assert.ok(approvalFor(verdict,app.context));
  }
- const grounded={path:'text',code:'current_boundary',quote:app.result.text,evidence:[{sourceId,quote:app.current.text}],reason:'A mechanically grounded contract probe.'};
+ const grounded={path:'text',code:'evidence_mismatch',quote:app.result.text,evidence:[{sourceId,quote:app.current.text}],reason:'A mechanically grounded contract probe.'};
  for(const issue of [{...grounded,path:'draftPlan.guidance',reason:'Not visible.'},{...grounded,sourceIds:['private:unoffered'],reason:'Unknown source.'},{...grounded,evidence:[{sourceId:'private:unoffered',quote:app.current.text}],reason:'Unknown original body.'},{...grounded,code:'grant_permission',reason:'Checker cannot grant.'}])assert.throws(()=>parseFidelityResult({checkRef:'c1',verdict:'reject',issues:[issue]},app.context),invalid);
  const uncertain=parseFidelityResult({checkRef:'c1',verdict:'uncertain',issues:[]},app.context);assert.equal(approvalFor(uncertain,app.context),undefined);
 });

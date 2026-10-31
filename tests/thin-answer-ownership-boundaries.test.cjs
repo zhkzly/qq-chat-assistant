@@ -179,7 +179,7 @@ for(const placement of ['issues','concerns'])test(`a social current-action conce
  const human='如果她先说想一起去，再帮我邀请；她现在没说，所以这次不邀请。',app=checker({human,message:'这两片新叶看着挺精神。'}),concern={path:'suggestions[0].text',code:'current_boundary',quote:app.result.suggestions[0].text,sourceIds:[app.current.id],evidence:[{sourceId:app.current.id,quote:human}],reason:'A suggested social interpretation is advisory; the complete original stays available.'},verdict=decide(app.context,placement==='issues'?[concern]:[],{verdict:'reject',...(placement==='concerns'?{concerns:[concern]}:{})});
  assert.equal(verdict.verdict,'allow');assert.ok(approvalFor(verdict,app.context));assert.equal(verdict.issues.length,0);assert.deepEqual(verdict.concerns[0].evidence,concern.evidence);
  assert.equal(app.context.payload.evidence.find(item=>item.sourceId===app.current.id).text,human);
- const bad={...concern,evidence:[{sourceId:app.current.id,quote:'An absent original.'}]};assert.throws(()=>decide(app.context,[],{concerns:[bad]}),error=>typed(error,'fidelity_result_invalid'));
+ const bad={...concern,evidence:[{sourceId:app.current.id,quote:'An absent original.'}]};const allowed=decide(app.context,[],{concerns:[bad]});assert.equal(allowed.verdict,'allow');assert.equal(allowed.concerns,undefined);assert.equal(app.context.manifest.fidelity.unusableAdvisory.at(-1).code,'fidelity_result_invalid');
 });
 
 for(const [code,human,message] of [

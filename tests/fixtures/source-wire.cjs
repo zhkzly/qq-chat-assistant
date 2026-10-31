@@ -81,6 +81,12 @@ function restorePayload(payload,revisions,originals,captured){
   }
  }
  if(Array.isArray(payload.sources))payload.sources=payload.sources.map(source=>restoreSource(source,revisions,originals));
+ for(const field of ['recentHumanContext','priorHumanDirections'])for(const reference of payload.taskContext?.[field]||[]){
+  const original=captured?.taskContext?.[field]?.find(item=>item.sourceId===reference.sourceId),source=originals.get(reference.sourceId);
+  // Invert only the exact program-bound model-view expansion. A substituted
+  // body, revision or unoffered reference remains visible to equality checks.
+  if(original?.bodyLocation==='sources'&&!Object.hasOwn(original,'text')&&reference.bodyLocation==='sources'&&source?.revision===revisions.get(reference.sourceId)&&reference.text===source.text)delete reference.text;
+ }
  if(Array.isArray(payload.sources)&&plain(captured?.userRequest)&&plain(payload.userRequest)&&captured.userRequest.sourceId===payload.userRequest.sourceId&&captured.userRequest.text===payload.userRequest.text){
   const current=captured.sources?.find(source=>source.id===payload.userRequest.sourceId);
   if(current?.text===payload.userRequest.text&&!payload.sources.some(source=>source.id===current.id)){
@@ -133,7 +139,7 @@ function wireSourceView(value,receipt,primaryReceipt,canonicalPayload){
      Object.keys(auth.referent).some(key=>!['sourceId','text'].includes(key))||auth.referent.sourceId!==item.sourceId||auth.referent.text!==item.text||
      !plain(auth.permission)||Object.keys(auth.permission).some(key=>!['sourceId','text'].includes(key)))return item;
     const permission=materialFor(auth.permission,false),current=payload.sources?.find(source=>source.id===payload.intentAuthority?.sourceId);
-    candidate=permission&&authorities.find(authority=>authority.kind==='ORIGINALUSERSTATEMENTCANDIDATE'&&authority.materialRef===permission.materialRef);
+    candidate=permission&&authorities.find(authority=>authority.kind==='ORIGINALUSERSTATEMENTCANDIDATE'&&(authority.materialRef===permission.materialRef||authority.wholeOriginal&&authority.sourceId===permission.sourceId&&authority.revision===permission.revision));
     if(!candidate&&current&&auth.permission.sourceId===current.id&&auth.permission.text===current.text)
      candidate=authorities.find(authority=>authority.kind==='ORIGINALUSERSTATEMENTCANDIDATE'&&authority.currentInstruction&&authority.sourceId===current.id&&authority.revision===current.revision);
     if(!candidate)return item;

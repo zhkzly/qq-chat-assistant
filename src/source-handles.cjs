@@ -64,6 +64,7 @@ class SourceHandleOwner {
     return decoded;
    },
    markCanonical:value=>{if(value&&typeof value==='object'){const old=canonical.get(value);if(old&&old!==snapshot)throw new Error('Canonical source result cannot be rebound to another HTTP offer');canonical.set(value,snapshot);}return value;},
+   isCanonical:value=>!!value&&typeof value==='object'&&canonical.get(value)===snapshot,
    project:value=>walk(value,(id,path)=>{if(id==='responsePreference')return id;const entry=[...offered.values()].find(item=>item.sourceId===id);if(!entry)throw fail(path,id);return entry.handle;})
   };
   return Object.freeze(snapshot);

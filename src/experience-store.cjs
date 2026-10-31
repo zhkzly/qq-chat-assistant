@@ -491,13 +491,13 @@ class ExperienceStore {
       const live=this._sources(scope);
       for(const event of records.filter(r=>r.recordType==='relationship_event')){
         if(!Array.isArray(event.sourceIds)||!event.sourceIds.length||event.sourceIds.some(id=>!live.has(id)||live.get(id).revision!==event.sourceRevisions?.[id]))throw new Error('Activity observation needs current scoped source revisions');
-        const id=`activity:${event.activityKey}`,old=this._get(scope,'case',id);
-        const item=old||{id,createdAt:now(),eventAt:event.occurredAt||event.at,goalVersion:this._raw(scope).goal?.version||0,actualActions:[],sourceIds:[],links:[],observations:[],feedbackIds:[],status:'open',attribution:'unlinked'};
+        const id=`activity:${digest(event.activityKey)}`,old=this._get(scope,'case',id);
+        const item=old||{id,createdAt:now(),eventAt:event.occurredAt||null,reportedAt:event.reportedAt||event.at,occurrenceTimeStatus:event.occurrenceTimeStatus||'unknown',goalVersion:this._raw(scope).goal?.version||0,actualActions:[],sourceIds:[],links:[],observations:[],feedbackIds:[],status:'open',attribution:'unlinked'};
         item.activityId=event.activityKey;item.sourceIds=unique([...item.sourceIds,...event.sourceIds]);
         item.observations=item.observations.filter(o=>o.relationshipEventId!==event.id);
-        item.observations.push({kind:'activity_event',relationshipEventId:event.id,eventKind:event.eventKind,text:event.text,sourceIds:event.sourceIds,sourceRevisions:event.sourceRevisions,eventAt:event.occurredAt||event.at,authority:event.origin==='qq_observation'?'derived_from_qq_statements':'derived_from_user_report',lifecycle:event.lifecycle});
-        item.status='observation_available';item.eventAt=event.occurredAt||event.at;
-        if(event.eventKind==='occurred'&&event.lifecycle==='active')item.actualActions=[{kind:'user_reported_activity',activityId:event.activityKey,sourceIds:event.sourceIds,sourceRevisions:event.sourceRevisions,eventAt:event.occurredAt||event.at,authority:'reported_not_directly_observed'}];
+        item.observations.push({kind:'activity_event',relationshipEventId:event.id,eventKind:event.eventKind,text:event.text,sourceIds:event.sourceIds,sourceRevisions:event.sourceRevisions,eventAt:event.occurredAt||null,reportedAt:event.reportedAt||event.at,occurrenceTimeStatus:event.occurrenceTimeStatus||'unknown',authority:event.origin==='qq_observation'?'derived_from_qq_statements':'derived_from_user_report',lifecycle:event.lifecycle});
+        item.status='observation_available';item.eventAt=event.occurredAt||null;item.reportedAt=event.reportedAt||event.at;item.occurrenceTimeStatus=event.occurrenceTimeStatus||'unknown';
+        if(event.eventKind==='occurred'&&event.lifecycle==='active')item.actualActions=[{kind:'user_reported_activity',activityId:event.activityKey,sourceIds:event.sourceIds,sourceRevisions:event.sourceRevisions,eventAt:event.occurredAt||null,reportedAt:event.reportedAt||event.at,occurrenceTimeStatus:event.occurrenceTimeStatus||'unknown',authority:'reported_not_directly_observed'}];
         this._put(scope,'case',id,item);
       }
     });
@@ -611,6 +611,7 @@ class ExperienceStore {
         for (const link of item.links) if (link.artifactRefs.some(r => affected.has(refKey(r)))) { if(link.status!=='invalidated'){link.status = 'invalidated'; link.revision++;modified=true}if (mode === 'forget'&&link.confirmation){delete link.confirmation;modified=true} }
         if (item.sourceIds.some(id => changed.has(id))) {
           item.status = 'invalidated'; modified = true;
+          if(item.activityId){delete item.activityId;item.actualActions=item.actualActions.filter(action=>!(action.sourceIds||[]).some(id=>changed.has(id)));}
         }
         const before = item.observations.length; item.observations = item.observations.filter(o => !changed.has(o.sourceId)&&!(o.sourceIds||[]).some(id=>changed.has(id)));
         if (before !== item.observations.length) modified = true;
@@ -627,9 +628,15 @@ class ExperienceStore {
     if (!item) return null;
     const messages = new Map(this.store.messages(scope).filter(m => !m.recalled).map(m => [m.messageId, m]));
     const live=this._sources(scope);
-    return { ...clone(item), actualActions: item.actualActions.map(a => ({ ...a, text: item.status === 'invalidated' ? '' : a.kind==='qq_message'?messages.get(a.messageId)?.text || '':'用户报告活动发生', availability: item.status === 'invalidated' || a.kind==='qq_message'&&!messages.has(a.messageId) ? 'unavailable' : 'available' })),
+    const events=this.store._memoryRecords(scope).filter(record=>record.recordType==='relationship_event');
+    const unverified=event=>event&&(event.knowledgeSchemaVersion!==2||event.occurrenceTimeStatus==='legacy_unverified'||event.semanticReview?.status==='legacy_unreviewed');
+    const timeView=(record,event)=>unverified(event)?{...record,eventAt:null,reportedAt:event.reportedAt||event.lastEvidenceAt,occurrenceTimeStatus:'legacy_unverified'}:record;
+    const observations=item.observations.map(o=>timeView(o,events.find(event=>event.id===o.relationshipEventId)));
+    const actions=item.actualActions.map(action=>timeView(action,action.kind==='user_reported_activity'&&events.find(event=>event.activityKey===action.activityId&&event.sourceIds.length===(action.sourceIds||[]).length&&event.sourceIds.every(id=>action.sourceIds.includes(id)))));
+    const legacyTime=[...observations,...actions].find(record=>record.occurrenceTimeStatus==='legacy_unverified');
+    return { ...clone(item),...(legacyTime?{eventAt:null,reportedAt:legacyTime.reportedAt,occurrenceTimeStatus:'legacy_unverified'}:{}),actualActions: actions.map(a => ({ ...a, text: item.status === 'invalidated' ? '' : a.kind==='qq_message'?messages.get(a.messageId)?.text || '':'用户报告活动发生', availability: item.status === 'invalidated' || a.kind==='qq_message'&&!messages.has(a.messageId) ? 'unavailable' : 'available' })),
       links: item.links.map(link => ({ ...clone(link), artifacts: link.artifactRefs.map(r => this.readableArtifact(scope, r)).filter(Boolean).map(a => ({ ref: a.ref, text: ['redacted','unavailable'].includes(a.availability) ? '' : a.body, availability: a.availability })) })),
-      observations: item.observations.map(o => ({ ...o, text: o.kind==='activity_event'?(o.sourceIds||[]).every(id=>live.get(id)?.revision===o.sourceRevisions?.[id])?o.text:'':messages.get(o.messageId)?.text || '' })),
+      observations: observations.map(o => ({ ...o, text: o.kind==='activity_event'?(o.sourceIds||[]).every(id=>live.get(id)?.revision===o.sourceRevisions?.[id])?o.text:'':messages.get(o.messageId)?.text || '' })),
       reviews: item.feedbackIds.map(id => this._get(scope, 'feedback', id)).filter(f => f && !f.redacted).map(f => ({ id: f.id, sourceId: f.sourceId, text: f.text, targetRef: f.targetRef,version:f.revision })) };
   }
   list(scope, { limit = 20 } = {}) {

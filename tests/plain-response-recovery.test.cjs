@@ -86,6 +86,8 @@ for (const purpose of ['discussion', 'review']) test(`${purpose} repairs unusabl
   assert.deepEqual(Object.keys(result).sort(), ['kind', 'requestDelivery', 'text']);
   const repair = requestPayload(calls[1]);
   assert.equal(repair.purpose, purpose); assert.deepEqual(canonicalSourceView(repair.originalInput,context.extraRequests[0].manifest.sourceHandles,context.resultContext?.payload||context.payload),context.payload);
+  const changed=structuredClone(repair.originalInput);changed.taskContext.recentHumanContext[0].text='A substituted prior human statement.';
+  assert.notDeepEqual(canonicalSourceView(changed,context.extraRequests[0].manifest.sourceHandles,context.resultContext?.payload||context.payload),context.payload,'normalization must not hide a changed original human body');
   assert.equal(repair.originalInput.userRequest.text, turn.text);
   assert.equal(typeof repair.invalidResponse,'string');assert.equal(typeof repair.formatError,'string');assert.match(repair.task,/operation/);assert.doesNotMatch(repair.task,/requestDelivery为核心|private_help|editable_message/);
   assert.equal(calls[1].tool_choice.function.name,'assistant_result');assert.equal(calls[1].response_format,undefined);

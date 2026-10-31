@@ -237,13 +237,14 @@ function buildContext(options) {
   if(implicitAnchor)preferredCandidateTurnIds.add(implicitAnchor.turnId);
   const candidates={selected,automaticTurn,eligibleTurns,explicitTurnIds,inRecentWindow,validQQ,foldedPrivateIds,essentialIds,recentPlan,timeSegments,timeCandidateIds,timePriorityIds,recentPrivateIds,reviewing,privateRequest,relevantRecord,queryText,protectedPendingIds,selectedProposal,proposals,intentSource,topicView,compacted,coveredTurnIds,candidatePool,preferredCandidateTurnIds};
   const coreInventory=[...(options.coreMemory||options.store?._memoryRecords?.(scope)||[]),...(memoryResult?.items||[]),...memoryIndex,...(relationshipContext?.claims||[])];
-  const {coreItems,optionalRawLimit,optionalRawIds,optionalRetrieved,recentContextPlan,recentPriorityIds,recentInitialAdditionalBytes}=selectPlanningContext({options:{...options,asOf,viewerTimeZone},snapshot,candidates,view:{payload,state,methodSelection,restrictions},budget,coreInventory,projectPlanningViews,reconcilePlanningViews,compactPlanningViews});
+  const {coreItems,optionalRawLimit,optionalRawIds,optionalRetrieved,recentContextPlan,recentPriorityIds,recentInitialAdditionalBytes,consultationSupport}=selectPlanningContext({options:{...options,asOf,viewerTimeZone},snapshot,candidates,view:{payload,state,methodSelection,restrictions},budget,coreInventory,projectPlanningViews,reconcilePlanningViews,compactPlanningViews});
   const editingReferences=offerEditingReferences({payload,companion,sourceTurnIds,currentCandidateRef:implicitAnchor?currentCandidateRef:undefined,store:options.store,scope});
   if(editingReferences.length){payload.editingReferences=editingReferenceView(editingReferences);if(!fits(payload)){delete payload.editingReferences;if(editingReferences.some(item=>item.selection.startsWith('explicit_')))throw new Error('选定改稿原句超过上下文预算；没有静默截断');}}
   const currentRequest=payload.userRequest,position=payload.taskContext;delete payload.userRequest;delete payload.taskContext;
   payload.taskContext=position;payload.userRequest=currentRequest;
   const context=finish(payload, payload.sources, { scope, requestId, companion, coverage }, all, byteBudget, budget);
   attachSelectionManifest(context,{historyPolicy,timeCandidateIds,selected,timeSegments,recentPrivateIds,foldedPrivateIds,coreItems,byId,images,payload,compacted,recentPlan,recentContextPlan,recentPriorityIds,recentInitialAdditionalBytes,optionalRawLimit,optionalRawIds,optionalRetrieved,taskSourceIds:groundedTopic?.sourceIds||[]});
+  if(consultationSupport.length)context.manifest.consultationSupport={fragments:consultationSupport,authority:'original_provenance_not_permission'};
   context.manifest.planningViews={workVersion:payload.work?.version||CONVERSATION_WORK_VERSION,materialVersion:payload.materialView?.version||MATERIAL_VERSION,
     materialRefs:(payload.materialView?.items||[]).map(({kind,sourceIds})=>({kind,sourceIds})),projection:payload.materialView?payload.materialView.projection||'full':'omitted_for_required_evidence'};
   if(implicitAnchor){const delivered=payload.privateCandidates?.find(item=>item.selection==='implicit_discussion_anchor'&&item.turnId===implicitAnchor.turnId);

@@ -5,7 +5,7 @@ const path = require('node:path');
 const assert = require('node:assert/strict');
 const { spawn } = require('node:child_process');
 const { createServer } = require('../src/server.cjs');
-const { Controller } = require('../src/controller.cjs');
+const { Controller } = require('../tests/fixtures/whole-answer-fidelity.cjs');
 const { Store } = require('../src/store.cjs');
 const { raw, scope } = require('../tests/fixtures/native.cjs');
 const { CDP } = require('./cdp.cjs');
@@ -23,10 +23,10 @@ async function until(test, label) { for (let i = 0; i < 80; i++) { if (await tes
         senderUid: selected.peerUid, senderUin: selected.peerUin }, { ...raw('72057594037927938', true), peerUid: selected.peerUid, peerUin: selected.peerUin }] };
       return { source: 'synthetic', messages: [] };
     }, model: async () => { throw new Error('The legacy model path must remain unreachable'); },
-    assistantModel: async (_,context) => context.payload.purpose==='reply' ? {draftPlan:{quotes:[],intent:'reply',style:'natural'}} : ({ kind:'draft', text: '先接住她的疲惫，留一点轻松的空间。', suggestions: [
+    assistantModel: async (_,context) => context.payload.purpose==='fidelity_check' ? {checkRef:context.payload.checkRef,verdict:'allow',issues:[]} : ({ operation:'prepare_message', answer:{ privateExplanation: '先接住她的疲惫，留一点轻松的空间。', suggestions: [
       { style: '自然', text: '辛苦啦，终于能歇会儿了。今晚想怎么放松？' },
       { style: '轻松', text: '今日电量告急😂 先给自己充个电吧' },
-      { style: '温柔', text: '辛苦啦，今晚好好休息，不用急着回我。' }] }) });
+      { style: '温柔', text: '辛苦啦，今晚好好休息，不用急着回我。' }] } }) });
   controller.auto = false; controller.updateStatus({ phase: 'ready', account: { uid: scope.accountUid, uin: scope.accountUin } });
   let resolveDesktop,fillCalls=0,resolveModels;
   const server = createServer({ controller, token: 'synthetic-ui-token', uiDir: path.join(root, 'ui'),saveSettings(){},modelFetch:async url=>{if(String(url).includes('held.invalid'))return new Promise(r=>{resolveModels=r});return {ok:true,json:async()=>({data:[{id:'synthetic-ui-model'},{id:'model-b'},{id:'gpt-image-example'}]})}},inspectDraft:()=>new Promise(r=>{resolveDesktop=r}),fillDraft:async()=>{fillCalls++;return {inserted:true,sent:false}} });

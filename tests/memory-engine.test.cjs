@@ -5,7 +5,8 @@ const {maintainMemory,consolidateMemory,parseMemory}=require('../src/memory-engi
 const {scope}=require('./fixtures/native.cjs');
 const turn=s=>s.appendTurn(scope,{role:'user',kind:'discussion',text:'今天散步时想起她喜欢的展览'});
 const noop=b=>({reviewedSourceIds:b.reviewedSourceIds,items:[],episodes:[],retire:[]});
-const wireNoop=p=>({batchId:p.batchId,reviewedAll:true,items:[],episodes:[],retire:[]});
+const wireNoop=p=>({batchId:p.batchId,reviewedAll:true,relationshipPatch:{claims:[],events:[],retire:[]},episodes:[]});
+const legacyWireNoop=p=>({batchId:p.batchId,reviewedAll:true,items:[],episodes:[],retire:[]});
 const memoryInput=request=>{const p=JSON.parse(JSON.parse(request.body).messages[1].content);return p.originalInput||p;};
 test('maintenance resumes after failure and no-result never counts as processed',async t=>{
   const s=new Store(':memory:');t.after(()=>s.close());turn(s);let calls=0;
@@ -29,7 +30,7 @@ test('HTTP contract sends bounded evidence, no whole private transcript, and rej
     assert.equal(url.pathname,'/v1/chat/completions');const body=JSON.parse(options.body);assert.equal(body.messages.length,2);
     const payload=JSON.parse(body.messages[1].content);assert.equal(payload.sources[0].id,'s1');assert.equal(payload.review.sourceCount,b.sources.length);assert.match(payload.batchId,/^b[0-9a-f]{16}$/);
     assert.equal(payload.privateConversation,undefined);return {ok:true,json:async()=>({choices:[{message:{content:JSON.stringify(wireNoop(payload))}}]})};
-  });assert.deepEqual(response,noop(b));
+  });const {originalDelivery,...semanticResult}=response;assert.deepEqual(semanticResult,{...noop(b),relationshipPatch:{claims:[],events:[],retire:[]}});assert.deepEqual(originalDelivery,b.sources.filter(source=>!source.deleted),'decoded evidence is the actual captured scoped original, not model-authored text');
   assert.throws(()=>parseMemory('{}'),/reviewedSourceIds/);
   await assert.rejects(()=>consolidateMemory({},b),/配置模型/);
 });
@@ -70,7 +71,7 @@ test('wire aliases reconstruct exact long original IDs and prior record identiti
     assert.equal(payload.sources[0].id,'s1');assert.equal(payload.contextSources[0].id,'c1');assert.equal(payload.priorMemory.items[0].id,'m1');
     assert.deepEqual(payload.priorMemory.items[0].sourceIds,['c1']);
     for(const id of [firstId,later.id,prior.id])assert.equal(request.body.includes(id),false);
-    return {ok:true,json:async()=>({choices:[{message:{content:JSON.stringify({...wireNoop(payload),retire:[{id:'m1',sourceIds:['s1','c1','s1'],status:'cancelled'}]})}}]})};
+    return {ok:true,json:async()=>({choices:[{message:{content:JSON.stringify({...legacyWireNoop(payload),retire:[{id:'m1',sourceIds:['s1','c1','s1'],status:'cancelled'}]})}}]})};
   });
   assert.equal(JSON.stringify(batch),before);assert.deepEqual(result.reviewedSourceIds,[`private:${later.id}`]);
   assert.equal(result.retire[0].id,prior.id);assert.deepEqual(result.retire[0].sourceIds,[`private:${later.id}`,`qq:${firstId}`]);
@@ -145,7 +146,7 @@ test('background quote aliases retain time and cannot replace excluded or missin
 
 test('wire review receipt rejects absent, false and mismatched acknowledgments without advancing any queued source',async t=>{
   const s=new Store(':memory:');t.after(()=>s.close());turn(s);const batch=s.memoryBatch(scope);
-  for(const change of [p=>({...wireNoop(p),reviewedAll:false}),p=>{const r=wireNoop(p);delete r.reviewedAll;return r;},p=>({...wireNoop(p),batchId:'b0000000000000000'}),p=>{const r=wireNoop(p);delete r.items;return r;},p=>({...noop(batch)})]) {
+  for(const change of [p=>({...wireNoop(p),reviewedAll:false}),p=>{const r=wireNoop(p);delete r.reviewedAll;return r;},p=>({...wireNoop(p),batchId:'b0000000000000000'}),p=>{const r=wireNoop(p);delete r.relationshipPatch;return r;},p=>({...noop(batch)})]) {
     const result=await maintainMemory({store:s,scope,settings:{baseUrl:'http://fixture.invalid/v1',model:'synthetic',anonymous:true},model:(settings,b,signal)=>consolidateMemory(settings,b,signal,async(_,request)=>{
       const p=memoryInput(request);return {ok:true,json:async()=>({choices:[{message:{content:JSON.stringify(change(p))}}]})};
     })});assert.equal(result.status,'error');assert.equal(result.pending,1);assert.equal(result.processed,0);
@@ -157,7 +158,7 @@ test('unknown aliases and original IDs in model citations are rejected with cont
   const s=new Store(':memory:');t.after(()=>s.close());const user=turn(s),batch=s.memoryBatch(scope),secret='PRIVATE_UNKNOWN_REFERENCE';
   for(const entry of [{kind:'fact',text:'Statement',sourceIds:['s999']},{kind:'fact',text:'Statement',sourceIds:[`private:${user.id}`]},{id:secret,kind:'fact',text:'Statement',sourceIds:['s1']}]) {
     await assert.rejects(()=>consolidateMemory({baseUrl:'http://fixture.invalid/v1',model:'synthetic',anonymous:true},batch,undefined,async(_,request)=>{
-      const p=memoryInput(request);return {ok:true,json:async()=>({choices:[{message:{content:JSON.stringify({...wireNoop(p),items:[entry]})}}]})};
+      const p=memoryInput(request);return {ok:true,json:async()=>({choices:[{message:{content:JSON.stringify({...legacyWireNoop(p),items:[entry]})}}]})};
     }),error=>{assert.ok(/unknown/.test(error.message));assert.equal(error.message.includes(secret),false);assert.equal(error.message.includes(user.id),false);return true;});
   }
   assert.equal(s.memoryStatus(scope).pending,1);assert.equal(s.memoryStatus(scope).processed,0);
@@ -180,7 +181,7 @@ test('typed background extraction preserves legacy memories and aliases existing
   assert.equal(s.applyMemoryBatch(scope, batch, { ...noop(batch), items: [{ kind: 'fact', text: '她这周备考', sourceIds: [sourceId], topicKeys: ['考试'] }] }).applied, true);
   assert.equal(s.applyRelationshipPatch(scope, { claims: [{ subject: 'contact', aspect: 'recent_context', text: '她说这周忙着考试', assertionKind: 'stated', epistemicStatus: 'supported', sourceIds: [sourceId] }],
     events: [{ activityKey: 'weekend-game', eventKind: 'decline', actor: 'contact', text: '她说周六先不约', sourceIds: [sourceId] }] },
-  { baseRevision: s.getCompanion(scope).revision, sourceIds: [sourceId] }).applied, true);
+  { baseRevision: s.getCompanion(scope).revision, sourceIds: [sourceId],deliveredSources:s.readOriginalEvidence(scope,{sourceIds:[sourceId],maxBytes:100000}).sources }).applied, true);
   const later = s.appendTurn(scope, { role: 'user', kind: 'discussion', text: '她之前说这周忙着考试、周六先不约。现在她告诉我考完试了，但我不确定她想不想一起玩。' });
   batch = s.memoryBatch(scope);
   assert.ok(batch.priorMemory.claims.length && batch.priorMemory.events.length);

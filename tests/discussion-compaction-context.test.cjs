@@ -116,7 +116,7 @@ test('wrapped early draft preparation is repaired into a complete primary answer
     if(calls.length===1)return response(early);
     const receipt=prepared.extraRequests.at(-1).manifest.sourceHandles,id=receipt.bindings.find(binding=>binding.sourceId===planned.draftPlan.quotes[0].sourceId).handle;
     const material=input.sources.find(source=>source.id===id),body=material.segments.map(segment=>segment.text??segment.parts.map(part=>part[1]).join('')).join('');
-    const authorityRef=material.authorityChoices.originalUserStatementCandidates.find(choice=>choice.materialRef===materialRefForText(material,body)).authorityRef;
+    const authorityRef=material.authorityChoices.originalUserStatementCandidates[0].authorityRef;
     const plan={...planned.draftPlan,quotes:[{materialRef:materialRefForText(material,planned.draftPlan.quotes[0].text),authorityRef}]};
     return response(JSON.stringify({draftPlan:withCurrentDraftControls(plan,prepared.payload),answer:{privateExplanation:'参考表达',suggestions:[{style:'自然',text:'周末一起散步吗？'}]}}));
   });

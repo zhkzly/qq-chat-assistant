@@ -2,14 +2,19 @@
 const test=require('node:test');const assert=require('node:assert/strict');
 const {Store}=require('../src/store.cjs');const {Controller}=require('./fixtures/whole-answer-fidelity.cjs');const {scope,raw}=require('./fixtures/native.cjs');
 function setup(t,model){const store=new Store(':memory:'),fidelityCalls=[];const controller=new Controller({store,assistantModel:async(...args)=>{if(args[1].payload.purpose==='fidelity_check'){fidelityCalls.push(args[1]);return {checkRef:args[1].payload.checkRef,verdict:'allow',issues:[]};}return model(...args);},read:async command=>command==='bind'?scope:{messages:[]},settings:{auto:false,apiKey:'synthetic',model:'synthetic',baseUrl:'http://fixture.invalid',realChatConsent:{accountUid:scope.accountUid,peerUin:scope.peerUin,model:'synthetic',baseUrl:'http://fixture.invalid'}}});controller.updateStatus({phase:'ready',account:{uid:scope.accountUid,uin:scope.accountUin}});t.after(()=>{controller.close();store.close()});return {store,controller,fidelityCalls};}
-test('foreground person understanding and exact artifact methods feed the next scoped decision',async t=>{
+test('foreground navigation waits for the original-evidence writer and exact artifact methods feed the next scoped decision',async t=>{
  let captured,round=0;
  const app=setup(t,async(_settings,context)=>{captured=context;round++;const qq=context.payload.sources.find(source=>source.type==='qq');
   if(round===1)return {kind:'discussion',text:'可以从她明确分享的游戏兴趣接着聊。',methodIds:['choose_next_step'],relationshipPatch:{claims:[{subject:'contact',aspect:'interest',text:'她说喜欢合作游戏',assertionKind:'stated',epistemicStatus:'supported',sourceIds:[qq.id],topicKeys:['合作游戏']}],events:[],retire:[]}};
   return {kind:'discussion',text:'你可以表达想和她一起玩的真实意思。',methodIds:['express_interest']};});
  await app.controller.bind(scope.peerUin);app.controller.live({scope,messages:[raw(undefined,false,{elements:[{textElement:{content:'我挺喜欢合作游戏的'}}]})]});
  await app.controller.assist({text:'想和她多认识一点，从什么聊起？'});
- assert.equal(app.store.relationshipView(scope).contact.length,1);
+ assert.equal(app.store.relationshipView(scope).contact.length,0,'a foreground proposal is not active person knowledge');
+ assert.equal(app.store.memoryStatus(scope).pendingProposals,1);
+ const firstRun=app.store.getCompanion(scope).runs.at(-1);assert.equal(firstRun.relationshipReceipt.queued,true);
+ const batch=app.store.memoryBatch(scope),source=batch.sources.find(source=>source.type==='qq');assert.ok(source);
+ const background=app.store.applyMemoryBatch(scope,batch,{reviewedSourceIds:batch.reviewedSourceIds,relationshipPatch:{claims:[{subject:'contact',aspect:'interest',text:'她说喜欢合作游戏',assertionKind:'stated',epistemicStatus:'supported',applicabilityKind:'recurring',sourceIds:[source.id],topicKeys:['合作游戏']}],events:[],retire:[]},episodes:[]});
+ assert.equal(background.applied,true,JSON.stringify(background));assert.equal(app.store.relationshipView(scope).contact.length,1);
  const answer=app.store.getCompanion(scope).turns.find(turn=>turn.role==='assistant');assert.ok(answer.artifactRef);
  await app.controller.assist({text:'想和她一起玩合作游戏，也想自然表达想多认识她。'});
  assert.ok(captured.payload.methodCatalog.some(method=>method.id==='express_interest'));
@@ -86,8 +91,12 @@ test('a correction cannot upgrade an earlier staged claim to the replacement sou
  await app.controller.assist({text:request,sourceTurnIds:[original.id],taskId:'no-stale-provenance-upgrade'});
  assert.equal(calls,2);assert.equal(app.fidelityCalls.length,1);
  const source=app.store.memorySources(scope).find(s=>s.id===sourceId);assert.equal(source.text,'我周日去了展览');
- const claims=app.store.relationshipView(scope).claims;assert.deepEqual(claims.map(c=>c.text),['用户周日去了展览']);
- assert.equal(claims[0].sourceRevisions[sourceId],source.revision);
+ assert.deepEqual(app.store.relationshipView(scope).claims,[],'the replacement foreground proposal still cannot become an active profile');
+ const batch=app.store.memoryBatch(scope);assert.equal(batch.pendingProposals.length,1);
+ const proposal=batch.pendingProposals[0];assert.deepEqual(proposal.patch.claims.map(c=>c.text),['用户周日去了展览']);
+ assert.equal(proposal.sourceRevisions[sourceId],source.revision,'the queued interpretation is bound only to the actual replacement source revision');
+ assert.equal(app.store.applyMemoryBatch(scope,batch,{reviewedSourceIds:batch.reviewedSourceIds,relationshipPatch:proposal.patch,episodes:[]}).applied,true);
+ const claims=app.store.relationshipView(scope).claims;assert.deepEqual(claims.map(c=>c.text),['用户周日去了展览']);assert.equal(claims[0].sourceRevisions[sourceId],source.revision);
 });
 test('old feedback review commits no-change state and an experience candidate without a stale run revision',async t=>{
  const app=setup(t,async(_settings,context)=>{

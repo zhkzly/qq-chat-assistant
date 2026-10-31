@@ -31,7 +31,7 @@ function resolveDraftMaterial(payload,plan,{restrictions=payload.privateRestrict
  const bindings=[],sourceIds=new Set(),missingAuthorizations=[],ignoredAuthorizations=[];
  const reference=(ref,label,path)=>{
   const source=plain(ref)&&byId.get(ref.sourceId);
-  if(!source||!usable(source)||Object.keys(ref).some(key=>!['sourceId','text'].includes(key))||typeof ref.text!=='string'||!ref.text.trim()||ref.text.length>4000&&!(explicitCurrentPermission&&label==='permission'&&source.id===intentSourceId&&ref.text===source.text)||!source.text.includes(ref.text))
+  if(!source||!usable(source)||Object.keys(ref).some(key=>!['sourceId','text'].includes(key))||typeof ref.text!=='string'||!ref.text.trim()||ref.text.length>4000&&!(explicitCurrentPermission&&label==='permission'&&ref.text===source.text&&ref.text.length<=16000)||!source.text.includes(ref.text))
    throw validationError(`${path}.authorization.${label}`,'draft_material_reference_invalid',`draftPlan.quotes.authorization.${label}: 披露依据必须逐字对应本次提供的原始来源`);
   return source;
  };

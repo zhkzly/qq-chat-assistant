@@ -30,8 +30,8 @@ test('actual rejected legacy episode update receives one same-batch correction b
       model:(configured,batch,signal)=>consolidateMemory(configured,batch,signal,async(_,request)=>{
         calls++;const body=JSON.parse(request.body),p=input(request);
         if(calls===1){
-          first=p;assert.match(body.messages[0].content,/Only typed claims\/events inside relationshipPatch use expectedVersion/);
-          assert.match(body.messages[0].content,/Legacy items, episodes and top-level retire must NEVER include expectedVersion/);
+          first=p;assert.match(body.messages[0].content,/single logical knowledge writer/);
+          assert.match(body.messages[0].content,/necessary original support and new evidence together/);
           rejected={...noop(p),episodes:[{...rejectedEpisode,id:p.priorMemory.episodes[0].id}]};
           if(mode==='result_tool'){
             const episodeSchema=body.tools[0].function.parameters.properties.episodes.items;
@@ -80,8 +80,10 @@ test('wire field lists match existing flat producer schemas, legacy expectedVers
   const {s}=setup(t),batch=s.memoryBatch(scope),request=prepareMemoryRequest({...settings,modelResponseMode:'result_tool'},batch);
   const body=JSON.parse(request.serialized),p=JSON.parse(body.messages[1].content);
   for(const kind of ['items','episodes','retire']){
-    const schema=body.tools[0].function.parameters.properties[kind].items;
-    assert.deepEqual(memoryRecordFields[kind],Object.keys(schema.properties));assert.equal(schema.properties.expectedVersion,undefined);
+    const offered=body.tools[0].function.parameters.properties[kind];
+    if(kind==='episodes'){const schema=offered.items;assert.deepEqual(memoryRecordFields[kind],Object.keys(schema.properties));assert.equal(schema.properties.expectedVersion,undefined);}
+    else assert.equal(offered,undefined,'legacy semantic lanes are not advertised in the normal typed producer schema');
+    assert.equal(memoryRecordFields[kind].includes('expectedVersion'),false,'compatibility decoder still rejects typed-only version fields');
     const value=kind==='items'?{kind:'fact',text:'Fictional statement',sourceIds:['s1'],expectedVersion:1}
       :kind==='episodes'?{...rejectedEpisode,id:p.priorMemory.episodes[0].id}
       :{id:p.priorMemory.episodes[0].id,sourceIds:['s1'],status:'superseded',expectedVersion:1};
@@ -96,7 +98,7 @@ test('typed relationship updates still accept expectedVersion and reject missing
     const {s,old}=setup(t),sourceId=`private:${old[0].id}`;
     assert.equal(s.applyRelationshipPatch(scope,{claims:[{subject:'self',aspect:'recent_context',text:'用户说这是自己的读书笔记网页',assertionKind:'stated',epistemicStatus:'supported',sourceIds:[sourceId]}],
       events:[{activityKey:'reading-notes-page',eventKind:'sharing',actor:'self',text:'用户私下说起自己的读书笔记网页',sourceIds:[sourceId]}]},
-    {baseRevision:s.getCompanion(scope).revision,sourceIds:[sourceId]}).applied,true);
+    {baseRevision:s.getCompanion(scope).revision,sourceIds:[sourceId],deliveredSources:s.readOriginalEvidence(scope,{sourceIds:[sourceId],maxBytes:100000}).sources}).applied,true);
     const batch=s.memoryBatch(scope),request=prepareMemoryRequest({...settings,modelResponseMode:mode},batch),p=JSON.parse(JSON.parse(request.serialized).messages[1].content);
     assert.ok(p.priorMemory.claims.length&&p.priorMemory.events.length);
     const claim={id:p.priorMemory.claims[0].id,expectedVersion:p.priorMemory.claims[0].version,subject:'self',aspect:'recent_context',text:'用户说按标题查找自己的读书摘录已经可用',assertionKind:'stated',epistemicStatus:'supported',sourceIds:['s1']};

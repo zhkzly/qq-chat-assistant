@@ -15,14 +15,18 @@ test('ordinary model envelopes require readable help and expose auxiliary writes
  assert.equal(ordinary.relationshipPatch,undefined);assert.equal(ordinary.experienceProposals,undefined);
  for(const payload of [{...foreground,purpose:'review',experienceProposalPolicy:{enabled:true}},{...foreground,generationOrigin:'user_feedback',experienceProposalPolicy:{enabled:true}}]){
   const properties=responseEnvelope(settings,payload.purpose,payload).tools[0].function.parameters.properties;
-  assert.ok(properties.relationshipPatch);assert.ok(properties.experienceProposals);
+  assert.equal(properties.relationshipPatch,undefined,'foreground review cannot advertise a parallel semantic profile writer');assert.ok(properties.experienceProposals);
  }
  const observation=responseEnvelope(settings,'reply',{...foreground,generationOrigin:'qq_observation'}).tools[0].function.parameters.properties;
  assert.equal(observation.actions,undefined);
  const unenabledReview=responseEnvelope(settings,'review',{...foreground,purpose:'review'}).tools[0].function.parameters.properties;
- assert.ok(unenabledReview.relationshipPatch);assert.equal(unenabledReview.experienceProposals,undefined);
+ assert.equal(unenabledReview.relationshipPatch,undefined);assert.equal(unenabledReview.experienceProposals,undefined);
  const repair=responseEnvelope(settings,'draft_prepare',{purpose:'draft_prepare',originalInput:{...foreground,generationOrigin:'user_feedback',experienceProposalPolicy:{enabled:true}}}).tools[0].function.parameters.properties;
- assert.ok(repair.relationshipPatch&&repair.experienceProposals,'structural repair schema follows the same original task policy as its prompt');
+ assert.equal(repair.relationshipPatch,undefined,'repair cannot reopen the foreground semantic write lane');assert.ok(repair.experienceProposals,'structural repair retains the actual independently enabled experience policy');
+ const memory=responseEnvelope(settings,'memory').tools[0].function.parameters;
+ assert.deepEqual(new Set(memory.required),new Set(['batchId','reviewedAll','relationshipPatch','episodes']));
+ assert.ok(memory.properties.relationshipPatch.properties.claims);assert.ok(memory.properties.relationshipPatch.properties.events);
+ assert.equal(memory.properties.items,undefined);assert.equal(memory.properties.retire,undefined,'normal background knowledge uses typed versioned records; legacy top-level retirement is compatibility only');
 });
 test('model-facing readable lookup/plan branches and legacy pure branches retain parser semantics',()=>{
  const lookup={query:'a concrete earlier exchange'};
@@ -59,7 +63,8 @@ test('normal, recovery and restricted wording share behavior while protocols fol
  const ordinary=prepareAssistantRequest(settings,foreground).request.messages[0].content;
  const review=prepareAssistantRequest(settings,{...foreground,purpose:'review'}).request.messages[0].content;
  assert.ok(!ordinary.includes('claims: {id?'),'ordinary help does not carry the full relationship write protocol');
- assert.ok(review.includes('claims: {id?'));
+ assert.equal(review.includes('claims: {id?'),false,'foreground review no longer repeats the background semantic write protocol');
+ assert.match(review,/长期人物理解由后台按原始证据整理/);assert.match(review,/不写人物画像或推断型relationshipPatch/);
  assert.ok(Buffer.byteLength(ordinary)<12000,'foreground instructions have a bounded readable protocol');
  for(const trigger of ['private_request','manual_suggestion','automatic_observation']){
   const prompt=prepareAssistantRequest(settings,{...foreground,taskContext:{...foreground.taskContext,invocation:{trigger,requestedPurpose:'reply'}}}).request.messages[0].content;

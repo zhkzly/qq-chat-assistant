@@ -3,7 +3,7 @@ const test = require('node:test');
 const {withRequestDelivery}=require('../scripts/synthetic-request-delivery.cjs');
 const assert = require('node:assert/strict');
 const path = require('node:path');
-const { createReplaySession, makeSyntheticTransport } = require('../scripts/eval-runtime-session.cjs');
+const { createReplaySession, makeSyntheticTransport,projectPublicMemory } = require('../scripts/eval-runtime-session.cjs');
 
 // Native-shaped records follow tests/fixtures/native.cjs. These responses test
 // the versioned product adapter, never conversational quality or desktop QQ.
@@ -12,6 +12,7 @@ const asOf = '2026-10-29T12:00:00.000Z';
 const settings = { model: 'synthetic-replay-only', baseUrl: 'http://fixture.invalid/v1', anonymous: true, auto: false };
 const event = (id, at, speaker, text) => ({ id, at, speaker, text });
 const history = [event('original-incoming', '2026-10-29T11:59:00.000Z', 'contact', '书架终于装好了。')];
+const OBSERVATION_CONDITION='scheduled_idle_public_memory_observation_v1';
 const packet = result => new Response(JSON.stringify({ model: settings.model,
   choices: [{ finish_reason: 'stop', message: { content: JSON.stringify(result) } }] }), { status: 200 });
 function input(args) { return JSON.parse(JSON.parse(args.body).messages[1].content); }
@@ -21,6 +22,65 @@ async function setup(t, options = {}) {
   t.after(() => session.close());
   return session;
 }
+
+test('supplemental condition lets the real foreground request cancel slow scheduled memory without prewaiting',async t=>{
+ const fixture=makeSyntheticTransport();let started=0,aborted=0;
+ const session=await setup(t,{condition:OBSERVATION_CONDITION,settleTimeoutMs:150,settings:{...settings,memoryBatchThreshold:1},transport:async(url,args)=>{
+  const p=input(args);if(p.batchId){started++;return new Promise((resolve,reject)=>{const timer=setTimeout(()=>resolve(fixture(url,args)),250);args.signal.addEventListener('abort',()=>{clearTimeout(timer);aborted++;reject(args.signal.reason||Error('aborted'));},{once:true});});}return fixture(url,args);
+ }});
+ await session.advanceTo('2026-10-29T12:00:01.800Z');assert.equal(started,1);
+ const response=await session.post('/api/assistant',{text:'原定时间的问题。',taskId:'original-foreground'});
+ assert.equal(aborted,1);assert.ok(response.companion.turns.some(row=>row.role==='assistant'&&row.requestId==='original-foreground'));
+ assert.ok(session.trace.some(row=>row.component==='model_transport'&&row.event==='abort_signal'&&row.owner==='background_memory'));
+ assert.equal(session.snapshot().derivedMemory.length,0);
+});
+
+test('supplemental idle deadline retains a pending public checkpoint and the fixed foreground question continues',async t=>{
+ const fixture=makeSyntheticTransport();let aborted=0;
+ const session=await setup(t,{condition:OBSERVATION_CONDITION,settings:{...settings,memoryBatchThreshold:1},transport:async(url,args)=>{
+  if(input(args).batchId)return new Promise((resolve,reject)=>{const timer=setTimeout(()=>resolve(fixture(url,args)),250);args.signal.addEventListener('abort',()=>{clearTimeout(timer);aborted++;reject(args.signal.reason||Error('aborted'));},{once:true});});return fixture(url,args);
+ }});
+ const checkpoint=await session.idleUntil('2026-10-29T12:00:10.000Z',{wallTimeoutMs:20});
+ assert.equal(checkpoint.status,'incomplete');assert.equal(checkpoint.reason,'native_deadline');assert.ok(checkpoint.pending_tasks.length>0);
+ const view=await session.publicMemoryView();assert.equal(view.as_of,'2026-10-29T12:00:10.000Z');assert.ok(view.memory_status.pending>0);
+ const response=await session.post('/api/assistant',{text:'仍然按原定问题求助。',taskId:'after-idle-deadline'});assert.equal(aborted,1);
+ assert.ok(response.companion.turns.some(row=>row.requestId==='after-idle-deadline'&&row.role==='assistant'));
+});
+
+test('scheduled legal legacy item remains an incomplete semantic checkpoint while public view and foreground continue',async t=>{
+ const fixture=makeSyntheticTransport();let writes=0;
+ const session=await setup(t,{condition:OBSERVATION_CONDITION,settings:{...settings,memoryBatchThreshold:1},transport:async(url,args)=>{
+  const p=input(args);if(p.batchId){writes++;const source=p.sources.find(row=>!row.deleted);return packet({batchId:p.batchId,reviewedAll:true,items:[{kind:'fact',text:source.text,sourceIds:[source.id],topicKeys:[],status:'active',certainty:'stated'}],episodes:[],retire:[]});}return fixture(url,args);
+ }});
+ const checkpoint=await session.idleUntil('2026-10-29T12:00:10.000Z',{wallTimeoutMs:1000});
+ assert.equal(writes,1);assert.equal(checkpoint.memory_status.pending,0);assert.equal(checkpoint.memory_status.semanticPending,1);assert.equal(checkpoint.product_coverage.semanticPending,0);
+ assert.equal(checkpoint.status,'incomplete');assert.equal(checkpoint.reason,'partial_semantic_review');
+ const view=await session.publicMemoryView();assert.equal(view.memory_status.semanticPending,1);assert.equal(view.as_of,'2026-10-29T12:00:10.000Z');
+ const response=await session.post('/api/assistant',{text:'原定问题仍应继续，不将旧条目当成已核验。',taskId:'legacy-checkpoint-question'});
+ assert.ok(response.companion.turns.some(row=>row.role==='assistant'&&row.requestId==='legacy-checkpoint-question'));
+ assert.ok(!session.trace.some(row=>row.component==='product_http'&&row.route==='/api/memory-maintain'));
+});
+
+test('public errors array prevents a complete idle receipt even after source journal settles',async t=>{
+ const session=await setup(t,{condition:OBSERVATION_CONDITION,settings:{...settings,memoryBatchThreshold:1}});
+ await session.idleUntil('2026-10-29T12:00:10.000Z',{wallTimeoutMs:1000});
+ session.store.recordMemoryError(session.scope,{code:'actual_public_error',message:'Synthetic persisted maintenance failure.'});
+ const checkpoint=await session.idleUntil('2026-10-29T12:00:10.000Z',{wallTimeoutMs:1000});assert.equal(checkpoint.memory_status.pending,0);assert.equal(checkpoint.memory_status.errors[0].code,'actual_public_error');
+ assert.equal(checkpoint.status,'incomplete');assert.equal(checkpoint.reason,'memory_error');
+ assert.equal((await session.publicMemoryView()).memory_status.errors[0].code,'actual_public_error');
+ const response=await session.post('/api/assistant',{text:'原定求助继续。',taskId:'public-error-question'});assert.ok(response.companion.turns.some(row=>row.role==='assistant'&&row.requestId==='public-error-question'));
+});
+
+test('actual pending understanding proposals prevent a complete idle receipt with an empty source journal',async t=>{
+ const session=await setup(t,{condition:OBSERVATION_CONDITION,settings:{...settings,memoryBatchThreshold:1}});
+ await session.idleUntil('2026-10-29T12:00:10.000Z',{wallTimeoutMs:1000});
+ const source=session.store.memorySources(session.scope)[0],companion=session.store.getCompanion(session.scope);
+ const proposal=session.store.queueUnderstandingProposal(session.scope,{claims:[{subject:'contact',aspect:'recent_context',text:source.text,assertionKind:'stated',epistemicStatus:'supported',sourceIds:[source.id]}],events:[],retire:[]},
+  {baseRevision:companion.revision,sourceIds:[source.id],sourceRevisions:{[source.id]:source.revision},requestId:'actual-pending-proposal'});
+ assert.equal(proposal.queued,true);
+ const checkpoint=await session.idleUntil('2026-10-29T12:00:10.000Z',{wallTimeoutMs:1000});assert.equal(checkpoint.memory_status.pending,0);assert.equal(checkpoint.memory_status.pendingProposals,1);
+ assert.equal(checkpoint.status,'incomplete');assert.equal(checkpoint.reason,'pending_proposals');assert.equal((await session.publicMemoryView()).memory_status.pendingProposals,1);
+});
 
 test('product bind and paginated history normalize actual incoming/outgoing string IDs', async t => {
   const events = Array.from({ length: 65 }, (_, i) => event(`archive-${i}`,
@@ -37,6 +97,21 @@ test('product bind and paginated history normalize actual incoming/outgoing stri
   assert.ok(session.trace.some(e => e.component === 'qq_read' && e.method === 'older'));
   await assert.rejects(session.deliver([event('future', '2026-10-29T12:00:01.000Z', 'contact', '还没发生')]), /future/i);
   assert.equal(session.snapshot().total, 65);
+});
+
+test('public memory observation reads the assistant-window route without starting model work', async t => {
+  let calls=0;const transport=makeSyntheticTransport();
+  const session=await setup(t,{transport:async(...args)=>{calls++;return transport(...args);}});
+  const before=session.snapshot(),view=await session.publicMemoryView();
+  assert.deepEqual(view.relationship,projectPublicMemory(before).relationship);
+  assert.deepEqual(view.scope,before.scope);assert.equal(view.as_of,asOf);assert.equal(calls,0);
+  assert.equal(view.capture_scope,'public_read_model_ui_selected_branch_not_rendered_dom');
+  assert.equal(view.source_aliases,undefined);assert.equal(view.source_identities,undefined);
+  assert.ok(session.trace.some(e=>e.component==='product_http'&&e.method==='GET'&&e.route==='/api/state'&&e.event==='response'));
+  assert.ok(!session.trace.some(e=>e.route==='/api/memory-maintain'));
+  const subject=view.relationship.understanding?.contact?.uncertainties||view.relationship.contact;
+  subject.push({id:'observer-mutation'});
+  assert.ok(!JSON.stringify((await session.publicMemoryView()).relationship).includes('observer-mutation'));
 });
 
 test('production HTTP consultation preserves generated replies, actual events and same-session state', async t => {

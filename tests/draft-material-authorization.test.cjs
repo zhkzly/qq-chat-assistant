@@ -46,7 +46,7 @@ test('missing permission is rejected by the planning parser, within its existing
   const request=JSON.parse(args.body),wrapper=JSON.parse(request.messages[1].content),input=wrapper.originalInput||wrapper;calls.push(request);
   const receipt=(wrapper.originalInput?prepared.extraRequests.at(-1).manifest.sourceHandles:prepared.manifest.sourceHandles),id=receipt.bindings.find(binding=>binding.sourceId===plan.quotes[0].sourceId).handle;
   const material=input.sources.find(source=>source.id===id),body=material.segments.map(segment=>segment.text??segment.parts.map(part=>part[1]).join('')).join('');
-  const authorityRef=material.authorityChoices.originalUserStatementCandidates.find(choice=>choice.materialRef===materialRefForText(material,body)).authorityRef;
+  const authorityRef=material.authorityChoices.originalUserStatementCandidates[0].authorityRef;
   const quote={materialRef:materialRefForText(material,FACT),...(calls.length===1?{}:{authorityRef})};
   return {ok:true,json:async()=>({choices:[{message:{content:JSON.stringify({draftPlan:{...plan,quotes:[quote]},answer:{suggestions:[{text:FACT}]}})}}]})};
  });

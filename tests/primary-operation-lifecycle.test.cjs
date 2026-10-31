@@ -145,16 +145,25 @@ test('clarify after a message lookup remains a truthful blocked result instead o
  assert.equal(app.run().manifest.requestDelivery.interpretation.mode,'editable_message');assert.equal(commitObligation.mode,'editable_message');assert.ok(commitObligation.sourceId);assert.ok(commitObligation.sourceRevision);
 });
 
-for(const repropose of [false,true])test(`a valid pre-read relationship proposal ${repropose?'requires an explicit terminal reproposal to commit':'does not commit when the terminal result does not repropose it'}`,async t=>{
+for(const repropose of [false,true])test(`a valid pre-read understanding proposal ${repropose?'queues only after terminal reproposal and awaits background original review':'is not queued when the terminal result does not repropose it'}`,async t=>{
  const statement='我周六下午有空',claim=p=>({text:statement,sourceIds:[p.intentAuthority.sourceId],subject:'self',aspect:'recent_context',assertionKind:'reported',epistemicStatus:'supported'});
  const app=await application(t,(p,_wrapper,index)=>p.purpose==='fidelity_check'?allow(p):index===0?{operation:'lookup',lookup:{sourceIds:[p.sources.find(source=>source.type==='qq').id]},continuation:'advise',relationshipPatch:{claims:[claim(p)]}}:
   {operation:'advise',text:'补读后只保留这次重新核对的判断。',...(repropose?{relationshipPatch:{claims:[claim(p)]}}:{})});
  const reply=await app.assist(statement+'。先补读当前资料，再回顾已有事实。','operation-pre-read-proposal-'+repropose,{purpose:'review'});
  assert.equal(reply.kind,'discussion');assert.equal(app.calls.length,3);const first=app.run().requests.find(request=>request.manifest?.deferredProposals);
  assert.ok(first,'pre-read proposal deferral remains in the recorded product audit');assert.equal(first.manifest.deferredProposals.reason,'lookup_requires_terminal_reproposal');assert.ok(first.manifest.deferredProposals.fields.includes('relationshipPatch'));
- const claims=app.store.relationshipView(scope).claims.filter(item=>item.text===statement);assert.equal(claims.length,repropose?1:0);
- if(repropose){assert.equal(app.run().relationshipReceipt.applied,true);const id=app.contexts.at(-1).payload.intentAuthority.sourceId;assert.deepEqual(claims[0].sourceIds,[id]);}
- else assert.equal(app.run().relationshipReceipt?.applied===true,false);
+ const claims=app.store.relationshipView(scope).claims.filter(item=>item.text===statement);assert.equal(claims.length,0,'foreground proposals never become active profile knowledge');
+ assert.equal(app.store.memoryStatus(scope).pendingProposals,repropose?1:0);
+ if(repropose){
+  assert.equal(app.run().relationshipReceipt.applied,false);assert.equal(app.run().relationshipReceipt.queued,true);
+  const pending=JSON.parse(app.store.db.prepare('SELECT record FROM memory_pending_proposals WHERE scope_key=? AND id=?').get(app.store.scopeKey(scope),app.run().relationshipReceipt.id).record);
+  const id=[...app.contexts].reverse().find(input=>input.payload.purpose!=='fidelity_check').payload.intentAuthority.sourceId;
+  assert.deepEqual(pending.sourceIds,[id]);assert.deepEqual(pending.patch.claims[0].sourceIds,[id]);
+  const batch=app.store.memoryBatch(scope);assert.ok(batch.sources.some(source=>source.id===id&&source.text.includes(statement)));
+  const applied=app.store.applyMemoryBatch(scope,batch,{reviewedSourceIds:batch.reviewedSourceIds,items:[],episodes:[],retire:[],relationshipPatch:pending.patch});
+  assert.equal(applied.applied,true,JSON.stringify(applied));assert.equal(app.store.memoryStatus(scope).pendingProposals,0);
+  const reviewed=app.store.relationshipView(scope).claims.filter(item=>item.text===statement);assert.equal(reviewed.length,1);assert.deepEqual(reviewed[0].sourceIds,[id]);assert.equal(reviewed[0].reviewComplete,true);
+ }else assert.equal(app.run().relationshipReceipt?.applied===true,false);
  assert.equal(app.calls.every(call=>call.p.operationProtocol?.requiredArtifact===undefined),true);
 });
 

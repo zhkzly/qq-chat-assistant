@@ -812,8 +812,8 @@ class Controller extends EventEmitter {
           const patch={claims:[],events:[],retire:[]},refs=new Map();
           for(const proposal of relationshipProposals){for(const key of ['claims','events','retire'])patch[key].push(...(proposal.patch[key]||[]));for(const [id,version]of Object.entries(proposal.manifest.sourceRevisions||{}))if(/^(qq|private|note):/.test(id))refs.set(id,version);}
           for(const key of ['claims','events','retire'])patch[key]=[...new Map(patch[key].map(item=>[JSON.stringify(item),item])).values()];
-          relationshipReceipt=this.store.applyRelationshipPatch(scope,patch,{baseRevision,sourceIds:[...refs.keys()],sourceRevisions:Object.fromEntries(refs),requestId});
-          recordRejection('relationshipPatch',relationshipReceipt);
+          relationshipReceipt=this.store.queueUnderstandingProposal(scope,patch,{baseRevision,sourceIds:[...refs.keys()],sourceRevisions:Object.fromEntries(refs),requestId});
+          if(!relationshipReceipt.queued)recordRejection('relationshipPatch',relationshipReceipt);
         }
         const review=stagedReview;
         if(review&&review.result.kind!=='question'&&(review.result.statePatch||review.result.stateReview==='no_change')){

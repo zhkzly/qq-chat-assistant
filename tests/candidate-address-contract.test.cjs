@@ -47,14 +47,14 @@ test('only currently offered field coordinates survive qualification',()=>{
  const discussion=fixture({candidate:{kind:'discussion',text:'先回应她分享的花盆近况。',suggestions:[],expressionOptions:[],discussionExplanation:undefined}});
  for(const path of ['candidate.suggestions[0].text','candidate.discussionExplanation.text','candidate.expressionOptions[0].label'])assert.throws(()=>parseFidelityResult(reject(unsupported(discussion,path,{quote:discussion.result.text})),discussion.context),pathFailure('issues[0].path',path,discussion.context.payload.candidatePaths),path);
  const conflict={...unsupported(app),code:'internal_conflict',relatedPath:'candidate.evidence[0].text',relatedQuote:app.current.text};assert.throws(()=>parseFidelityResult(reject(conflict),app.context),pathFailure('issues[0].relatedPath',conflict.relatedPath,app.context.payload.candidatePaths));
- const concern={path:'candidate.suggestions[1].text',code:'style',reason:'Not an offered candidate.'};assert.throws(()=>parseFidelityResult({checkRef:'c1',verdict:'allow',issues:[],concerns:[concern]},app.context),pathFailure('concerns[0].path',concern.path,app.context.payload.candidatePaths));
+ const concern={path:'candidate.suggestions[1].text',code:'style',reason:'Not an offered candidate.'};const allowed=parseFidelityResult({checkRef:'c1',verdict:'allow',issues:[],concerns:[concern]},app.context);assert.equal(allowed.verdict,'allow');assert.equal(allowed.concerns,undefined);const diagnostic=app.context.manifest.fidelity.unusableAdvisory.at(-1);assert.equal(diagnostic.code,'fidelity_candidate_path_invalid');assert.ok(diagnostic.message.includes(concern.path));for(const path of app.context.payload.candidatePaths)assert.ok(diagnostic.message.includes(path));
 });
 
 test('field qualification does not rewrite quote text, source IDs or evidence witnesses',()=>{
  const app=fixture({text:'candidate.suggestions[0].text 是这个虚构字符串。',sourceId:'candidate.private:current'}),issue={path:'candidate.suggestions[0].text',code:'current_boundary',quote:app.result.suggestions[0].text,sourceIds:[app.current.id],evidence:[{sourceId:app.current.id,quote:app.current.text}],reason:'Scripted original witness identifiers remain exact.'},parsed=parseFidelityResult(reject(issue),app.context);
  assert.equal(parsed.verdict,'allow');assert.deepEqual(parsed.concerns[0],{...issue,path:'suggestions[0].text'});
  for(const patch of [{quote:'candidate.'+issue.quote},{quote:'suggestions[0].text 是另一个字符串。'},{sourceIds:['private:current']},{evidence:[{sourceId:'private:current',quote:app.current.text}]},{evidence:[{sourceId:app.current.id,quote:'candidate.'+app.current.text}]}]){
-  assert.throws(()=>parseFidelityResult(reject({...issue,...patch}),app.context),typed('fidelity_result_invalid'));
+  assert.throws(()=>parseFidelityResult(reject({...issue,code:'evidence_mismatch',...patch}),app.context),typed('fidelity_result_invalid'));
  }
  assert.equal(parseFidelityResult(reject({...issue,evidence:[]}),app.context).verdict,'allow','a social concern may state uncertainty without an original fact witness');
 });
