@@ -1,7 +1,18 @@
 'use strict';
 const {withoutCurrentControl}=require('./fixtures/wording-lanes.cjs');
-function admittedQuotes(quotes){
- return quotes.map(quote=>{assert.equal(quote.provenance?.version,1);assert.equal(quote.provenance.source.sourceId,quote.sourceId);return {sourceId:quote.sourceId,text:quote.text};});
+function admittedQuotes(quotes,canonicalQuotes,revisions){
+ assert.equal(quotes.length,canonicalQuotes.length);
+ return quotes.map((quote,index)=>{
+  const canonical=canonicalQuotes[index],provenance=canonical.provenance,source=provenance?.source;
+  assert.equal(provenance?.version,1);assert.equal(source.sourceId,canonical.sourceId);
+  assert.equal(source.revision,revisions[canonical.sourceId]);assert.equal(typeof source.revision,'string');
+  const origin=source.type==='note'?{speaker:source.role,noteEditedAt:source.recordedAt,
+   originalRecords:provenance.roots.map(root=>root.type==='note'||root.timeMeaning==='note_edited'?{speaker:root.role,noteEditedAt:root.recordedAt}:{speaker:root.role,recordedAt:root.recordedAt}),
+   originalRecordsStatus:provenance.metadataCompleteness==='roots_unknown'?'unknown':provenance.metadataCompleteness==='roots_summarized'?'partial':provenance.roots.length?'complete':'not_applicable'}
+   :{speaker:source.role,recordedAt:source.recordedAt};
+  assert.deepEqual(quote,{sourceId:canonical.sourceId,text:canonical.text,origin});
+  return {sourceId:quote.sourceId,text:quote.text};
+ });
 }
 
 const {canonicalSourceView}=require('./fixtures/source-wire.cjs');
@@ -65,7 +76,7 @@ for(const mode of ['guidance_only','new_material'])test(`structured repair prese
  assert.equal(repair.payload.originalInput.userRequest.text,text);assert.equal(repair.payload.originalInput.sources.find(source=>source.id===priorId).text,PRIOR);
  assert.equal(draft.purpose,'draft');assert.equal(draft.draftingGuidance.objective.text,OBJECTIVE);assert.equal(draft.draftingGuidance.allowedApproach.text,APPROACH);
  assert.deepEqual(draft.draftingGuidance.objective.sourceIds,[priorId,currentId]);assert.deepEqual(draft.draftingGuidance.allowedApproach.sourceIds,[priorId,currentId]);
- assert.deepEqual(admittedQuotes(draft.outboundQuotes),mode==='new_material'?[{sourceId:currentId,text:NEW_MATERIAL}]:[]);
+ assert.deepEqual(admittedQuotes(draft.outboundQuotes,receipts[2].payload.outboundQuotes,receipts[2].manifest.sourceRevisions),mode==='new_material'?[{sourceId:currentId,text:NEW_MATERIAL}]:[]);
  assert.ok(draft.sources.every(source=>source.type==='qq'),'private instructions are control references, not raw composer sources');
  const other=withoutCurrentControl(draft,text);assert.equal(draft.currentHumanControl.sourceId,currentId);assert.equal(draft.draftingGuidance.authority,'GENERATED_PROPOSAL');
  for(const privateBody of [PRIOR,CRITICISM,'PRIVATE_PRIOR_REASON'])assert.equal(JSON.stringify(other).includes(privateBody),false);

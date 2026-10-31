@@ -7,6 +7,7 @@ const { Store } = require('../src/store.cjs');
 const { buildContext, buildDraftContext, PROMPT_VERSION } = require('../src/assistant-context.cjs');
 const { assistModel, parseAssistant, canonicalSourceView } = require('./fixtures/assistant-protocol.cjs');
 const { TaskLedger } = require('../src/request-budget.cjs');
+const {projectComposerEvidence}=require('../src/context/composer-evidence.cjs');
 const { Controller } = require('./fixtures/assistant-protocol.cjs');
 const { normalize } = require('../src/messages.cjs');
 const { scope, raw } = require('./fixtures/native.cjs');
@@ -110,13 +111,17 @@ test('restricted final draft repairs the whole typed reply using only its valida
   const { args, context, turn } = fixture(t), quote = '直接邀请一起散步';
   const draft = buildDraftContext(context, { quotes: [{ sourceId: `private:${turn.id}`, text: quote }],
     guidance: { ...walkingControls(`private:${turn.id}`),currentStep: { text: '按本次明确意思邀请一起散步', sourceIds: [`private:${turn.id}`] } } }, args), calls = [];
+  const canonicalBefore=structuredClone(draft.payload);
   const result = await assistModel(settings, draft, undefined, async (_url, request) => {
     calls.push(JSON.parse(request.body)); return response(calls.length === 1 ? '{bad final json' : JSON.stringify({kind:'draft',text:'这周有空一起出去走走吗？'}));
   });
   assert.equal(calls.length, 2); assert.equal(result.kind, 'draft'); assert.equal(result.suggestions.length, 1);
   assert.equal(result.suggestions[0].text, '这周有空一起出去走走吗？');
   assert.deepEqual(Object.keys(result).sort(), ['kind', 'suggestions', 'text']);
-  const repair = requestPayload(calls[1]); assert.equal(repair.purpose, 'draft'); assert.deepEqual(canonicalSourceView(repair.originalInput,draft.extraRequests[0].manifest.sourceHandles,draft.payload),draft.payload);
+  const repair = requestPayload(calls[1]); assert.equal(repair.purpose, 'draft'); assert.deepEqual(canonicalSourceView(repair.originalInput,draft.extraRequests[0].manifest.sourceHandles,draft.payload),projectComposerEvidence(draft.payload));
+  assert.deepEqual(draft.payload,canonicalBefore,'wire projection cannot replace canonical repair evidence');
+  assert.deepEqual(draft.extraRequests[0].payload.originalInput,canonicalBefore,'the captured repair keeps full canonical provenance');
+  for(const quote of draft.payload.outboundQuotes){assert.equal(quote.provenance.version,1);assert.equal(quote.provenance.source.sourceId,quote.sourceId);assert.equal(quote.provenance.source.revision,draft.manifest.sourceRevisions[quote.sourceId]);}
   for (const forbidden of ['PRIVATE_GOAL_SENTINEL', 'PRIVATE_MOTIVE_SENTINEL', 'pendingPrivateReview', 'privateConversation', 'discussionCompaction'])
     assert.equal(JSON.stringify(calls).includes(forbidden), false, `${forbidden} must never enter final transport`);
   assert.equal(draft.manifest.responseRecovery,undefined);assert.equal(draft.manifest.preparedResponse.privateExplanation,'absent');

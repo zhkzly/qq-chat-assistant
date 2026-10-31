@@ -14,6 +14,7 @@ const {preparePrimaryFrame,compilePrimaryFrame,primaryValidationFeedback}=requir
 const {projectPrimaryOperationInput,normalizePrimaryOperation,rememberPrimaryOperation,primaryOperationFor,operationValidationFeedback}=require('./primary-operation.cjs');
 const {ValidationIssues,validationError}=require('./validation-issues.cjs');
 const {readPreparedExplanation,rememberPreparedResponse}=require('./prepared-response.cjs');
+const {projectComposerEvidence}=require('./context/composer-evidence.cjs');
 const {parseRequestDelivery,parseDeliveryBlocker,normalizeBlockerQuestion,blockerRenderingWitness,validateTerminalDelivery,editable}=require('./request-delivery.cjs');
 const RELATIONSHIP_PROTOCOL = `relationshipPatch is optional and contains only claims (at most 24), events (at most 12), and retire (at most 24), each an array. An empty patch is {"claims":[],"events":[],"retire":[]}.
 claims: {id?,expectedVersion?,subject,aspect,text,assertionKind,epistemicStatus,lifecycle?,validFrom?,validUntil?,context?,sourceIds,topicKeys?}. subject=${SUBJECTS.join('|')}; aspect=${ASPECTS.join('|')}; assertionKind=${ASSERTIONS.join('|')}; epistemicStatus=${EPISTEMIC.join('|')}; lifecycle=${LIFECYCLES.join('|')} (default active). Inferred claims must remain tentative, contested, or undetermined, never supported. observed requires actual QQ evidence; a private report of an event uses reported. stated means someone said it, not independent proof; contact+stated requires an actual incoming QQ source and only that contact evidence determines its date, not a user's later question. A user's interpretation or retelling of her words must be reported/inferred, never her stated feeling. Unknowns are not personality traits. stated_preference does not authorize changing user preferences.
@@ -82,7 +83,10 @@ function prepareAssistantRequest(settings, payload, images, wireOptions={}) {
   const owner=settings.sourceHandleOwner||new SourceHandleOwner();
   const primaryFrame=preparePrimaryFrame(payload,owner);
   const original=payload?.originalInput||payload;
-  const sourceWire=owner.preview(primaryFrame?projectPrimaryOperationInput(primaryFrame.payload):payload,{...wireOptions,sources:[...(wireOptions.sources||[]),...(original?.sources||[])]}),wirePayload=sourceWire.wirePayload;
+  // Validation and persisted requests retain canonical provenance. Only the
+  // composer wire uses conversational anchors, before exact source encoding.
+  const modelView=primaryFrame?projectPrimaryOperationInput(primaryFrame.payload):projectComposerEvidence(payload);
+  const sourceWire=owner.preview(modelView,{...wireOptions,sources:[...(wireOptions.sources||[]),...(original?.sources||[])]}),wirePayload=sourceWire.wirePayload;
   const actualImages = images || [], text = JSON.stringify(wirePayload);
   const envelope = content => ({ model: settings.model || '', stream: false, temperature: 0.4, max_tokens: 2200,
     ...responseEnvelope(settings,payload?.purpose,wirePayload), messages: [{ role: 'system', content: helpSystemForPayload(wirePayload || {}, promptProtocols) + (payload?.imageContext ? `\n${IMAGE_CONTEXT_RULE}` : '') }, { role: 'user', content }] });

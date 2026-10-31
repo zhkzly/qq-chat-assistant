@@ -1,6 +1,17 @@
 'use strict';
-function admittedQuotes(quotes){
- return quotes.map(quote=>{assert.equal(quote.provenance?.version,1);assert.equal(quote.provenance.source.sourceId,quote.sourceId);return {sourceId:quote.sourceId,text:quote.text};});
+function admittedQuotes(quotes,canonicalQuotes,revisions){
+ assert.equal(quotes.length,canonicalQuotes.length);
+ return quotes.map((quote,index)=>{
+  const canonical=canonicalQuotes[index],provenance=canonical.provenance,source=provenance?.source;
+  assert.equal(provenance?.version,1);assert.equal(source.sourceId,canonical.sourceId);
+  assert.equal(source.revision,revisions[canonical.sourceId]);assert.equal(typeof source.revision,'string');
+  const origin=source.type==='note'?{speaker:source.role,noteEditedAt:source.recordedAt,
+   originalRecords:provenance.roots.map(root=>root.type==='note'||root.timeMeaning==='note_edited'?{speaker:root.role,noteEditedAt:root.recordedAt}:{speaker:root.role,recordedAt:root.recordedAt}),
+   originalRecordsStatus:provenance.metadataCompleteness==='roots_unknown'?'unknown':provenance.metadataCompleteness==='roots_summarized'?'partial':provenance.roots.length?'complete':'not_applicable'}
+   :{speaker:source.role,recordedAt:source.recordedAt};
+  assert.deepEqual(quote,{sourceId:canonical.sourceId,text:canonical.text,origin});
+  return {sourceId:quote.sourceId,text:quote.text};
+ });
 }
 
 const {wireSourceView,canonicalSourceView}=require('./fixtures/source-wire.cjs');
@@ -106,7 +117,7 @@ async function integrationFixture(t,{privateOnly=false}={}){
 test('the actual final text body succeeds after all four task calls are consumed without another repair',async t=>{
  const app=await integrationFixture(t),reply=await app.controller.assist({text:'回应她现在的包；只使用我明确允许分享的小经历，给我完整表达。',taskId:'final-carrier-four-call-task'});
  assert.equal(app.calls.length,4);assert.deepEqual(app.calls.map(call=>call.p.purpose),['discussion','discussion','discussion','draft']);
- const wording=app.calls[3].p,canonical=canonicalSourceView(wording,app.run().requests.at(-1).manifest.sourceHandles);assert.deepEqual(admittedQuotes(canonical.outboundQuotes),[actualQuote]);
+ const wording=app.calls[3].p,canonical=canonicalSourceView(wording,app.run().requests.at(-1).manifest.sourceHandles);assert.deepEqual(admittedQuotes(canonical.outboundQuotes,app.run().requests.at(-1).payload.outboundQuotes,app.run().requests.at(-1).manifest.sourceRevisions),[actualQuote]);
  assert.equal(wording.userRequest,undefined);assert.equal(wording.privateConversation,undefined);assert.equal(wording.goal,undefined);assert.equal(JSON.stringify(wording).includes('PRIVATE_REASON_DO_NOT_DISCLOSE'),false);
  assert.equal(reply.suggestions.length,1);assert.equal(reply.suggestions[0].text,body);assert.equal(app.run().status,'complete');assert.equal(app.run().manifest.requestDelivery.status,'delivered');
  assert.equal(app.run().requests.some(request=>request.purpose==='delivery_repair'||request.purpose==='plain_response_recovery'),false);

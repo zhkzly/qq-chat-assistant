@@ -1,6 +1,17 @@
 'use strict';
-function admittedQuotes(quotes){
- return quotes.map(quote=>{assert.equal(quote.provenance?.version,1);assert.equal(quote.provenance.source.sourceId,quote.sourceId);return {sourceId:quote.sourceId,text:quote.text};});
+function admittedQuotes(quotes,canonicalQuotes,revisions){
+ assert.equal(quotes.length,canonicalQuotes.length);
+ return quotes.map((quote,index)=>{
+  const canonical=canonicalQuotes[index],provenance=canonical.provenance,source=provenance?.source;
+  assert.equal(provenance?.version,1);assert.equal(source.sourceId,canonical.sourceId);
+  assert.equal(source.revision,revisions[canonical.sourceId]);assert.equal(typeof source.revision,'string');
+  const origin=source.type==='note'?{speaker:source.role,noteEditedAt:source.recordedAt,
+   originalRecords:provenance.roots.map(root=>root.type==='note'||root.timeMeaning==='note_edited'?{speaker:root.role,noteEditedAt:root.recordedAt}:{speaker:root.role,recordedAt:root.recordedAt}),
+   originalRecordsStatus:provenance.metadataCompleteness==='roots_unknown'?'unknown':provenance.metadataCompleteness==='roots_summarized'?'partial':provenance.roots.length?'complete':'not_applicable'}
+   :{speaker:source.role,recordedAt:source.recordedAt};
+  assert.deepEqual(quote,{sourceId:canonical.sourceId,text:canonical.text,origin});
+  return {sourceId:quote.sourceId,text:quote.text};
+ });
 }
 
 const {wireSourceView,canonicalSourceView}=require('./fixtures/source-wire.cjs');
@@ -39,7 +50,7 @@ test('indexed missing-reference feedback preserves a real restricted handoff wit
  const controller=new Controller({store,settings,read:async command=>command==='bind'?scope:{messages:[]},assistantModel:(configured,context,signal)=>assistModel(configured,context,signal,async(_url,args)=>{
   const request=JSON.parse(args.body),wrapper=JSON.parse(request.messages[1].content),p=wrapper.originalInput||wrapper;calls.push({request,wrapper,p});
   if(p.purpose==='draft'){
-   assert.deepEqual(admittedQuotes(canonicalSourceView(p,context.manifest.sourceHandles).outboundQuotes),factualPlan().quotes);assert.equal(p.userRequest,undefined);assert.equal(p.goal,undefined);assert.equal(p.privateConversation,undefined);
+   assert.deepEqual(admittedQuotes(canonicalSourceView(p,context.manifest.sourceHandles).outboundQuotes,context.payload.outboundQuotes,context.manifest.sourceRevisions),factualPlan().quotes);assert.equal(p.userRequest,undefined);assert.equal(p.goal,undefined);assert.equal(p.privateConversation,undefined);
    assert.equal(JSON.stringify(p).includes('想告诉她这个小进展'),false);
    return new Response(JSON.stringify({choices:[{message:{content:JSON.stringify({kind:'draft',text:'分享真实进展',suggestions:[{style:'自然',text:'是我给自己记读书笔记的小网页，昨天查找功能终于做好了，还挺开心。你平时怎么留住读到的东西？'}]})}}]}),{status:200});
   }

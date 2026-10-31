@@ -51,7 +51,9 @@ for(const secondFact of [TODAY,'今天查找功能还没有做成，目前还不
  assert.deepEqual(wording.outboundQuotes.map(item=>item.text),facts);assert.equal(wording.editingReference.text,MESSAGE);assert.match(wording.editingReference.authority,/generated|reference|not/i);
  assert.equal(wording.currentHumanControl.text,'以你上一轮实际给我的内容为起点，保留有依据的部分并解释你的改法。');assert.equal(wording.currentHumanControl.authority,'CONTROL_ONLY');
  assert.deepEqual(app.notes.map(note=>app.store.memorySources(scope).find(source=>source.id==='note:'+note.id).text),facts);
- assert.equal(wording.outboundQuotes[0].provenance.source.recordedAt,'2026-09-30T10:00:00.000Z');assert.equal(wording.outboundQuotes[1].provenance.source.recordedAt,'2026-10-01T10:00:00.000Z');
+ assert.equal(wording.outboundQuotes[0].origin.noteEditedAt,'2026-09-30T10:00:00.000Z');assert.equal(wording.outboundQuotes[1].origin.noteEditedAt,'2026-10-01T10:00:00.000Z');
+ assert.deepEqual(app.contexts[1].payload.outboundQuotes.map(quote=>quote.provenance.source.recordedAt),['2026-09-30T10:00:00.000Z','2026-10-01T10:00:00.000Z'],'the canonical source dates remain available privately');
+ assert.ok(app.contexts[1].payload.outboundQuotes.every(quote=>quote.provenance.source.timeMeaning==='note_edited'));
  assert.equal(wording.outboundQuotes.some(item=>item.text===WRONG||item.text===MESSAGE),false,'generated rationale and e1 are not promoted to independent factual quotations');assert.equal(reply.discussionExplanation.text,FINAL_WHY);
 });
 

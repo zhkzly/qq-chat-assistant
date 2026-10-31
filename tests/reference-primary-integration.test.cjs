@@ -92,7 +92,11 @@ function controlledPlan(p){
 test('controller reference primary reaches restricted wording with exact text, recording provenance and canonical storage',async t=>{
  const app=await application(t,p=>{
   if(p.purpose!=='draft')return controlledPlan(p);
-  assert.equal(p.outboundQuotes[0].text,TEXT);assert.equal(p.outboundQuotes[0].provenance.source.recordedAt,'2026-08-31T10:00:00.000Z');
+  assert.equal(p.outboundQuotes[0].text,TEXT);assert.deepEqual(p.outboundQuotes[0].origin,{speaker:'user',recordedAt:'2026-08-31T10:00:00.000Z'});assert.equal(p.outboundQuotes[0].provenance,undefined);
+  const canonical=app.contexts.at(-1),quote=canonical.payload.outboundQuotes[0];
+  assert.equal(quote.text,TEXT);assert.equal(quote.provenance.version,1);assert.equal(quote.provenance.source.sourceId,quote.sourceId);
+  assert.equal(quote.provenance.source.revision,canonical.manifest.sourceRevisions[quote.sourceId]);assert.equal(typeof quote.provenance.source.revision,'string');
+  assert.equal(quote.provenance.source.recordedAt,'2026-08-31T10:00:00.000Z');assert.equal(quote.provenance.source.timeMeaning,'private_statement_recorded');
   assert.equal(p.userRequest,undefined);assert.equal(p.privateConversation,undefined);assert.equal(p.primaryReferenceProtocol,undefined);
   return {kind:'draft',text:'我做了个记摘记的小网页，后来也加上了按标题查找。'};
  });

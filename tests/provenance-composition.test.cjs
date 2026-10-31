@@ -25,8 +25,8 @@ test('actual old admitted fragment reaches wording with its recording time, not 
 test('single admitted proposition remains single evidence while guidance controls composition rather than another sentence to echo',t=>{
  const f=fixture(t),draft=buildDraftContext(f.prepared,f.plan,f.args),request=prepareAssistantRequest(f.args.settings,draft.payload,[]).request;
  assert.equal(draft.payload.outboundQuotes.length,1);assert.equal(draft.payload.outboundQuotes[0].text,FACT);
- assert.match(request.messages[0].content,/记录\/笔记编辑时间不是发生或完成时间|recording.*not.*event/);assert.match(request.messages[0].content,/同一.*一次/);
- assert.match(request.messages[0].content,/明确.*时间|explicit.*temporal/);assert.match(request.messages[0].content,/中性|neutral/);
+ assert.match(request.messages[0].content,/不凭空补事件日期/);assert.match(request.messages[0].content,/同一.*一次/);
+ assert.match(request.messages[0].content,/不否定原文明示日期/);assert.match(request.messages[0].content,/笔记编辑日期不代替原始陈述日期/);assert.match(request.messages[0].content,/未知时间不等于事实存疑/);
  assert.deepEqual(f.plan.quotes[0].text,FACT);
 });
 test('restricted repair and measured rebuild retain essential provenance without private or permission bodies',async t=>{
@@ -34,7 +34,7 @@ test('restricted repair and measured rebuild retain essential provenance without
  const f=fixture(t),draft=buildDraftContext(f.prepared,f.plan,f.args),calls=[];
  const result=await assistModel({...f.args.settings,anonymous:true,baseUrl:'http://fixture.invalid/v1'},draft,undefined,async(_url,args)=>{
   const request=JSON.parse(args.body),wrapper=JSON.parse(request.messages[1].content),p=wrapper.originalInput||wrapper;calls.push({request,p,wrapper});
-  assert.equal(p.outboundQuotes[0].provenance.source.recordedAt,OLD);assert.equal(p.outboundQuotes[0].text,FACT);
+  assert.equal(p.outboundQuotes[0].origin.recordedAt,OLD);assert.equal(p.outboundQuotes[0].provenance,undefined);assert.equal(draft.payload.outboundQuotes[0].provenance.source.recordedAt,OLD);assert.equal(p.outboundQuotes[0].text,FACT);
   const other=withoutCurrentControl(p,f.prepared.payload.sources.find(source=>source.id===f.prepared.payload.intentAuthority.sourceId).text);
   assert.equal(JSON.stringify(other).includes('PRIVATE_BODY_MUST_NOT_CROSS'),false);assert.equal(JSON.stringify(other).includes('我愿把网页的用途和查找进展告诉她'),false);
   return new Response(JSON.stringify({choices:[{message:{content:calls.length===1?'invalid-json':JSON.stringify({kind:'draft',text:'查找功能已经能按标题找回自己的摘记了。'})}}]}),{status:200});
@@ -56,4 +56,18 @@ test('derived-note root metadata does not deliver root bodies and every private 
  for(const root of roots){const sourceId=`private:${root.id}`;assert.ok(draft.manifest.sourceRevisions[sourceId]);assert.equal(draft.payload.sources.some(source=>source.id===sourceId),false);assert.equal(draft.manifest.sourceDelivery.sources.some(source=>source.sourceId===sourceId&&source.status==='delivered'),false);}
  const outside=roots.find(root=>!quote.provenance.roots.some(meta=>meta.sourceId===`private:${root.id}`));store.updateTurn(scope,outside.id,'changed private root');
  assert.throws(()=>assertDraftSourcesCurrent({manifest:draft.manifest},roots.map(root=>`private:${root.id}`),{scope,store}),/变化/);
+});
+
+test('a version-bound leaf NOTE retains its edit anchor instead of becoming an original statement date',()=>{
+ const {buildMaterialProvenance}=require('../src/context/material-provenance.cjs'),{resolveDraftMaterial}=require('../src/context/draft-material.cjs');
+ const root={id:'note:authored-root',type:'note',role:'user',revision:'leaf-note-r1',at:OLD,use:'draft',text:'PRIVATE_ROOT_NOTE_BODY_DO_NOT_FORWARD'},fact='今天查找功能已经能用了。';
+ const note={id:'note:derived-child',type:'note',role:'user',revision:'child-note-r1',at:NOW,use:'draft',text:fact,evidenceSourceIds:[root.id],evidenceRevisions:{[root.id]:root.revision}};
+ const payload={purpose:'discussion',sources:[note],allowedMaterialIds:[note.id]},prepared={payload,fullAvailableSources:[root,note],manifest:{scope,sourceRevisions:{[root.id]:root.revision,[note.id]:note.revision}}};
+ const material=resolveDraftMaterial(payload,{quotes:[{sourceId:note.id,text:fact}]}),canonical=buildMaterialProvenance(prepared,material.quotes,{scope});
+ const input={purpose:'draft',outboundQuotes:canonical.quotes,sources:[]},packet=prepareAssistantRequest({model:'synthetic-note-root'},input,[],{sourceRevisions:prepared.manifest.sourceRevisions}),wire=packet.wirePayload.outboundQuotes[0];
+ assert.equal(canonical.quotes[0].provenance.roots[0].timeMeaning,'note_edited');assert.equal(canonical.quotes[0].provenance.roots[0].recordedAt,OLD);
+ assert.equal(wire.origin.originalStatements?.[0]?.recordedAt,undefined,'a leaf NOTE edit timestamp cannot be labelled an original statement recording date');
+ assert.deepEqual(wire.origin.originalRecords,[{speaker:'user',noteEditedAt:OLD}]);assert.equal(wire.origin.originalRecordsStatus,'complete');assert.equal(wire.origin.noteEditedAt,NOW);assert.equal(wire.text,fact);
+ assert.equal(wire.origin.originalRecords[0].recordedAt,undefined);assert.equal(JSON.stringify(packet.wirePayload).includes(root.text),false);
+ assert.deepEqual(new Set(canonical.dependencies.map(ref=>ref.sourceId)),new Set([root.id,note.id]));assert.deepEqual(packet.payload,input);
 });
