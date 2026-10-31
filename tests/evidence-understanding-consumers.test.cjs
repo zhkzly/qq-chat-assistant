@@ -114,7 +114,7 @@ test('continuing consultation reuses only admitted original facts independently 
 });
 
 test('known QQ response and one private material question can be delivered together without an invented self event',async t=>{
- const app=await application(t,p=>p.purpose==='fidelity_check'?{checkRef:p.checkRef,factual:factualReview(p,{}),verdict:'allow',issues:[]}:{operation:'prepare_message',answer:{suggestions:[{text:'The shelf sounds like a satisfying little project.'}],privateExplanation:'I can respond to the shelf already mentioned. What real recent detail would you like to share about yourself?'}});
+ const app=await application(t,p=>p.purpose==='fidelity_check'?{checkRef:p.checkRef,auditProtocol:'sparse-defects-v1',issues:[]}:{operation:'prepare_message',answer:{suggestions:[{text:'The shelf sounds like a satisfying little project.'}],privateExplanation:'I can respond to the shelf already mentioned. What real recent detail would you like to share about yourself?'}});
  const reply=await app.controller.assist({text:'Respond to her shelf and help me share something real; I have not supplied my own recent detail.',taskId:'partial-help'});
  assert.equal(app.calls.length,2);assert.equal(reply.text,'');assert.equal(reply.suggestions.length,1);assert.match(reply.discussionExplanation.text,/What real recent detail/);assert.deepEqual(app.calls[1].admittedFragments,[]);
 });
@@ -130,6 +130,6 @@ test('an actual valid hard reject with a bad optional source handle still reache
  const reply=await app.controller.assist({text:'Respond to the known shelf, without inventing any personal history.',taskId:'valid-reject-invalid-advisory'});
  assert.equal(app.calls.length,4);assert.equal(primaries,2);assert.equal(checks,2);assert.notEqual(reply.suggestions[0].text,invented);
  const run=app.store.getCompanion(scope).runs.at(-1),checksRun=run.requests.filter(request=>request.purpose==='fidelity_check');
- assert.equal(checksRun[0].manifest.fidelity.unusableAdvisory[0].code,'unknown_source_handle');assert.equal(checksRun[1].manifest.fidelity.unusableAdvisory[0].code,'invalid_advisory_container');
+ assert.ok(checksRun[0].manifest.fidelity.diagnostics.some(item=>item.code==='audit_invalid_concern'));assert.equal(checksRun[1].manifest.fidelity.reviewStatus,'incomplete');
  assert.equal(app.controller.usage.get(scope,'valid-reject-invalid-advisory').requests.filter(request=>request.purpose==='delivery_repair').length,1);assert.equal(app.store.messages(scope).some(message=>message.direction==='outgoing'),false);
 });

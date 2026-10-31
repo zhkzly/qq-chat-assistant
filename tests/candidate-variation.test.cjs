@@ -8,7 +8,7 @@ function fixture(t){
  const settings={auto:false,anonymous:true,baseUrl:'http://fixture.invalid/v1',model:'synthetic-variation',realChatConsent:{...scope,baseUrl:'http://fixture.invalid/v1',model:'synthetic-variation'}};
  const controller=new Controller({store,settings,read:async()=>{throw Error('No QQ read in variation fixtures');},assistantModel:async(_,input)=>{
   calls.push(structuredClone(input.payload));
-  if(input.payload.purpose==='fidelity_check')return {checkRef:input.payload.checkRef,factual:factualReview(input.payload,{}),verdict:'allow',issues:[]};
+  if(input.payload.purpose==='fidelity_check')return {checkRef:input.payload.checkRef,auditProtocol:'sparse-defects-v1',issues:[]};
   return {draftPlan:withCurrentDraftControls({quotes:[],intent:'reply'},input.payload),answer:{privateExplanation:'A fictional complete response.',suggestions:[{style:'自然',text:`Synthetic wording ${calls.length}.`}]}};
  }});controller.scope={...scope};controller.ingest(scope,[raw('57001',false,{elements:[{textElement:{content:'今天逛了家摆满手工小物的小店。'}}]})]);
  t.after(()=>{controller.close();store.close();});return {controller,calls};

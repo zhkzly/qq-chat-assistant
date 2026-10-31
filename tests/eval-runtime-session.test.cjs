@@ -121,7 +121,7 @@ test('production HTTP consultation preserves generated replies, actual events an
   const session = await setup(t, { transport: async (_url, args) => {
     const p = input(args);
     const original=p.originalInput||p;
-    if(original.purpose==='fidelity_check')return packet({checkRef:original.checkRef,factual:factualReview(original,{}),verdict:'allow',issues:[]});
+    if(original.purpose==='fidelity_check')return packet({checkRef:original.checkRef,auditProtocol:'sparse-defects-v1',issues:[]});
     return packet(original.operationProtocol?{operation:'advise',text:`真实适配器保存的合成回答 ${++sequence}：${original.userRequest.text}`} : withRequestDelivery({kind:'discussion',text:`真实适配器保存的合成回答 ${++sequence}：${original.userRequest.text}`},original));
   } });
   const first = await session.post('/api/assistant', { text: '先接她装书架的事。' });

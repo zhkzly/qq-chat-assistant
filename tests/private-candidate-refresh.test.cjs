@@ -14,7 +14,7 @@ function fixture(t){
  const settings={auto:false,anonymous:true,baseUrl:'http://fixture.invalid/v1',model:'synthetic-private-refresh',realChatConsent:{...scope,baseUrl:'http://fixture.invalid/v1',model:'synthetic-private-refresh'}};
  const controller=new Controller({store,settings,read:async()=>{throw Error('No native QQ read in this regression');},assistantModel:async(_,input)=>{
   const p=input.payload;calls.push(structuredClone(p));
-  if(p.purpose==='fidelity_check')return {checkRef:p.checkRef,factual:factualReview(p,{}),verdict:'allow',issues:[]};
+  if(p.purpose==='fidelity_check')return {checkRef:p.checkRef,auditProtocol:'sparse-defects-v1',issues:[]};
   if(corrected&&discussionOnly)return {kind:'discussion',text:'先商量怎样接她的分享，暂不提供另一份表达。'};
   return {kind:'discussion',text:corrected?'接她已分享的小店细节，去掉邀约和直白关系表达。':'先给一份待用户调整的合成参考。',draftPlan:withCurrentDraftControls({quotes:[],intent:'reply'},p),answer:{privateExplanation:'Fictional wording for the current instruction.',suggestions:[{style:corrected?'含蓄':'直白',text:corrected?REVISED:DIRECT}]}};
  }});controller.scope={...scope};controller.ingest(scope,[raw('56001',false,{elements:[{textElement:{content:'今天路过一家小店，里面的手工摆件太多了，我逛了好久。'}}]})]);

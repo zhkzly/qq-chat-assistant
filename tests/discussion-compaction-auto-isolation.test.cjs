@@ -33,7 +33,7 @@ function insertCache(f,record){f.store.db.prepare('INSERT INTO discussion_compac
 test('the actual assistance consumer never purchases compaction for excluded automatic output alone',async t=>{
  const f=fixture(t),seen=[];let compactions=0;
  const controller=new Controller({store:f.store,read:async()=>{throw Error('No native reads');},settings:{...settings,realChatConsent:{...scope,baseUrl:settings.baseUrl,model:settings.model}},
-  assistantModel:async(_settings,input)=>{seen.push(input.payload);if(input.payload.purpose==='fidelity_check')return {checkRef:input.payload.checkRef,factual:factualReview(input.payload,{}),verdict:'allow',issues:[]};return {kind:'discussion',text:'先从她刚才说的具体事情接起。'};},
+  assistantModel:async(_settings,input)=>{seen.push(input.payload);if(input.payload.purpose==='fidelity_check')return {checkRef:input.payload.checkRef,auditProtocol:'sparse-defects-v1',issues:[]};return {kind:'discussion',text:'先从她刚才说的具体事情接起。'};},
   compactionModel:async()=>{compactions++;throw Error('Excluded automatic output must not trigger a compaction request');}});
  controller.scope={...scope};t.after(()=>controller.close());
  await controller.assist({text:'现在怎样自然接着聊？',purpose:'discussion',taskId:'synthetic-auto-isolation-consumer'});
@@ -112,7 +112,7 @@ test('policy changes do not delete legitimate historical replies fingerprint-bou
 test('canonical feedback can explain one exact automatic suggestion without reviving its sibling automatic history',async t=>{
  const f=fixture(t),target=f.automatic[3],seen=[];let compactions=0;
  const controller=new Controller({store:f.store,read:async()=>{throw Error('No native reads');},settings:{...settings,realChatConsent:{...scope,baseUrl:settings.baseUrl,model:settings.model}},
-  assistantModel:async(_settings,input)=>{seen.push(input.payload);if(input.payload.purpose==='fidelity_check')return {checkRef:input.payload.checkRef,factual:factualReview(input.payload,{}),verdict:'allow',issues:[]};return {kind:'discussion',text:'按这份具体反馈解释措辞，尚未发给QQ联系人。'};},
+  assistantModel:async(_settings,input)=>{seen.push(input.payload);if(input.payload.purpose==='fidelity_check')return {checkRef:input.payload.checkRef,auditProtocol:'sparse-defects-v1',issues:[]};return {kind:'discussion',text:'按这份具体反馈解释措辞，尚未发给QQ联系人。'};},
   compactionModel:async()=>{compactions++;throw Error('Automatic siblings are not a private compression task');}});
  controller.scope={...scope};t.after(()=>controller.close());
  const result=await controller.continueFeedback({taskId:'synthetic-exact-auto-feedback',clientEventId:'synthetic-auto-feedback-event',text:'解释我选中的这一句，不要展开以前其它建议。',
@@ -139,7 +139,7 @@ test('legacy scoped run-only automatic evidence is excluded consistently by real
  assert.ok(planDiscussionCompaction({...options,context})===null,'an exact scoped run positive cannot be recycled through compaction');
  let compactions=0,calls=0;
  const controller=new Controller({store,read:async()=>{throw Error('No native reads');},settings:{...settings,realChatConsent:{...scope,baseUrl:settings.baseUrl,model:settings.model}},
-  assistantModel:async(_,input)=>{calls++;if(input.payload.purpose==='fidelity_check')return {checkRef:input.payload.checkRef,factual:factualReview(input.payload,{}),verdict:'allow',issues:[]};return {kind:'discussion',text:'按用户当前问题继续商量。'};},compactionModel:async()=>{compactions++;throw Error('Run-only automatic output is not a compaction task');}});
+  assistantModel:async(_,input)=>{calls++;if(input.payload.purpose==='fidelity_check')return {checkRef:input.payload.checkRef,auditProtocol:'sparse-defects-v1',issues:[]};return {kind:'discussion',text:'按用户当前问题继续商量。'};},compactionModel:async()=>{compactions++;throw Error('Run-only automatic output is not a compaction task');}});
  controller.scope={...scope};t.after(()=>controller.close());await controller.assist({text:'继续当前商量',taskId:'legacy-run-only-consumer'});
  assert.equal(compactions,0);assert.equal(calls,2);
  const persisted=JSON.parse(store.db.prepare('SELECT record FROM companion WHERE scope_key=?').get(store.scopeKey(scope)).record);

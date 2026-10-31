@@ -8,7 +8,9 @@ const {compilePrimaryFrame}=require('../src/primary-frame.cjs');
 const {prepareAssistantRequest,parseAssistant}=require('../src/assistant-model.cjs');
 const {SourceHandleOwner}=require('../src/source-handles.cjs');
 const {boundedSource}=require('../src/context/source-delivery.cjs');
-const {buildFidelityContext,parseFidelityResult,approvalFor}=require('../src/whole-answer-fidelity.cjs');
+const {buildFidelityContext:buildLegacyContext,parseFidelityResult,approvalFor}=require('../src/whole-answer-fidelity.cjs');
+// Historical census decoder unit contract; the native controller uses sparse audit.
+const buildFidelityContext=(prepared,result,info={})=>buildLegacyContext(prepared,result,{...info,auditProtocol:'legacy-census-v7'});
 const {scope}=require('./fixtures/native.cjs');
 const NOW='2026-10-01T10:00:00.000Z';
 const source=(id,text,extra={})=>({id,text,type:'private',role:'user',kind:'discussion',use:'discussion',revision:'revision-'+id,at:NOW,...extra});

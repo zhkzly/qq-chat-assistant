@@ -44,7 +44,7 @@ test('the one existing repair receives all issues and can return one fully valid
  const app=await setup(t,(p,w,index)=>{
   if(p.purpose==='fidelity_check'){
    assert.equal(p.userRequest,undefined);assert.equal(p.goal,app.store.getCompanion(scope).goal.text);assert.equal(JSON.stringify(p.candidate).includes('OLD_PRIVATE_FACT'),false);
-   return {checkRef:p.checkRef,factual:factualReview(p,{}),verdict:'allow',issues:[]};
+   return {checkRef:p.checkRef,auditProtocol:'sparse-defects-v1',issues:[]};
   }
   if(index===0){const value=bad(p);delete value.actions;return value;}
   assert.equal(w.validationIssues.length,2);const id=p.intentAuthority.sourceId,control=text=>({text,sourceIds:[id]});

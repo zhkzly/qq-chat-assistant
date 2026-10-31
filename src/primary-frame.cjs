@@ -24,13 +24,13 @@ function compilePrimaryFrame(raw,snapshot,payload){
   if(delivery.ok)value.requestDelivery=delivery.value;
  }
  const quote=(item,path)=>{
-  if(!plain(item)||Object.keys(item).some(key=>!['materialRef','authorityRef'].includes(key)))
+  if(!plain(item)||Object.keys(item).some(key=>!['materialRef','authorityRef','factQuote','permissionQuote'].includes(key)))
    throw validationError(path,'primary_material_reference_shape',`${path}: choose only materialRef and authorityRef from this request; do not copy source text or legacy authorization fields`);
   if(typeof item.materialRef!=='string'||!item.materialRef)throw validationError(`${path}.materialRef`,'primary_material_reference_missing',`${path}.materialRef: choose a delivered material reference`);
-  const material=snapshot.material(item.materialRef,`${path}.materialRef`);
+  const material=snapshot.material(item.materialRef,`${path}.materialRef`,item.factQuote);
   const authorityRef=Object.hasOwn(item,'authorityRef')?item.authorityRef:snapshot.publicAuthority(material,`${path}.authorityRef`);
   if(typeof authorityRef!=='string'||!authorityRef)throw validationError(`${path}.authorityRef`,'primary_authority_reference_missing',`${path}.authorityRef: private material requires an applicable offered authority; only exact public QQ material may omit it`);
-  const authorization=snapshot.authority(authorityRef,material,`${path}.authorityRef`);
+  const authorization=snapshot.authority(authorityRef,material,`${path}.authorityRef`,item.permissionQuote);
   return {sourceId:material.sourceId,text:material.text,...(authorization?{authorization}:{})};
  };
  const quotes=(items,path)=>{

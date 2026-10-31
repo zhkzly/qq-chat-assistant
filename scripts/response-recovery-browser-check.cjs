@@ -1,7 +1,7 @@
 'use strict';
 // UI-only wire-contract fixture. All conversation data are synthetic. This does
 // not exercise model recovery generation or access QQ/provider/private data.
-const fs=require('node:fs'),os=require('node:os'),path=require('node:path'),assert=require('node:assert/strict');
+const fs=require('node:fs'),os=require('node:os'),path=require('node:path'),vm=require('node:vm'),assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');const {Store}=require('../src/store.cjs');const {Controller}=require('../src/controller.cjs');const {createServer}=require('../src/server.cjs');const {scope}=require('../tests/fixtures/native.cjs');const {CDP}=require('./cdp.cjs');const {actions}=require('./browser-actions.cjs');
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));async function until(check,label){for(let n=0;n<100;n++){if(await check())return;await sleep(100)}throw Error(`Timed out: ${label}`)}
 (async()=>{
@@ -35,7 +35,23 @@ const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));async function unti
   assert.equal(await cdp.evaluate("document.querySelector('#assistant-input').value"),'UNSENT_PRIVATE_THOUGHT_我还没决定怎样表达');assert.equal(await cdp.evaluate('nextPurpose'),'review');assert.equal(store.messages(scope).length,0);assert.equal(modelCalls,0);await ui.composer('recovery UI at370x560');
   checks.push('Only restricted draft recovery offers an editable, manually copied expression; no message is sent and independent composer state survives');
 
-  await ui.click('#contact-button');await ui.fill('#qq-number','2222222222');await ui.click('#contact-form button[type=submit]');await until(()=>controller.scope.peerUin==='2222222222','other contact');assert.equal(await cdp.evaluate("document.querySelectorAll('[data-response-recovery]').length"),0);assert.equal(await cdp.evaluate("document.querySelector('#topic-direction').hidden"),true);assert.equal(await cdp.evaluate('nextPurpose'),'discussion');assert.equal(modelCalls,0);
+  const auditUser=store.appendTurn(scope,{role:'user',kind:'discussion',requestId:'fixture-audit',text:'接住她分享薄荷长新叶的这句话。'});
+  const incomplete=store.appendTurn(scope,{role:'assistant',kind:'draft',requestId:'fixture-audit',text:'',suggestions:[{style:'自然',text:'先替你的小薄荷庆祝一下。'}],sourceIds:[`private:${auditUser.id}`],semanticReview:{status:'incomplete',candidateHash:'a'.repeat(64),bindingHash:'b'.repeat(64),exhaustive:false}});
+  const reviewed=store.appendTurn(scope,{role:'assistant',kind:'discussion',requestId:'fixture-reviewed',text:'可以顺着她的分享接一句。',sourceIds:[`private:${auditUser.id}`],semanticReview:{status:'reviewed',candidateHash:'c'.repeat(64),bindingHash:'d'.repeat(64),exhaustive:false}});controller.changed();
+  await until(()=>cdp.evaluate(`!!document.querySelector('[data-turn-id="${incomplete.id}"] [data-semantic-review=incomplete]')`),'incomplete semantic review notice');
+  assert.equal(await cdp.evaluate(`document.querySelector('[data-turn-id="${incomplete.id}"] [data-semantic-review]').textContent`),'建议已生成；本次内容核对未完成，采用前请确认具体事实和私下信息。');
+  assert.equal(await cdp.evaluate(`document.querySelectorAll('[data-turn-id="${reviewed.id}"] [data-semantic-review]').length`),0,'a completed sparse review does not claim exhaustive certification or show an incomplete notice');
+  await ui.click(`[data-turn-id="${incomplete.id}"] button[data-action=adopt]`);assert.equal(await cdp.evaluate("document.querySelector('#draft').value"),'先替你的小薄荷庆祝一下。');await ui.click('#draft-close');
+  const probe={exports:{}};vm.runInNewContext(`${fs.readFileSync(path.join(root,'plugin/dev-probe.cjs'),'utf8')}\nmodule.exports={captureHelperReload,restoreHelperReload};`,{module:probe,require});
+  assert.equal((await cdp.evaluate(`(${probe.exports.captureHelperReload.toString()})(false)`)).captured,true);
+  await cdp.call('Page.reload');await until(()=>cdp.evaluate(`typeof state!=='undefined'&&!!state?.scope&&!loadingHistory&&!!document.querySelector('[data-turn-id="${incomplete.id}"] [data-semantic-review=incomplete]')`),'semantic review notice persists after refresh');
+  assert.equal((await cdp.evaluate(`(${probe.exports.restoreHelperReload.toString()})()`)).ready,true);
+  assert.equal(await cdp.evaluate("document.querySelector('#assistant-input').value"),'UNSENT_PRIVATE_THOUGHT_我还没决定怎样表达');assert.equal(store.messages(scope).length,0);assert.equal(modelCalls,0);
+  await cdp.evaluate(`document.querySelector('[data-turn-id="${incomplete.id}"] [data-semantic-review]').scrollIntoView({block:'center'})`);
+  const semanticShot=await cdp.call('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});fs.writeFileSync(path.join(evidence,'semantic-review.png'),Buffer.from(semanticShot.data,'base64'));
+  checks.push('Incomplete semantic review is explicit at370x560 and after refresh, remains manually editable, preserves unsent input, and never claims exhaustive certification');
+
+  await ui.click('#contact-button');await ui.fill('#qq-number','2222222222');await ui.click('#contact-form button[type=submit]');await until(()=>controller.scope.peerUin==='2222222222','other contact');assert.equal(await cdp.evaluate("document.querySelectorAll('[data-response-recovery], [data-semantic-review]').length"),0);assert.equal(await cdp.evaluate("document.querySelector('#topic-direction').hidden"),true);assert.equal(await cdp.evaluate('nextPurpose'),'discussion');assert.equal(modelCalls,0);
   checks.push('Recovery notices and temporary topic warning remain bound to the selected conversation');
   fs.writeFileSync(path.join(evidence,'report.json'),JSON.stringify({result:'PASS',evidence:'synthetic-pointer-browser-response-metadata',modelRecoveryGenerationTested:false,realModelCalls:0,nativeQQIntegration:false,checks},null,2));console.log(JSON.stringify({result:'PASS',checks:checks.length,report:path.join(evidence,'report.json')}));
  }catch(error){if(cdp)try{const shot=await cdp.call('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});fs.writeFileSync(path.join(evidence,'failure.png'),Buffer.from(shot.data,'base64'));console.error(`Screenshot: ${path.join(evidence,'failure.png')}`)}catch{}throw error}

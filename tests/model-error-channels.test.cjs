@@ -11,7 +11,7 @@ test('model failure in QQ assistance appears only in the assistant channel and r
 });
 test('fresh private attempt clears a copied legacy model error and preserves unrelated native read errors',async t=>{
  for(const oldGlobal of ['助手模型请求失败： HTTP 429 (capacity)','QQ 读取超时：latest']){
-  const f=fixture(t,async(_,input)=>input.payload.purpose==='fidelity_check'?{checkRef:input.payload.checkRef,factual:factualReview(input.payload,{}),verdict:'allow',issues:[]}:{operation:'advise',text:'A successful synthetic answer.'});f.controller.assistantError='助手模型请求失败： HTTP 429 (capacity)';f.controller.error=oldGlobal;
+  const f=fixture(t,async(_,input)=>input.payload.purpose==='fidelity_check'?{checkRef:input.payload.checkRef,auditProtocol:'sparse-defects-v1',issues:[]}:{operation:'advise',text:'A successful synthetic answer.'});f.controller.assistantError='助手模型请求失败： HTTP 429 (capacity)';f.controller.error=oldGlobal;
   const reply=await f.controller.assist({text:'我刚刚还打算和你聊天的。'});assert.equal(reply.text,'A successful synthetic answer.');assert.equal(f.controller.assistantError,'');assert.equal(f.controller.error,oldGlobal.includes('429')?'':oldGlobal);assert.equal(f.store.getCompanion(scope).turns.at(-2).text,'我刚刚还打算和你聊天的。');
  }
 });

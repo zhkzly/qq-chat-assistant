@@ -14,7 +14,7 @@ function whole(source){const first=source.segments[0].materialRef,last=source.se
 function candidate(p,text=GOOD){
  return {operation:'prepare_message',answer:{privateExplanation:'接住她刚说的具体变化。',suggestions:[{style:'自然',text}]}};
 }
-const allow=p=>({checkRef:p.checkRef,factual:factualReview(p,{}),verdict:'allow',issues:[]});
+const allow=p=>({checkRef:p.checkRef,auditProtocol:'sparse-defects-v1',issues:[]});
 function toolResponse(value,name){return new Response(JSON.stringify({choices:[{finish_reason:'stop',message:{tool_calls:[{id:'fictional-decision-owner',type:'function',function:{name,arguments:JSON.stringify(value)}}]}}]}),{status:200});}
 async function application(t,producer,{limit=4}={}){
  t.mock.method(globalThis,'fetch',async()=>{throw Error('This fictional test permits no external model call');});
@@ -85,9 +85,9 @@ test('missing self material still permits a checked private question without fab
  assert.equal(app.calls.length,2);assert.equal(reply.kind,'question');assert.ok(reply.text.includes(PRIVATE_QUESTION));assert.equal(reply.suggestions,undefined);assert.equal(app.calls[1].p.candidate.text,reply.text);assert.equal(app.calls[1].p.evidence.some(source=>source.type==='qq'),true);assert.equal(app.store.messages(scope).some(message=>message.direction==='outgoing'),false);
 });
 
-for(const verdict of ['malformed','unknown factual kind'])test(`${verdict} checker output fails closed after one bounded same-checker repair without fallback or another model`,async t=>{
+for(const verdict of ['malformed','unknown factual kind'])test(`${verdict} checker output labels the unchanged candidate incomplete without another model or repair`,async t=>{
  const app=await application(t,p=>p.purpose==='fidelity_check'?{...allow(p),...(verdict==='malformed'?{unchecked:true}:{factual:factualReview(p,{'suggestions[0].text':[{quote:p.candidate.suggestions[0].text,kind:'looks_good'}]})})}:candidate(p)),before=app.store.getCompanion(scope);
- await assert.rejects(app.assist(),error=>error.code===(verdict==='malformed'?'fidelity_result_invalid':'factual_statement_invalid'));assert.equal(app.calls.length,3);unchangedCore(app,before);assert.equal(app.run().status,'failed');assert.equal(app.controller.usage.get(scope,'decision-ownership-lifecycle').requests.filter(request=>request.purpose==='delivery_repair').length,1);
+ const reply=await app.assist();assert.equal(reply.semanticReview.status,'incomplete');assert.equal(reply.suggestions[0].text,GOOD);assert.equal(app.calls.length,2);assert.deepEqual(app.store.getCompanion(scope).goal,before.goal);assert.deepEqual(app.store.getCompanion(scope).state,before.state);assert.equal(app.run().status,'complete');assert.equal(app.controller.usage.get(scope,'decision-ownership-lifecycle').requests.filter(request=>request.purpose==='delivery_repair').length,0);
 });
 
 test('a real late Store topic CAS rejection remains fatal and rolls back candidate, state and goal writes',async t=>{

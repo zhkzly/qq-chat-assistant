@@ -35,7 +35,7 @@ async function application(t,producer,{limit=4,noteText}={}){
 }
 
 test('a terminal advise answer must pass the same exact-candidate checker instead of bypassing it',async t=>{
- const app=await application(t,p=>p.purpose==='fidelity_check'?{checkRef:p.checkRef,factual:factualReview(p,{}),verdict:'allow',issues:[]}:{operation:'advise',text:ADVICE}),reply=await app.assist();
+ const app=await application(t,p=>p.purpose==='fidelity_check'?{checkRef:p.checkRef,auditProtocol:'sparse-defects-v1',issues:[]}:{operation:'advise',text:ADVICE}),reply=await app.assist();
  assert.equal(app.calls.length,2,'ordinary advice also requires the read-only check before publication');assert.equal(app.calls[1].p.purpose,'fidelity_check');assert.equal(app.calls[1].p.candidate.text,ADVICE);
  assert.ok(app.calls[1].p.evidence.some(source=>source.text===HUMAN),'the checker sees the original human no-invite control');assert.equal(reply.text,ADVICE);assert.equal(reply.suggestions,undefined);assert.equal(app.calls.some(call=>call.p.purpose==='draft'),false,'the old rewrite/composer is not a substitute checker');
  assert.equal(new Set(app.calls.map(call=>call.taskId)).size,1);assert.equal(app.calls.every(call=>call.request.model==='synthetic-whole-answer-fidelity'),true);assert.equal(app.store.messages(scope).some(message=>message.direction==='outgoing'),false);
@@ -70,17 +70,17 @@ test('invalid material references cannot be laundered by a checker allowance or 
  await assert.rejects(app.assist());assert.equal(app.calls.length,2);assert.equal(app.store.getCompanion(scope).turns.some(turn=>turn.role==='assistant'),false);assert.equal(app.controller.usage.get(scope,'whole-answer-fidelity').status,'failed');
 });
 
-for(const mode of ['uncertain','transport-error','timeout'])test(`checker ${mode} never publishes an unchecked private answer`,async t=>{
+for(const mode of ['uncertain','transport-error','timeout'])test(`checker ${mode} labels incomplete private help without claiming a completed audit`,async t=>{
  const app=await application(t,p=>{if(p.purpose!=='fidelity_check')return {operation:'advise',text:ADVICE};if(mode==='uncertain')return {checkRef:p.checkRef,factual:factualReview(p,{text:[{quote:'她刚分享的两片新叶',kind:'assertion',support:'unverifiable'}]}),verdict:'uncertain',issues:[]};if(mode==='timeout')throw new DOMException('Scripted checker timeout','TimeoutError');throw Error('Scripted checker transport error');});
- await assert.rejects(app.assist());assert.equal(app.store.getCompanion(scope).turns.some(turn=>turn.role==='assistant'),false);assert.equal(app.controller.usage.get(scope,'whole-answer-fidelity').status,'failed');assert.ok(app.calls.length<=4);
+ const reply=await app.assist();assert.equal(reply.semanticReview.status,'incomplete');assert.equal(app.store.getCompanion(scope).turns.filter(turn=>turn.role==='assistant').length,1);assert.equal(app.controller.usage.get(scope,'whole-answer-fidelity').status,'complete');assert.equal(app.calls.length,2);
 });
 
-test('an exhausted shared HTTP budget cannot skip the checker and publish the primary advice',async t=>{
- const app=await application(t,()=>({operation:'advise',text:ADVICE}),{limit:1});await assert.rejects(app.assist(),error=>error.code==='request_budget_exhausted');assert.equal(app.calls.length,1);assert.equal(app.controller.usage.get(scope,'whole-answer-fidelity').attempts,1);assert.equal(app.store.getCompanion(scope).turns.some(turn=>turn.role==='assistant'),false);
+test('an exhausted shared HTTP budget labels the unstarted audit without adding HTTP or certifying the primary',async t=>{
+ const app=await application(t,()=>({operation:'advise',text:ADVICE}),{limit:1}),reply=await app.assist();assert.equal(reply.semanticReview.status,'incomplete');assert.equal(app.calls.length,1);assert.equal(app.controller.usage.get(scope,'whole-answer-fidelity').attempts,1);assert.equal(app.store.getCompanion(scope).turns.filter(turn=>turn.role==='assistant').length,1);
 });
 
 for(const event of ['account','contact','QQ','withdrawal'])test(`a delayed checker allowance cannot publish after an actual ${event} boundary`,async t=>{
- let release,enter;const entered=new Promise(resolve=>{enter=resolve;}),app=await application(t,p=>p.purpose==='fidelity_check'?new Promise(resolve=>{release=()=>resolve({checkRef:p.checkRef,factual:factualReview(p,{}),verdict:'allow',issues:[]});enter();}):prepared(p),{noteText:SELF_MATERIAL});
+ let release,enter;const entered=new Promise(resolve=>{enter=resolve;}),app=await application(t,p=>p.purpose==='fidelity_check'?new Promise(resolve=>{release=()=>resolve({checkRef:p.checkRef,auditProtocol:'sparse-defects-v1',issues:[]});enter();}):prepared(p),{noteText:SELF_MATERIAL});
  const pending=app.assist();pending.catch(()=>{});t.after(()=>release?.());await Promise.race([entered,pending.then(()=>{throw Error('The answer published before the controlled checker');})]);
  assert.equal(app.store.getCompanion(scope).turns.some(turn=>turn.role==='assistant'),false,'no answer is visible while its checker is pending');
  if(event==='account')app.controller.updateStatus({phase:'ready',account:{uid:'different-authenticated-account',uin:'999000'}});
@@ -101,30 +101,29 @@ test('source withdrawal during the one candidate-regeneration repair cannot publ
 
 test('a new explicit-invitation candidate is checked against both original turns under its own current intent',async t=>{
  let invite=false;const invitation='周六要不要一起看看小葱？',app=await application(t,p=>{
-  if(p.purpose==='fidelity_check')return {checkRef:p.checkRef,factual:factualReview(p,{}),verdict:'allow',issues:[]};
+  if(p.purpose==='fidelity_check')return {checkRef:p.checkRef,auditProtocol:'sparse-defects-v1',issues:[]};
   if(!invite)return {operation:'advise',text:ADVICE};const id=p.intentAuthority.sourceId,c=text=>({text,sourceIds:[id]});return {operation:'prepare_message',answer:{privateExplanation:'按这次原话中的明确邀请提出选择。',suggestions:[{text:invitation}]}};
  });
  await app.assist(HUMAN,'fidelity-no-invite');invite=true;const current='这次我改变主意，想直接邀请她周六一起看看小葱。',reply=await app.assist(current,'fidelity-later-invite'),packet=app.calls.at(-1).p;
  assert.equal(reply.suggestions[0].text,invitation);assert.ok(packet.evidence.some(source=>source.text===HUMAN));assert.ok(packet.evidence.some(source=>source.text===current));assert.equal(packet.currentHumanControl.bodyLocation,'evidence');assert.equal(packet.currentHumanControl.sourceId,packet.intentAuthority.sourceId);assert.equal(packet.evidence.find(source=>source.sourceId===packet.currentHumanControl.sourceId).text,current);assert.equal(app.calls.length,4);assert.notEqual(app.calls[0].taskId,app.calls[2].taskId);
 });
 
-for(const event of ['account','contact','QQ','withdrawal'])test(`a same-checker format repair cannot publish after an actual ${event} boundary`,async t=>{
+for(const event of ['account','contact','QQ','withdrawal'])test(`an incomplete checker result cannot publish after an actual ${event} boundary`,async t=>{
  let release,enter,checks=0;const entered=new Promise(resolve=>{enter=resolve;}),app=await application(t,(p,wrapper)=>{
   if(p.purpose!=='fidelity_check')return prepared(p);
-  checks++;if(!wrapper.originalInput)return {checkRef:p.checkRef,factual:factualReview(p,{'suggestions[0].text':[{quote:'Not present in this actual candidate.',kind:'intent'}]}),issues:[]};
-  return new Promise(resolve=>{release=()=>resolve({checkRef:p.checkRef,factual:factualReview(p,{}),issues:[]});enter();});
+  checks++;return new Promise(resolve=>{release=()=>resolve({checkRef:p.checkRef,unchecked:true,issues:[]});enter();});
  },{noteText:SELF_MATERIAL});
- const pending=app.assist();pending.catch(()=>{});t.after(()=>release?.());await Promise.race([entered,pending.then(()=>{throw Error('Expected a controlled checker-output repair');})]);
+ const pending=app.assist();pending.catch(()=>{});t.after(()=>release?.());await Promise.race([entered,pending.then(()=>{throw Error('Expected a controlled incomplete checker response');})]);
  if(event==='account')app.controller.updateStatus({phase:'ready',account:{uid:'different-authenticated-account',uin:'999000'}});
  if(event==='contact')await app.controller.bind('99887766');
  if(event==='QQ'){app.controller.live({scope,messages:[raw('91000000000000383',false,{elements:[{textElement:{content:'新的实际来信。'}}]})]});clearTimeout(app.controller.assistantRetryTimer);app.controller.assistantRetryTimer=null;app.controller.pendingAssist=null;}
  if(event==='withdrawal')app.store.forgetSource(scope,'note:'+app.note.id);
- release();await pending.catch(()=>{});assert.equal(app.calls.length,3);assert.equal(checks,2);assert.equal(app.controller.usage.get(scope,'whole-answer-fidelity').requests.filter(request=>request.purpose==='delivery_repair').length,1);assert.equal(app.store.getCompanion(scope).turns.some(turn=>turn.role==='assistant'),false);assert.equal(app.store.messages(scope).some(record=>record.direction==='outgoing'),false);
+ release();await pending.catch(()=>{});assert.equal(app.calls.length,2);assert.equal(checks,1);assert.equal(app.controller.usage.get(scope,'whole-answer-fidelity').requests.filter(request=>request.purpose==='delivery_repair').length,0);assert.equal(app.store.getCompanion(scope).turns.some(turn=>turn.role==='assistant'),false);assert.equal(app.store.messages(scope).some(record=>record.direction==='outgoing'),false);
 });
 
-test('a malformed checker cannot obtain a second repair after a primary structural repair',async t=>{
+test('a malformed checker labels incomplete after a primary structural repair without buying another slot',async t=>{
  const app=await application(t,(p,_wrapper,index)=>index===0?{operation:'prepare_message',answer:'Malformed'}:p.purpose==='fidelity_check'?{checkRef:p.checkRef,factual:factualReview(p,{'suggestions[0].text':[{quote:'Absent checker quotation.',kind:'intent'}]}),issues:[]}:{operation:'prepare_message',answer:{suggestions:[{text:'新叶看着挺精神。'}]}});
- await assert.rejects(app.assist(),error=>error.code==='request_delivery_repair_exhausted');assert.equal(app.calls.length,3);assert.equal(app.controller.usage.get(scope,'whole-answer-fidelity').requests.filter(request=>request.purpose==='delivery_repair').length,1);assert.equal(app.store.getCompanion(scope).turns.some(turn=>turn.role==='assistant'),false);
+ const reply=await app.assist();assert.equal(reply.semanticReview.status,'incomplete');assert.equal(app.calls.length,3);assert.equal(app.controller.usage.get(scope,'whole-answer-fidelity').requests.filter(request=>request.purpose==='delivery_repair').length,1);assert.equal(app.store.getCompanion(scope).turns.filter(turn=>turn.role==='assistant').length,1);
 });
 
 test('a valid factual rejection and malformed optional diagnostics still use only the one whole-candidate regeneration and recheck',async t=>{

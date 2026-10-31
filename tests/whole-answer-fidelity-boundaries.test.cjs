@@ -5,7 +5,9 @@ const {factualReview}=require('./fixtures/factual-assessment.cjs');
 const test=require('node:test'),assert=require('node:assert/strict');
 const {Store}=require('../src/store.cjs');
 const {boundedSource}=require('../src/context/source-delivery.cjs');
-const {visibleCandidate,buildFidelityContext,parseFidelityResult,approvalFor}=require('../src/whole-answer-fidelity.cjs');
+const {visibleCandidate,buildFidelityContext:buildLegacyContext,parseFidelityResult,approvalFor}=require('../src/whole-answer-fidelity.cjs');
+// Historical census decoder contract only; native controller uses sparse audit.
+const buildFidelityContext=(prepared,result,info={})=>buildLegacyContext(prepared,result,{...info,auditProtocol:'legacy-census-v7'});
 const {scope}=require('./fixtures/native.cjs');
 const HUMAN='这次先不要邀请。我只是觉得木色挺好看，想以后再自己尝试。';
 const ORIGINAL='我看过朋友组装书架。补充的完整范围是：我没有自己组装过，也没有答应一起做。';
@@ -18,7 +20,7 @@ function fixture(t,{partial=false,requestId='fidelity-boundary',priorText,humanT
  const identity=structuredClone(scope),info={scope:identity,requestId,store,admittedContext:{payload:{outboundQuotes:[{sourceId:material.id,text:delivered.text}],currentHumanControl:{authority:'CONTROL_ONLY',sourceId:current.id,text:current.text}},manifest:{sourceRevisions:prepared.manifest.sourceRevisions}},settings:{assistantRequestBytes:64000},requestMeasure:value=>Buffer.byteLength(JSON.stringify(value))};
  return {store,prepared,result,info,material,current,prior,context:buildFidelityContext(prepared,result,info)};
 }
-const allow=context=>({checkRef:context.payload.checkRef,factual:factualReview(context.payload,{}),verdict:'allow',issues:[]});
+const allow=context=>({checkRef:context.payload.checkRef,factual:factualReview(context,{}),verdict:'allow',issues:[]});
 const invalid=error=>/^(?:fidelity|factual)_/.test(error.code||'');
 
 test('every visible candidate surface is exact and only a privately validated same-frame allow can approve it',t=>{

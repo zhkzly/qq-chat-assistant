@@ -2,7 +2,9 @@
 // Fictional source/transport boundary tests. Scripted assessments do not prove
 // natural-language entailment, person understanding or conversational quality.
 const test=require('node:test'),assert=require('node:assert/strict');
-const {buildFidelityContext,parseFidelityResult,approvalFor}=require('../src/whole-answer-fidelity.cjs');
+const {buildFidelityContext:buildLegacyContext,parseFidelityResult,approvalFor}=require('../src/whole-answer-fidelity.cjs');
+// Historical census decoder contract only; native controller uses sparse audit.
+const buildFidelityContext=(prepared,result,info={})=>buildLegacyContext(prepared,result,{...info,auditProtocol:'legacy-census-v7'});
 const {Controller}=require('../src/controller.cjs'),{Store}=require('../src/store.cjs');
 const {assistModel}=require('../src/assistant-model.cjs');
 const {scope,raw}=require('./fixtures/native.cjs');
@@ -147,7 +149,7 @@ test('raw typed unsupported plus reported allow reaches exactly the existing reg
  });
  const reply=await app.assist();assert.equal(app.calls.length,4);assert.equal(primaries,2);assert.equal(checks,2);assert.equal(reply.text,'');assert.equal(reply.suggestions[0].text,repaired);assert.equal(reply.discussionExplanation.text,question);assert.equal(JSON.stringify(reply).includes(UNSUPPORTED),false);
  const ledger=app.controller.usage.get(scope,'factual-authority-task');assert.equal(ledger.attempts,4);assert.equal(ledger.requests.filter(request=>request.purpose==='delivery_repair').length,1);assert.equal(ledger.limit,4);
- const checkRuns=app.store.getCompanion(scope).runs.at(-1).requests.filter(request=>request.purpose==='fidelity_check');assert.equal(checkRuns[0].manifest.fidelity.reportedVerdict,'allow');assert.equal(checkRuns[0].manifest.fidelity.verdict,'reject');assert.ok(checkRuns[0].manifest.fidelity.unusableAdvisory.length);assert.equal(app.store.messages(scope).some(message=>message.direction==='outgoing'),false);
+ const checkRuns=app.store.getCompanion(scope).runs.at(-1).requests.filter(request=>request.purpose==='fidelity_check');assert.equal(checkRuns[0].manifest.fidelity.reportedVerdict,undefined);assert.equal(checkRuns[0].manifest.fidelity.verdict,'reject');assert.ok(checkRuns[0].manifest.fidelity.diagnostics.length);assert.equal(app.store.messages(scope).some(message=>message.direction==='outgoing'),false);
 });
 
 for(const limit of [2,4])test(`a repeated unsupported factual allowance cannot publish or exceed the shared task budget ${limit}`,async t=>{

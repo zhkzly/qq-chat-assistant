@@ -7,7 +7,7 @@ const string={type:'string'},integer={type:'integer'},boolean={type:'boolean'};
 const array=items=>({type:'array',items}),strings=array(string),choice=values=>({type:'string',enum:values});
 const object=(properties,required=[])=>({type:'object',properties,...(required.length?{required}:{}),additionalProperties:false});
 const reference=object({text:string,sourceIds:strings},['text','sourceIds']);
-const quote=object({materialRef:{...string,description:'Offered m# or m#@bSTART:bEND using displayed word boundaries only. Choose relevant outward material; never count offsets or copy bodies.'},authorityRef:{...string,description:'Choose the matching offered authority for this private material. currentPermission refers to the complete current human statement, a candidate NOT GRANT; do not slice negation or conditions.'}},['materialRef']);
+const quote=object({materialRef:{...string,description:'Offered m# or m#@bSTART:bEND using displayed word boundaries only. Choose relevant outward material; never count offsets or copy bodies.'},authorityRef:{...string,description:'Choose the matching offered authority for this private material. currentPermission refers to the complete current human statement, a candidate NOT GRANT; do not slice negation or conditions.'},factQuote:{...string,description:'Optional exact narrower FACT span inside the selected materialRef; the fact is distinct from its permission sentence.'},permissionQuote:{...string,description:'Optional exact narrow permission from the selected authority original; full context, negation and conditions still apply.'}},['materialRef']);
 const guidance=object({objective:reference,allowedApproach:reference,avoidances:array(reference),currentStep:reference});
 const draftPlan=object({editingReference:object({choice:{...string,description:'Choose the offered short handle, such as e1. Do not reconstruct artifact IDs or versions.'},artifactId:string,version:integer}),quotes:array(quote),intent:choice(['reply']),style:choice(['natural','short','casual']),language:string,
  askFollowup:boolean,useEmoji:boolean,taskUse:choice(['continue','different','uncertain']),option:object({turnId:string,index:integer},['turnId','index']),guidance});
@@ -70,14 +70,22 @@ function responseEnvelope(settings,purpose,payload) {
  const name=purpose==='fidelity_check'?'fidelity_result':purpose==='draft'?'draft_result':purpose==='discussion_compaction'?'discussion_compaction_result':purpose==='memory'?'memory_result':'assistant_result';
  let schema=schemas[name];
  if(name==='assistant_result'){const properties={...schema.properties};delete properties.draftPlan;schema={...schema,properties};}
+ if(name==='fidelity_result'&&(payload?.originalInput||payload)?.auditProtocol==='sparse-defects-v1')schema=object({
+  checkRef:choice(['c1']),auditProtocol:choice(['sparse-defects-v1']),
+  issues:array(object({path:string,code:choice(['unsupported_fact','evidence_mismatch','omitted_qualifier','internal_conflict','private_disclosure']),quote:string,reason:string,evidence:array(evidenceWitness),related:candidateReference},['path','code','quote','reason'])),
+  concerns:array(object({path:string,code:string,reason:string,quote:string},['path','code','reason']))
+ },['checkRef','auditProtocol','issues']);
  if(name==='fidelity_result'&&(payload?.originalInput||payload)?.candidate){
   const paths=candidatePaths((payload.originalInput||payload).candidate),properties=structuredClone(schema.properties);
   const withPaths=rule=>({...rule,items:{...rule.items,properties:{...rule.items.properties,path:choice([...paths]),
     ...(rule.items.properties.relatedPath?{relatedPath:choice([...paths])}:{})}}});
   properties.issues=withPaths(properties.issues);properties.concerns=withPaths(properties.concerns);
-  properties.factual={...withPaths(properties.factual),minItems:paths.length,maxItems:paths.length};
-  const statementProperties=properties.factual.items.properties.statements.items.properties;
-  for(const field of ['related','reference'])statementProperties[field]={...statementProperties[field],properties:{...statementProperties[field].properties,path:choice([...paths])}};
+  if(properties.factual){
+   properties.factual={...withPaths(properties.factual),minItems:paths.length,maxItems:paths.length};
+   const statementProperties=properties.factual.items.properties.statements.items.properties;
+   for(const field of ['related','reference'])statementProperties[field]={...statementProperties[field],properties:{...statementProperties[field].properties,path:choice([...paths])}};
+  }
+  if(properties.issues.items.properties.related)properties.issues.items.properties.related.properties.path=choice([...paths]);
   properties.concerns={...properties.concerns,items:{...properties.concerns.items,properties:{...properties.concerns.items.properties,code:string}}};
   schema={...schema,properties};
  }
@@ -99,7 +107,7 @@ function responseEnvelope(settings,purpose,payload) {
   if(taskPayload.generationOrigin==='qq_observation')delete properties.actions;
   schema={...schema,properties};
  }
- return {tools:[{type:'function',function:{name,description:name==='assistant_result'?'Select exactly one primary operation and only its active core payload. Optional independently supported proposals are not executed by this inert result tool.':name==='fidelity_result'?'Return mandatory per-field factual assessments for this exact candidate; the program derives publication. This read-only result cannot rewrite, execute actions or grant facts or permission.':'Return readable kind/text for this phase, with only useful optional data. This function is not executed and performs no external action. Follow source and phase rules.',parameters:schema}}],
+ return {tools:[{type:'function',function:{name,description:name==='assistant_result'?'Select exactly one primary operation and only its active core payload. Optional independently supported proposals are not executed by this inert result tool.':name==='fidelity_result'?'Report only concrete source-bound defects in this exact candidate. No exhaustive proposition census or global pass certificate. Read-only; cannot rewrite, execute or grant facts/permission.':'Return readable kind/text for this phase, with only useful optional data. This function is not executed and performs no external action. Follow source and phase rules.',parameters:schema}}],
   tool_choice:{type:'function',function:{name}},parallel_tool_calls:false};
 }
 function normalizeResultPadding(value,name) {

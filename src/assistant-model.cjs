@@ -585,6 +585,7 @@ async function assistModel(settings, context, signal, fetchImpl = fetch) {
   catch(error) {
     const checkerRepair=context.payload.purpose==='fidelity_check';
     if(checkerRepair){
+      if(context.payload.auditProtocol==='sparse-defects-v1')throw error;
       // Correct the checker's representation against its existing immutable
       // frame. Scope/evidence drift and cancellation are never format errors.
       if(error.code==='fidelity_binding_invalid')throw error;

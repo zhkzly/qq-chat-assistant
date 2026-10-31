@@ -5,7 +5,8 @@ const {validationError}=require('./validation-issues.cjs');
 const {sameScopeIfPresent}=require('./context/source-snapshot.cjs');
 const {sourceClosure}=require('./provenance.cjs');
 const {candidateFields,candidatePaths,candidateScopes,normalizeCandidatePath}=require('./candidate-field-paths.cjs');
-const VERSION='whole-answer-fidelity-v7';
+const VERSION='whole-answer-fidelity-v8';
+const AUDIT_PROTOCOL='sparse-defects-v1';
 const marks=new WeakMap(),clone=value=>structuredClone(value);
 const plain=value=>value&&typeof value==='object'&&!Array.isArray(value);
 const hash=value=>createHash('sha256').update(JSON.stringify(value)).digest('hex');
@@ -130,7 +131,7 @@ function buildFidelityContext(prepared,result,info={}){
  for(const ref of prepared.payload.taskContext?.recentHumanContext||[])offerInstruction(ref.sourceId,'recent_consultation');
  for(const ref of prepared.payload.preferences||[])offerInstruction(ref.sourceId,'standing_preference');
  const humanInstructions=[...instructionSelections].map(([sourceId,selection])=>({sourceId,selection,at:sourceMap.get(sourceId).at||null,bodyLocation:'evidence'}));
- const payload={purpose:'fidelity_check',version:VERSION,checkRef:'c1',asOf:prepared.payload.asOf||null,
+ const payload={purpose:'fidelity_check',version:VERSION,auditProtocol:info.auditProtocol||AUDIT_PROTOCOL,checkRef:'c1',asOf:prepared.payload.asOf||null,
   ...(prepared.payload.goal!==undefined?{goal:clone(prepared.payload.goal)}:{}),
   ...(prepared.payload.viewerTimeZone?{viewerTimeZone:prepared.payload.viewerTimeZone}:{}),
   ...(prepared.payload.taskContext?.timeContext?{timeContext:clone(prepared.payload.taskContext.timeContext)}:{}),
@@ -138,6 +139,12 @@ function buildFidelityContext(prepared,result,info={}){
   candidate:freeze(clone(candidate)),candidatePaths:candidatePaths(candidate),candidateScopes:candidateScopes(candidate),evidence,
   ...(intentId?{intentAuthority:{sourceId:intentId}}:{}),
   admittedFragments:admitted.map(({sourceId,text})=>({sourceId,text})),
+  admittedFactBindings:(admission?.disclosureBindings||[]).map(binding=>({
+   material:clone(binding.material),referent:clone(binding.referent),
+   permission:{sourceId:binding.permission.sourceId,revision:binding.permission.revision,
+    ...(sourceMap.get(binding.permission.sourceId)?.text===binding.permission.text?{bodyLocation:'evidence'}:{quote:binding.permission.text})},
+   authority:'model_interpreted_for_this_fact_only'
+  })),
   disclosureAuthority:{programSources:[...programDisclosureSources].map(sourceId=>({sourceId})),rule:'Truth support is not sharing authority. Private outward assertions require an admitted fragment; a narrower disclosure witness may select one.'},
   humanInstructions,...(currentHumanId?{currentInstruction:{sourceId:currentHumanId}}:{}),
   ...(optionMaterials.some(option=>option.fragments.length)?{optionMaterials:clone(optionMaterials)}:{}),
@@ -195,7 +202,7 @@ function buildFidelityContext(prepared,result,info={}){
  return context;
 }
 
-function parseFidelityResult(value,input){
+function parseLegacyFidelityResult(value,input){
  const frame=input?.fidelityFrameSnapshot;if(!frame)throw fail('checkRef','fidelity_binding_invalid','A checker result requires its private captured frame');frame.assert();
  if(plain(value)&&marks.has(value)){if(marks.get(value).frame!==frame||marks.get(value).hash!==hash(value))throw fail('checkRef','fidelity_binding_invalid','Checker result belongs to another candidate or was modified');return value;}
  let data=typeof value==='string'?parseModelJson(value):value;
@@ -309,6 +316,117 @@ function parseFidelityResult(value,input){
  if(input.manifest)input.manifest.fidelity={...input.manifest.fidelity,reportedVerdict:['allow','reject','uncertain'].includes(reported)?reported:null,derivedVerdict:verdict,factual:{fields:clone(factual),assessedPaths:[...seenFields],offeredPaths:[...input.payload.candidatePaths],statementCount:count,complete:true},...(legacyFindings.length?{legacyFactIssues:legacyFindings}:{}),...(unusableAdvisory.length?{unusableAdvisory}:{})};
  const result=freeze({checkRef:'c1',verdict,issues,factual,...(concerns.length?{concerns}:{})});marks.set(result,{frame,hash:hash(result)});input.sourceWireSnapshot?.markCanonical(result);return result;
 }
+// The semantic audit is fallible advice about a mechanically bound candidate.
+// It reports concrete defects; it is not an exhaustive proof of every sentence.
+function auditResult(input,{issues=[],concerns=[],diagnostics=[],complete=false}={}){
+ const frame=input?.fidelityFrameSnapshot;if(!frame)throw fail('checkRef','fidelity_binding_invalid','An audit requires its captured frame');frame.assert();
+ const result=freeze({checkRef:'c1',auditProtocol:AUDIT_PROTOCOL,reviewStatus:complete?'reviewed':'incomplete',
+  verdict:issues.length?'reject':complete?'no_concrete_defect_reported':'incomplete',issues,concerns,diagnostics});
+ marks.set(result,{frame,hash:hash(result)});input.sourceWireSnapshot?.markCanonical(result);
+ if(input.manifest)input.manifest.fidelity={...input.manifest.fidelity,reviewStatus:result.reviewStatus,derivedVerdict:result.verdict,
+  auditProtocol:AUDIT_PROTOCOL,issues:clone(issues),concerns:clone(concerns),diagnostics:clone(diagnostics),exhaustive:false};
+ return result;
+}
+function incompleteFidelity(input,error){
+ // Cancellation, actual identity drift and source mutation are not audit
+ // failures. The controller checks current/stored source versions separately.
+ if(error?.code==='fidelity_binding_invalid'||error?.name==='AbortError'||error?.name==='TimeoutError'&&input?.abortSignal?.aborted)throw error;
+ return auditResult(input,{diagnostics:[{code:'audit_unavailable',message:String(error?.message||error||'Audit unavailable').slice(0,700)}]});
+}
+function parseSparseFidelityResult(value,input){
+ const frame=input?.fidelityFrameSnapshot;if(!frame)throw fail('checkRef','fidelity_binding_invalid','An audit requires its captured frame');frame.assert();
+ if(plain(value)&&marks.has(value)){
+  const mark=marks.get(value);if(mark.frame!==frame||mark.hash!==hash(value))throw fail('checkRef','fidelity_binding_invalid','Audit belongs to another candidate or was modified');
+  return value;
+ }
+ let data;try{data=typeof value==='string'?parseModelJson(value):value;}catch(error){return incompleteFidelity(input,error);}
+ const diagnostics=[],issues=[],concerns=[];
+ const diagnostic=(code,message)=>diagnostics.push({code,message:String(message).slice(0,700)});
+ if(!plain(data))return incompleteFidelity(input,'Audit must be an object');
+ const validEnvelope=data.checkRef==='c1'&&data.auditProtocol===AUDIT_PROTOCOL&&Array.isArray(data.issues);
+ if(!validEnvelope)diagnostic('audit_protocol_incomplete','Sparse audit protocol/checkRef/issues was not returned; no exhaustive approval is inferred.');
+ if(Object.keys(data).some(key=>!['checkRef','auditProtocol','issues','concerns'].includes(key)))diagnostic('audit_extra_metadata','Additional audit metadata is diagnostic, not publication authority.');
+ const canonical=input.sourceWireSnapshot?.isCanonical?.(data);
+ const decode=raw=>canonical||!input.sourceWireSnapshot?raw:input.sourceWireSnapshot.decode(raw);
+ const address=path=>normalizeCandidatePath(path,input.payload.candidatePaths);
+ const quoteAt=(path,quote)=>typeof quote==='string'&&quote.trim()&&quote.length<=6000&&typeof frame.bodyAt(path)==='string'&&frame.bodyAt(path).includes(quote);
+ const witnesses=raw=>{
+  if(!Array.isArray(raw)||raw.length>16)throw Error('Use bounded original source witnesses');
+  return raw.map(ref=>{
+   const source=plain(ref)&&frame.evidenceAt(ref.sourceId);
+   if(!source||typeof ref.quote!=='string'||!ref.quote.trim()||ref.quote.length>4000||!source.text.includes(ref.quote)||source.delivery?.status==='partial'||!input.manifest.sourceRevisions[ref.sourceId]||input.payload.coverage?.unavailableRootSourceIds?.includes(ref.sourceId))throw Error('The witness is not an exact complete offered original');
+   return {sourceId:ref.sourceId,quote:ref.quote};
+  });
+ };
+ const addIssue=(raw,index)=>{
+  try{
+   if(!plain(raw))throw Error('Expected a concrete defect');
+   const reasonRaw=raw.reason,code=raw.code;
+   // Project code-relevant coordinates before decoding source handles. Extra
+   // metadata has no authority and cannot invalidate the independent finding.
+   const item=decode({path:raw.path,quote:raw.quote,code});
+   const path=address(item.path);if(path&&path!==item.path&&input.manifest){input.manifest.fidelity.addressNormalizations=[...(input.manifest.fidelity.addressNormalizations||[]),{field:`issues[${index}].path`,received:item.path,canonical:path}];}if(!path||!quoteAt(path,item.quote))throw Error('The defect lacks an exact candidate path/quote');
+   const reason=typeof reasonRaw==='string'&&reasonRaw.trim()?reasonRaw.slice(0,1200):'The audit reported this concrete factual or disclosure defect.';
+   if(reasonRaw!==undefined&&(typeof reasonRaw!=='string'||!reasonRaw.trim()))diagnostic('audit_invalid_reason',`Finding ${index} optional reason is not usable`);
+   const needsEvidence=['evidence_mismatch','omitted_qualifier','private_disclosure'].includes(code),evidence=[];
+   if(needsEvidence){
+    if(!Array.isArray(raw.evidence))throw Error('This defect needs original source witnesses');
+    for(const ref of raw.evidence){try{
+     if(!plain(ref))throw Error('Expected a source witness');
+     if(Object.keys(ref).some(key=>!['sourceId','quote'].includes(key)))diagnostic('audit_extra_witness_metadata',`Finding ${index} has extraneous witness metadata`);
+     evidence.push(...witnesses([decode({sourceId:ref.sourceId,quote:ref.quote})]));
+    }catch(error){if(error.code==='fidelity_binding_invalid')throw error;diagnostic('audit_invalid_witness',`Finding ${index}: ${error.message}`);}}
+   }else if(raw.evidence!==undefined)diagnostic('audit_irrelevant_evidence',`Finding ${index} does not need a source witness for this code`);
+
+   if(!['unsupported_fact','evidence_mismatch','omitted_qualifier','internal_conflict','private_disclosure'].includes(code)){
+    concerns.push({path,code:typeof code==='string'?code.slice(0,80):'untyped_concern',quote:item.quote,reason:reason||'An untyped semantic concern needs human judgment.'});
+    diagnostic('audit_untyped_finding',`Finding ${index} is diagnostic rather than a concrete typed defect`);return;
+   }
+   if(['evidence_mismatch','omitted_qualifier','private_disclosure'].includes(code)&&!evidence.length)throw Error('This defect needs an original source witness');
+   const extra=Object.keys(raw).filter(key=>!['path','code','quote','reason',...(needsEvidence?['evidence']:[]),...(code==='internal_conflict'?['related']:[])].includes(key));
+   if(extra.length)diagnostic('audit_extra_finding_metadata',`Finding ${index} extra keys: ${extra.join(', ')}`);
+   let related;
+   if(code==='internal_conflict'){
+    const target=plain(raw.related)?{path:raw.related.path,quote:raw.related.quote}:{};const p=address(target.path);if(!p||!quoteAt(p,target.quote)||p===path&&target.quote===item.quote)throw Error('A conflict needs a distinct exact candidate statement');
+    related={path:p,quote:target.quote};
+   }
+   if(code==='private_disclosure'){
+    if(frame.scopeAt(path)!=='copyable'&&!/^expressionOptions\[\d+\]\.label$/.test(path)){
+     concerns.push({path,code,quote:item.quote,reason});return;
+    }
+    if(evidence.every(ref=>frame.canDisclose(ref))){diagnostic('program_disclosure_authority','A checker cannot revoke already admitted exact material without an independent private restriction.');return;}
+   }
+   issues.push({path,code,quote:item.quote,reason,...(evidence.length?{evidence}:{}),...(related?{related}:{})});
+  }catch(error){if(error.code==='fidelity_binding_invalid')throw error;diagnostic('audit_invalid_finding',`Finding ${index}: ${error.message}`);}
+ };
+ // Isolate each finding so bad optional metadata cannot erase an independently
+ // well-grounded fabrication or privacy finding alongside it.
+ if(Array.isArray(data.issues))data.issues.forEach(addIssue);
+ // Old/captured producer shapes are never a native pass channel. Preserve
+ // independently expressible concrete defects as incomplete diagnostic input.
+ if(Array.isArray(data.factual))for(const field of data.factual){
+  if(!plain(field)||!Array.isArray(field.statements)){diagnostic('audit_invalid_legacy_container','Legacy census extras are not a statements array');continue;}
+  for(const statement of field.statements){
+  if(statement?.kind==='assertion'&&statement.support==='unsupported')addIssue({path:field.path,quote:statement.quote,
+   code:{no_support_in_supplied_evidence:'unsupported_fact',source_contradiction:'evidence_mismatch',necessary_factual_qualification:'omitted_qualifier',candidate_fact_conflict:'internal_conflict'}[statement.basis],
+   evidence:statement.evidence||[],related:statement.related,reason:statement.reason||'The legacy assertion reports a concrete unsupported fact.'},'legacy');
+  }
+ }
+ if(data.concerns!==undefined&&!Array.isArray(data.concerns))diagnostic('audit_invalid_concern','Optional concerns are not an array');
+ if(Array.isArray(data.concerns))for(const raw of data.concerns){try{const item=decode(raw),path=address(item.path);if(path&&typeof item.reason==='string'&&item.reason.trim())concerns.push({path,code:String(item.code||'semantic_uncertainty').slice(0,80),reason:item.reason.slice(0,1200),...(quoteAt(path,item.quote)?{quote:item.quote}:{})});else diagnostic('audit_invalid_concern','A concern is missing its candidate path or reason');}catch(error){diagnostic('audit_invalid_concern',error.message);}}
+ const unique=values=>[...new Map(values.map(item=>[JSON.stringify(item),item])).values()];
+ return auditResult(input,{issues:unique(issues),concerns:unique(concerns),diagnostics,complete:validEnvelope&&!diagnostics.length});
+}
+function parseFidelityResult(value,input){
+ return input?.payload?.auditProtocol===AUDIT_PROTOCOL?parseSparseFidelityResult(value,input):parseLegacyFidelityResult(value,input);
+}
+function deliveryFor(result,input){
+ const frame=input?.fidelityFrameSnapshot,mark=result&&marks.get(result);
+ if(!frame||mark?.frame!==frame||mark.hash!==hash(result)||result.issues?.length)return undefined;
+ frame.assert();
+ if(input.payload.auditProtocol===AUDIT_PROTOCOL&&['reviewed','incomplete'].includes(result.reviewStatus))return Object.freeze({version:VERSION,candidateHash:frame.candidateHash,bindingHash:frame.bindingHash,reviewStatus:result.reviewStatus,exhaustive:false});
+ return approvalFor(result,input);
+}
 function buildFidelityRepairContext(prepared,checkedInput){
  const frame=checkedInput?.fidelityFrameSnapshot;if(!frame)throw fail('evidence','fidelity_binding_invalid','Regeneration requires its captured fidelity frame');frame.assert();
  const retry=Object.create(Object.getPrototypeOf(prepared),Object.getOwnPropertyDescriptors(prepared));
@@ -345,7 +463,8 @@ function buildFidelityRepairContext(prepared,checkedInput){
 }
 function approvalFor(result,input){
  const frame=input?.fidelityFrameSnapshot;
+ if(input?.payload?.auditProtocol===AUDIT_PROTOCOL)return undefined;
  if(!frame||marks.get(result)?.frame!==frame||marks.get(result)?.hash!==hash(result)||result.verdict!=='allow')return undefined;
  frame.assert();return Object.freeze({version:VERSION,candidateHash:frame.candidateHash,bindingHash:frame.bindingHash});
 }
-module.exports={VERSION,visibleCandidate,parseWholeAnswer,buildFidelityContext,buildFidelityRepairContext,parseFidelityResult,approvalFor};
+module.exports={VERSION,AUDIT_PROTOCOL,incompleteFidelity,deliveryFor,visibleCandidate,parseWholeAnswer,buildFidelityContext,buildFidelityRepairContext,parseFidelityResult,approvalFor};

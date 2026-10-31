@@ -21,7 +21,7 @@ test('whole-primary wire advertises explicit operations and exact material refer
  const old=wire.sources.find(source=>source.type==='private'&&source.at.startsWith('2026-08'));
  assert.equal(old.text,undefined);assert.equal(body(old),TEXT);
  const schema=prepared.request.tools[0].function.parameters;
- assert.deepEqual(Object.keys(schema.properties.materials.items.properties).sort(),['authorityRef','materialRef']);
+ assert.deepEqual(Object.keys(schema.properties.materials.items.properties).sort(),['authorityRef','factQuote','materialRef','permissionQuote']);
  assert.deepEqual(schema.properties.operation.enum,['advise','prepare_message','lookup','clarify']);assert.deepEqual(schema.required,['operation']);assert.equal(schema.properties.kind,undefined);assert.equal(schema.properties.requestDelivery,undefined);assert.equal(wire.operationProtocol.version,'primary-operation-v2');assert.equal(wire.requestDeliveryPolicy,undefined);
  assert.equal(schema.properties.draftPlan,undefined);assert.equal(wire.sources.some(source=>source.id===wire.intentAuthority.sourceId),false);assert.equal(wire.userRequest.text,payload.userRequest.text);
  assert.match(prepared.request.messages[0].content,/currentPermission.*非程序许可/);
@@ -89,7 +89,7 @@ async function application(t,producer){
  return {store,controller,calls,contexts,old,settings,run:()=>store.getCompanion(scope).runs.at(-1),assist:text=>controller.assist({text,sourceTurnIds:[old.id],taskId:'whole-primary-ref'})};
 }
 test('controller reference primary records admitted wording with exact text, recording provenance and canonical storage',async t=>{
- const app=await application(t,p=>p.purpose==='fidelity_check'?{checkRef:p.checkRef,factual:factualReview(p,{}),verdict:'allow',issues:[]}:planFrom(p));
+ const app=await application(t,p=>p.purpose==='fidelity_check'?{checkRef:p.checkRef,auditProtocol:'sparse-defects-v1',issues:[]}:planFrom(p));
  const result=await app.assist('我愿把网页用途和查找进展告诉她，给我完整表达。');
  assert.equal(result.kind,'draft');assert.equal(app.calls.length,2);assert.equal(app.run().manifest.requestDelivery.status,'delivered');
  const canonical=app.run(),quote=canonical.payload.outboundQuotes[0];
@@ -106,7 +106,7 @@ test('controller reference primary records admitted wording with exact text, rec
  assert.ok(app.calls.every(call=>Buffer.byteLength(JSON.stringify(call.request))<=64000));
 });
 test('private advice keeps its declared historical fact through the actual admission and checker consumers',async t=>{
- const app=await application(t,p=>p.purpose==='fidelity_check'?{checkRef:p.checkRef,factual:factualReview(p,{}),verdict:'allow',issues:[]}:
+ const app=await application(t,p=>p.purpose==='fidelity_check'?{checkRef:p.checkRef,auditProtocol:'sparse-defects-v1',issues:[]}:
   {operation:'advise',text:'可以用已完成的标题查找来回答她，私下先比较这条表达是否自然。',materials:planFrom(p).materials});
  const result=await app.assist('网页用途和查找进展这两件事实可以作为表达例子，但这次先只和我分析，不要给最终稿。');
  assert.equal(result.kind,'discussion');assert.equal(app.calls.length,2);
@@ -117,7 +117,7 @@ test('private advice keeps its declared historical fact through the actual admis
 });
 test('private advice retains an exact new fact and the full current permission through checker admission',async t=>{
  const fact='我今天把台灯修好了',request=fact+'，可以拿这件事作表达例子，但先只和我讨论，PRIVATE_REASON不要转出去。';
- const app=await application(t,p=>p.purpose==='fidelity_check'?{checkRef:p.checkRef,factual:factualReview(p,{}),verdict:'allow',issues:[]}:
+ const app=await application(t,p=>p.purpose==='fidelity_check'?{checkRef:p.checkRef,auditProtocol:'sparse-defects-v1',issues:[]}:
   {operation:'advise',text:'先私下分析：修好台灯是具体的日常进展，可以围绕这件小事找表达方向。',currentFacts:[fact]});
  const result=await app.assist(request);
  assert.equal(result.kind,'discussion');assert.equal(app.calls.length,2);

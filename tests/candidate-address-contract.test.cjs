@@ -3,7 +3,9 @@ const {factualReview}=require('./fixtures/factual-assessment.cjs');
 // Fictional contract probes derived from decision-ownership boundaries and
 // lifecycle fixtures. Scripted verdicts do not measure model semantic quality.
 const test=require('node:test'),assert=require('node:assert/strict');
-const {buildFidelityContext,parseFidelityResult,approvalFor}=require('../src/whole-answer-fidelity.cjs');
+const {buildFidelityContext:buildLegacyContext,parseFidelityResult,approvalFor}=require('../src/whole-answer-fidelity.cjs');
+// Historical census decoder contract only; native controller uses sparse audit.
+const buildFidelityContext=(prepared,result,info={})=>buildLegacyContext(prepared,result,{...info,auditProtocol:'legacy-census-v7'});
 const {prepareAssistantRequest,assistModel}=require('../src/assistant-model.cjs');
 const {Controller}=require('../src/controller.cjs'),{Store}=require('../src/store.cjs');
 const {scope,raw}=require('./fixtures/native.cjs');

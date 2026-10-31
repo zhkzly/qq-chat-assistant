@@ -107,7 +107,7 @@ test('whole-answer repair and its factual checker retain the actual image-source
  assert.equal(result.kind,'draft');assert.equal(result.draftPlan,undefined);assert.equal(result.suggestions[0].text,'哈哈，这张还挺逗的');
  const effective=prepared.resultContext||prepared,admitted=buildAnswerAdmission(effective,result,{...args,settings:configured}),check=buildFidelityContext(effective,result,{...args,settings:configured,admittedContext:admitted});
  assert.deepEqual(check.images,images);assert.deepEqual(check.payload.imageContext.attached,effective.payload.imageContext.attached);
- await assistModel(configured,check,undefined,async(_,request)=>{calls.push(request.body);const payload=userPayload(request.body);assert.equal(payload.purpose,'fidelity_check');assert.equal(payload.candidate.suggestions[0].text,result.suggestions[0].text);return response(JSON.stringify({checkRef:payload.checkRef,factual:factualReview(payload,{}),verdict:'allow',issues:[]}));});
+ await assistModel(configured,check,undefined,async(_,request)=>{calls.push(request.body);const payload=userPayload(request.body);assert.equal(payload.purpose,'fidelity_check');assert.equal(payload.candidate.suggestions[0].text,result.suggestions[0].text);return response(JSON.stringify({checkRef:payload.checkRef,auditProtocol:'sparse-defects-v1',issues:[]}));});
  assert.equal(calls.length,3);assert.deepEqual(JSON.parse(calls[2]).messages[1].content.slice(1).map(part=>part.image_url.url),images.map(image=>image.url));
  assert.deepEqual(canonicalSourceView(userPayload(calls[2]),check.manifest.sourceHandles).imageContext.attached,canonicalSourceView(first,prepared.manifest.sourceHandles).imageContext.attached);
  for(const image of images)assert.ok(check.manifest.sourceRevisions['qq:'+image.messageId]);

@@ -52,7 +52,7 @@ test('valid foreground help with rejected auxiliary metadata uses one primary an
   const controller = new Controller({ store, settings: configured, memoryModel: null, compactionModel: null,
     read: async name => name === 'bind' ? scope : { messages: [] },
     assistantModel: (modelSettings, input, signal) => assistModel(modelSettings, input, signal, async (_url, request) => {
-      calls.push(JSON.parse(request.body));const p=requestPayload(calls.at(-1));return p.purpose==='fidelity_check'?response(JSON.stringify({checkRef:p.checkRef,factual:factualReview(p,{}),verdict:'allow',issues:[]})):resultTool({ ...badOptionalTopic, text });
+      calls.push(JSON.parse(request.body));const p=requestPayload(calls.at(-1));return p.purpose==='fidelity_check'?response(JSON.stringify({checkRef:p.checkRef,auditProtocol:'sparse-defects-v1',issues:[]})):resultTool({ ...badOptionalTopic, text });
     }) });
   t.after(() => controller.close());
   controller.updateStatus({ phase: 'ready', account: { uid: scope.accountUid, uin: scope.accountUin } });

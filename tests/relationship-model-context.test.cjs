@@ -210,7 +210,7 @@ test('recorded feedback output promotes a candidate only after loading its actua
   const controller = new Controller({ store, settings: { ...settings, auto: false,
     realChatConsent: { accountUid: scope.accountUid, peerUin: scope.peerUin, model: settings.model, baseUrl: settings.baseUrl } },
     read: async command => command === 'bind' ? scope : { messages: [], source: 'synthetic' }, assistantModel: async (_settings,context) => {
-      if(context.payload.purpose==='fidelity_check')return {checkRef:context.payload.checkRef,factual:factualReview(context.payload,{}),verdict:'allow',issues:[]};
+      if(context.payload.purpose==='fidelity_check')return {checkRef:context.payload.checkRef,auditProtocol:'sparse-defects-v1',issues:[]};
       if(loadCard&&!context.payload.methodCards.some(card=>card.id==='respond'))return {kind:'discussion',text:'Read the relevant assistance card.',lookup:{methodIds:['respond']}};
       return structuredClone(result);
     } });

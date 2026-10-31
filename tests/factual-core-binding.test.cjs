@@ -1,7 +1,9 @@
 'use strict';
 // Mechanical frame integrity checks, not semantic assertion detection.
 const test=require('node:test'),assert=require('node:assert/strict');
-const {buildFidelityContext,parseFidelityResult}=require('../src/whole-answer-fidelity.cjs');
+const {buildFidelityContext:buildLegacyContext,parseFidelityResult}=require('../src/whole-answer-fidelity.cjs');
+// Historical census decoder contract only; native controller uses sparse audit.
+const buildFidelityContext=(prepared,result,info={})=>buildLegacyContext(prepared,result,{...info,auditProtocol:'legacy-census-v7'});
 const {prepareAssistantRequest}=require('../src/assistant-model.cjs');
 const {scope}=require('./fixtures/native.cjs');
 function fixture(){

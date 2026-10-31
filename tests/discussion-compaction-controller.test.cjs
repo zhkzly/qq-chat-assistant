@@ -18,7 +18,7 @@ function setup(t,{badCompaction=false}={}){
    result={summary:'用户想先轻松接话，暂不直接问游戏名字或邀约；助手提出两个候选，尚未发送。',reviewedTurnIds:original.turns.map(x=>x.id),
     quoteRefs:[{turnId:oldAssistant.id,role:'assistant',field:'text',text:badCompaction?'伪造并非原文的候选':FIRST},{turnId:oldAssistant.id,role:'assistant',field:'text',text:SECOND}]};
   }else if(p.purpose==='fidelity_check'){
-   result={checkRef:p.checkRef,factual:factualReview(p,{}),verdict:'allow',issues:[]};
+   result={checkRef:p.checkRef,auditProtocol:'sparse-defects-v1',issues:[]};
   }else{
    assert.ok(p.discussionCompaction,'long discussion must be folded before assistance');
    assert.ok(p.privateCandidates.some(c=>c.text===SECOND),'the second literal candidate must survive');

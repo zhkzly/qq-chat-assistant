@@ -5,7 +5,9 @@ const {factualReview}=require('./fixtures/factual-assessment.cjs');
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
 const {PrimaryReferenceOwner}=require('../src/primary-reference-registry.cjs');
 const {compilePrimaryFrame}=require('../src/primary-frame.cjs');
-const {buildFidelityContext,parseFidelityResult,approvalFor}=require('../src/whole-answer-fidelity.cjs');
+const {buildFidelityContext:buildLegacyContext,parseFidelityResult,approvalFor}=require('../src/whole-answer-fidelity.cjs');
+// Historical census decoder contract only; native controller uses sparse audit.
+const buildFidelityContext=(prepared,result,info={})=>buildLegacyContext(prepared,result,{...info,auditProtocol:'legacy-census-v7'});
 const {Controller}=require('../src/controller.cjs'),{Store}=require('../src/store.cjs');
 const {assistModel}=require('../src/assistant-model.cjs');
 const {visibleResponseText}=require('../src/experience-store.cjs');
@@ -58,7 +60,7 @@ async function application(t,producer,{noteText,noteUse='discussion'}={}){
 }
 
 test('pure current control needs no outward material, dead draft plan or additional composer call',async t=>{
- const why='先接住她实际分享的小变化，私下说明到这里即可。',app=await application(t,p=>p.purpose==='fidelity_check'?{checkRef:p.checkRef,factual:factualReview(p,{}),verdict:'allow',issues:[]}:primary(undefined,{why})),reply=await app.assist();
+ const why='先接住她实际分享的小变化，私下说明到这里即可。',app=await application(t,p=>p.purpose==='fidelity_check'?{checkRef:p.checkRef,auditProtocol:'sparse-defects-v1',issues:[]}:primary(undefined,{why})),reply=await app.assist();
  assert.equal(reply.kind,'draft');assert.equal(reply.text,'');assert.equal(reply.suggestions[0].text,'这两片新叶看着挺精神。');assert.equal(reply.discussionExplanation.text,why);
  assert.equal(app.calls.length,2);assert.equal(app.calls[1].p.purpose,'fidelity_check');assert.deepEqual(app.calls[1].p.admittedFragments,[]);assert.equal(app.calls.some(call=>call.p.purpose==='draft'),false);
  const schema=app.calls[0].request.tools[0].function.parameters;
@@ -122,7 +124,7 @@ for(const [name,declare,message,human]of [
 });
 
 test('only the complete answer owns one visible private explanation and individually revocable message leaves',async t=>{
- const why='PRIVATE_FINAL_OWNER：先接住她分享的花盆近况。',first='这两片新叶看着挺精神。',second='窗边的光线看起来很适合它。',app=await application(t,p=>p.purpose==='fidelity_check'?{checkRef:p.checkRef,factual:factualReview(p,{}),verdict:'allow',issues:[]}:{operation:'prepare_message',answer:{privateExplanation:why,suggestions:[{text:first},{text:second}]}}),reply=await app.assist();
+ const why='PRIVATE_FINAL_OWNER：先接住她分享的花盆近况。',first='这两片新叶看着挺精神。',second='窗边的光线看起来很适合它。',app=await application(t,p=>p.purpose==='fidelity_check'?{checkRef:p.checkRef,auditProtocol:'sparse-defects-v1',issues:[]}:{operation:'prepare_message',answer:{privateExplanation:why,suggestions:[{text:first},{text:second}]}}),reply=await app.assist();
  assert.equal(app.calls.length,2);assert.equal(reply.text,'');assert.equal(reply.discussionExplanation.text,why);assert.equal(visibleResponseText(reply),why);assert.equal(projectVisibleTurn(reply).text,why);assert.equal(uiBody(reply),why);
  assert.equal(app.store.experiences.artifact(scope,reply.artifactRef).body,why);assert.deepEqual(projectVisibleTurn(reply).suggestions.map(item=>item.text),[first,second]);
  const rawBefore=JSON.stringify(app.store._getCompanion(scope).turns);app.store.experiences.invalidateArtifacts(scope,[reply.suggestions[0].artifactRef]);
@@ -132,7 +134,7 @@ test('only the complete answer owns one visible private explanation and individu
 });
 
 for(const boundary of ['account','contact','current original source'])test(`a delayed thin candidate checker cannot publish after the ${boundary} changes`,async t=>{
- let release,enter;const entered=new Promise(resolve=>{enter=resolve;}),app=await application(t,p=>p.purpose==='fidelity_check'?new Promise(resolve=>{release=()=>resolve({checkRef:p.checkRef,factual:factualReview(p,{}),verdict:'allow',issues:[]});enter();}):primary(FACT,{currentFacts:[FACT]})),pending=app.assist(FACT+'这句可以告诉她。');
+ let release,enter;const entered=new Promise(resolve=>{enter=resolve;}),app=await application(t,p=>p.purpose==='fidelity_check'?new Promise(resolve=>{release=()=>resolve({checkRef:p.checkRef,auditProtocol:'sparse-defects-v1',issues:[]});enter();}):primary(FACT,{currentFacts:[FACT]})),pending=app.assist(FACT+'这句可以告诉她。');
  pending.catch(()=>{});t.after(()=>release?.());await Promise.race([entered,pending.then(()=>{throw Error('The thin answer published before its controlled checker.');})]);
  assert.equal(app.store.getCompanion(scope).turns.some(item=>item.role==='assistant'),false);
  if(boundary==='account')app.controller.updateStatus({phase:'ready',account:{uid:'a-different-authenticated-account',uin:'999001'}});

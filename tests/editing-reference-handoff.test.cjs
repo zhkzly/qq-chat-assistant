@@ -14,7 +14,7 @@ function fixture(t,{select=true,intercept=async()=>{}}={}){
   realChatConsent:{...scope,baseUrl:'http://fixture.invalid/v1',model:'synthetic-editing-reference'}};
  const controller=new Controller({store,settings,read:async()=>{throw Error('No native QQ read in this fixture');},assistantModel:async(_,input)=>{
   const p=input.payload;calls.push(structuredClone(p));await intercept(p);
-  if(p.purpose==='fidelity_check')return {checkRef:p.checkRef,factual:factualReview(p,{}),verdict:'allow',issues:[]};
+  if(p.purpose==='fidelity_check')return {checkRef:p.checkRef,auditProtocol:'sparse-defects-v1',issues:[]};
   const request=p.sources.find(source=>source.id===p.intentAuthority.sourceId)?.text||p.userRequest.text;
   const chosen=select&&/改|原句/.test(request)&&!/换话题|新问题|先不改/.test(request)?p.editingReferences?.[0]:undefined;
   const text=chosen?chosen.text.replace(/^(听起来|原来)/,''):`听起来${p.sources.find(source=>source.type==='qq').text}`;

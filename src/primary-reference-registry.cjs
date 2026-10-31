@@ -190,7 +190,7 @@ class PrimaryReferenceOwner{
   const requireCommit=()=>{if(!committed)throw fail('$','primary_reference_not_dispatched','reference snapshot was not dispatched');};
   const snapshot={payload:projected,receipt,
    commit:()=>{if(committed)return;if(this.#generation!==generation)throw fail('$','primary_reference_offer_changed','reference owner changed before dispatch; rebuild this request');this.#entries=entries;this.#materialCount=materialCount;this.#authorityCount=authorityCount;this.#boundaryCount=boundaryCount;this.#generation++;committed=true;},
-   material:(ref,path='materialRef')=>{
+   material:(ref,path='materialRef',factQuote)=>{
     requireCommit();
     const refined=typeof ref==='string'&&/^(m[1-9]\d*)@(b[1-9]\d*):(b[1-9]\d*)$/.exec(ref),base=refined?refined[1]:ref;
     const found=typeof base==='string'&&offeredMaterials.get(base);
@@ -204,6 +204,10 @@ class PrimaryReferenceOwner{
      if(!text.trim())throw fail(path,'material_reference_boundary_invalid','a refined material span must contain nonempty source text');
      metadata={...metadata,start:start.offset,end:end.offset,bodyDigest:digest(text)};
     }
+    if(factQuote!==undefined){
+     if(typeof factQuote!=='string'||!factQuote.trim()||factQuote.length>4000||!text.includes(factQuote))throw fail(path,'material_fact_span_invalid','factQuote must be an exact nonempty narrower fact inside the selected material, never another clause of the source');
+     const offset=text.indexOf(factQuote);metadata={...metadata,start:metadata.start+offset,end:metadata.start+offset+factQuote.length,bodyDigest:digest(factQuote)};text=factQuote;
+    }
     const result=freeze({sourceId:metadata.sourceId,text,revision:metadata.revision});
     materialBindings.set(result,{snapshot,metadata});return result;
    },
@@ -214,7 +218,7 @@ class PrimaryReferenceOwner{
     if(!source?.available||!sameScope(source.source,this.#scope)||source.source.deleted||source.source.excluded||source.source.use==='disabled'||source.source.type!=='qq'||source.source.revision!==material.revision)return undefined;
     return [...offeredAuthorities.values()].find(authority=>authority.kind==='PROGRAM_SOURCE_AUTHORITY'&&authority.targetSourceId===material.sourceId&&authority.targetRevision===material.revision&&authority.start===undefined)?.authorityRef;
    },
-   authority:(ref,material,path='authorityRef')=>{
+   authority:(ref,material,path='authorityRef',permissionQuote)=>{
     requireCommit();const found=typeof ref==='string'&&offeredAuthorities.get(ref),bound=material&&materialBindings.get(material);
     if(!found)throw fail(path,'unknown_authority_reference','choose only an exact authorityRef offered in this HTTP request');
     if(!bound||bound.snapshot!==snapshot)throw fail(path,'material_reference_binding_invalid','authority requires the exact material choice from this HTTP request');
@@ -227,7 +231,8 @@ class PrimaryReferenceOwner{
     const permission=(found.currentInstruction||found.wholeOriginal)&&current?.available&&current.source.revision===found.revision
      ?{metadata:{sourceId:found.sourceId},text:current.text}:offeredMaterials.get(found.materialRef);
     if(!permission)throw fail(path,'unknown_authority_reference','the original user statement was not delivered in this request');
-    return {permission:{sourceId:permission.metadata.sourceId,text:permission.text},referent:{sourceId:material.sourceId,text:material.text}};
+    if(permissionQuote!==undefined&&(typeof permissionQuote!=='string'||!permissionQuote.trim()||permissionQuote.length>4000||!permission.text.includes(permissionQuote)))throw fail(path,'permission_span_invalid','permissionQuote must be an exact nonempty span of this offered human authority, not another source');
+    return {permission:{sourceId:permission.metadata.sourceId,text:permissionQuote===undefined?permission.text:permissionQuote},referent:{sourceId:material.sourceId,text:material.text}};
    },
    currentDelivery:(value,path='requestDelivery')=>{
     requireCommit();

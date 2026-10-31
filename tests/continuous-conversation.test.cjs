@@ -77,7 +77,7 @@ test('analysis-only and unjustified wait controls cannot mechanically pass the o
     {kind:'discussion',text:'Synthetic known-bad control: no reason to respond.',replyDisposition:'wait'}
   ]){
     const report=await runHarness({continuousCases:selected('L1-automatic-candidate'),maxHttp:4,syntheticResponder:payload=>payload.purpose==='fidelity_check'
-      ?{checkRef:payload.checkRef,factual:factualReview(payload,{}),verdict:'allow',issues:[]}:reply});
+      ?{checkRef:payload.checkRef,auditProtocol:'sparse-defects-v1',issues:[]}:reply});
     assert.equal(report.realHttpAttempts,0);assert.equal(report.semanticVerdict,'requires_independent_review');
     assert.notEqual(report.cases[0].status,'executed_semantic_review_required');
     assert.ok(!report.cases[0].steps[0]?.reply?.suggestions?.length);

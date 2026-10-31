@@ -39,7 +39,7 @@ function fixture(t,mode){
  const controller=new Controller({store,settings,memoryModel:null,compactionModel:null,read:async()=>{throw Error('This regression cannot read native QQ');},
   assistantModel:(configured,context,signal)=>assistModel(configured,context,signal,async(_url,request)=>{
    const wire=JSON.parse(request.body),payload=payloadFor(wire);requests.push({wire,payload});
-   if(payload.purpose==='fidelity_check')return response({checkRef:payload.checkRef,factual:factualReview(payload,{}),verdict:'allow',issues:[]});
+   if(payload.purpose==='fidelity_check')return response({checkRef:payload.checkRef,auditProtocol:'sparse-defects-v1',issues:[]});
    if(requests.length===1)return response({kind:'discussion',text:'保留你想邀请她的意思，换自然的说法。',answer:{suggestions:'MALFORMED_COMPLETE_ANSWER'},draftPlan:{intent:'reply',quotes:[]}});
    if(payload.originalInput){
     const captured=context.extraRequests?.at(-1)?.payload?.originalInput||context.payload,manifest=context.extraRequests?.at(-1)?.manifest||context.manifest;

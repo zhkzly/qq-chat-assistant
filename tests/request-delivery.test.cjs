@@ -11,7 +11,7 @@ const {scope,raw}=require('./fixtures/native.cjs');
 const {withCurrentDraftControls}=require('./fixtures/draft-controls.cjs');
 const actual005={kind:'discussion',text:'可以围着“做它有什么意思”来答：说清它是给自己记读书笔记的小网页，再带上你刚做好的查找功能和开心劲儿，最后问她平时怎么留住读到的东西。'};
 const interpretation=(p,mode='editable_message')=>{const sourceId=p.intentAuthority?.sourceId||p.userRequest?.sourceId;return {mode,sourceId,quote:p.sources.find(s=>s.id===sourceId).text.slice(0,1000)};};
-const allowed=p=>({checkRef:p.checkRef,factual:factualReview(p,{}),verdict:'allow',issues:[]});
+const allowed=p=>({checkRef:p.checkRef,auditProtocol:'sparse-defects-v1',issues:[]});
 const answer=text=>({suggestions:[{style:'自然',text}]});
 const plan=(p,quotes=[],overrides={})=>withCurrentDraftControls({quotes,intent:'reply',...overrides},p);
 async function setup(t,producer,{limit=4}={}){
@@ -85,10 +85,10 @@ test('missing complete answer cannot be salvaged by rejected auxiliary state or 
  await assert.rejects(app.controller.assist({text:'给我能改着发的表达。'}),/answer|whole_answer/);
  assert.equal(app.calls.length,2);assert.equal(app.run().status,'failed');assert.equal(app.calls[1].wrapper.purpose,'discussion');
 });
-test('shared HTTP quota includes structured fulfillment repair and cannot skip the final check',async t=>{
+test('shared HTTP quota includes fulfillment repair and exposes an unstarted audit without another call',async t=>{
  const app=await setup(t,(p,w)=>!w.originalInput?actual005:{operation:'prepare_message',answer:answer('接住当前的具体内容。')}, {limit:2});
- actualIncoming(app);await assert.rejects(app.controller.assist({text:'给我能改着发的表达。'}),/预算|上限/);
- assert.equal(app.calls.length,2);assert.equal(app.run().requests[0].manifest.requestDelivery.status,'prepared');assert.notEqual(app.run().manifest.requestDelivery?.status,'delivered');
+ actualIncoming(app);const reply=await app.controller.assist({text:'给我能改着发的表达。'});assert.equal(reply.semanticReview.status,'incomplete');
+ assert.equal(app.calls.length,2);assert.equal(app.run().requests[0].manifest.requestDelivery.status,'prepared');assert.equal(app.run().manifest.requestDelivery?.status,'delivered');
 });
 test('current authority excludes older quotes, and sticky delivery cannot downgrade after lookup',()=>{
  const p={purpose:'discussion',requestDeliveryPolicy:{version:1},intentAuthority:{sourceId:'private:current'},sources:[{id:'private:old',type:'private',role:'user',text:'以前写过'}, {id:'private:current',type:'private',role:'user',text:'现在帮我写话'}],taskContext:{auxiliaryPolicy:'best_effort'}};

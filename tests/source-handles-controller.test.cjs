@@ -25,7 +25,7 @@ async function setup(t,producer){
  t.after(()=>{controller.close();store.close();});return {controller,store,calls,contexts,run:()=>store.getCompanion(scope).runs.at(-1)};
 }
 const draft={kind:'draft',text:`今天读完了这本书，顺便记下这个字符串：${literal}。`};
-const answer={suggestions:[{text:draft.text}]},allow=p=>({checkRef:p.checkRef,factual:factualReview(p,{}),verdict:'allow',issues:[]});
+const answer={suggestions:[{text:draft.text}]},allow=p=>({checkRef:p.checkRef,auditProtocol:'sparse-defects-v1',issues:[]});
 test('actual foreground wire is compact while controller, stored provenance and quoted literals remain canonical',async t=>{
  const app=await setup(t,p=>p.purpose==='fidelity_check'?allow(p):{operation:'prepare_message',currentFacts:currentFacts(),answer});
  const reply=await app.controller.assist({text:currentText});assert.equal(app.calls.length,2);assert.equal(reply.suggestions[0].text,draft.text);
@@ -53,7 +53,7 @@ test('lookup, same-task structured repair and wording use append-only offers wit
  const canonicalId=app.contexts[0].payload.intentAuthority.sourceId;assert.equal(app.calls[2].wrapper.task.includes(canonicalId),false);assert.match(app.calls[2].wrapper.task,/prepare_message/);assert.match(app.calls[2].request.messages[0].content,/materials:\[\{materialRef,authorityRef\}\]/);
  assert.ok(app.calls[2].wrapper.validationIssues.some(issue=>issue.path==='text'&&issue.code==='primary_operation_inactive_payload'));
  const materialSchema=prepareAssistantRequest({...app.controller.settings,modelResponseMode:'result_tool'},app.contexts[0].payload).request.tools[0].function.parameters.properties.materials.items;
- assert.deepEqual(Object.keys(materialSchema.properties).sort(),['authorityRef','materialRef']);assert.ok(materialSchema.required.includes('materialRef'));
+ assert.deepEqual(Object.keys(materialSchema.properties).sort(),['authorityRef','factQuote','materialRef','permissionQuote']);assert.ok(materialSchema.required.includes('materialRef'));
  assert.equal(app.run().requests.filter(request=>request.purpose==='delivery_repair').length,1);
 });
 test('budget preview serializes aliased bytes without registering speculative handles',()=>{

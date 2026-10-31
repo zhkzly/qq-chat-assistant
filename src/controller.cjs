@@ -14,7 +14,7 @@ const fingerprint=value=>createHash('sha256').update(JSON.stringify(value)).dige
 const FORGOTTEN_REQUEST='所选来源已从助手参考中移除。仅使用仍可用的信息继续本次帮助，不复述已移除内容。';
 const {SourceHandleOwner}=require('./source-handles.cjs');
 const {primaryOperationFor}=require('./primary-operation.cjs');
-const {buildFidelityContext,buildFidelityRepairContext,parseFidelityResult,approvalFor}=require('./whole-answer-fidelity.cjs');
+const {buildFidelityContext,buildFidelityRepairContext,parseFidelityResult,deliveryFor,incompleteFidelity}=require('./whole-answer-fidelity.cjs');
 const {assertDraftSourcesCurrent}=require('./context/draft-material.cjs');
 const {editable,validateTerminalDelivery,blockerRenderingWitness,deliveryStatus,clarificationBody}=require('./request-delivery.cjs');
 function inFlightMessageRequirement(owner,scope){
@@ -640,10 +640,21 @@ class Controller extends EventEmitter {
       const invokeFidelity=async(input)=>{
         if(this.activeAssist?.taskId===budget.id)Object.defineProperty(this.activeAssist,'inflightInput',{value:input,writable:true,configurable:true});
         assertArtifactInputs(input);
-        const stage=budget.forStage('fidelity_check');settings.requestBudget=stage;input.manifest.stageId=stage.stageId;
+        assertDraftSourcesCurrent(input,Object.keys(input.manifest.sourceRevisions||{}),{scope,store:this.store});
         this.store.saveRun(scope,{id:requestId,baseRevision,purpose:'fidelity_check',status:'pending',payload:input.payload,manifest:input.manifest});
         try{
-          const output=await this.assistantModel(settings,input,abort.signal);
+          let output;
+          try{
+            if(budget.snapshot().remaining<1)throw new Error('Semantic audit not started: request allowance already used');
+            const stage=budget.forStage('fidelity_check');settings.requestBudget=stage;input.manifest.stageId=stage.stageId;
+            output=await this.assistantModel(settings,input,abort.signal);
+          }catch(error){
+            if(abort.signal.aborted)throw error;
+            input.fidelityFrameSnapshot.assert();
+            assertArtifactInputs(input);
+            assertDraftSourcesCurrent(input,Object.keys(input.manifest.sourceRevisions||{}),{scope,store:this.store});
+            output=incompleteFidelity(input,error);
+          }
           if(!current())return;
           assertArtifactInputs(input);
           assertDraftSourcesCurrent(input,Object.keys(input.manifest.sourceRevisions||{}),{scope,store:this.store});
@@ -773,7 +784,7 @@ class Controller extends EventEmitter {
         validateTerminalDelivery(result,requestDeliveryObligation);
         checkInput=buildFidelityContext(primaryContext,result,{scope,requestId,store:this.store,settings,admittedContext:admitted,expressionOptions,optionAdmission,sourceContexts:capturedRequests});
         checked=await invokeFidelity(checkInput);if(!current())return;
-        approval=approvalFor(checked,checkInput);
+        approval=deliveryFor(checked,checkInput);
         if(approval){context.manifest.fidelity={...checkInput.manifest.fidelity,...approval};break;}
         const ledger=budget.snapshot(),used=fidelityRegenerationUsed||ledger.requests.some(request=>request.purpose==='delivery_repair');
         if(checked.verdict==='uncertain'||used||ledger.remaining<2){const error=new Error('完整答复核对未完成，且不能继续修复；输入与已取得原文已保留');error.code=used?'request_delivery_repair_exhausted':checked.verdict==='uncertain'?'fidelity_coverage_uncertain':'fidelity_repair_budget';throw error;}
@@ -801,7 +812,7 @@ class Controller extends EventEmitter {
       context.manifest.candidateSession={qqRevision:revision,privateInputSeq:candidateTicket.privateInputSeq,validatedPlanDigest};
       const reply=this.store._atomic(()=>{
         if(!current())return null;
-        if(!approvalFor(checked,checkInput))throw new Error('Fidelity approval no longer matches this candidate');
+        if(!deliveryFor(checked,checkInput))throw new Error('Delivery receipt no longer matches this candidate');
         assertDraftSourcesCurrent(checkInput,Object.keys(checkInput.manifest.sourceRevisions||{}),{scope,store:this.store});
         assertArtifactInputs(context);
         const rejectedAux=capturedRequests.flatMap(r=>r.manifest?.auxiliaryErrors||[]);
@@ -844,7 +855,7 @@ class Controller extends EventEmitter {
           ?{reasonCode:'auxiliary_metadata_rejected',sourceIds:[intentId],sourceRevisions:{[intentId]:intent.revision}}:undefined;
         const privateReviewReceipt=!metadataReviewPending&&responseRecovery?.kind!=='private_help'&&privateReviewed.length?{applied:true,sourceIds:privateReviewed}:undefined;
         const saved=this.store.appendTurn(scope,{role:'assistant',kind:result.kind,text:result.text,discussionExplanation,requestId,suggestions:result.suggestions,origin:invocation.origin,replyDisposition:result.replyDisposition||(purpose==='reply'&&!result.suggestions?.length?'unavailable':undefined),
-          sourceIds:[...new Set([...context.manifest.sourceIds,...capturedRequests.flatMap(r=>r.manifest?.sourceIds||[])])],expressionOptions,methodIds,actionReceipts:receipts,generationStages,responseRecovery,privateReviewReceipt,metadataReviewPending,
+          sourceIds:[...new Set([...context.manifest.sourceIds,...capturedRequests.flatMap(r=>r.manifest?.sourceIds||[])])],expressionOptions,methodIds,actionReceipts:receipts,generationStages,responseRecovery,privateReviewReceipt,metadataReviewPending,semanticReview:approval?.reviewStatus?{status:approval.reviewStatus,candidateHash:approval.candidateHash,bindingHash:approval.bindingHash,exhaustive:false}:undefined,
           artifactMetadata:{generationStages,goalVersion:companion.goal.version,inputArtifactRefs:assertArtifactInputs(context),inputSourceRefs:
             [...new Map(capturedRequests.flatMap(request=>Object.entries({...request.manifest?.discussionCompaction?.sourceRevisions,...request.manifest?.sourceRevisions}))).entries()].filter(([sourceId])=>/^(qq|private|note):/.test(sourceId)).map(([sourceId,revision])=>({sourceId,revision})),
             discussionTurnFingerprints:Object.assign({},...capturedRequests.map(request=>({...request.manifest?.discussionCompaction?.turnFingerprints,...Object.fromEntries((request.manifest?.discussionReads||[]).filter(read=>['delivered','partial'].includes(read.delivery?.status)&&read.turnFingerprint).map(read=>[read.turnId,read.turnFingerprint]))}))),model:settings.model,promptVersion:context.payload.promptVersion}});

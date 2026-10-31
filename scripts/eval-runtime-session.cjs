@@ -103,7 +103,7 @@ function makeSyntheticTransport() {
     if (typeof content !== 'string') throw new Error('Synthetic replay transport supports text-only requests');
     const wrapper = JSON.parse(content), p = wrapper.originalInput || wrapper;
     let result;
-    if (p.purpose === 'fidelity_check') result = {checkRef:p.checkRef,factual:factualReview(p,{}),verdict:'allow',issues:[]};
+    if (p.purpose === 'fidelity_check') result = {checkRef:p.checkRef,auditProtocol:'sparse-defects-v1',issues:[]};
     else if (p.batchId) result = { batchId: p.batchId, reviewedAll: true, relationshipPatch:{claims:[],events:[],retire:[]},episodes:[] };
     else if (p.purpose === 'discussion_compaction') result = { summary: 'Synthetic transport summary; no semantic quality evidence.',
       reviewedTurnIds: p.turns.map(turn => turn.id), quoteRefs: [] };

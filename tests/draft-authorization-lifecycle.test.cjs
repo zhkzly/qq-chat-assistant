@@ -17,7 +17,7 @@ function fixture(t,{pause=false}={}){
   inputs.push(context);
   if(context.payload.purpose==='fidelity_check'){
    if(pause){started();await new Promise(resolve=>{release=resolve});}
-   return {checkRef:context.payload.checkRef,factual:factualReview(context.payload,{}),verdict:'allow',issues:[]};
+   return {checkRef:context.payload.checkRef,auditProtocol:'sparse-defects-v1',issues:[]};
   }
   return {answer:{privateExplanation:'参考表达',suggestions:[{style:'自然',text:FACT}]},draftPlan:withCurrentDraftControls({quotes:[{sourceId:`private:${material.id}`,text:FACT,authorization:{
    permission:{sourceId:`private:${permission.id}`,text:permission.text},referent:{sourceId:`private:${material.id}`,text:FACT}}}]},context.payload)};

@@ -44,33 +44,16 @@ function noPublication(app){
  assert.equal(app.store.memoryStatus(scope).pendingProposals,0);
 }
 
-test('an allowed actual checker result ignores an undecodable optional source without warnings, new authority or extra repair',async t=>{
- const app=await application(t,p=>({checkRef:p.checkRef,factual:factualReview(p,{'suggestions[0].text':[{quote:MESSAGE,kind:'opinion'}]}),verdict:'allow',issues:[{...badAdvisory,code:'current_boundary'}],concerns:[badAdvisory]}));
- const reply=await app.assist(),ledger=noExtraRequests(app);
- assert.equal(ledger.status,'complete');assert.equal(reply.suggestions[0].text,MESSAGE);
- assert.equal(reply.warning,undefined);assert.equal(reply.concerns,undefined);assert.equal(reply.discussionExplanation,undefined);
- assert.equal(JSON.stringify(reply).includes(DIAGNOSTIC),false);
- assert.deepEqual(app.calls[1].admittedFragments,[]);
- assert.equal(app.store.relationshipView(scope).claims.length,0);assert.equal(app.store.memoryStatus(scope).pendingProposals,0);
- const check=app.store.getCompanion(scope).runs.at(-1).requests.find(request=>request.purpose==='fidelity_check').manifest.fidelity;
- assert.equal(check.verdict,'allow');assert.equal(check.reportedVerdict,'allow');assert.deepEqual(check.concerns,[]);
- assert.equal(check.unusableAdvisory.length,2);assert.ok(check.unusableAdvisory.every(item=>item.code==='unknown_source_handle'));
- assert.equal(app.store.memorySources(scope).some(source=>source.id==='s999'),false);
+test('unusable optional audit witnesses remain private diagnostics and expose incomplete review without new authority',async t=>{
+ const app=await application(t,p=>({checkRef:p.checkRef,auditProtocol:'sparse-defects-v1',issues:[{...badAdvisory,code:'current_boundary',quote:MESSAGE}],concerns:[badAdvisory]})),reply=await app.assist(),ledger=noExtraRequests(app);
+ assert.equal(ledger.status,'complete');assert.equal(reply.suggestions[0].text,MESSAGE);assert.equal(reply.semanticReview.status,'incomplete');assert.equal(reply.warning,undefined);assert.equal(JSON.stringify(reply).includes(DIAGNOSTIC),false);assert.deepEqual(app.calls[1].admittedFragments,[]);assert.equal(app.store.relationshipView(scope).claims.length,0);assert.equal(app.store.memoryStatus(scope).pendingProposals,0);
+ const check=app.contexts.at(-1).manifest.fidelity;assert.equal(check.exhaustive,false);assert.equal(check.issues.length,0);assert.ok(check.diagnostics.length>=2);assert.equal(app.store.memorySources(scope).some(source=>source.id==='s999'),false);
 });
-
-test('a targeted unverifiable assertion stays uncertain beside valid and invalid optional advice with no regeneration',async t=>{
- const app=await application(t,p=>({checkRef:p.checkRef,factual:factualReview(p,{'suggestions[0].text':[{quote:MESSAGE,kind:'opinion'},{quote:'Your shelf',kind:'assertion',support:'unverifiable'}]}),verdict:'uncertain',issues:[],concerns:[{path:'suggestions[0].text',code:'style',quote:MESSAGE,reason:'A valid private style observation.'},badAdvisory]}));
- await assert.rejects(app.assist(),error=>error.code==='fidelity_coverage_uncertain');
- const ledger=noExtraRequests(app);assert.equal(ledger.status,'failed');assert.equal(ledger.errorCode,'fidelity_coverage_uncertain');noPublication(app);
- const check=app.contexts.at(-1).manifest.fidelity;
- assert.equal(check.verdict,'uncertain');assert.equal(check.reportedVerdict,'uncertain');assert.equal(check.concerns.length,1);
- assert.equal(check.unusableAdvisory[0].code,'unknown_source_handle');
+test('uncertain private interpretation remains advice and invalid optional witnesses mark the audit incomplete without regeneration',async t=>{
+ const app=await application(t,p=>({checkRef:p.checkRef,auditProtocol:'sparse-defects-v1',issues:[],concerns:[{path:'suggestions[0].text',code:'interpretation',quote:MESSAGE,reason:'This private reading is uncertain.'},badAdvisory]})),reply=await app.assist(),ledger=noExtraRequests(app);
+ assert.equal(ledger.status,'complete');assert.equal(reply.semanticReview.status,'incomplete');const check=app.contexts.at(-1).manifest.fidelity;assert.equal(check.concerns.length,1);assert.ok(check.diagnostics.length);assert.equal(check.issues.length,0);
 });
-
-test('a reported rejection and malformed optional source cannot override a complete nonassertive factual assessment',async t=>{
- const app=await application(t,p=>({checkRef:p.checkRef,factual:factualReview(p,{'suggestions[0].text':[{quote:MESSAGE,kind:'opinion'}]}),verdict:'reject',issues:[],concerns:[badAdvisory]}));
- const reply=await app.assist(),ledger=noExtraRequests(app);assert.equal(ledger.status,'complete');assert.equal(reply.suggestions[0].text,MESSAGE);assert.equal(reply.warning,undefined);
- const check=app.contexts.at(-1).manifest.fidelity;
- assert.equal(check.reportedVerdict,'reject');assert.equal(check.verdict,'allow');assert.deepEqual(check.issues,[]);assert.deepEqual(check.concerns,[]);
- assert.equal(check.unusableAdvisory[0].code,'unknown_source_handle');assert.equal(app.store.relationshipView(scope).claims.length,0);assert.equal(app.store.memoryStatus(scope).pendingProposals,0);
+test('legacy global rejection cannot become a native pass certificate or override actual nonassertive help',async t=>{
+ const app=await application(t,p=>({checkRef:p.checkRef,verdict:'reject',factual:factualReview(p,{}),issues:[],concerns:[badAdvisory]})),reply=await app.assist(),ledger=noExtraRequests(app);
+ assert.equal(ledger.status,'complete');assert.equal(reply.suggestions[0].text,MESSAGE);assert.equal(reply.semanticReview.status,'incomplete');const check=app.contexts.at(-1).manifest.fidelity;assert.equal(check.exhaustive,false);assert.equal(check.verdict,'incomplete');assert.deepEqual(check.issues,[]);assert.equal(app.store.relationshipView(scope).claims.length,0);assert.equal(app.store.memoryStatus(scope).pendingProposals,0);
 });

@@ -396,6 +396,11 @@ class Store {
         const pending=normalizeMetadataReviewPending(turn.metadataReviewPending);
         saved.metadataReviewPending={...pending,sourceRevisions:checkPrivateMetadataSources(pending.sourceIds,pending.sourceRevisions)};
       }
+      if(turn.semanticReview!==undefined){
+        const review=turn.semanticReview;
+        if(turn.role!=='assistant'||!plain(review)||Object.keys(review).some(key=>!['status','candidateHash','bindingHash','exhaustive'].includes(key))||!['reviewed','incomplete'].includes(review.status)||review.exhaustive!==false||!['candidateHash','bindingHash'].every(key=>typeof review[key]==='string'&&/^[a-f0-9]{64}$/.test(review[key])))throw new Error('Invalid semantic audit delivery metadata');
+        saved.semanticReview={...review};
+      }
       if(turn.responseRecovery!==undefined){
         if(turn.role!=='assistant')throw new Error('Response recovery is assistant program metadata');
         const recovery=normalizeResponseRecovery(turn.responseRecovery);

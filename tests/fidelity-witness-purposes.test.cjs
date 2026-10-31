@@ -3,7 +3,9 @@
 // These checks do not grade language, entailment or conversational quality.
 const test=require('node:test'),assert=require('node:assert/strict');
 const fs=require('node:fs'),path=require('node:path');
-const {buildFidelityContext,parseFidelityResult,approvalFor}=require('../src/whole-answer-fidelity.cjs');
+const {buildFidelityContext:buildLegacyContext,parseFidelityResult,approvalFor}=require('../src/whole-answer-fidelity.cjs');
+// Historical census decoder contract only; native controller uses sparse audit.
+const buildFidelityContext=(prepared,result,info={})=>buildLegacyContext(prepared,result,{...info,auditProtocol:'legacy-census-v7'});
 const {mapSourceReferences}=require('../src/source-handles.cjs');
 const {Controller}=require('../src/controller.cjs'),{Store}=require('../src/store.cjs');
 const {assistModel}=require('../src/assistant-model.cjs');

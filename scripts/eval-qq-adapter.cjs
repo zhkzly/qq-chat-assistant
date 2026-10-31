@@ -15,6 +15,7 @@ function projectVisibleTurn(turn){
  const suggestions=recovery==='private_help'?[]:(turn.suggestions||[]).map(s=>({text:s.text,label:s.style||'参考表达'}));
  const options=recovery==='private_help'?[]:(turn.expressionOptions||[]).map(choice=>({label:choice.label||choice.intent||'一个可表达的方向'}));
  const notices=[];
+ if(turn.semanticReview?.status==='incomplete')notices.push({text:'建议已生成；本次内容核对未完成，采用前请确认具体事实和私下信息。'});
  const references=[];
  if(turn.methodBasis)references.push({label:'本次参考',text:typeof turn.methodBasis==='string'?turn.methodBasis:JSON.stringify(turn.methodBasis)});
  if(turn.method)references.push({label:'模型标记的方法',text:typeof turn.method==='string'?turn.method:turn.method.label||turn.method.id||''});

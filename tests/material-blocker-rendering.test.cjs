@@ -28,7 +28,7 @@ async function controllerFixture(t,{restricted=false,requestText=currentRequestT
     const primary=(wrapper.originalInput?context.extraRequests?.at(-1)?.manifest?.primaryReferences:undefined)||context.manifest.primaryReferences;
     const canonical=canonicalSourceView(p,receipt,wrapper.originalInput?context.extraRequests.at(-1).payload.originalInput:context.payload);
     calls.push({request,wrapper,p});
-    let content=p.purpose==='fidelity_check'?JSON.stringify({checkRef:p.checkRef,factual:factualReview(p,{}),verdict:'allow',issues:[]}):repairResponseContent;
+    let content=p.purpose==='fidelity_check'?JSON.stringify({checkRef:p.checkRef,auditProtocol:'sparse-defects-v1',issues:[]}):repairResponseContent;
     if(restricted&&p.purpose!=='fidelity_check'){
      content=JSON.stringify(!p.lookupHistory.length?{operation:'lookup',continuation:'prepare_message',text:'先核对当前真实来信。',lookup:{sourceIds:[p.sources.find(source=>source.type==='qq').id]}}:{operation:'clarify',blocker:structuredClone(repairResponse.requestDelivery.blocker)});
     }
@@ -97,7 +97,7 @@ test('applied forget clears a normalized blocker sentinel before every subsequen
  const secret='FICTIONAL_NORMALIZED_BLOCKER_FORGET_SENTINEL_20261030';let targetId,afterForgetArgs;
  const requestText=`忘记${secret}这条笔记，然后仅用仍然可用的材料帮我组织表达。`;
  const app=await controllerFixture(t,{requestText,responder:(p,wrapper,index)=>{
-  if(p.purpose==='fidelity_check')return {checkRef:p.checkRef,factual:factualReview(p,{}),verdict:'allow',issues:[]};
+  if(p.purpose==='fidelity_check')return {checkRef:p.checkRef,auditProtocol:'sparse-defects-v1',issues:[]};
   const sourceId=p.intentAuthority?.sourceId||p.userRequest.sourceId,source=p.sources.find(item=>item.id===sourceId);
   if(index===0)return {kind:'question',text:`你要求不再使用${secret}，需要先执行移除。`,
    requestDelivery:{mode:'editable_message',sourceId,quote:source.text,blocker:{kind:'missing_authorization',missing:`确认${secret}是否仍可用于表达`,question:`${secret}还可以向她提及吗？`,explanation:`移除${secret}后才能重新确认分享范围。`}},

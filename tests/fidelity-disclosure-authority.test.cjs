@@ -1,7 +1,9 @@
 'use strict';
 // Sharing admission is a program capability distinct from semantic truth support.
 const test=require('node:test'),assert=require('node:assert/strict');
-const {buildFidelityContext,parseFidelityResult}=require('../src/whole-answer-fidelity.cjs');
+const {buildFidelityContext:buildLegacyContext,parseFidelityResult}=require('../src/whole-answer-fidelity.cjs');
+// Historical census decoder contract only; native controller uses sparse audit.
+const buildFidelityContext=(prepared,result,info={})=>buildLegacyContext(prepared,result,{...info,auditProtocol:'legacy-census-v7'});
 const {scope}=require('./fixtures/native.cjs');
 const FACT='我今天修好了自己的台灯。',SECRET='家人的检查安排只在这里说。';
 function fixture({copy=FACT,privateBody='',admitted=[],draft=false}={}){
