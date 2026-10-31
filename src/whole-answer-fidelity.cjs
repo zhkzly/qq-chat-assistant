@@ -4,6 +4,7 @@ const {parseModelJson}=require('./model-json.cjs');
 const {validationError}=require('./validation-issues.cjs');
 const {sameScopeIfPresent}=require('./context/source-snapshot.cjs');
 const {sourceClosure}=require('./provenance.cjs');
+const {candidateFields,candidatePaths,normalizeCandidatePath}=require('./candidate-field-paths.cjs');
 const VERSION='whole-answer-fidelity-v2';
 const marks=new WeakMap(),clone=value=>structuredClone(value);
 const plain=value=>value&&typeof value==='object'&&!Array.isArray(value);
@@ -113,7 +114,7 @@ function buildFidelityContext(prepared,result,info={}){
   ...(prepared.payload.viewerTimeZone?{viewerTimeZone:prepared.payload.viewerTimeZone}:{}),
   ...(prepared.payload.taskContext?.timeContext?{timeContext:clone(prepared.payload.taskContext.timeContext)}:{}),
   ...(prepared.payload.actionReceipts?.length?{actionReceipts:clone(prepared.payload.actionReceipts)}:{}),
-  candidate:freeze(clone(candidate)),evidence,
+  candidate:freeze(clone(candidate)),candidatePaths:candidatePaths(candidate),evidence,
   ...(intentId?{intentAuthority:{sourceId:intentId}}:{}),
   admittedFragments:admitted.map(({sourceId,text})=>({sourceId,text})),
   ...(info.admittedContext?.payload.currentHumanControl?{currentHumanControl:{sourceId:info.admittedContext.payload.currentHumanControl.sourceId,authority:'CONTROL_ONLY',bodyLocation:'evidence'}}:{}),
@@ -157,13 +158,8 @@ function buildFidelityContext(prepared,result,info={}){
   admitted:info.admittedContext?.payload.outboundQuotes,currentHuman:info.admittedContext?.payload.currentHumanControl,selectedDirection:info.admittedContext?.payload.selectedDirectionControl,
   revisions:context?.manifest.sourceRevisions||revisions,artifacts:(context?.manifest||manifest).inputArtifactRefs||[],
   evidenceHash:hash(context?.payload||payload),authorizedImages:prepared.images||[],images:context?.images||images,sourceWitness:[...sourceMap.values()].map(source=>[source.id,source.revision,source.type,source.role,source.at,source.text,source.delivery,source.evidenceRevisions])});
- const bound=binding(),candidateHash=hash(candidate),paths=new Set(['text']);
- if(candidate.discussionExplanation)paths.add('discussionExplanation.text');
- candidate.suggestions.forEach((_,index)=>{paths.add(`suggestions[${index}].text`);paths.add(`suggestions[${index}].style`);});
- candidate.expressionOptions.forEach((_,index)=>paths.add(`expressionOptions[${index}].label`));
- const bodyAt=path=>path==='text'?candidate.text:path==='discussionExplanation.text'?candidate.discussionExplanation?.text:
-  /^suggestions\[(\d+)\]\.(text|style)$/.test(path)?candidate.suggestions[Number(path.match(/\[(\d+)\]/)[1])]?.[path.endsWith('.style')?'style':'text']:
-  /^expressionOptions\[(\d+)\]\.label$/.test(path)?candidate.expressionOptions[Number(path.match(/\[(\d+)\]/)[1])]?.label:undefined;
+ const bound=binding(),candidateHash=hash(candidate),fields=new Map(candidateFields(candidate).map(field=>[field.path,field.value])),paths=new Set(payload.candidatePaths);
+ const bodyAt=path=>fields.get(path);
  const frame=Object.freeze({candidateHash,bindingHash:bound,paths,sourceIds:new Set(sourceIds),bodyAt,evidenceAt:id=>payload.evidence.find(source=>source.sourceId===id),
   assert(){if(binding()!==bound||hash(visibleCandidate(result,options))!==candidateHash||hash(payload.candidate)!==candidateHash||hash(payload)!==evidenceHash)throw fail('candidate','fidelity_binding_invalid','The candidate or captured evidence binding changed after checking');}});
  manifest.fidelity={version:VERSION,candidateHash,bindingHash:bound,evidenceHash,status:'pending'};
@@ -184,16 +180,27 @@ function parseFidelityResult(value,input){
   throw fail('checkRef','fidelity_result_invalid','Return only this checkRef, allow/reject/uncertain and bounded issues; never rewrite or execute');
  const softCodes=['pragmatic_ambiguity','style','helpfulness','coverage_gap'];
  const concerns=[],issues=[];
+ const address=(path,field)=>{
+  const canonical=normalizeCandidatePath(path,input.payload.candidatePaths);
+  if(canonical===undefined)throw fail(field,'fidelity_candidate_path_invalid',`${field}: received ${JSON.stringify(path)}; choose an offered candidate-relative path: ${input.payload.candidatePaths.join(', ')}`);
+  if(canonical!==path&&input.manifest){
+   input.manifest.fidelity ||= {};
+   input.manifest.fidelity.addressNormalizations=[...(input.manifest.fidelity.addressNormalizations||[]),{field,received:path,canonical}];
+  }
+  return canonical;
+ };
  const quoted=(path,quote)=>typeof quote==='string'&&quote.trim()&&quote.length<=1200&&typeof frame.bodyAt(path)==='string'&&frame.bodyAt(path).includes(quote);
- const concern=(item,index)=>{
-  if(!plain(item)||Object.keys(item).some(key=>!['path','code','quote','reason'].includes(key))||!frame.paths.has(item.path)||!softCodes.includes(item.code)||
+ const concern=(raw,index,field=`concerns[${index}].path`)=>{
+  const item=plain(raw)?{...raw,path:address(raw.path,field)}:raw;
+  if(!plain(item)||Object.keys(item).some(key=>!['path','code','quote','reason'].includes(key))||!softCodes.includes(item.code)||
    typeof item.reason!=='string'||!item.reason.trim()||item.reason.length>500||item.quote!==undefined&&!quoted(item.path,item.quote))
    throw fail(`concerns[${index}]`,'fidelity_result_invalid','Nonblocking concerns cite a visible path; they are private diagnostics, not new facts or warnings');
   concerns.push(clone(item));
  };
- for(const [index,issue]of data.issues.entries()){
-  if(softCodes.includes(issue?.code)){concern(issue,index);continue;}
-  if(!plain(issue)||Object.keys(issue).some(key=>!['path','code','quote','sourceIds','evidence','basis','relatedPath','relatedQuote','reason'].includes(key))||!frame.paths.has(issue.path)||
+ for(const [index,raw]of data.issues.entries()){
+  if(softCodes.includes(raw?.code)){concern(raw,index,`issues[${index}].path`);continue;}
+  const issue=plain(raw)?{...raw,path:address(raw.path,`issues[${index}].path`),...(Object.hasOwn(raw,'relatedPath')?{relatedPath:address(raw.relatedPath,`issues[${index}].relatedPath`)}:{})}:raw;
+  if(!plain(issue)||Object.keys(issue).some(key=>!['path','code','quote','sourceIds','evidence','basis','relatedPath','relatedQuote','reason'].includes(key))||
    !['unsupported_fact','private_disclosure','current_boundary','omitted_qualifier','evidence_mismatch','internal_conflict'].includes(issue.code)||!quoted(issue.path,issue.quote)||
    typeof issue.reason!=='string'||!issue.reason.trim()||issue.reason.length>500||
    issue.sourceIds!==undefined&&(!Array.isArray(issue.sourceIds)||issue.sourceIds.length>16||issue.sourceIds.some(id=>!frame.sourceIds.has(id))))

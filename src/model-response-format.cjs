@@ -2,6 +2,7 @@
 const {TOPIC_PROTOCOL}=require('./topic-schema.cjs');
 const {SUBJECTS,ASSERTIONS,EPISTEMIC,LIFECYCLES,EVENT_KINDS,ASPECTS}=require('./relationship-schema.cjs');
 const {auxiliaryReview}=require('./help-behavior.cjs');
+const {candidatePaths}=require('./candidate-field-paths.cjs');
 const string={type:'string'},integer={type:'integer'},boolean={type:'boolean'};
 const array=items=>({type:'array',items}),strings=array(string),choice=values=>({type:'string',enum:values});
 const object=(properties,required=[])=>({type:'object',properties,...(required.length?{required}:{}),additionalProperties:false});
@@ -59,6 +60,13 @@ function responseEnvelope(settings,purpose,payload) {
  if(!useTool)return {response_format:{type:'json_object'}};
  const name=purpose==='fidelity_check'?'fidelity_result':purpose==='draft'?'draft_result':purpose==='discussion_compaction'?'discussion_compaction_result':purpose==='memory'?'memory_result':'assistant_result';
  let schema=schemas[name];
+ if(name==='fidelity_result'&&(payload?.originalInput||payload)?.candidate){
+  const paths=candidatePaths((payload.originalInput||payload).candidate),properties={...schema.properties};
+  const withPaths=rule=>({...rule,items:{...rule.items,properties:{...rule.items.properties,path:choice([...paths]),
+    ...(rule.items.properties.relatedPath?{relatedPath:choice([...paths])}:{})}}});
+  properties.issues=withPaths(properties.issues);properties.concerns=withPaths(properties.concerns);
+  schema={...schema,properties};
+ }
  if(name==='draft_result'&&(payload?.originalInput||payload)?.requestDeliveryObligation){
   // Keep the provider envelope flat; the local terminal validator owns the
   // conditional contract across providers and program-generated fallbacks.

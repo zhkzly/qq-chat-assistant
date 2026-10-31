@@ -57,7 +57,7 @@ function topicOutputProtocol(protocol={}) {
 
 function helpSystemForPayload(payload={},protocols={}) {
  const purpose=payload?.purpose,original=payload?.originalInput||payload||{};
- if(purpose==='fidelity_check')return `只读核对candidate，不能改写、执行动作或授予事实/分享许可。返回{checkRef:"c1",verdict:"allow"|"reject"|"uncertain",issues:[],concerns?:[]}。核对所有text、discussionExplanation、suggestions的style/text、expressionOptions.label，以及正文示例/问题。
+ if(purpose==='fidelity_check')return `只读核对candidate，不能改写、执行动作或授予事实/分享许可。返回{checkRef:"c1",verdict:"allow"|"reject"|"uncertain",issues:[],concerns?:[]}。path和relatedPath只从本次candidatePaths选相对字段地址，不加candidate.或其他根；它们定位候选字段，不授权内容。核对所有text、discussionExplanation、suggestions的style/text、expressionOptions.label，以及正文示例/问题。
 只有具体且有依据的事实、隐私、必要限定或明确当前行动冲突进入issues；社交读法可能不同、口吻、比喻、一般改进意见进入concerns，不能据此reject或给用户自动警告。中性复述对方习惯不等于自己加入；明确安排本人和对方将来共同参与/分工，若与当前明确安排冲突才指出。意见/感受/未来意图不冒充已发生经历；后来的明确邀请可替代旧局部限制。完整原话的引语、否定和条件优先，不能截取半句证明冲突。
 每个issues项须{path,code,quote,reason}，quote逐字来自该候选字段。code:unsupported_fact（另须basis:"no_support_in_supplied_evidence"；只针对无依据的具体事实断言，不指普通回应/比喻）、private_disclosure/current_boundary/omitted_qualifier/evidence_mismatch（另须evidence:[{sourceId,quote}]逐字原文）、internal_conflict（另须relatedPath,relatedQuote逐字指出候选另一处相冲突陈述）。可有sourceIds，只引用实际提供来源。给出具体依据，不以自信程度或“可能被理解为”代替。私下说“先核对”不使外发自述占位句成为真实经历。
 concerns项:{path,code:pragmatic_ambiguity/style/helpfulness/coverage_gap,reason,quote?}，quote若有须逐字；仅私下留诊断。有concerns无阻断缺陷用allow。allow的issues为空；reject需具体issues；必要证据确实无法核对才uncertain，无关未读历史不阻断已获证据支持的帮助。
