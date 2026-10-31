@@ -1,0 +1,310 @@
+{
+  "evidence": "Captured fictional live proposals; replayed offline through production prepareMemoryRequest and Store. No HTTP and no semantic ratings.",
+  "source": ".goal-runs/memory-v4-observation-01-candidate023-live/transport.json",
+  "sourceSha256": "85a913b41b49c6543e9fbdcf4133c0b7037a98aed0d148ad2e7c72744a1f3058",
+  "initial": {
+    "batchId": "b7d4ab888c45cf594",
+    "reviewedAll": true,
+    "relationshipPatch": {
+      "claims": [
+        {
+          "subject": "contact",
+          "aspect": "recent_context",
+          "text": "她说这周换班有点累，暂时没空跑步。",
+          "assertionKind": "stated",
+          "epistemicStatus": "supported",
+          "sourceIds": [
+            "s1"
+          ],
+          "topicKeys": [
+            "换班",
+            "跑步"
+          ],
+          "validFrom": "2026-09-01",
+          "applicabilityKind": "temporary",
+          "attribution": "speaker",
+          "condition": "这周换班期间"
+        },
+        {
+          "subject": "contact",
+          "aspect": "interest",
+          "text": "她表示自己仍然喜欢跑步。",
+          "assertionKind": "stated",
+          "epistemicStatus": "supported",
+          "sourceIds": [
+            "s1"
+          ],
+          "topicKeys": [
+            "跑步"
+          ],
+          "applicabilityKind": "unspecified",
+          "attribution": "speaker"
+        }
+      ],
+      "events": [],
+      "retire": []
+    },
+    "episodes": []
+  },
+  "reaffirm": {
+    "batchId": "be5d9ab23dd80b291",
+    "reviewedAll": true,
+    "episodes": [],
+    "relationshipPatch": {
+      "claims": [
+        {
+          "id": "m1",
+          "expectedVersion": 1,
+          "text": "她表示自己仍然喜欢跑步。",
+          "subject": "contact",
+          "aspect": "interest",
+          "assertionKind": "stated",
+          "epistemicStatus": "supported",
+          "lifecycle": "active",
+          "applicabilityKind": "unspecified",
+          "attribution": "speaker",
+          "sourceIds": [
+            "c1"
+          ],
+          "topicKeys": [
+            "跑步"
+          ],
+          "transition": {
+            "operation": "reaffirm",
+            "targets": [
+              {
+                "id": "m1",
+                "expectedVersion": 1
+              }
+            ]
+          }
+        },
+        {
+          "id": "m2",
+          "expectedVersion": 1,
+          "text": "她说这周换班有点累，暂时没空跑步。",
+          "subject": "contact",
+          "aspect": "recent_context",
+          "assertionKind": "stated",
+          "epistemicStatus": "supported",
+          "lifecycle": "active",
+          "applicabilityKind": "temporary",
+          "attribution": "speaker",
+          "condition": "这周换班期间",
+          "validFrom": "2026-09-01T00:00:00.000Z",
+          "sourceIds": [
+            "c1"
+          ],
+          "topicKeys": [
+            "换班",
+            "跑步"
+          ],
+          "transition": {
+            "operation": "reaffirm",
+            "targets": [
+              {
+                "id": "m2",
+                "expectedVersion": 1
+              }
+            ]
+          }
+        }
+      ],
+      "events": [],
+      "retire": []
+    }
+  },
+  "later14": {
+    "batchId": "b4337f84158a947d6",
+    "reviewedAll": true,
+    "episodes": [
+      {
+        "text": "她在9月1日说换班这周有点累，暂时没空跑步，但仍喜欢跑步；9月21日说已恢复正常下班，并在刚过去的周末又跑了一次。",
+        "sourceIds": [
+          "c1",
+          "s10"
+        ],
+        "topicKeys": [
+          "跑步",
+          "换班",
+          "作息"
+        ]
+      }
+    ],
+    "relationshipPatch": {
+      "claims": [
+        {
+          "id": "m1",
+          "expectedVersion": 1,
+          "text": "她表示自己仍然喜欢跑步。",
+          "sourceIds": [
+            "c1"
+          ],
+          "topicKeys": [
+            "跑步"
+          ],
+          "subject": "contact",
+          "aspect": "interest",
+          "assertionKind": "stated",
+          "epistemicStatus": "supported",
+          "lifecycle": "active",
+          "applicabilityKind": "unspecified",
+          "attribution": "speaker",
+          "transition": {
+            "operation": "reaffirm",
+            "targets": [
+              {
+                "id": "m1",
+                "expectedVersion": 1
+              }
+            ]
+          }
+        },
+        {
+          "id": "m2",
+          "expectedVersion": 1,
+          "text": "她说9月1日所在的这周因换班有点累，暂时没空跑步。",
+          "sourceIds": [
+            "c1"
+          ],
+          "topicKeys": [
+            "换班",
+            "跑步"
+          ],
+          "subject": "contact",
+          "aspect": "recent_context",
+          "assertionKind": "stated",
+          "epistemicStatus": "supported",
+          "lifecycle": "superseded",
+          "applicabilityKind": "temporary",
+          "attribution": "speaker",
+          "condition": "9月1日所在的这周换班期间",
+          "validFrom": "2026-09-01T00:00:00.000Z",
+          "transition": {
+            "operation": "supersede",
+            "targets": [
+              {
+                "id": "m2",
+                "expectedVersion": 1
+              }
+            ]
+          }
+        }
+      ],
+      "events": [
+        {
+          "activityKey": "跑步",
+          "eventKind": "occurred",
+          "actor": "contact",
+          "text": "她说自己刚过去的周末又去跑了一次。",
+          "sourceIds": [
+            "s10"
+          ],
+          "topicKeys": [
+            "跑步"
+          ]
+        }
+      ],
+      "retire": []
+    }
+  },
+  "later15": {
+    "batchId": "b4337f84158a947d6",
+    "reviewedAll": true,
+    "episodes": [
+      {
+        "text": "她在9月1日说换班有点累，暂时没空跑步，但仍喜欢跑步；9月21日说已恢复正常下班，并在刚过去的周末跑了一次。",
+        "sourceIds": [
+          "c1",
+          "s10"
+        ],
+        "topicKeys": [
+          "跑步",
+          "换班",
+          "生活节奏"
+        ]
+      }
+    ],
+    "relationshipPatch": {
+      "claims": [
+        {
+          "id": "m1",
+          "expectedVersion": 1,
+          "text": "她表示自己仍然喜欢跑步。",
+          "sourceIds": [
+            "c1"
+          ],
+          "topicKeys": [
+            "跑步"
+          ],
+          "subject": "contact",
+          "aspect": "interest",
+          "assertionKind": "stated",
+          "epistemicStatus": "supported",
+          "lifecycle": "active",
+          "applicabilityKind": "unspecified",
+          "attribution": "speaker",
+          "transition": {
+            "operation": "reaffirm",
+            "targets": [
+              {
+                "id": "m1",
+                "expectedVersion": 1
+              }
+            ]
+          }
+        },
+        {
+          "id": "m2",
+          "expectedVersion": 1,
+          "text": "她说9月1日那周因换班有点累，暂时没空跑步；这是当时的短期情况。",
+          "sourceIds": [
+            "c1"
+          ],
+          "topicKeys": [
+            "换班",
+            "跑步"
+          ],
+          "subject": "contact",
+          "aspect": "recent_context",
+          "assertionKind": "stated",
+          "epistemicStatus": "supported",
+          "lifecycle": "superseded",
+          "applicabilityKind": "temporary",
+          "attribution": "speaker",
+          "condition": "2026年9月1日那周换班期间",
+          "validFrom": "2026-09-01T00:00:00.000Z",
+          "transition": {
+            "operation": "supersede",
+            "targets": [
+              {
+                "id": "m2",
+                "expectedVersion": 1
+              }
+            ]
+          }
+        },
+        {
+          "text": "她在9月21日表示已恢复正常下班，并在刚过去的周末又跑了一次。",
+          "sourceIds": [
+            "s10"
+          ],
+          "topicKeys": [
+            "生活节奏",
+            "跑步"
+          ],
+          "subject": "contact",
+          "aspect": "recent_context",
+          "assertionKind": "stated",
+          "epistemicStatus": "supported",
+          "lifecycle": "active",
+          "applicabilityKind": "unspecified",
+          "attribution": "speaker",
+          "validFrom": "2026-09-21T10:30:00.000Z"
+        }
+      ],
+      "events": [],
+      "retire": []
+    }
+  }
+}

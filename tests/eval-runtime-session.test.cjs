@@ -50,12 +50,13 @@ test('supplemental idle deadline retains a pending public checkpoint and the fix
 test('scheduled legal legacy item remains an incomplete semantic checkpoint while public view and foreground continue',async t=>{
  const fixture=makeSyntheticTransport();let writes=0;
  const session=await setup(t,{condition:OBSERVATION_CONDITION,settings:{...settings,memoryBatchThreshold:1},transport:async(url,args)=>{
-  const p=input(args);if(p.batchId){writes++;const source=p.sources.find(row=>!row.deleted);return packet({batchId:p.batchId,reviewedAll:true,items:[{kind:'fact',text:source.text,sourceIds:[source.id],topicKeys:[],status:'active',certainty:'stated'}],episodes:[],retire:[]});}return fixture(url,args);
+  const p=input(args);if(p.batchId){writes++;if(p.review?.purpose==='semantic_recovery')return packet({batchId:p.batchId,reviewedAll:true,relationshipPatch:{claims:[],events:[],retire:[]},episodes:[]});const source=p.sources.find(row=>!row.deleted);return packet({batchId:p.batchId,reviewedAll:true,items:[{kind:'fact',text:source.text,sourceIds:[source.id],topicKeys:[],status:'active',certainty:'stated'}],episodes:[],retire:[]});}return fixture(url,args);
  }});
  const checkpoint=await session.idleUntil('2026-10-29T12:00:10.000Z',{wallTimeoutMs:1000});
- assert.equal(writes,1);assert.equal(checkpoint.memory_status.pending,0);assert.equal(checkpoint.memory_status.semanticPending,1);assert.equal(checkpoint.product_coverage.semanticPending,0);
+ assert.equal(writes,2);assert.deepEqual(checkpoint.memory_status.errors,[]);assert.equal(checkpoint.memory_status.pending,0);assert.equal(checkpoint.memory_status.semanticPending,1);assert.equal(checkpoint.product_coverage.semanticPending,0);
  assert.equal(checkpoint.status,'incomplete');assert.equal(checkpoint.reason,'partial_semantic_review');
  const view=await session.publicMemoryView();assert.equal(view.memory_status.semanticPending,1);assert.equal(view.as_of,'2026-10-29T12:00:10.000Z');
+ const deferred=await session.idleUntil('2026-10-29T12:00:20.000Z',{wallTimeoutMs:1000});assert.equal(deferred.status,'incomplete');assert.equal(writes,2);assert.deepEqual(deferred.memory_status.errors,[]);
  const response=await session.post('/api/assistant',{text:'原定问题仍应继续，不将旧条目当成已核验。',taskId:'legacy-checkpoint-question'});
  assert.ok(response.companion.turns.some(row=>row.role==='assistant'&&row.requestId==='legacy-checkpoint-question'));
  assert.ok(!session.trace.some(row=>row.component==='product_http'&&row.route==='/api/memory-maintain'));
