@@ -5,7 +5,7 @@ const { randomUUID, createHash } = require('node:crypto');
 const { rank } = require('./memory-search.cjs');
 const { ExperienceStore } = require('./experience-store.cjs');
 const { assertPreferenceAuthority, sourceClosure } = require('./provenance.cjs');
-const { PROCESSOR_VERSION, prepareRelationshipPatch, writeRelationshipRecords, relationshipView } = require('./relationship-store.cjs');
+const { PROCESSOR_VERSION, prepareRelationshipPatch, writeRelationshipRecords, relationshipView, decisionRevisions, repairRelationshipTransitions, invalidateRelationshipDecision } = require('./relationship-store.cjs');
 const { emptyTopics, pruneTopics, topicView, prepareTopicPatch, normalizeTopicPatch } = require('./topic-store.cjs');
 const { DiscussionCompactionStore, validateDiscussionTurnFingerprints } = require('./discussion-compaction-store.cjs');
 const {readOriginalEvidence,coverageFor,requireOriginals}=require('./original-evidence.cjs');
@@ -690,6 +690,7 @@ class Store {
     const key=scopeKey(scope),live=this._rawMemorySources(scope,record),byId=new Map(live.map(s=>[s.id,s]));
     const old=this.db.prepare('SELECT * FROM memory_sources WHERE scope_key=?').all(key),oldIds=new Set(old.map(s=>s.source_id));
     this.db.prepare('INSERT OR IGNORE INTO memory_meta(scope_key) VALUES(?)').run(key);
+    repairRelationshipTransitions(this,scope);
     const write=(source,operation,mode=operation==='remove'?'forget':'correct')=>{
       changed++;
       if(oldIds.has(source.id))this.experiences.invalidateSources(scope,[source.id],{mode});
@@ -701,6 +702,13 @@ class Store {
       const affected=this.db.prepare('SELECT id FROM memory_dependencies WHERE scope_key=? AND source_id=?').all(key,source.id);
       for(const {id} of affected){
         const row=this.db.prepare('SELECT record FROM memory_records WHERE scope_key=? AND id=?').get(key,id),prior=row&&JSON.parse(row.record);
+        if(prior&&decisionRevisions(prior)[source.id]&&!prior.sourceRevisions?.[source.id]){
+          const next=invalidateRelationshipDecision(prior);
+          this.db.prepare('UPDATE memory_records SET record=? WHERE scope_key=? AND id=?').run(JSON.stringify(next),key,id);
+          this.db.prepare('DELETE FROM memory_dependencies WHERE scope_key=? AND id=?').run(key,id);
+          for(const [sourceId,revision] of Object.entries(next.sourceRevisions||{}))this.db.prepare('INSERT INTO memory_dependencies VALUES(?,?,?,?)').run(key,id,sourceId,revision);
+          continue;
+        }
         // A withdrawn milestone leaves an uncertainty barrier, never its body.
         // Otherwise removing a cancellation could resurrect an older acceptance.
         if(prior?.recordType==='relationship_event')this.db.prepare('INSERT OR REPLACE INTO memory_gaps VALUES(?,?,?)').run(key,id,JSON.stringify({id,activityDigest:hash(prior.activityKey),orderAt:prior.occurredAt||prior.lastEvidenceAt,reason:'support_changed_or_withdrawn'}));
@@ -728,7 +736,8 @@ class Store {
   }
   ensureKnowledgeMigration(scope) {
     return this._atomic(()=>{
-      const key=scopeKey(scope),existing=this.db.prepare('SELECT record FROM memory_migrations WHERE scope_key=? AND version=2').get(key);
+      const key=scopeKey(scope);repairRelationshipTransitions(this,scope);
+      const existing=this.db.prepare('SELECT record FROM memory_migrations WHERE scope_key=? AND version=2').get(key);
       if(existing)return {...JSON.parse(existing.record),changed:false};
       let changed=0;
       for(const row of this.db.prepare('SELECT id,record FROM memory_records WHERE scope_key=?').all(key)){
@@ -808,7 +817,7 @@ class Store {
   knowledgeDirectory(scope) {
     // Navigation over existing derived rows. Admission still checks their
     // revision-bound sources; this read does not scan or rank raw history.
-    return this._memoryRecords(scope);
+    this.ensureKnowledgeMigration(scope);return this._memoryRecords(scope);
   }
   searchMemory(scope, query='', options={}) {
     textValue(query,'memory query',100000,true);

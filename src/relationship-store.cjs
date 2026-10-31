@@ -7,6 +7,58 @@ const {requireOriginals}=require('./original-evidence.cjs');
 const PROCESSOR_VERSION='evidence-backed-understanding-2026-10-31.2';
 const hash=value=>createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const typed=r=>r.recordType==='claim'||r.recordType==='relationship_event';
+const decisionRevisions=record=>record.transition?.sourceRevisions||{};
+const dependencyRevisions=record=>({...record.sourceRevisions,...decisionRevisions(record)});
+function invalidateRelationshipDecision(record){
+  const {proposal,sourceIds,sourceRevisions,...transition}=record.transition;
+  const next={...record,transition:{...transition,sourceIds:[],sourceRevisions:{},evidenceValidity:'unavailable'},version:record.version+1,updatedAt:new Date().toISOString()};
+  // Losing the reason for deactivation is uncertainty, not a new positive
+  // observation. Keep canonical support and the opaque anti-resurrection keys.
+  if(record.lifecycle!=='active'){
+    next.reviewComplete=false;
+  }
+  const coverage=record.semanticReview?.coverage,kept=new Set(Object.keys(record.sourceRevisions||{}));
+  const factCoverage=coverage&&{...coverage,
+    sourceRevisions:Object.fromEntries(Object.entries(coverage.sourceRevisions||{}).filter(([id])=>kept.has(id))),
+    reads:(coverage.reads||[]).filter(read=>kept.has(read.sourceId))};
+  if(factCoverage)for(const field of ['completeSourceIds','requiredSourceIds','missingSourceIds','partialSourceIds'])factCoverage[field]=(coverage[field]||[]).filter(id=>kept.has(id));
+  next.semanticReview={...record.semanticReview,...(record.lifecycle!=='active'?{status:'inactive_decision_needs_review'}:{}),...(factCoverage?{coverage:factCoverage}:{})};
+  return next;
+}
+function repairRelationshipTransitions(store,scope){
+  const key=store.scopeKey(scope);let changed=0;
+  for(const record of store._memoryRecords(scope).filter(typed)){
+    const transition=record.transition;
+    if(!transition?.proposal||transition.targets?.length!==1||transition.targets[0].id!==record.id)continue;
+    const next={...record};
+    if(record.lifecycle!=='active'){
+      const prior=record.revisions?.find(revision=>revision.version===transition.targets[0].expectedVersion);
+      next.retiredSemanticSignatures=[...new Set([...(record.retiredSemanticSignatures||[]),prior?.semanticSignature].filter(Boolean))];
+    }
+    if(!transition.sourceRevisions){
+      // Pre-fix rows already retained exact original-read revisions. Reuse that
+      // captured proof, never today's revised source text or current time.
+      const ids=transition.proposal.sourceIds||[],coverage=record.semanticReview?.coverage;
+      const proofs=coverage?.sourceRevisions||{};
+      if(ids.length&&ids.every(id=>proofs[id]&&coverage.completeSourceIds?.includes(id))){
+        // Coverage can include unrelated delivered sources; dependency closure
+        // is limited to the proposal and its original provenance roots.
+        const byId=new Map(store.db.prepare('SELECT record FROM memory_sources WHERE scope_key=? AND deleted=0').all(key).map(row=>{const source=JSON.parse(row.record);return [source.id,source];}));
+        let roots=[];try{roots=sourceClosure(byId,ids);}catch{}
+        if(roots.length&&roots.every(source=>proofs[source.id]===source.revision))next.transition={...transition,sourceIds:ids,sourceRevisions:Object.fromEntries(roots.map(source=>[source.id,source.revision])),evidenceValidity:'valid'};
+        else Object.assign(next,invalidateRelationshipDecision(next));
+      }else Object.assign(next,invalidateRelationshipDecision(next));
+    }
+    const encoded=JSON.stringify(next);
+    if(encoded===JSON.stringify(record))continue;
+    store.db.prepare('UPDATE memory_records SET record=? WHERE scope_key=? AND id=?').run(encoded,key,record.id);
+    store.db.prepare('DELETE FROM memory_dependencies WHERE scope_key=? AND id=?').run(key,record.id);
+    for(const [sourceId,revision] of Object.entries(dependencyRevisions(next)))store.db.prepare('INSERT INTO memory_dependencies VALUES(?,?,?,?)').run(key,record.id,sourceId,revision);
+    changed++;
+  }
+  if(changed)store.db.prepare('UPDATE memory_meta SET version=version+1 WHERE scope_key=?').run(key);
+  return changed;
+}
 const meaningFields={claim:['text','subject','aspect','assertionKind','epistemicStatus','lifecycle','applicabilityKind','attribution','condition','context','validFrom','validUntil'],relationship_event:['text','activityKey','eventKind','actor','occurredAt']};
 function prepareRelationshipPatch(store,scope,input,options={}) {
   const patch=normalizeRelationshipPatch(input),raw=new Map(store._rawMemorySources(scope).map(s=>[s.id,s]));
@@ -92,6 +144,7 @@ function prepareRelationshipPatch(store,scope,input,options={}) {
       firstEvidenceAt:dates[0],lastEvidenceAt:dates.at(-1),at:dates.at(-1),reportedAt:dates.at(-1),reviewedAt:new Date().toISOString(),
       semanticReview:{status:reviewComplete?'evidence_reviewed':'partial_originals',reviewedAt:new Date().toISOString(),coverage:readCoverage},knowledgeSchemaVersion:2,
       createdAt:previous?.createdAt||new Date().toISOString(),updatedAt:new Date().toISOString()};
+    if(previous?.retiredSemanticSignatures)result.retiredSemanticSignatures=previous.retiredSemanticSignatures;
     if(retiring){
       result.retiredSemanticSignatures=[...new Set([...(old.retiredSemanticSignatures||[]),old.semanticSignature].filter(Boolean))];
       for(const field of ['firstEvidenceAt','lastEvidenceAt','at','reportedAt'])if(old[field]!==undefined)result[field]=old[field];
@@ -99,6 +152,7 @@ function prepareRelationshipPatch(store,scope,input,options={}) {
       result.retirement={sourceIds:value.sourceIds,reviewedAt:result.reviewedAt};result.semanticReview.status='retired_from_originals';
     }
     if(historicalRevision){
+      result.retiredSemanticSignatures=[...new Set([...(old.retiredSemanticSignatures||[]),old.semanticSignature].filter(Boolean))];
       // Marking an interpretation historical does not create new support or
       // change its evidence clocks. Reaffirmation uses admitted source dates:
       // rereads stay dated; genuine additional support can advance evidence.
@@ -108,7 +162,10 @@ function prepareRelationshipPatch(store,scope,input,options={}) {
     if(type==='relationship_event') {result.occurredAt=retiring||inPlaceTransition?old.occurredAt??null:value.occurredAt||null;result.occurrenceTimeStatus=retiring||inPlaceTransition?old.occurrenceTimeStatus||'unknown':value.occurredAt?'known':'unknown';result.origin=retiring||inPlaceTransition?old.origin:closure.every(s=>s.type==='qq')?'qq_observation':'user_report';}
     if(old)result.revisions=[...(old.revisions||[]),{version:old.version,semanticSignature:old.semanticSignature,operation:retiring?value.lifecycle:value.transition?.operation||'revision',reviewedAt:result.reviewedAt}];
     if(transitionTargets.length){
-      result.transition={...value.transition,reviewedAt:result.reviewedAt,...(inPlaceTransition?{proposal:{...proposedSemantic,topicKeys:inputTopics||[]}}:{})};
+      result.transition={...value.transition,reviewedAt:result.reviewedAt,...(inPlaceTransition?{
+        proposal:{...proposedSemantic,topicKeys:inputTopics||[]},sourceIds:value.sourceIds,
+        sourceRevisions:Object.fromEntries(sourceClosure(raw,value.sourceIds).map(source=>[source.id,source.revision])),evidenceValidity:'valid'
+      }:{})};
       for(const prior of transitionTargets){
         if(inPlaceTransition)continue;
         const operation=value.transition.operation;
@@ -133,7 +190,7 @@ function writeRelationshipRecords(store,scope,records) {
     if(old?.record===JSON.stringify(r))continue;
     store.db.prepare('INSERT INTO memory_records VALUES(?,?,?,?) ON CONFLICT(scope_key,id) DO UPDATE SET kind=excluded.kind,record=excluded.record').run(key,r.id,r.recordType,JSON.stringify(r));
     store.db.prepare('DELETE FROM memory_dependencies WHERE scope_key=? AND id=?').run(key,r.id);
-    for(const [sourceId,revision] of Object.entries(r.sourceRevisions))store.db.prepare('INSERT INTO memory_dependencies VALUES(?,?,?,?)').run(key,r.id,sourceId,revision);
+    for(const [sourceId,revision] of Object.entries(dependencyRevisions(r)))store.db.prepare('INSERT INTO memory_dependencies VALUES(?,?,?,?)').run(key,r.id,sourceId,revision);
     changed++;written.push(r);
   }
   if(written.some(r=>r.recordType==='relationship_event'))store.experiences.observeRelationshipEvents(scope,written);
@@ -176,4 +233,4 @@ function personUnderstanding(store,scope,options={}){
   }
   return result;
 }
-module.exports={PROCESSOR_VERSION,prepareRelationshipPatch,writeRelationshipRecords,relationshipView,personUnderstanding};
+module.exports={PROCESSOR_VERSION,prepareRelationshipPatch,writeRelationshipRecords,relationshipView,personUnderstanding,decisionRevisions,repairRelationshipTransitions,invalidateRelationshipDecision};

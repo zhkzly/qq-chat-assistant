@@ -97,7 +97,7 @@ function memoryWire(batch) {
     return {...rest,id:sourceAliases.get(id),...(ordering?{sequence:ordering}:{}),...(author?{author}:{}),...(replyTo?{replyTo:projectReply(replyTo)}:{})};
   };
   const projectMemory=record=>{
-    const {id,sourceIds:references,sourceRevisions,semanticReview,revisions,transition,...rest}=record;
+    const {id,sourceIds:references,sourceRevisions,semanticReview,revisions,transition,retiredSemanticSignatures,...rest}=record;
     return {...rest,...(record.recordType==='relationship_event'&&record.occurrenceTimeStatus==='legacy_unverified'?{occurredAt:null}:{}),id:memoryAliases.get(id),sourceIds:references.filter(id=>sourceAliases.has(id)).map(id=>sourceAliases.get(id)),originalsDelivered:references.every(id=>sourceAliases.has(id)),semanticReview:semanticReview?.status||'legacy_unreviewed'};
   };
   const projectState=state=>{
