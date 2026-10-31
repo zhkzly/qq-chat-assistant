@@ -31,7 +31,7 @@ const quoteRef=object({turnId:string,role:choice(['user','assistant']),field:cho
  artifactRef:object({artifactId:string,version:integer},['artifactId','version']),sourceIds:strings},['turnId','role','text']);
 const memoryItem=object({id:string,kind:choice(['fact','preference','commitment','uncertainty']),text:string,sourceIds:strings,topicKeys:strings,
  status:choice(['active','resolved','cancelled','superseded']),certainty:choice(['stated','tentative']),explicitPreference:{...boolean,description:'Required true for EVERY kind=preference proposal, including existing id updates. Attest recurring user intent from original source evidence; never inherit this flag from prior memory. Otherwise reclassify or omit the proposal.'}},['kind','text','sourceIds','status','certainty']);
-const episode=object({id:string,text:string,sourceIds:strings,topicKeys:strings},['text','sourceIds']);
+const episode=object({id:{...string,description:'Choose NEW for a genuine new navigation record with eligible reviewed evidence, or an offered writable episode m# for that exact existing target. Use [] for no episode change.'},text:string,sourceIds:strings,topicKeys:strings},['id','text','sourceIds']);
 const memoryRetirement=object({id:string,sourceIds:strings,status:choice(['resolved','cancelled','superseded'])},['id','sourceIds','status']);
 // Wire admission shares these producer-declared legacy field sets. Typed
 // relationship records retain their separate versioned patch contract.
@@ -69,6 +69,11 @@ function responseEnvelope(settings,purpose,payload) {
  if(!useTool)return {response_format:{type:'json_object'}};
  const name=purpose==='fidelity_check'?'fidelity_result':purpose==='draft'?'draft_result':purpose==='discussion_compaction'?'discussion_compaction_result':purpose==='memory'?'memory_result':'assistant_result';
  let schema=schemas[name];
+ if(name==='memory_result'&&payload){
+  const input=payload.originalInput||payload,targets=(input.priorMemory?.episodes||[]).filter(record=>record.updateAuthority==='requires_original_read_proof').map(record=>record.id);
+  const canCreate=input.review?.purpose!=='semantic_recovery'&&(input.sources||[]).some(source=>!source.deleted),ids=[...(canCreate?['NEW']:[]),...targets];
+  schema={...schema,properties:{...schema.properties,episodes:{...schema.properties.episodes,...(!ids.length?{maxItems:0}:{}),items:{...episode,properties:{...episode.properties,id:{...episode.properties.id,...(ids.length?{enum:ids}:{})}}}}}};
+ }
  if(name==='assistant_result'){const properties={...schema.properties};delete properties.draftPlan;schema={...schema,properties};}
  if(name==='fidelity_result'&&(payload?.originalInput||payload)?.auditProtocol==='sparse-defects-v1')schema=object({
   checkRef:choice(['c1']),auditProtocol:choice(['sparse-defects-v1']),

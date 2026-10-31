@@ -82,7 +82,11 @@ for(const sequence of [14,15])test(`captured HTTP${sequence} mixed reaffirm and 
  const batch=store.memoryBatch(scope),prepared=prepareMemoryRequest(settings,batch),wire=payload(prepared);
  assert.equal(wire.sources.length,10);assert.equal(wire.contextSources[0].id,'c1');
  assert.deepEqual(wire.priorMemory.claims.map(row=>[row.id,row.aspect,row.version]),[['m1','interest',1],['m2','recent_context',1]]);
- const decoded=decode(prepared,captured['later'+sequence]),applied=store.applyMemoryBatch(scope,batch,decoded);
+ // Preserve the captured proposal; this candidate's synthetic producer makes
+ // its eligible current-batch navigation creation explicit on the new wire.
+ const producer=structuredClone(captured['later'+sequence]);
+ for(const episode of producer.episodes)episode.id='NEW';
+ const decoded=decode(prepared,producer),applied=store.applyMemoryBatch(scope,batch,decoded);
  retain('captured-http'+sequence,store,batch,prepared,before,decoded,applied);
  assert.equal(applied.applied,true,JSON.stringify(applied));
  const after=store.relationshipView(scope).claims,interest=after.find(row=>row.id===before.find(row=>row.aspect==='interest').id),historical=after.find(row=>row.id===before.find(row=>row.aspect==='recent_context').id);
