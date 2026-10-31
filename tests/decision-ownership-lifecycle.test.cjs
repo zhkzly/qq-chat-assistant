@@ -85,9 +85,9 @@ test('missing self material still permits a checked private question without fab
  assert.equal(app.calls.length,2);assert.equal(reply.kind,'question');assert.ok(reply.text.includes(PRIVATE_QUESTION));assert.equal(reply.suggestions,undefined);assert.equal(app.calls[1].p.candidate.text,reply.text);assert.equal(app.calls[1].p.evidence.some(source=>source.type==='qq'),true);assert.equal(app.store.messages(scope).some(message=>message.direction==='outgoing'),false);
 });
 
-for(const verdict of ['malformed','unknown factual kind'])test(`${verdict} checker output fails closed without fallback, another model or an extra repair`,async t=>{
+for(const verdict of ['malformed','unknown factual kind'])test(`${verdict} checker output fails closed after one bounded same-checker repair without fallback or another model`,async t=>{
  const app=await application(t,p=>p.purpose==='fidelity_check'?{...allow(p),...(verdict==='malformed'?{unchecked:true}:{factual:factualReview(p,{'suggestions[0].text':[{quote:p.candidate.suggestions[0].text,kind:'looks_good'}]})})}:candidate(p)),before=app.store.getCompanion(scope);
- await assert.rejects(app.assist(),error=>error.code===(verdict==='malformed'?'fidelity_result_invalid':'factual_statement_invalid'));assert.equal(app.calls.length,2);unchangedCore(app,before);assert.equal(app.run().status,'failed');assert.equal(app.controller.usage.get(scope,'decision-ownership-lifecycle').requests.some(request=>request.purpose==='delivery_repair'),false);
+ await assert.rejects(app.assist(),error=>error.code===(verdict==='malformed'?'fidelity_result_invalid':'factual_statement_invalid'));assert.equal(app.calls.length,3);unchangedCore(app,before);assert.equal(app.run().status,'failed');assert.equal(app.controller.usage.get(scope,'decision-ownership-lifecycle').requests.filter(request=>request.purpose==='delivery_repair').length,1);
 });
 
 test('a real late Store topic CAS rejection remains fatal and rolls back candidate, state and goal writes',async t=>{

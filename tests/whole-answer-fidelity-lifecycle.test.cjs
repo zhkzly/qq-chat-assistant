@@ -107,3 +107,49 @@ test('a new explicit-invitation candidate is checked against both original turns
  await app.assist(HUMAN,'fidelity-no-invite');invite=true;const current='这次我改变主意，想直接邀请她周六一起看看小葱。',reply=await app.assist(current,'fidelity-later-invite'),packet=app.calls.at(-1).p;
  assert.equal(reply.suggestions[0].text,invitation);assert.ok(packet.evidence.some(source=>source.text===HUMAN));assert.ok(packet.evidence.some(source=>source.text===current));assert.equal(packet.currentHumanControl.bodyLocation,'evidence');assert.equal(packet.currentHumanControl.sourceId,packet.intentAuthority.sourceId);assert.equal(packet.evidence.find(source=>source.sourceId===packet.currentHumanControl.sourceId).text,current);assert.equal(app.calls.length,4);assert.notEqual(app.calls[0].taskId,app.calls[2].taskId);
 });
+
+for(const event of ['account','contact','QQ','withdrawal'])test(`a same-checker format repair cannot publish after an actual ${event} boundary`,async t=>{
+ let release,enter,checks=0;const entered=new Promise(resolve=>{enter=resolve;}),app=await application(t,(p,wrapper)=>{
+  if(p.purpose!=='fidelity_check')return prepared(p);
+  checks++;if(!wrapper.originalInput)return {checkRef:p.checkRef,factual:factualReview(p,{'suggestions[0].text':[{quote:'Not present in this actual candidate.',kind:'intent'}]}),issues:[]};
+  return new Promise(resolve=>{release=()=>resolve({checkRef:p.checkRef,factual:factualReview(p,{}),issues:[]});enter();});
+ },{noteText:SELF_MATERIAL});
+ const pending=app.assist();pending.catch(()=>{});t.after(()=>release?.());await Promise.race([entered,pending.then(()=>{throw Error('Expected a controlled checker-output repair');})]);
+ if(event==='account')app.controller.updateStatus({phase:'ready',account:{uid:'different-authenticated-account',uin:'999000'}});
+ if(event==='contact')await app.controller.bind('99887766');
+ if(event==='QQ'){app.controller.live({scope,messages:[raw('91000000000000383',false,{elements:[{textElement:{content:'新的实际来信。'}}]})]});clearTimeout(app.controller.assistantRetryTimer);app.controller.assistantRetryTimer=null;app.controller.pendingAssist=null;}
+ if(event==='withdrawal')app.store.forgetSource(scope,'note:'+app.note.id);
+ release();await pending.catch(()=>{});assert.equal(app.calls.length,3);assert.equal(checks,2);assert.equal(app.controller.usage.get(scope,'whole-answer-fidelity').requests.filter(request=>request.purpose==='delivery_repair').length,1);assert.equal(app.store.getCompanion(scope).turns.some(turn=>turn.role==='assistant'),false);assert.equal(app.store.messages(scope).some(record=>record.direction==='outgoing'),false);
+});
+
+test('a malformed checker cannot obtain a second repair after a primary structural repair',async t=>{
+ const app=await application(t,(p,_wrapper,index)=>index===0?{operation:'prepare_message',answer:'Malformed'}:p.purpose==='fidelity_check'?{checkRef:p.checkRef,factual:factualReview(p,{'suggestions[0].text':[{quote:'Absent checker quotation.',kind:'intent'}]}),issues:[]}:{operation:'prepare_message',answer:{suggestions:[{text:'新叶看着挺精神。'}]}});
+ await assert.rejects(app.assist(),error=>error.code==='request_delivery_repair_exhausted');assert.equal(app.calls.length,3);assert.equal(app.controller.usage.get(scope,'whole-answer-fidelity').requests.filter(request=>request.purpose==='delivery_repair').length,1);assert.equal(app.store.getCompanion(scope).turns.some(turn=>turn.role==='assistant'),false);
+});
+
+test('a valid factual rejection and malformed optional diagnostics still use only the one whole-candidate regeneration and recheck',async t=>{
+ let checks=0;const bad='我今天刚忙完，最近过得很充实。',known='今天你种的小葱又多了两片新叶。',question='你最近愿意分享的哪件真实小事，让你印象最深？',app=await application(t,(p,wrapper)=>{
+  if(p.purpose==='fidelity_check')return {checkRef:p.checkRef,factual:factualReview(p,++checks===1?{'suggestions[0].text':[{quote:bad,kind:'assertion',support:'unsupported',basis:'no_support_in_supplied_evidence',reason:{sourceId:'s999'}}]}:{}),issues:[],concerns:{sourceId:'s999'}};
+  if(wrapper.originalInput){assert.match(wrapper.task,/通用忙碌近况/);return {operation:'prepare_message',answer:{suggestions:[{text:known}],privateExplanation:question}};}
+  return {operation:'prepare_message',answer:{suggestions:[{text:bad}],privateExplanation:'这是一个没有具体编造的填空框架。'}};
+ });
+ const reply=await app.assist('先接她这条，也让我分享一点真实近况。');assert.equal(app.calls.length,4);assert.equal(reply.suggestions[0].text,known);assert.equal(reply.discussionExplanation.text,question);assert.equal(app.controller.usage.get(scope,'whole-answer-fidelity').requests.filter(request=>request.purpose==='delivery_repair').length,1);
+});
+
+test('existing exact currentFacts admission supports requested work facts after structural repair without licensing private reasons',async t=>{
+ const human='我们只是同事。把明天十点交接要确认的两项说清楚：负责人和缺的附件，别催她现在立刻回。',message='明天十点交接，我们确认负责人和缺的附件。你今天培训辛苦了，不用现在回。',app=await application(t,(p,wrapper,index)=>{
+  if(index===0)return {operation:'prepare_message',answer:'Malformed'};
+  if(p.purpose==='fidelity_check'){
+   const current=p.evidence.find(source=>source.sourceId===p.intentAuthority.sourceId),qq=p.evidence.find(source=>source.type==='qq'&&source.text==='今天培训一整天。');
+   return {checkRef:p.checkRef,issues:[{path:'suggestions[0].text',code:'private_disclosure',quote:'你今天培训辛苦了',evidence:[{sourceId:qq.sourceId,quote:qq.text}]}],factual:factualReview(p,{'suggestions[0].text':[
+    {quote:'明天十点交接',kind:'assertion',support:'supported',evidence:[{sourceId:current.sourceId,quote:'明天十点交接'}]},
+    {quote:'我们确认负责人和缺的附件',kind:'intent'},
+    {quote:'你今天培训辛苦了',kind:'assertion',support:'supported',evidence:[{sourceId:qq.sourceId,quote:qq.text}]},
+    {quote:'不用现在回',kind:'intent'}]})};
+  }
+  assert.match(wrapper.task,/通用忙碌近况/);assert.match(app.calls.at(-1).request.messages[0].content,/通用忙碌近况/);
+  return {operation:'prepare_message',currentFacts:['明天十点交接','负责人和缺的附件'],answer:{suggestions:[{text:message}]}};
+ });
+ app.controller.live({scope,messages:[raw('91000000000000384',false,{elements:[{textElement:{content:'今天培训一整天。'}}]})]});
+ const reply=await app.assist(human);assert.equal(reply.suggestions[0].text,message);assert.equal(app.calls.length,3);assert.equal(app.calls.at(-1).p.admittedFragments.length,2);assert.equal(app.calls.at(-1).p.admittedFragments.some(fragment=>fragment.text===human),false);assert.equal(app.store.messages(scope).some(record=>record.direction==='outgoing'),false);
+});

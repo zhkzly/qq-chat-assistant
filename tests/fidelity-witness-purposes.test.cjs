@@ -127,17 +127,17 @@ const BAN='这轮先别邀请她一起买花，只接住薄荷近况。';
 function prohibition(app,{path='suggestions[0].text',quote=app.result.suggestions[0].text,source=app.current,applicability='active',current,override}={}){
  return {path,quote,code:'explicit_outward_prohibition',reason:'An actual scoped human instruction forbids this offered outward action.',prohibition:{sourceId:source.id,quote:source.text,action:'invitation',applicability,...(current?{current}:{}),...(override?{override}:{})}};
 }
-test('an actual applicable private prohibition blocks a copyable invitation without hardening ordinary social concerns',()=>{
+test('a model classification of invitation prohibition remains advisory beside ordinary social concerns',()=>{
  const message='要不要一起去买花？',app=fixture({message,human:BAN});
- const value=decision(app,{'suggestions[0].text':[{quote:message,kind:'question'}]},{issues:[prohibition(app)]});assert.equal(parseFidelityResult(value,app.input).verdict,'reject');
+ const value=decision(app,{'suggestions[0].text':[{quote:message,kind:'question'}]},{issues:[prohibition(app)]}),checked=parseFidelityResult(value,app.input);assert.equal(checked.verdict,'allow');assert.equal(checked.concerns[0].code,'explicit_outward_prohibition');
  const reaction='薄荷冒新叶了，还挺顽强的。',safe=fixture({message:reaction,human:BAN});
  const parsed=parseFidelityResult(decision(safe,{'suggestions[0].text':[{quote:'薄荷冒新叶了',kind:'assertion',support:'supported',evidence:[{sourceId:safe.mint.id,quote:'薄荷冒新叶了'}]},{quote:'还挺顽强的。',kind:'opinion'}]},{concerns:[{path:'suggestions[0].text',code:'current_boundary',quote:reaction,reason:'A possible social interpretation remains advisory.'}]}),safe.input);assert.equal(parsed.verdict,'allow');
 });
 
-test('a QQ self-send or contact quote is not assistant-control authority merely because a human authored it',()=>{
+test('QQ quotations cannot become a hard semantic assistant-control veto merely because a human authored them',()=>{
  for(const role of ['user','contact']){
   const message='要不要一起去买花？',qq=original('qq:quoted-ban-'+role,BAN,{type:'qq',role}),app=fixture({message,human:'我现在想邀请她一起买花。',extraSources:[qq]});
-  cannotApprove(app,decision(app,{'suggestions[0].text':[{quote:message,kind:'question'}]},{issues:[prohibition(app,{source:qq})]}));
+  assert.equal(parseFidelityResult(decision(app,{'suggestions[0].text':[{quote:message,kind:'question'}]},{issues:[prohibition(app,{source:qq})]}),app.input).verdict,'allow');
  }
 });
 
@@ -145,7 +145,7 @@ test('an explicit later current-human override can replace a scoped older invita
  const old=original('private:earlier-no-invite',BAN,{at:'2026-10-29T10:45:00Z'}),human='现在可以邀请她一起买花，帮我问问她愿不愿意。',message='要不要一起去买花？',app=fixture({message,human,extraSources:[old],recentHumanIds:[old.id]});
  const current={sourceId:app.current.id,quote:human},value=decision(app,{'suggestions[0].text':[{quote:message,kind:'question'}]},{issues:[prohibition(app,{source:old,applicability:'overridden',current,override:current})]});
  const parsed=parseFidelityResult(value,app.input);assert.equal(parsed.verdict,'allow');assert.ok(approvalFor(parsed,app.input));
- const bad=structuredClone(value);bad.issues[0].prohibition.override={sourceId:old.id,quote:BAN};cannotApprove(app,bad);
+ const bad=structuredClone(value);bad.issues[0].prohibition.override={sourceId:old.id,quote:BAN};assert.equal(parseFidelityResult(bad,app.input).verdict,'allow','unreliable semantic applicability metadata is not a permission gate');
 });
 
 test('private inspection and a conditional future example mentioning the ban are not offered forbidden utterances',()=>{
@@ -157,10 +157,10 @@ test('private inspection and a conditional future example mentioning the ban are
  assert.equal(parseFidelityResult(value,conditional.input).verdict,'allow');
 });
 
-test('a private recommendation of an actual outward invitation still respects the applicable prohibition',()=>{
+test('a semantic concern about a private invitation recommendation does not become an execution gate',()=>{
  const message='薄荷冒新叶了。',why='你也可以现在邀请她一起去买花。',app=fixture({message,human:BAN,why});
  const value=decision(app,{'suggestions[0].text':[{quote:message,kind:'assertion',support:'supported',evidence:[{sourceId:app.mint.id,quote:'薄荷冒新叶了'}]}],'discussionExplanation.text':[{quote:why,kind:'advice',outwardAction:'invitation'}]},{issues:[prohibition(app,{path:'discussionExplanation.text',quote:'邀请她一起去买花'})]});
- assert.equal(parseFidelityResult(value,app.input).verdict,'reject');
+ const checked=parseFidelityResult(value,app.input);assert.equal(checked.verdict,'allow');assert.equal(checked.concerns[0].code,'explicit_outward_prohibition');
 });
 
 test('the shared regeneration advances the known QQ part and asks for one real private detail instead of forcing clarification for the entire task',async t=>{

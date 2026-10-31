@@ -5,7 +5,7 @@ const {validationError}=require('./validation-issues.cjs');
 const {sameScopeIfPresent}=require('./context/source-snapshot.cjs');
 const {sourceClosure}=require('./provenance.cjs');
 const {candidateFields,candidatePaths,candidateScopes,normalizeCandidatePath}=require('./candidate-field-paths.cjs');
-const VERSION='whole-answer-fidelity-v6';
+const VERSION='whole-answer-fidelity-v7';
 const marks=new WeakMap(),clone=value=>structuredClone(value);
 const plain=value=>value&&typeof value==='object'&&!Array.isArray(value);
 const hash=value=>createHash('sha256').update(JSON.stringify(value)).digest('hex');
@@ -129,7 +129,6 @@ function buildFidelityContext(prepared,result,info={}){
  for(const ref of prepared.payload.topicContext?.controlRefs||[])if(prepared.payload.topicContext?.active?.lifecycle==='active')offerInstruction(ref.sourceId,'active_task');
  for(const ref of prepared.payload.taskContext?.recentHumanContext||[])offerInstruction(ref.sourceId,'recent_consultation');
  for(const ref of prepared.payload.preferences||[])offerInstruction(ref.sourceId,'standing_preference');
- const originalOrder=new Map((prepared.fullAvailableSources||[...sourceMap.values()]).map((source,index)=>[source.id,index]));
  const humanInstructions=[...instructionSelections].map(([sourceId,selection])=>({sourceId,selection,at:sourceMap.get(sourceId).at||null,bodyLocation:'evidence'}));
  const payload={purpose:'fidelity_check',version:VERSION,checkRef:'c1',asOf:prepared.payload.asOf||null,
   ...(prepared.payload.goal!==undefined?{goal:clone(prepared.payload.goal)}:{}),
@@ -186,16 +185,8 @@ function buildFidelityContext(prepared,result,info={}){
  const bound=binding(),candidateHash=hash(candidate),fields=new Map(candidateFields(candidate).map(field=>[field.path,field.value])),paths=new Set(payload.candidatePaths),frameSourceIds=new Set(sourceIds);
  const bodyAt=path=>fields.get(path),scopes=new Map(payload.candidateScopes.map(field=>[field.path,field.scope]));
  const sameSet=(actual,expected)=>actual.size===expected.length&&expected.every(value=>actual.has(value));
- const instructions=new Map(humanInstructions.map(instruction=>[instruction.sourceId,instruction]));
- const frame=Object.freeze({candidateHash,bindingHash:bound,paths,sourceIds:frameSourceIds,bodyAt,scopeAt:path=>scopes.get(path),evidenceAt:id=>payload.evidence.find(source=>source.sourceId===id),currentHumanId,
-  instructionAt:id=>instructions.get(id),
+ const frame=Object.freeze({candidateHash,bindingHash:bound,paths,sourceIds:frameSourceIds,bodyAt,scopeAt:path=>scopes.get(path),evidenceAt:id=>payload.evidence.find(source=>source.sourceId===id),
   canDisclose:ref=>programDisclosureSources.has(ref.sourceId)||disclosureFragments.some(fragment=>fragment.sourceId===ref.sourceId&&fragment.text.includes(ref.quote)),
-  laterInstruction:(later,earlier)=>{
-   if(!instructions.has(later.sourceId)||!instructions.has(earlier.sourceId))return false;
-   if(later.sourceId===earlier.sourceId){const text=sourceMap.get(later.sourceId).text;return text.indexOf(later.quote)>=text.indexOf(earlier.quote)+earlier.quote.length;}
-   const after=Date.parse(sourceMap.get(later.sourceId).at),before=Date.parse(sourceMap.get(earlier.sourceId).at);
-   return Number.isFinite(after)&&Number.isFinite(before)&&after!==before?after>before:(originalOrder.get(later.sourceId)??-1)>(originalOrder.get(earlier.sourceId)??-1);
-  },
   assert(){if(!sameSet(paths,payload.candidatePaths)||!sameSet(frameSourceIds,sourceIds)||binding()!==bound||hash(visibleCandidate(result,options))!==candidateHash||hash(payload.candidate)!==candidateHash||hash(payload)!==evidenceHash)throw fail('candidate','fidelity_binding_invalid','The candidate or captured evidence binding changed after checking');}});
  manifest.fidelity={version:VERSION,candidateHash,bindingHash:bound,evidenceHash,status:'pending'};
  context={payload,manifest,images};Object.defineProperty(context,'fidelityFrameSnapshot',{value:frame});
@@ -219,12 +210,18 @@ function parseFidelityResult(value,input){
  if(reported!==undefined&&!['allow','reject','uncertain'].includes(reported))diagnostic('verdict','invalid_reported_verdict',reported);
  const stripReason=(object,key)=>{if(!plain(object))return object;const {reason,...core}=object;if(Object.hasOwn(object,'reason'))reasonMap.set(key,reason);return core;};
  data={...data,verdict:undefined,issues:data.issues.map((issue,index)=>stripReason(issue,`issue:${index}`)),factual:data.factual.map((field,index)=>!plain(field)||!Array.isArray(field.statements)?field:{...field,statements:field.statements.map((statement,position)=>{
-  const core=stripReason(statement,`fact:${index}:${position}`);if(!plain(core)||core.kind==='assertion'||!kinds.includes(core.kind))return core;
+  const core=stripReason(statement,`fact:${index}:${position}`);
+  if(plain(core)&&core.kind==='assertion'&&core.support==='unverifiable'){
+   // These cannot strengthen targeted uncertainty or supply publication
+   // authority. Isolate them before decoding any optional source references.
+   for(const key of ['basis','qualification','related'])if(Object.hasOwn(core,key)){diagnostic(`factual[${index}].statements[${position}].${key}`,'unverifiable_truth_diagnostic',core[key]);delete core[key];}
+  }
+  if(!plain(core)||core.kind==='assertion'||!kinds.includes(core.kind))return core;
   const result={...core};for(const key of ['support','evidence','basis','qualification','related','disclosure'])if(Object.hasOwn(result,key)){diagnostic(`factual[${index}].statements[${position}].${key}`,'nonassertion_truth_diagnostic',result[key]);delete result[key];}return result;
  })})};
  const unusableIssues=new Set();
  if(input.sourceWireSnapshot&&!sourceCanonical){
-  const wire=input.sourceWireSnapshot,original=data,isDiagnostic=issue=>softCodes.includes(issue?.code)||legacyFacts.includes(issue?.code);
+  const wire=input.sourceWireSnapshot,original=data,isDiagnostic=issue=>softCodes.includes(issue?.code)||legacyFacts.includes(issue?.code)||issue?.code==='explicit_outward_prohibition';
   data=wire.decode({...original,issues:original.issues.filter(issue=>!isDiagnostic(issue)),concerns:undefined});
   const optionalDecode=(raw,field)=>{let failed=false;const decoded=wire.decode({concerns:[raw]},{isolateFields:['concerns'],onRejected:(_field,error)=>{failed=true;diagnostic(field,error.code,raw,error.message);}});return {failed,value:failed?raw:decoded.concerns[0]};};
   let strictIndex=0;data.issues=original.issues.map((issue,index)=>{if(!isDiagnostic(issue))return data.issues[strictIndex++];const decoded=optionalDecode(issue,`issues[${index}]`);if(decoded.failed)unusableIssues.add(index);return decoded.value;});
@@ -282,29 +279,27 @@ function parseFidelityResult(value,input){
   issues.push({path,quote:statement.quote,code,basis:statement.basis,...(statement.evidence?.length?{evidence:clone(statement.evidence)}:{}),...(statement.qualification?{qualification:statement.qualification}:{}),...(statement.related?{relatedPath:statement.related.path,relatedQuote:statement.related.quote}:{}),reason:reason||'The assessed world proposition lacks the required factual support or qualification.'});
  }
  const outwardTarget=(path,quote,action)=>frame.scopeAt(path)==='copyable'||/^expressionOptions\[\d+\]\.label$/.test(path)||allStatements.some(item=>item.path===path&&item.statement.quote.includes(quote)&&item.statement.outwardAction===action);
- const humanWitness=(raw,field)=>{originalWitness(raw,field,true);if(!frame.instructionAt(raw.sourceId))throw fail(field,'prohibition_authority_invalid','Only an offered assistant-control human directive can prohibit outward content; QQ authorship is not such authority');return raw;};
  for(const [index,raw]of data.issues.entries()){
   if(unusableIssues.has(index))continue;const field=`issues[${index}]`,reason=reasonFor(`issue:${index}`,`${field}.reason`);
   if(legacyFacts.includes(raw?.code)){legacyFindings.push({...clone(raw),...(reason?{reason}:{})});diagnostic(field,'legacy_fact_channel',raw,'Factual defects belong to the assessed assertion, not an independent issue veto');continue;}
+  if(raw?.code==='explicit_outward_prohibition'){
+   // This is a model judgment of subject, focus or social action, not a
+   // program permission fence. Keep it available for private interpretation
+   // while the material admission and source/version fences remain strict.
+   diagnostic(field,'semantic_prohibition_advisory',raw);
+   pendingConcerns.push({path:raw.path,code:raw.code,quote:raw.quote,reason:reason||'A possible instruction or interaction mismatch needs private judgment.'});continue;
+  }
   if(softCodes.includes(raw?.code)){pendingConcerns.push({...clone(raw),reason:reason||'Nonbinding social or style diagnostic.'});continue;}
-  if(!plain(raw)||Object.keys(raw).some(key=>!['path','code','quote','evidence','sourceIds','prohibition'].includes(key))||!['private_disclosure','explicit_outward_prohibition'].includes(raw.code))throw fail(field,'fidelity_result_invalid','Strict issues are separate disclosure or applicable explicit human-prohibition findings');
+  if(!plain(raw)||Object.keys(raw).some(key=>!['path','code','quote','evidence','sourceIds'].includes(key))||raw.code!=='private_disclosure')throw fail(field,'fidelity_result_invalid','Strict issues require a source-bound disclosure finding');
   const path=address(raw.path,`${field}.path`);if(!quoted(path,raw.quote))throw fail(field,'fidelity_result_invalid','The outward content witness must be in the exact candidate');
   if(raw.sourceIds!==undefined&&(!Array.isArray(raw.sourceIds)||raw.sourceIds.length>16||raw.sourceIds.some(id=>!frame.sourceIds.has(id))))throw fail(field,'fidelity_result_invalid','A strict finding cannot cite an unoffered source');
   if(raw.code==='private_disclosure'){
    if(!Array.isArray(raw.evidence)||!raw.evidence.length||raw.evidence.length>8||raw.prohibition!==undefined)throw fail(field,'fidelity_grounding_missing','A disclosure finding requires its original private restriction or material witness');for(const ref of raw.evidence)originalWitness(ref,`${field}.evidence`,true);
+   // A checker cannot invent a new restriction on an exactly authorized
+   // original. Independent unadmitted/private human restrictions survive.
+   if(raw.evidence.every(ref=>frame.canDisclose(ref))){diagnostic(field,'program_disclosure_authority',raw);continue;}
    if(!outwardTarget(path,raw.quote,'user_disclosure')){diagnostic(field,'non_outward_privacy_target',raw);continue;}issues.push({...clone(raw),path,reason:reason||'The offered outward content conflicts with its disclosure authority.'});continue;
   }
-  const rule=raw.prohibition;
-  if(!plain(rule)||Object.keys(rule).some(key=>!['sourceId','quote','action','applicability','current','override'].includes(key))||!actions.includes(rule.action)||!['active','overridden','unresolved'].includes(rule.applicability))throw fail(field,'prohibition_witness_invalid','Bind a specific human prohibition, action and applicability');
-  humanWitness({sourceId:rule.sourceId,quote:rule.quote},`${field}.prohibition`);
-  if(rule.current!==undefined){humanWitness(rule.current,`${field}.current`);if(rule.current.sourceId!==frame.currentHumanId)throw fail(field,'prohibition_scope_invalid','The applicability witness must be the actual current human request');}
-  if(rule.override!==undefined){humanWitness(rule.override,`${field}.override`);if(!frame.laterInstruction(rule.override,rule)||frame.currentHumanId&&rule.override.sourceId!==frame.currentHumanId)throw fail(field,'prohibition_override_invalid','An override must be a later applicable human instruction');}
-  if(rule.applicability==='overridden'){if(!rule.override)throw fail(field,'prohibition_override_invalid','An overridden instruction needs its later explicit human witness');diagnostic(field,'overridden_prohibition',raw);continue;}
-  if(rule.applicability==='unresolved'){diagnostic(field,'unresolved_prohibition_applicability',raw);continue;}
-  if(rule.sourceId!==frame.currentHumanId&&frame.currentHumanId&&!rule.current)throw fail(field,'prohibition_scope_invalid','An older prohibition needs a current applicable continuation witness');
-  if(rule.override)throw fail(field,'prohibition_override_invalid','An active prohibition cannot also claim an overriding instruction');
-  if(!outwardTarget(path,raw.quote,rule.action)){diagnostic(field,'non_outward_prohibition_target',raw);continue;}
-  issues.push({...clone(raw),path,reason:reason||'The offered outward content violates an applicable explicit human prohibition.'});
  }
  const optionalConcern=(raw,index)=>{try{if(!plain(raw)||Object.keys(raw).some(key=>!['path','code','quote','sourceIds','evidence','reason'].includes(key))||typeof raw.code!=='string'||!raw.code.trim()||raw.code.length>80||typeof raw.reason!=='string'||!raw.reason.trim()||raw.reason.length>500)throw fail('concerns','fidelity_result_invalid','Use a bounded nonbinding diagnostic');const path=address(raw.path,`concerns[${index}].path`);if(raw.quote!==undefined&&!quoted(path,raw.quote))throw fail('concerns','fidelity_result_invalid','Quote only that visible field');for(const ref of raw.evidence||[])originalWitness(ref,'concerns.evidence');if(raw.sourceIds!==undefined&&(!Array.isArray(raw.sourceIds)||raw.sourceIds.some(id=>!frame.sourceIds.has(id))))throw fail('concerns','fidelity_result_invalid','Unknown diagnostic source');concerns.push({...clone(raw),path});}catch(error){diagnostic(`concerns[${index}]`,error.code||'invalid_advisory',raw,error.message);}};
  pendingConcerns.forEach(optionalConcern);
