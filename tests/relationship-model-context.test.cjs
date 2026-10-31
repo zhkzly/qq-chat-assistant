@@ -196,7 +196,7 @@ test('only an explicitly enabled review can propose inactive local guidance from
 
 test('recorded feedback output promotes a candidate only after loading its actual instruction card', async t => {
   for(const loadCard of [false,true]){
-  const { Controller } = require('./fixtures/assistant-protocol.cjs');
+  const { Controller } = require('./fixtures/whole-answer-fidelity.cjs');
   const recorded = require('./fixtures/live-feedback-response.json');
   const store = new Store(':memory:');
   const earlier = store.appendTurn(scope, { role: 'user', kind: 'discussion', text: '她说今天考完很累，我想回应她。' });
@@ -209,6 +209,7 @@ test('recorded feedback output promotes a candidate only after loading its actua
   const controller = new Controller({ store, settings: { ...settings, auto: false,
     realChatConsent: { accountUid: scope.accountUid, peerUin: scope.peerUin, model: settings.model, baseUrl: settings.baseUrl } },
     read: async command => command === 'bind' ? scope : { messages: [], source: 'synthetic' }, assistantModel: async (_settings,context) => {
+      if(context.payload.purpose==='fidelity_check')return {checkRef:context.payload.checkRef,verdict:'allow',issues:[]};
       if(loadCard&&!context.payload.methodCards.some(card=>card.id==='respond'))return {kind:'discussion',text:'Read the relevant assistance card.',lookup:{methodIds:['respond']}};
       return structuredClone(result);
     } });

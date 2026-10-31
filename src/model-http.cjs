@@ -2,8 +2,9 @@
 const {setTimeout:pause}=require('node:timers/promises');
 // Inference is side-effect free for QQ and persistence only happens after a
 // validated response. Retry transport/server failures once at the same endpoint.
-async function postModel(url,request,fetchImpl=fetch,wait=pause,budget=null) {
-  for(let attempt=1;attempt<=2;attempt++) {
+async function postModel(url,request,fetchImpl=fetch,wait=pause,budget=null,options={}) {
+  const maxAttempts=options?.maxAttempts===1?1:2;
+  for(let attempt=1;attempt<=maxAttempts;attempt++) {
     if(request.signal?.aborted)throw request.signal.reason;
     const reservation=budget?.reserveAttempt({attempt,inputBytes:Buffer.byteLength(typeof request.body==='string'?request.body:'','utf8')});
     try {
@@ -11,12 +12,12 @@ async function postModel(url,request,fetchImpl=fetch,wait=pause,budget=null) {
       if(reservation)budget.finishAttempt(reservation,{status:response.status});
       const retryable=response.status===429||response.status>=500;
       const delay=Number(response.headers?.get?.('retry-after'));
-      if(response.ok||!retryable||attempt===2||delay>5)return {response,attempts:attempt};
+      if(response.ok||!retryable||attempt===maxAttempts||delay>5)return {response,attempts:attempt};
       await response.body?.cancel();
       await wait(Number.isFinite(delay)&&delay>0?delay*1000:1000,undefined,{signal:request.signal});
     } catch(error) {
       if(reservation)budget.finishAttempt(reservation,{errorCode:request.signal?.aborted?'cancelled':'transport_failure'});
-      if(request.signal?.aborted||error?.name==='AbortError'||error?.name==='TimeoutError'||attempt===2)throw error;
+      if(request.signal?.aborted||error?.name==='AbortError'||error?.name==='TimeoutError'||attempt===maxAttempts)throw error;
       await wait(1000,undefined,{signal:request.signal});
     }
   }

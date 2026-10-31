@@ -61,12 +61,12 @@ test('actual013-shaped missing metadata repair uses the short choice again and r
  const controller=new Controller({store,settings,read:async()=>({messages:[]}),assistantModel:(configured,context,signal)=>assistModel(configured,context,signal,async(_url,args)=>{
   const request=JSON.parse(args.body),wrapper=JSON.parse(request.messages[1].content),p=wrapper.originalInput||wrapper;calls.push({request,p,wrapper});
   let response;
-  if(p.purpose==='draft'){
-   assert.equal(p.editingReference.text,f.observedOffer.text);assert.equal(p.userRequest,undefined);assert.equal(p.goal,undefined);
-   response={kind:'draft',text:'更直接的版本',suggestions:[{style:'自然',text:'就是我给自己记读书笔记用的小网页，昨天查找功能终于弄好了，我挺开心。你平时怎么留住读到的东西？'}]};
+  if(p.purpose==='fidelity_check'){
+   assert.equal(p.priorArtifact.text,f.observedOffer.text);assert.equal(p.userRequest,undefined);assert.equal(p.goal,store.getCompanion(scope).goal.text);
+   response={checkRef:p.checkRef,verdict:'allow',issues:[]};
   }else{
    if(wrapper.originalInput)assert.match(wrapper.formatError,/draftPlan\.quotes\[0\]\.authorityRef/);
-   response=structuredClone(wrapper.originalInput?f.repairResponse:f.firstResponse);response.draftPlan.editingReference={choice:p.editingReferences[0].choice};
+   response=structuredClone(wrapper.originalInput?f.repairResponse:f.firstResponse);response.draftPlan.editingReference={choice:p.editingReferences[0].choice};response.answer={suggestions:[{style:'自然',text:'就是我给自己记读书笔记用的小网页，昨天查找功能终于弄好了，我挺开心。你平时怎么留住读到的东西？'}]};
   }
   return new Response(JSON.stringify({choices:[{message:{content:JSON.stringify(wireSourceView(response,(wrapper.originalInput?context.extraRequests?.at(-1)?.manifest?.sourceHandles:undefined)||context.manifest.sourceHandles,(wrapper.originalInput?context.extraRequests?.at(-1)?.manifest?.primaryReferences:undefined)||context.manifest.primaryReferences,wrapper.originalInput?context.extraRequests.at(-1).payload.originalInput:context.payload))}}]}),{status:200});
  })});t.after(()=>controller.close());controller.updateStatus({phase:'ready',account:{uid:scope.accountUid,uin:scope.accountUin}});controller.scope={...scope};

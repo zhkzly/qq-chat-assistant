@@ -5,7 +5,7 @@ const {mapSourceReferences}=require('../../src/source-handles.cjs');
 const {createHash}=require('node:crypto');
 const digest=text=>createHash('sha256').update(JSON.stringify(text)).digest('hex');
 const plain=value=>value&&typeof value==='object'&&!Array.isArray(value);
-const primaryExcluded=new Set(['draft','memory','discussion_compaction','plain_help_recovery','plain_draft_recovery']);
+const primaryExcluded=new Set(['draft','memory','discussion_compaction','plain_help_recovery','plain_draft_recovery','fidelity_check']);
 const legacyKinds=new Set(['discussion','question','options','review','acknowledgment']);
 function legacyPrimaryOperation(value,payload,declarationValid){
  if(Object.hasOwn(value,'operation'))return value;

@@ -77,7 +77,8 @@ function makeSyntheticTransport() {
     if (typeof content !== 'string') throw new Error('Synthetic replay transport supports text-only requests');
     const wrapper = JSON.parse(content), p = wrapper.originalInput || wrapper;
     let result;
-    if (p.batchId) result = { batchId: p.batchId, reviewedAll: true, items: [], episodes: [], retire: [] };
+    if (p.purpose === 'fidelity_check') result = {checkRef:p.checkRef,verdict:'allow',issues:[]};
+    else if (p.batchId) result = { batchId: p.batchId, reviewedAll: true, items: [], episodes: [], retire: [] };
     else if (p.purpose === 'discussion_compaction') result = { summary: 'Synthetic transport summary; no semantic quality evidence.',
       reviewedTurnIds: p.turns.map(turn => turn.id), quoteRefs: [] };
     else if (p.purpose === 'draft') result = { kind: 'draft', text: 'Synthetic transport output; no semantic quality evidence.',
@@ -92,7 +93,11 @@ function makeSyntheticTransport() {
           objective: control('回应当前提供的实际交流内容'), allowedApproach: control('遵守当前有效的用户选择'), avoidances: [] } };
       }
     }
-    if(p.operationProtocol&&result&&typeof result==='object'){const {kind,replyDisposition,...fields}=result;result={operation:result.draftPlan?'prepare_message':'advise',...fields};}
+    if(p.operationProtocol&&result&&typeof result==='object'){
+      const {kind,replyDisposition,...fields}=result;
+      result={operation:result.draftPlan?'prepare_message':'advise',...fields,
+        ...(result.draftPlan?{answer:{suggestions:[{style:'自然',text:'合成传输占位，仅用于验证流程。'}]}}:{})};
+    }
     if(p.requestDeliveryPolicy&&result&&typeof result==='object'&&p.purpose!=='draft'){
       const sourceId=p.intentAuthority?.sourceId||p.userRequest?.sourceId,source=p.sources.find(item=>item.id===sourceId);
       const mode=result.draftPlan?'editable_message':'private_help';

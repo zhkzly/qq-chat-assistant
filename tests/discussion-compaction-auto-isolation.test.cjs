@@ -1,6 +1,6 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {Store}=require('../src/store.cjs'),{Controller}=require('./fixtures/assistant-protocol.cjs'),{TaskLedger}=require('../src/request-budget.cjs');
+const {Store}=require('../src/store.cjs'),{Controller}=require('./fixtures/whole-answer-fidelity.cjs'),{TaskLedger}=require('../src/request-budget.cjs');
 const {normalize}=require('../src/messages.cjs');
 const {buildContext,PROMPT_VERSION}=require('../src/assistant-context.cjs');
 const {planDiscussionCompaction,validatedCompaction,assistDiscussionCompaction,candidatesForCompaction}=require('../src/discussion-compaction.cjs');
@@ -32,11 +32,11 @@ function insertCache(f,record){f.store.db.prepare('INSERT INTO discussion_compac
 test('the actual assistance consumer never purchases compaction for excluded automatic output alone',async t=>{
  const f=fixture(t),seen=[];let compactions=0;
  const controller=new Controller({store:f.store,read:async()=>{throw Error('No native reads');},settings:{...settings,realChatConsent:{...scope,baseUrl:settings.baseUrl,model:settings.model}},
-  assistantModel:async(_settings,input)=>{seen.push(input.payload);return {kind:'discussion',text:'先从她刚才说的具体事情接起。'};},
+  assistantModel:async(_settings,input)=>{seen.push(input.payload);if(input.payload.purpose==='fidelity_check')return {checkRef:input.payload.checkRef,verdict:'allow',issues:[]};return {kind:'discussion',text:'先从她刚才说的具体事情接起。'};},
   compactionModel:async()=>{compactions++;throw Error('Excluded automatic output must not trigger a compaction request');}});
  controller.scope={...scope};t.after(()=>controller.close());
  await controller.assist({text:'现在怎样自然接着聊？',purpose:'discussion',taskId:'synthetic-auto-isolation-consumer'});
- assert.equal(compactions,0);assert.equal(seen.length,1);assert.equal(JSON.stringify(seen).includes(AUTO.trim()),false);
+ assert.equal(compactions,0);assert.equal(seen.length,2);assert.equal(JSON.stringify(seen).includes(AUTO.trim()),false);
  assert.equal(f.store.getCompanion(scope).turns.filter(turn=>turn.origin==='automatic').length,8);
 });
 
@@ -111,12 +111,12 @@ test('policy changes do not delete legitimate historical replies fingerprint-bou
 test('canonical feedback can explain one exact automatic suggestion without reviving its sibling automatic history',async t=>{
  const f=fixture(t),target=f.automatic[3],seen=[];let compactions=0;
  const controller=new Controller({store:f.store,read:async()=>{throw Error('No native reads');},settings:{...settings,realChatConsent:{...scope,baseUrl:settings.baseUrl,model:settings.model}},
-  assistantModel:async(_settings,input)=>{seen.push(input.payload);return {kind:'discussion',text:'按这份具体反馈解释措辞，尚未发给QQ联系人。'};},
+  assistantModel:async(_settings,input)=>{seen.push(input.payload);if(input.payload.purpose==='fidelity_check')return {checkRef:input.payload.checkRef,verdict:'allow',issues:[]};return {kind:'discussion',text:'按这份具体反馈解释措辞，尚未发给QQ联系人。'};},
   compactionModel:async()=>{compactions++;throw Error('Automatic siblings are not a private compression task');}});
  controller.scope={...scope};t.after(()=>controller.close());
  const result=await controller.continueFeedback({taskId:'synthetic-exact-auto-feedback',clientEventId:'synthetic-auto-feedback-event',text:'解释我选中的这一句，不要展开以前其它建议。',
   requestId:target.requestId,targetRef:{kind:'artifact',artifactRef:target.suggestions[0].artifactRef}});
- assert.equal(result.feedbackContinuation.status,'complete');assert.equal(compactions,0);assert.equal(seen.length,1);
+ assert.equal(result.feedbackContinuation.status,'complete');assert.equal(compactions,0);assert.equal(seen.length,2);
  const selected=seen[0].feedbackTargets.find(item=>item.target.artifactRef?.artifactId===target.suggestions[0].artifactRef.artifactId);
  assert.equal(selected.target.body,target.suggestions[0].text);assert.match(selected.target.authority,/generated_evaluation_target_not_factual_evidence/);
  assert.ok(!seen[0].sources.some(source=>source.text===target.suggestions[0].text));
@@ -138,9 +138,9 @@ test('legacy scoped run-only automatic evidence is excluded consistently by real
  assert.ok(planDiscussionCompaction({...options,context})===null,'an exact scoped run positive cannot be recycled through compaction');
  let compactions=0,calls=0;
  const controller=new Controller({store,read:async()=>{throw Error('No native reads');},settings:{...settings,realChatConsent:{...scope,baseUrl:settings.baseUrl,model:settings.model}},
-  assistantModel:async()=>{calls++;return {kind:'discussion',text:'按用户当前问题继续商量。'};},compactionModel:async()=>{compactions++;throw Error('Run-only automatic output is not a compaction task');}});
+  assistantModel:async(_,input)=>{calls++;if(input.payload.purpose==='fidelity_check')return {checkRef:input.payload.checkRef,verdict:'allow',issues:[]};return {kind:'discussion',text:'按用户当前问题继续商量。'};},compactionModel:async()=>{compactions++;throw Error('Run-only automatic output is not a compaction task');}});
  controller.scope={...scope};t.after(()=>controller.close());await controller.assist({text:'继续当前商量',taskId:'legacy-run-only-consumer'});
- assert.equal(compactions,0);assert.equal(calls,1);
+ assert.equal(compactions,0);assert.equal(calls,2);
  const persisted=JSON.parse(store.db.prepare('SELECT record FROM companion WHERE scope_key=?').get(store.scopeKey(scope)).record);
  assert.ok(persisted.turns.filter(turn=>automaticIds.includes(turn.id)).every(turn=>turn.origin===undefined));
 });

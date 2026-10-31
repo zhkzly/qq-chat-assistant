@@ -42,7 +42,7 @@ test('vision planning repair rebudgets the full wrapper without attaching pixels
     calls.push({ wire, input });
     const response = calls.length === 1
       ? { kind: 'discussion', text: '虚构修复载荷'.repeat(340), draftPlan: { intent: 'reply', quotes: [] } }
-      : { kind: 'discussion', text: 'Synthetic repaired plan.', draftPlan: withCurrentDraftControls({ intent: 'reply', quotes: [] }, input.originalInput) };
+      : { kind: 'discussion', text: 'Synthetic repaired plan.', draftPlan: withCurrentDraftControls({ intent: 'reply', quotes: [] }, input.originalInput),answer:{suggestions:[{text:'Synthetic complete image response.'}]} };
     return { ok: true, json: async () => ({ choices: [{ message: { content: JSON.stringify(response) } }] }) };
   });
   assert.equal(calls.length, 2);

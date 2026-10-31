@@ -27,10 +27,9 @@ async function controllerFixture(t,{restricted=false,requestText=currentRequestT
     const primary=(wrapper.originalInput?context.extraRequests?.at(-1)?.manifest?.primaryReferences:undefined)||context.manifest.primaryReferences;
     const canonical=canonicalSourceView(p,receipt,wrapper.originalInput?context.extraRequests.at(-1).payload.originalInput:context.payload);
     calls.push({request,wrapper,p});
-    let content=repairResponseContent;
-    if(restricted){
-     const control=text=>({text,sourceIds:[currentSourceId]});
-     content=JSON.stringify(p.purpose==='draft'?finalResponse():{kind:'discussion',text:'先根据当前真实来信准备表达。',requestDelivery:structuredClone(firstResponse.requestDelivery),draftPlan:{quotes:[],intent:'reply',guidance:{objective:control('回应当前实际来信'),allowedApproach:control('保留当前明确的表达范围'),avoidances:[]}}});
+    let content=p.purpose==='fidelity_check'?JSON.stringify({checkRef:p.checkRef,verdict:'allow',issues:[]}):repairResponseContent;
+    if(restricted&&p.purpose!=='fidelity_check'){
+     content=JSON.stringify(!p.lookupHistory.length?{operation:'lookup',continuation:'prepare_message',text:'先核对当前真实来信。',lookup:{sourceIds:[p.sources.find(source=>source.type==='qq').id]}}:{operation:'clarify',blocker:structuredClone(repairResponse.requestDelivery.blocker)});
     }
     if(responder){const value=await responder(canonical,wrapper,calls.length-1);content=typeof value==='string'?value:JSON.stringify(value);}
     content=JSON.stringify(wireSourceView(JSON.parse(content),receipt,primary,canonical));calls.at(-1).content=content;
@@ -70,14 +69,11 @@ for(const restricted of [false,true])test(`${restricted?'restricted final':'actu
  assert.equal(reply.kind,'question');assert.equal(reply.text,question);assert.equal(reply.discussionExplanation,undefined);
  assert.equal(reply.suggestions,undefined);assert.equal(app.run().status,'complete');assert.equal(app.run().manifest.requestDelivery.status,'blocked');
  assert.deepEqual(app.run().manifest.requestDelivery.blocker,repairResponse.requestDelivery.blocker);
- const rawContent=app.calls.at(-1).content;
- if(restricted)assert.equal(JSON.parse(rawContent).text,rationale,'restricted legacy carrier remains raw audit data');else{const operation=JSON.parse(rawContent);assert.equal(operation.operation,'clarify');assert.equal(operation.text,undefined);assert.deepEqual(operation.blocker,repairResponse.requestDelivery.blocker);}
- if(restricted){
-  assert.deepEqual(app.contexts.at(-1).manifest.blockerRendering,{question,rawResponseSha256:sha(rawContent)});
-  assert.deepEqual(app.run().manifest.blockerRendering,{question,rawResponseSha256:sha(rawContent)});
-  assert.deepEqual(app.run().requests.at(-1).manifest.blockerRendering,{question,rawResponseSha256:sha(rawContent)});
- }else{assert.equal(app.run().manifest.primaryOperation.operation,'clarify');assert.equal(app.run().manifest.primaryOperation.requiredArtifact,undefined);assert.equal(app.run().manifest.blockerRendering,undefined,'new operation has no untyped second body to normalize');}
- assert.equal(app.calls.length,restricted?2:1,'a complete structured blocker must not spend a fulfillment repair on text duplication');
+ const rawContent=app.calls.filter(call=>call.p.purpose!=='fidelity_check').at(-1).content;
+ const operation=JSON.parse(rawContent);assert.equal(operation.operation,'clarify');assert.equal(operation.text,undefined);assert.deepEqual(operation.blocker,repairResponse.requestDelivery.blocker);
+ assert.equal(app.run().manifest.primaryOperation.operation,'clarify');assert.equal(app.run().manifest.primaryOperation.requiredArtifact,restricted?'message':undefined);assert.equal(app.run().manifest.blockerRendering,undefined,'the new operation has no untyped second body; raw legacy final rendering remains covered separately');
+ assert.equal(app.calls.at(-1).p.purpose,'fidelity_check');assert.equal(app.calls.at(-1).p.candidate.text,question);
+ assert.equal(app.calls.length,restricted?3:2,'the complete blocker requires one read-only check, without a fulfillment repair');
  assert.equal(app.run().requests.some(request=>request.purpose==='delivery_repair'),false);
  const saved=app.store.getCompanion(scope).turns.at(-1);assert.equal(saved.text,question);assert.equal(saved.discussionExplanation,undefined);
  assert.equal(app.store.messages(scope).some(message=>message.direction==='outgoing'),false);
@@ -100,6 +96,7 @@ test('applied forget clears a normalized blocker sentinel before every subsequen
  const secret='FICTIONAL_NORMALIZED_BLOCKER_FORGET_SENTINEL_20261030';let targetId,afterForgetArgs;
  const requestText=`忘记${secret}这条笔记，然后仅用仍然可用的材料帮我组织表达。`;
  const app=await controllerFixture(t,{requestText,responder:(p,wrapper,index)=>{
+  if(p.purpose==='fidelity_check')return {checkRef:p.checkRef,verdict:'allow',issues:[]};
   const sourceId=p.intentAuthority?.sourceId||p.userRequest.sourceId,source=p.sources.find(item=>item.id===sourceId);
   if(index===0)return {kind:'question',text:`你要求不再使用${secret}，需要先执行移除。`,
    requestDelivery:{mode:'editable_message',sourceId,quote:source.text,blocker:{kind:'missing_authorization',missing:`确认${secret}是否仍可用于表达`,question:`${secret}还可以向她提及吗？`,explanation:`移除${secret}后才能重新确认分享范围。`}},
@@ -112,7 +109,7 @@ test('applied forget clears a normalized blocker sentinel before every subsequen
  const reply=await app.respond();
  assert.ok(reply.actionReceipts.some(receipt=>receipt.type==='forget'&&receipt.status==='applied'),'the source removal must actually apply before taint checks');
  assert.equal(app.store.memorySources(scope).some(source=>source.id===targetId||source.text.includes(secret)),false);
- assert.equal(app.calls.length,2);assert.equal(app.calls.slice(1).some(call=>JSON.stringify(call).includes(secret)),false,'no post-forget serialized field may contain the removed blocker content');
+ assert.equal(app.calls.length,3);assert.equal(app.calls.slice(1).some(call=>JSON.stringify(call).includes(secret)),false,'no post-forget serialized field may contain the removed blocker content');
  assert.equal(JSON.stringify(afterForgetArgs).includes(secret),false);
  assert.equal(JSON.stringify(app.contexts.slice(1).map(context=>({payload:context.payload,manifest:context.manifest}))).includes(secret),false);
  assert.equal(JSON.stringify(app.run()).includes(secret),false,'normalized explanation, blocker witness and captured requests must all be sanitized');

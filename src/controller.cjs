@@ -13,6 +13,9 @@ const {maintenanceDecision}=require('./memory-scheduler.cjs');
 const fingerprint=value=>createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const FORGOTTEN_REQUEST='所选来源已从助手参考中移除。仅使用仍可用的信息继续本次帮助，不复述已移除内容。';
 const {SourceHandleOwner}=require('./source-handles.cjs');
+const {primaryOperationFor}=require('./primary-operation.cjs');
+const {buildFidelityContext,buildFidelityRepairContext,parseFidelityResult,approvalFor}=require('./whole-answer-fidelity.cjs');
+const {assertDraftSourcesCurrent}=require('./context/draft-material.cjs');
 const {editable,validateTerminalDelivery,blockerRenderingWitness,deliveryStatus,clarificationBody}=require('./request-delivery.cjs');
 function inFlightMessageRequirement(owner,scope){
   if(!owner||!sameScope(owner.scope,scope))return undefined;
@@ -575,7 +578,7 @@ class Controller extends EventEmitter {
           if(current()&&this.activeAssist?.taskId===budget.id)this.activeAssist.args.requestDeliveryObligation=requestDeliveryObligation;
         }
         assertArtifactInputs(input);
-        const stage=budget.forStage(input.payload.purpose);settings.requestBudget=stage;input.manifest.stageId=stage.stageId;
+        const stage=budget.forStage(input.requestStage||input.payload.purpose);settings.requestBudget=stage;input.manifest.stageId=stage.stageId;
         input.manifest.candidateSession={qqRevision:revision,privateInputSeq:candidateTicket.privateInputSeq};
         this.store.saveRun(scope,{id:requestId,baseRevision,purpose:input.payload.purpose,status:'pending',payload:input.payload,manifest:input.manifest});
         try{
@@ -610,7 +613,8 @@ class Controller extends EventEmitter {
             // A private text fallback cannot commit an earlier queued proposal.
             // Already applied user actions and their real receipts remain intact.
             relationshipProposals.length=0;experienceProposals.length=0;topicProposals.length=0;stagedReview=null;
-            result={kind:['discussion','review','question'].includes(result.kind)?result.kind:'discussion',text:result.text,...(result.replyDisposition?{replyDisposition:result.replyDisposition}:{})};
+            result={kind:['discussion','review','question'].includes(result.kind)?result.kind:'discussion',text:result.text,
+              ...(input.payload.purpose==='reply'?{replyDisposition:'unavailable'}:result.replyDisposition?{replyDisposition:result.replyDisposition}:{})};
           }
           input.manifest.methodTrace ||= {delivered:(input.payload.methodCards||[]).map(method=>({id:method.id,version:method.version})),reported:null};
           if(!input.extraRequests?.length)input.manifest.methodTrace.reported=Object.hasOwn(result,'methodIds')?[...result.methodIds]:null;
@@ -621,13 +625,28 @@ class Controller extends EventEmitter {
         }finally{
           // Failed transport/repair attempts still have useful diagnostics. Keep
           // the normal input and stage manifest, never an invalid raw response.
-          capturedRequests.push({purpose:input.payload.purpose,manifest:input.manifest,payload:input.payload});
+          capturedRequests.push({purpose:input.requestStage||input.payload.purpose,manifest:input.manifest,payload:input.payload});
           for(const extra of input.extraRequests||[]){
             const payload=extra.payload?Object.fromEntries(['purpose','originalInput','formatError','validationIssues'].filter(key=>extra.payload[key]!==undefined).map(key=>[key,extra.payload[key]])):undefined;
             capturedRequests.push({purpose:extra.purpose||extra.manifest?.purpose,manifest:extra.manifest,...(payload?{payload}:{}),...(extra.inputBytes!==undefined?{inputBytes:extra.inputBytes}:{})});
           }
           if(input.resultContext&&input.resultContext!==input)context=input.resultContext;
         }
+      };
+      const invokeFidelity=async(input)=>{
+        if(this.activeAssist?.taskId===budget.id)Object.defineProperty(this.activeAssist,'inflightInput',{value:input,writable:true,configurable:true});
+        assertArtifactInputs(input);
+        const stage=budget.forStage('fidelity_check');settings.requestBudget=stage;input.manifest.stageId=stage.stageId;
+        this.store.saveRun(scope,{id:requestId,baseRevision,purpose:'fidelity_check',status:'pending',payload:input.payload,manifest:input.manifest});
+        try{
+          const output=await this.assistantModel(settings,input,abort.signal);
+          if(!current())return;
+          assertArtifactInputs(input);
+          assertDraftSourcesCurrent(input,Object.keys(input.manifest.sourceRevisions||{}),{scope,store:this.store});
+          const checked=parseFidelityResult(output,input);
+          input.manifest.fidelity={...input.manifest.fidelity,verdict:checked.verdict,issues:checked.issues};
+          return checked;
+        }finally{capturedRequests.push({purpose:'fidelity_check',manifest:input.manifest,payload:input.payload});}
       };
       let result;
       for(let pass=0;pass<5;pass++) {
@@ -639,6 +658,12 @@ class Controller extends EventEmitter {
             ...(result.statePatch?['statePatch']:[]),...(result.stateReview?['stateReview']:[])];
           if(deferred.length)context.manifest.deferredProposals={fields:[...new Set(deferred)],reason:'lookup_requires_terminal_reproposal'};
           relationshipProposals.length=0;topicProposals.length=0;experienceProposals.length=0;stagedReview=null;
+        }
+        // Validate the complete prepared branch before any independently
+        // authorized action can mutate its source context.
+        if(result.draftPlan&&!result.draftPlan.clarification){
+          if(!primaryOperationFor(result)?.answer)throw new Error('主调用必须同时提供完整answer和来源绑定计划；输入已保留');
+          buildDraftContext(context,result.draftPlan,{scope,requestId,companion,coverage,settings,store:this.store});
         }
         if(result.actions?.length&&!actionsHandled&&!transient){
           const applied=applyUserActions(this.store,scope,result.actions,{turn,baseRevision});
@@ -701,25 +726,39 @@ class Controller extends EventEmitter {
         break;
       }
       if(!result||result.lookup)throw new Error('本次信息整理未能完成，请重试；原始输入已保存');
-      let reviewed=context,discussionExplanation=result.discussionExplanation;stagedReview={context,result};
-      if(result.draftPlan?.clarification) {
-        const blocker=result.requestDelivery?.blocker||result.deliveryBlocker;
-        discussionExplanation=undefined;
-        result={...result,kind:'question',text:blocker?clarificationBody(blocker):result.draftPlan.clarification,...(purpose==='reply'?{replyDisposition:'clarify'}:{})};
+      let reviewed,discussionExplanation,expressionOptions,checkInput,checked,approval;
+      for(;;){
+        const primaryContext=context,primaryResult=result,state=primaryOperationFor(result);
+        reviewed=context;stagedReview={context,result};
+        expressionOptions=[];
+        try{expressionOptions=expressionOptionsFor(primaryContext,result.expressionOptions||[]);}catch(error){receipts.push({status:'rejected',reason:error.message});}
+        let admitted;
+        if(result.draftPlan?.clarification){
+          const blocker=result.requestDelivery?.blocker||result.deliveryBlocker;
+          result={...result,kind:'question',text:blocker?clarificationBody(blocker):result.draftPlan.clarification};
+        }else if(result.draftPlan){
+          if(!state?.answer)throw new Error('本次完整候选缺少主调用生成的answer；输入已保留');
+          admitted=buildDraftContext(context,result.draftPlan,{scope,requestId,companion,coverage,settings,store:this.store});
+          context=admitted;result={...state.answer,...(result.methodIds?{methodIds:result.methodIds}:{})};reviewed=null;
+          context.manifest.preparedResponse={owner:'primary_candidate',message:'provided',privateExplanation:result.discussionExplanation?'provided':'absent'};
+        }else if(state?.admittedMaterials){admitted={payload:{outboundQuotes:state.admittedMaterials},manifest:primaryContext.manifest};}
+        discussionExplanation=result.requestDelivery?.blocker||result.deliveryBlocker?undefined:result.discussionExplanation;
+        validateTerminalDelivery(result,requestDeliveryObligation);
+        checkInput=buildFidelityContext(primaryContext,result,{scope,requestId,store:this.store,settings,admittedContext:admitted,expressionOptions,sourceContexts:capturedRequests});
+        checked=await invokeFidelity(checkInput);if(!current())return;
+        approval=approvalFor(checked,checkInput);
+        if(approval){context.manifest.fidelity={...checkInput.manifest.fidelity,...approval};break;}
+        const ledger=budget.snapshot(),used=ledger.requests.some(request=>request.purpose==='delivery_repair');
+        if(checked.verdict==='uncertain'||used||ledger.remaining<2){const error=new Error('完整答复核对未完成，且不能继续修复；输入与已取得原文已保留');error.code=used?'request_delivery_repair_exhausted':checked.verdict==='uncertain'?'fidelity_coverage_uncertain':'fidelity_repair_budget';throw error;}
+        relationshipProposals.length=0;topicProposals.length=0;experienceProposals.length=0;stagedReview=null;
+        const retry=buildFidelityRepairContext(primaryContext,checkInput);
+        Object.defineProperty(retry,'sourceHandleOwner',{value:settings.sourceHandleOwner,writable:true,configurable:true});
+        Object.defineProperty(retry,'fidelityRepair',{value:{candidate:checkInput.payload.candidate,issues:checked.issues}});
+        Object.defineProperty(retry,'requestStage',{value:'delivery_repair'});
+        retry.manifest.fidelityRegeneration={rejectedCandidateHash:checkInput.manifest.fidelity.candidateHash,issues:checked.issues};
+        context=retry;result=await invoke(retry);if(!current())return;
+        if(result.lookup||result.actions?.length){const error=new Error('核对修复尚需新的原文读取或独立操作；没有发布未经再次核对的候选，输入已保留');error.code='fidelity_repair_nonterminal';throw error;}
       }
-      else if(result.draftPlan){
-        // A primary planning comment is not an answer owner. Only the final
-        // composer may supply the prepared reply's private explanation.
-        discussionExplanation=undefined;
-        const allowedImages=context.images;
-        context=buildDraftContext(context,result.draftPlan,{scope,requestId,companion,coverage,settings,store:this.store});context.images=allowedImages;context.payload.imageContext=imageContextFor(context.payload,allowedImages,vision);context.manifest.imageContext=context.payload.imageContext;
-        result=await invoke(context);if(!current())return;reviewed=null;discussionExplanation=result.discussionExplanation;
-      } else if(purpose==='draft'&&!['question','discussion'].includes(result.kind))throw new Error('模型尚未明确拟表达内容，请继续说明或选择一个方向');
-      if(!current())return;
-      if(result.requestDelivery?.blocker||result.deliveryBlocker)discussionExplanation=undefined;
-      validateTerminalDelivery(result,requestDeliveryObligation);
-      let expressionOptions=[];
-      try{expressionOptions=expressionOptionsFor(context,result.expressionOptions||[]);}catch(error){receipts.push({status:'rejected',reason:error.message});}
       const methodIds=(result.methodIds||[]).filter(id=>methodFor(id));
       const generationStages=capturedRequests.filter(request=>request.manifest).map(request=>({stageId:request.manifest.stageId,purpose:request.purpose,
         deliveredMethodRefs:[...new Map([...(request.manifest.methodTrace?.catalog||[]).map(method=>({...method,guidanceLevel:'catalog'})),...(request.manifest.methodTrace?.delivered||[]).map(method=>({...method,guidanceLevel:'full_card'}))].map(method=>[method.id,method])).values()].map(method=>({methodId:method.id,version:method.version,guidanceLevel:method.guidanceLevel})),reportedUsedMethodRefs:request.manifest.methodTrace?.reported?.map(id=>({methodId:id,version:methodFor(id)?.version}))??null}));
@@ -734,9 +773,11 @@ class Controller extends EventEmitter {
       context.manifest.candidateSession={qqRevision:revision,privateInputSeq:candidateTicket.privateInputSeq,validatedPlanDigest};
       const reply=this.store._atomic(()=>{
         if(!current())return null;
+        if(!approvalFor(checked,checkInput))throw new Error('Fidelity approval no longer matches this candidate');
+        assertDraftSourcesCurrent(checkInput,Object.keys(checkInput.manifest.sourceRevisions||{}),{scope,store:this.store});
         assertArtifactInputs(context);
         const rejectedAux=capturedRequests.flatMap(r=>r.manifest?.auxiliaryErrors||[]);
-        const bestEffort=context.payload.purpose!=='draft'&&context.payload.taskContext?.auxiliaryPolicy==='best_effort';
+        const bestEffort=context.payload.purpose!=='draft'&&stagedReview?.context.payload.taskContext?.auxiliaryPolicy==='best_effort';
         const recordRejection=(field,receipt)=>{if(receipt&&receipt.applied===false)rejectedAux.push({field,code:'rejected_auxiliary_metadata',message:String(receipt.detail||receipt.reason||'metadata rejected').slice(0,500)});};
         const topic=topicProposals.at(-1);
         if(topic&&this.store.applyTopicPatch){

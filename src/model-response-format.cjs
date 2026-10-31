@@ -6,7 +6,7 @@ const string={type:'string'},integer={type:'integer'},boolean={type:'boolean'};
 const array=items=>({type:'array',items}),strings=array(string),choice=values=>({type:'string',enum:values});
 const object=(properties,required=[])=>({type:'object',properties,...(required.length?{required}:{}),additionalProperties:false});
 const reference=object({text:string,sourceIds:strings},['text','sourceIds']);
-const quote=object({materialRef:{...string,description:'Exact offered material m#; when a smaller span is needed, m#@bSTART:bEND selects its explicitly displayed word-boundary labels. Never count character offsets or copy source text. Choose only the relevant outward fragment.'},authorityRef:{...string,description:'Required separate offered authority choice a#. Original user statement candidates require full-context permission interpretation; they are not grants and cannot be boundary-refined.'}},['materialRef','authorityRef']);
+const quote=object({materialRef:{...string,description:'Offered m# or m#@bSTART:bEND using displayed word boundaries only. Choose relevant outward material; never count offsets or copy bodies.'},authorityRef:{...string,description:'Required offered a# authority. Original user statements need full-context permission interpretation, are not grants, and cannot be sliced.'}},['materialRef','authorityRef']);
 const guidance=object({objective:reference,allowedApproach:reference,avoidances:array(reference),currentStep:reference});
 const draftPlan=object({editingReference:object({choice:{...string,description:'Choose the offered short handle, such as e1. Do not reconstruct artifact IDs or versions.'},artifactId:string,version:integer}),quotes:array(quote),intent:choice(['reply']),style:choice(['natural','short','casual']),language:string,
  askFollowup:boolean,useEmoji:boolean,taskUse:choice(['continue','different','uncertain']),option:object({turnId:string,index:integer},['turnId','index']),guidance});
@@ -38,13 +38,15 @@ const memoryRecordFields=Object.freeze(Object.fromEntries(Object.entries({items:
 const deliveryBlocker=object({kind:choice(['missing_fact','missing_authorization']),missing:string,question:{...string,description:'The sole canonical private clarification question.'},explanation:{...string,description:'Optional explicit why-only explanation, at most 1000 characters; do not repeat or paraphrase the question here.'}},['kind','missing','question']);
 const schemas={
  assistant_result:object({operation:choice(['advise','prepare_message','lookup','clarify']),
- text:{...string,description:'Required private answer for advise. For prepare_message/lookup, optional fallible planning/audit comment, never the final prepared reply. Absent for clarify.'},
- draftPlan:{...draftPlan,description:'Only prepare_message: admitted material choices and generated planning controls. Do not use clarification here.'},
+ answer:{...object({privateExplanation:string,suggestions:array(object({style:string,text:string},['text']))},['suggestions']),description:'Only prepare_message: COMPLETE final reply with 1..3 suggestions and optional privateExplanation; no later composer.'},materials:{...array(quote),description:'Optional advise example material choices; never a sharing grant from the checker.'},
+ text:{...string,description:'advise: complete private answer; prepare_message/lookup: optional fallible audit note; clarify: absent.'},
+ draftPlan:{...draftPlan,description:'Only prepare_message: material choices and proposed controls; no clarification.'},
  lookup:object({query:string,discussionTurnIds:strings,sourceIds:strings,offset:integer,maxChars:integer,methodIds:strings,discover:boolean,before:string,after:string,types:array(choice(['qq','private','note','feedback']))}),
- continuation:{...choice(['advise','prepare_message']),description:'Required only for lookup: the workflow to continue after reading.'},
- blocker:{...deliveryBlocker,description:'Required only for clarify: one specific missing fact/permission question with optional why-only explanation.'},
+ continuation:{...choice(['advise','prepare_message']),description:'Only lookup: workflow to continue after reading.'},
+ blocker:{...deliveryBlocker,description:'Only clarify: specific missing fact/permission question and optional why-only explanation.'},
  methodIds:strings,actions:array(action),stateReview:choice(['no_change']),statePatch,topicPatch,relationshipPatch,experienceProposals:array(experienceProposal),expressionOptions:array(expressionOption)},['operation']),
  draft_result:object({kind:choice(['draft','discussion','question']),text:{...string,description:'For kind=draft, only the complete outward message body, 1..1200 characters; keep private reasoning in privateExplanation. For kind=question, the blocker owns its canonical body.'},privateExplanation:{...string,description:'Optional FINAL private explanation for kind=draft, at most 6000 characters; omitted or blank means absent. Own its factual reasoning together with the outward message; a primary planning comment is not verified truth.'},deliveryBlocker,suggestions:array(object({style:string,text:string},['style','text'])),methodIds:strings,replyDisposition:choice(['wait','clarify','unavailable'])},['kind','text']),
+ fidelity_result:object({checkRef:string,verdict:choice(['allow','reject','uncertain']),issues:array(object({path:string,code:choice(['unsupported_fact','current_boundary','omitted_qualifier','evidence_mismatch','internal_conflict','coverage_unknown','source_needed']),sourceIds:strings,reason:string},['path','code','reason']))},['checkRef','verdict','issues']),
  discussion_compaction_result:object({summary:string,reviewedTurnIds:strings,quoteRefs:array(quoteRef)},['summary','reviewedTurnIds','quoteRefs']),
  memory_result:object({batchId:string,reviewedAll:boolean,items:array(memoryItem),episodes:array(episode),retire:array(memoryRetirement),relationshipPatch},['batchId','reviewedAll','items','episodes','retire'])
 };
@@ -55,7 +57,7 @@ function responseEnvelope(settings,purpose,payload) {
  const autoTool=/^claude-(?:sonnet|opus)-4-6$/.test(settings.model||'')||/^gpt-(?:4o|4\.1|5|6)(?:[-.]|$)/.test(settings.model||'');
  const useTool=settings.modelResponseMode==='result_tool'||settings.modelResponseMode!=='json_object'&&autoTool;
  if(!useTool)return {response_format:{type:'json_object'}};
- const name=purpose==='draft'?'draft_result':purpose==='discussion_compaction'?'discussion_compaction_result':purpose==='memory'?'memory_result':'assistant_result';
+ const name=purpose==='fidelity_check'?'fidelity_result':purpose==='draft'?'draft_result':purpose==='discussion_compaction'?'discussion_compaction_result':purpose==='memory'?'memory_result':'assistant_result';
  let schema=schemas[name];
  if(name==='draft_result'&&(payload?.originalInput||payload)?.requestDeliveryObligation){
   // Keep the provider envelope flat; the local terminal validator owns the

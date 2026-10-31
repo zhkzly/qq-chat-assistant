@@ -16,15 +16,14 @@ function setup(t,{badCompaction=false}={}){
    const original=p.turns?.length?p:p.originalInput;
    result={summary:'用户想先轻松接话，暂不直接问游戏名字或邀约；助手提出两个候选，尚未发送。',reviewedTurnIds:original.turns.map(x=>x.id),
     quoteRefs:[{turnId:oldAssistant.id,role:'assistant',field:'text',text:badCompaction?'伪造并非原文的候选':FIRST},{turnId:oldAssistant.id,role:'assistant',field:'text',text:SECOND}]};
-  }else if(p.purpose==='draft'){
-   assert.equal(JSON.stringify(p).includes('PRIVATE_MOTIVE_SENTINEL'),false);assert.equal(p.discussionCompaction,undefined);
-   result={kind:'draft',text:'可编辑的参考表达',suggestions:[{style:'自然',text:SECOND}]};
+  }else if(p.purpose==='fidelity_check'){
+   result={checkRef:p.checkRef,verdict:'allow',issues:[]};
   }else{
    assert.ok(p.discussionCompaction,'long discussion must be folded before assistance');
    assert.ok(p.privateCandidates.some(c=>c.text===SECOND),'the second literal candidate must survive');
    const intent=p.userRequest.sourceId;
    result={draftPlan:{quotes:[],intent:'reply',style:'natural',askFollowup:false,guidance:{objective:{text:'自然承接她的游戏分享',sourceIds:[intent]},
-    allowedApproach:{text:'先轻松调侃，暂不直接追问',sourceIds:[intent]},avoidances:[{text:'不直接邀约，不编造共同经历',sourceIds:[intent]}]}}};
+    allowedApproach:{text:'先轻松调侃，暂不直接追问',sourceIds:[intent]},avoidances:[{text:'不直接邀约，不编造共同经历',sourceIds:[intent]}]}},answer:{privateExplanation:'可编辑的参考表达',suggestions:[{style:'自然',text:SECOND}]}};
   }
   return new Response(JSON.stringify({choices:[{finish_reason:'stop',message:{content:JSON.stringify(result)}}],usage:{prompt_tokens:100,completion_tokens:40,total_tokens:140}}),{status:200,headers:{'Content-Type':'application/json'}});
  };
@@ -45,6 +44,7 @@ function setup(t,{badCompaction=false}={}){
 test('long discussion automatically compacts once, drafts safely and reuses the validated cache on the next request',async t=>{
  const app=setup(t);const original=await app.seed();
  const first=await app.controller.assist({text:'按第二个给一句完整的话',purpose:'draft',taskId:'compaction-first'});
+ const admitted=app.controller.assistantContext().run.payload;assert.equal(JSON.stringify(admitted).includes('PRIVATE_MOTIVE_SENTINEL'),false);assert.equal(admitted.discussionCompaction,undefined);assert.equal(app.calls.at(-1).purpose,'fidelity_check');
  assert.equal(first.suggestions[0].text,SECOND);assert.equal(app.calls.filter(x=>x.purpose==='discussion_compaction').length,1);
  assert.equal(app.store.getCompanion(scope).turns.find(x=>x.id===original.oldAssistant.id).text,original.oldAssistant.text);
  const task=app.controller.usage.get(scope,'compaction-first');assert.equal(task.attempts,3);assert.equal(task.status,'complete');

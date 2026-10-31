@@ -109,7 +109,7 @@ test('a structurally repaired planning carrier still hands the same core control
  const {args,prepared,draft}=fixture(t),requests=[];
  const plan=withCurrentDraftControls({intent:'reply',quotes:[]},prepared.payload);
  const result=await assistModel({anonymous:true,baseUrl:'http://fixture.invalid/v1',model:'synthetic'},prepared,undefined,async(_url,options)=>{
-  const body=JSON.parse(options.body);requests.push(JSON.parse(body.messages[1].content));return {ok:true,json:async()=>({choices:[{message:{content:JSON.stringify(requests.length===1?{draftPlan:'{malformed container'}:{draftPlan:plan})}}]})};
+  const body=JSON.parse(options.body);requests.push(JSON.parse(body.messages[1].content));return {ok:true,json:async()=>({choices:[{message:{content:JSON.stringify(requests.length===1?{draftPlan:'{malformed container'}:{draftPlan:plan,answer:{suggestions:[{text:'Synthetic complete response under the same wording controls.'}]}})}}]})};
  });
  assert.equal(requests.length,2);assert.equal(prepared.extraRequests[0].purpose,'delivery_repair');
  const repaired=buildDraftContext(prepared.resultContext||prepared,result.draftPlan,args);assert.deepEqual(repaired.payload.wordingControls,draft().payload.wordingControls);assert.equal(JSON.stringify(repaired.payload).includes('PRIVATE_CORE_REASON'),false);

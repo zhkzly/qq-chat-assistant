@@ -1,5 +1,4 @@
 'use strict';
-const {withoutCurrentControl}=require('./fixtures/wording-lanes.cjs');
 const test=require('node:test'),assert=require('node:assert/strict');
 const {definitions,dimensions}=require('../scripts/continuous-conversation-cases.cjs');
 const {runHarness}=require('../scripts/goal-help-quality-check.cjs');
@@ -39,17 +38,17 @@ test('actual-send and next-incoming steps share one history and replace the curr
   assert.ok(noFailedChecks(report));
 });
 
-test('the next automatic planner still sees the actual local user correction without leaking it to drafting',async()=>{
+test('the next automatic primary and checker see the original local correction without treating it as outward material',async()=>{
   const report=await runHarness({continuousCases:selected('L4-correction-survives-next-turn')});
   const item=report.cases[0],request=definitions().find(value=>value.id===item.id).steps[0].request;
-  const planner=item.stages.find(stage=>stage.stepId==='next-incoming-keeps-correction'&&stage.purpose!=='draft');
+  const stages=item.stages.filter(stage=>stage.stepId==='next-incoming-keeps-correction');
+  const planner=stages.find(stage=>stage.purpose!=='fidelity_check');
   assert.ok(planner.effectivePayload.sources.some(source=>source.role==='user'&&source.text===request));
-  for(const stage of item.stages.filter(value=>value.purpose==='draft')){
-    assert.equal(!!stage.effectivePayload.privateConversation,false);assert.equal(!!stage.effectivePayload.goal,false);
-    const other=stage.effectivePayload.currentHumanControl?withoutCurrentControl(stage.effectivePayload,request):stage.effectivePayload;
-    assert.equal(JSON.stringify(other).includes(request),false);
-    assert.ok(stage.effectivePayload.outboundQuotes.every(quote=>!quote.text.includes(request)));
-  }
+  const checker=stages.find(stage=>stage.purpose==='fidelity_check');assert.ok(checker,'the automatic candidate must be checked');
+  assert.ok(checker.effectivePayload.evidence.some(source=>source.role==='user'&&source.text===request),'checking can read the original private correction');
+  assert.ok(checker.effectivePayload.admittedFragments.every(quote=>!quote.text.includes(request)),'private controls are not granted as outward material');
+  assert.equal(JSON.stringify(checker.effectivePayload.candidate.suggestions).includes(request),false);
+  assert.equal(stages.some(stage=>stage.purpose==='draft'),false,'complete wording is generated in the primary request');
   assert.ok(noFailedChecks(report));
 });
 
@@ -76,7 +75,8 @@ test('analysis-only and unjustified wait controls cannot mechanically pass the o
     {kind:'discussion',text:'Synthetic known-bad control: only strategy, no actual reply.'},
     {kind:'discussion',text:'Synthetic known-bad control: no reason to respond.',replyDisposition:'wait'}
   ]){
-    const report=await runHarness({continuousCases:selected('L1-automatic-candidate'),maxHttp:4,syntheticResponder:()=>reply});
+    const report=await runHarness({continuousCases:selected('L1-automatic-candidate'),maxHttp:4,syntheticResponder:payload=>payload.purpose==='fidelity_check'
+      ?{checkRef:payload.checkRef,verdict:'allow',issues:[]}:reply});
     assert.equal(report.realHttpAttempts,0);assert.equal(report.semanticVerdict,'requires_independent_review');
     assert.notEqual(report.cases[0].status,'executed_semantic_review_required');
     assert.ok(!report.cases[0].steps[0]?.reply?.suggestions?.length);

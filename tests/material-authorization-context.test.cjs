@@ -49,15 +49,15 @@ test('indexed missing-reference feedback preserves a real restricted handoff wit
  const settings={anonymous:true,auto:false,model:'synthetic-material-context',baseUrl:'http://fixture.invalid/v1',assistantRequestLimit:4,discussionCompactionEnabled:false,realChatConsent:{...scope,model:'synthetic-material-context',baseUrl:'http://fixture.invalid/v1'}};
  const controller=new Controller({store,settings,read:async command=>command==='bind'?scope:{messages:[]},assistantModel:(configured,context,signal)=>assistModel(configured,context,signal,async(_url,args)=>{
   const request=JSON.parse(args.body),wrapper=JSON.parse(request.messages[1].content),p=wrapper.originalInput||wrapper;calls.push({request,wrapper,p});
-  if(p.purpose==='draft'){
-   assert.deepEqual(admittedQuotes(canonicalSourceView(p,context.manifest.sourceHandles).outboundQuotes,context.payload.outboundQuotes,context.manifest.sourceRevisions),factualPlan().quotes);assert.equal(p.userRequest,undefined);assert.equal(p.goal,undefined);assert.equal(p.privateConversation,undefined);
-   assert.equal(JSON.stringify(p).includes('想告诉她这个小进展'),false);
-   return new Response(JSON.stringify({choices:[{message:{content:JSON.stringify({kind:'draft',text:'分享真实进展',suggestions:[{style:'自然',text:'是我给自己记读书笔记的小网页，昨天查找功能终于做好了，还挺开心。你平时怎么留住读到的东西？'}]})}}]}),{status:200});
+  if(p.purpose==='fidelity_check'){
+   assert.deepEqual(canonicalSourceView(p,context.manifest.sourceHandles).admittedFragments,factualPlan().quotes);assert.equal(p.userRequest,undefined);assert.equal(p.goal,store.getCompanion(scope).goal.text);assert.equal(p.privateConversation,undefined);
+   assert.equal(JSON.stringify(p.candidate.suggestions).includes('想告诉她这个小进展'),false);
+   return new Response(JSON.stringify({choices:[{message:{content:JSON.stringify({checkRef:p.checkRef,verdict:'allow',issues:[]})}}]}),{status:200});
   }
-  let response=firstResponse;
+  let response={...structuredClone(firstResponse),answer:{suggestions:[{style:'自然',text:'是我给自己记读书笔记的小网页，昨天查找功能终于做好了，还挺开心。你平时怎么留住读到的东西？'}]}};
   if(wrapper.originalInput){
    assert.match(wrapper.formatError,/draftPlan\.quotes\[0\]\.authorityRef/);assert.match(wrapper.formatError,/draftPlan\.quotes\[1\]\.authorityRef/);
-   response={...structuredClone(firstResponse),draftPlan:bindCurrent(factualPlan(),p)};
+   response={...response,draftPlan:bindCurrent(factualPlan(),p)};
   }
   return new Response(JSON.stringify({choices:[{message:{content:JSON.stringify(wireSourceView(response,(wrapper.originalInput?context.extraRequests?.at(-1)?.manifest?.sourceHandles:undefined)||context.manifest.sourceHandles,(wrapper.originalInput?context.extraRequests?.at(-1)?.manifest?.primaryReferences:undefined)||context.manifest.primaryReferences,wrapper.originalInput?context.extraRequests.at(-1).payload.originalInput:context.payload))}}]}),{status:200});
  })});

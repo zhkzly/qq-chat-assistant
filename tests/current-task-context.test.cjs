@@ -1,7 +1,7 @@
 'use strict';
 const {withCurrentDraftControls}=require('./fixtures/draft-controls.cjs');
 const test=require('node:test'),assert=require('node:assert/strict');
-const {Store}=require('../src/store.cjs'),{Controller}=require('./fixtures/assistant-protocol.cjs');
+const {Store}=require('../src/store.cjs'),{Controller}=require('./fixtures/whole-answer-fidelity.cjs');
 const {buildContext,buildDraftContext,sourcesFor}=require('../src/assistant-context.cjs'),{normalize}=require('../src/messages.cjs');
 const {scope,raw}=require('./fixtures/native.cjs');
 function msg(id,own,text,extra={}){return normalize(raw(String(id),own,{elements:[{textElement:{content:text}}],...extra}),scope);}
@@ -11,7 +11,7 @@ function setup(t,{text='怎么接着聊？',records=[]}={}){
 }
 test('QQ shortcut retrieves available self context for her current question rather than only a style phrase',async t=>{
  const store=new Store(':memory:'),inputs=[];const settings={auto:false,anonymous:true,model:'synthetic-current-task',baseUrl:'http://fixture.invalid/v1',realChatConsent:{accountUid:scope.accountUid,peerUin:scope.peerUin,model:'synthetic-current-task',baseUrl:'http://fixture.invalid/v1'}};
- const controller=new Controller({store,settings,read:async()=>{throw Error('no native reading in this fixture');},assistantModel:async(_settings,input)=>{inputs.push(input.payload);return {kind:'discussion',text:'合成检索夹具：本轮已处理，不生成候选。',replyDisposition:'wait'};}});t.after(()=>{controller.close();store.close();});
+ const controller=new Controller({store,settings,read:async()=>{throw Error('no native reading in this fixture');},assistantModel:async(_settings,input)=>{if(input.payload.purpose==='fidelity_check')return {checkRef:input.payload.checkRef,verdict:'allow',issues:[]};inputs.push(input.payload);return {kind:'discussion',text:'合成检索夹具：本轮已处理，不生成候选。',replyDisposition:'wait'};}});t.after(()=>{controller.close();store.close();});
  controller.updateStatus({phase:'ready',account:{uid:scope.accountUid,uin:scope.accountUin}});controller.scope={...scope};store.setGoal(scope,'希望和她发展双方愿意的恋爱关系');
  store.add(scope,[msg(7001,true,'我在合成乙城找到工作。'),msg(7002,false,'工作地点离你常住地多远？',{msgTime:String(Number(raw().msgTime)+1)})]);
  const note=store.saveNote(scope,{text:'我常住在合成甲城，合成乙城的工作地点在两百公里外。',use:'discussion'});
@@ -128,6 +128,7 @@ test('saved generation-stage and feedback lineage distinguish catalog methods fr
  const store=new Store(':memory:'),settings={anonymous:true,model:'synthetic-lineage',baseUrl:'http://fixture.invalid/v1',realChatConsent:{accountUid:scope.accountUid,peerUin:scope.peerUin,model:'synthetic-lineage',baseUrl:'http://fixture.invalid/v1'}};
  let delivered,catalog,selected;
  const controller=new Controller({store,settings,read:async()=>{throw Error('No native calls in this fixture');},assistantModel:async(_settings,input)=>{
+  if(input.payload.purpose==='fidelity_check')return {checkRef:input.payload.checkRef,verdict:'allow',issues:[]};
   delivered=structuredClone(input.manifest.methodTrace.delivered);catalog=structuredClone(input.manifest.methodTrace.catalog);
   selected=catalog.find(m=>!delivered.some(full=>full.id===m.id));assert.ok(selected,'fixture must exercise a reported catalog-only method');
   return {kind:'discussion',text:'Synthetic current help',methodIds:[selected.id]};

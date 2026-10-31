@@ -91,6 +91,7 @@ function seed(store,scope,definition){
  });
 }
 function fakeResult(payload,definition){
+ if(payload.purpose==='fidelity_check')return {checkRef:payload.checkRef,verdict:'allow',issues:[]};
  const id=definition.baseId||definition.id,currentId=payload.intentAuthority?.sourceId||payload.userRequest?.sourceId;
  if(payload.purpose==='draft'){
   const text={G1:'小苗今天终于发芽啦，跟你分享一下这个小进展',G3:definition.id==='G3-direct'?'那你现在玩的是哪款游戏呀？':'PVP有时候确实挺容易上头的哈哈',
@@ -102,13 +103,20 @@ function fakeResult(payload,definition){
  if(id==='G2')return {kind:'question',text:'还不知道你现在离她那边大概多远，这会改变怎么回答。',draftPlan:{clarification:'你现在离她那边大概多远？'}};
  if(id==='G6')return {kind:'discussion',text:definition.id==='G6-weak'?'这条普通回应不足以判断恋爱意愿。可以按你的真实想法分享近况，不必先猜她的态度。':'她有回应和主动联系的具体表现，但还不能据此确定恋爱意愿。可以考虑分享一点近况或一个方便她选择的邀请。',methodIds:['choose_next_step','express_interest']};
  if(id==='G7')return {kind:'discussion',text:'失落可以理解，她已经明确表示只想做朋友。可以先想清楚友情是否适合你，或者给自己一点距离；这不等于你已经决定更改长期目标。',methodIds:['review']};
+ const complete=value=>{
+  if(!payload.operationProtocol)return value;
+  // Move this producer's explicit former final literal into its primary
+  // answer. No extra call, criterion, grant or model-quality claim is added.
+  const final=fakeResult({...payload,purpose:'draft'},definition);
+  return {...value,answer:{suggestions:final.suggestions,privateExplanation:final.privateExplanation}};
+ };
  const control=text=>({text,sourceIds:[currentId]}),guidance={objective:control('按本次真实意思提供帮助'),allowedApproach:control('保持最新商量的表达方式'),avoidances:[]};
  if(id==='G3'||id==='G9'){guidance.allowedApproach=control(definition.id==='G3-direct'?'本轮直接询问她玩的游戏名':'先轻松接住PVP的分享');guidance.avoidances=definition.id==='G3-direct'?[]:[control('本轮不直接问游戏名，也不邀约')];}
  if(definition.contrary)guidance.allowedApproach=control('按本轮最新请求询问项目后续时间，覆盖此前不追加问题的方式');
  if(definition.twoQuestions)guidance.allowedApproach=control('本轮按最新请求保留项目预计时长和是否吃饭两个问题，不让旧经验删掉其中一个');
  const quotes=id==='G1'?['今天小苗终于发芽了']:id==='G4'?['这周六下午我有空','邀请她一起去公园散步']:id==='G5'?['我觉得和她聊天挺舒服','想再多了解她一点']:[];
- return withCurrentStatementAuthority({kind:'discussion',text:id==='G9'?'她明确说不怎么玩PVP、玩点回合制PVE；你的长期目标是自然发展关系，但这轮已经明确不问名字也不邀约。因此先接她分享的内容，给她自然展开空间；这种回复不能证明关系一定会更亲近。':'这是合成运输夹具提供的解释，只证明上下文交接和界面产物能够保留，不证明模型理解或恋爱效果。',
-  draftPlan:{quotes:quotes.map(text=>({sourceId:currentId,text})),...(quotes.length?{}:{intent:'reply'}),guidance},methodIds:[id==='G4'?'shared_activity':id==='G5'?'express_interest':'respond']},payload);
+ return complete(withCurrentStatementAuthority({kind:'discussion',text:id==='G9'?'她明确说不怎么玩PVP、玩点回合制PVE；你的长期目标是自然发展关系，但这轮已经明确不问名字也不邀约。因此先接她分享的内容，给她自然展开空间；这种回复不能证明关系一定会更亲近。':'这是合成运输夹具提供的解释，只证明上下文交接和界面产物能够保留，不证明模型理解或恋爱效果。',
+  draftPlan:{quotes:quotes.map(text=>({sourceId:currentId,text})),...(quotes.length?{}:{intent:'reply'}),guidance},methodIds:[id==='G4'?'shared_activity':id==='G5'?'express_interest':'respond']},payload));
 }
 function stopError(message,code='verification_stopped'){const error=new Error(message);error.name='AbortError';error.code=code;return error;}
 function packetPayload(request){const content=request.messages?.[1]?.content;if(typeof content!=='string')throw Error('Acceptance harness must remain text-only');return JSON.parse(content);}
@@ -192,7 +200,10 @@ async function runHarness(options={}){
     }});
    controller.visible=false;controller.updateStatus({phase:'ready',account:{uid:scope.accountUid,uin:scope.accountUin}});controller.scope={...scope};
    const reply=await controller.assist({text:definition.request,purpose:'discussion',taskId:`acceptance-${definition.id}`});item.reply=reply?clone(reply):null;
-   item.visibleHelp=reply?visibleResponseText(reply):null;item.controls=item.stages.filter(stage=>stage.purpose==='draft').map(stage=>stage.effectivePayload.draftingGuidance||null);
+   item.visibleHelp=reply?visibleResponseText(reply):null;
+   const savedRun=controller.assistantContext().run;
+   item.admittedContext=savedRun?.payload?.purpose==='draft'?{payload:clone(savedRun.payload),manifest:clone(savedRun.manifest)}:null;
+   item.controls=item.admittedContext?[item.admittedContext.payload.draftingGuidance||null]:[];
    item.observedDeliverables={privateRationale:!!reply?.discussionExplanation?.text,editableWordingCount:reply?.suggestions?.length||0};
    const after=store.getCompanion(scope);item.goalAfter=after.goal;item.actualRecordsAfter=store.messages(scope);item.tasks=controller.usage.recent(scope,4);item.savedRuns=after.runs;
    check('actual QQ records and string message IDs preserved',JSON.stringify(item.actualRecordsAfter)===JSON.stringify(before)&&item.actualRecordsAfter.every(record=>typeof record.messageId==='string'));
@@ -201,8 +212,8 @@ async function runHarness(options={}){
    check('current request preserved in first planning input',item.stages[0]?.initialPayload.userRequest.text===definition.request);
    check('per-task and global calls bounded',attempts<=maxHttp&&item.tasks.every(task=>task.limit<=4&&task.attempts<=task.limit));
    check('no image content enters model requests',report.requests.filter(entry=>entry.caseId===item.id).every(entry=>typeof entry.request.messages[1].content==='string'));
-   check('restricted drafts exclude private marker and rationale',item.stages.filter(stage=>stage.purpose==='draft').every(stage=>!JSON.stringify(stage.effectivePayload).includes(PRIVATE_MARKER)&&
-    !stage.effectivePayload.userRequest&&!stage.effectivePayload.goal&&!stage.effectivePayload.privateConversation&&(!reply?.discussionExplanation||!JSON.stringify(stage.effectivePayload).includes(reply.discussionExplanation.text))));
+   check('outward wording and admitted fragments exclude private marker and rationale',(reply?.suggestions||[]).every(suggestion=>!suggestion.text.includes(PRIVATE_MARKER)&&(!reply.discussionExplanation||!suggestion.text.includes(reply.discussionExplanation.text)))&&
+    !(item.admittedContext?.payload.outboundQuotes||[]).some(quote=>quote.text.includes(PRIVATE_MARKER)));
    if(reply){const responseArtifact=store.experiences.artifact(scope,reply.artifactRef);check('response artifact equals visible private help',responseArtifact?.body===item.visibleHelp);
     check('draft artifacts contain only editable wording',(reply.suggestions||[]).every(suggestion=>store.experiences.artifact(scope,suggestion.artifactRef)?.body===suggestion.text));}
    item.guidanceDelivery=item.stages.map(stage=>({purpose:stage.purpose,entries:stage.effectivePayload.experienceContext?.adaptations||[]}));

@@ -43,7 +43,9 @@ test('production HTTP consultation preserves generated replies, actual events an
   let sequence = 0;
   const session = await setup(t, { transport: async (_url, args) => {
     const p = input(args);
-    const original=p.originalInput||p;return packet(original.operationProtocol?{operation:'advise',text:`真实适配器保存的合成回答 ${++sequence}：${original.userRequest.text}`} : withRequestDelivery({kind:'discussion',text:`真实适配器保存的合成回答 ${++sequence}：${original.userRequest.text}`},original));
+    const original=p.originalInput||p;
+    if(original.purpose==='fidelity_check')return packet({checkRef:original.checkRef,verdict:'allow',issues:[]});
+    return packet(original.operationProtocol?{operation:'advise',text:`真实适配器保存的合成回答 ${++sequence}：${original.userRequest.text}`} : withRequestDelivery({kind:'discussion',text:`真实适配器保存的合成回答 ${++sequence}：${original.userRequest.text}`},original));
   } });
   const first = await session.post('/api/assistant', { text: '先接她装书架的事。' });
   const firstAnswer = first.companion.turns.find(turn => turn.role === 'assistant');

@@ -4,6 +4,7 @@ const {prepareAssistantRequest,parseAssistant}=require('../src/assistant-model.c
 const {SourceHandleOwner}=require('../src/source-handles.cjs');
 const {canonicalSourceView,wireSourceView}=require('./fixtures/source-wire.cjs');
 const {scope}=require('./fixtures/native.cjs');
+const ANSWER={suggestions:[{style:'自然',text:'已选的真实笔记事实'}]};
 function fixture({policy=true,intent=true,required=false}={}){
  const current={id:'private:current',revision:'current-r1',type:'private',role:'user',text:'想把已选笔记告诉她，给我完整表达。'};
  const payload={purpose:'discussion',...(intent?{intentAuthority:{sourceId:current.id}}:{}),userRequest:{sourceId:current.id,text:current.text},...(policy?{requestDeliveryPolicy:{version:1,...(required?{obligation:{mode:'editable_message'}}:{})}}:{}),draftMaterialPolicy:{version:1},allowedMaterialIds:['note:allowed'],
@@ -25,8 +26,8 @@ test('canonical operation input DTO restores only exact captured private policy 
  assert.equal(canonicalSourceView(wire,f.prepared.sourceWire.receipt,different).methodCards[0].outputKinds,undefined,'do not guess omitted card metadata from a different capture');
  assert.equal(JSON.stringify(wire),raw,'DTO restoration never changes the actual request');
 });
-test('declared message plan becomes prepare_message and still passes exact material admission',()=>{
- const f=fixture(),old={kind:'discussion',text:'准备已选笔记。',requestDelivery:f.declaration('both'),draftPlan:f.plan},original=structuredClone(old),wire=f.bridge(old);
+test('declared plan with an explicit complete answer preserves exact material admission',()=>{
+ const f=fixture(),old={kind:'discussion',text:'准备已选笔记。',requestDelivery:f.declaration('both'),draftPlan:f.plan,answer:ANSWER},original=structuredClone(old),wire=f.bridge(old);
  assert.equal(wire.operation,'prepare_message');assert.equal(wire.kind,undefined);assert.equal(wire.requestDelivery,undefined);assert.equal(wire.draftPlan.quotes[0].text,undefined);
  assert.equal(parseAssistant(wire,'discussion',f.context).draftPlan.quotes[0].text,'已选的真实笔记事实');assert.deepEqual(old,original);
 });
@@ -59,7 +60,7 @@ test('wrong current source and missing required old declaration remain invalid',
 });
 test('wrong proof and missing historical authority are never filled or fixed',()=>{
  for(const authorization of [undefined,{permission:{sourceId:'private:current',text:'想把已选笔记告诉她，给我完整表达。'},referent:{sourceId:'note:allowed',text:'已选的真实笔记事实'}}]){
-  const f=fixture(),wire=f.bridge({kind:'discussion',text:'准备。',requestDelivery:f.declaration(),draftPlan:{quotes:[{sourceId:'private:old',text:'OLD_PRIVATE_FACT',...(authorization?{authorization}:{})}]}});
+  const f=fixture(),wire=f.bridge({kind:'discussion',text:'准备。',answer:ANSWER,requestDelivery:f.declaration(),draftPlan:{quotes:[{sourceId:'private:old',text:'OLD_PRIVATE_FACT',...(authorization?{authorization}:{})}]}});
   assert.equal(wire.operation,'prepare_message');assert.throws(()=>parseAssistant(wire,'discussion',f.context));
   if(!authorization)assert.equal(wire.draftPlan.quotes[0].authorityRef,undefined);else assert.deepEqual(wire.draftPlan.quotes[0].authorization.referent.text,'已选的真实笔记事实');
  }
@@ -71,7 +72,7 @@ test('mixed cores and malformed kind/text remain rejected while auxiliary data i
 });
 test('new operations and non-primary carriers are not legacy-upgraded',()=>{
  const f=fixture(),unknown={operation:'unknown',kind:'discussion',text:'保留非法字段'};assert.deepEqual(f.bridge(unknown),unknown);assert.throws(()=>parseAssistant(f.bridge(unknown),'discussion',f.context));
- for(const purpose of ['draft','memory','discussion_compaction','plain_help_recovery','plain_draft_recovery']){
+ for(const purpose of ['draft','memory','discussion_compaction','plain_help_recovery','plain_draft_recovery','fidelity_check']){
   const value={kind:'discussion',text:'原有载体',requestDelivery:{mode:'private_help'}},wire=wireSourceView(value,f.prepared.sourceWire.receipt,f.prepared.primaryFrame.receipt,{...f.payload,purpose});
   assert.equal(wire.operation,undefined);assert.equal(wire.kind,value.kind);
  }
@@ -125,4 +126,10 @@ test('required-policy editable clarification needs its existing typed blocker ra
  const {withRequestDelivery}=require('../scripts/synthetic-request-delivery.cjs');
  const permitted=f.bridge(withRequestDelivery(legacy,f.payload));assert.equal(permitted.operation,'clarify');assert.equal(permitted.text,undefined);assert.equal(permitted.blocker.question,legacy.draftPlan.clarification);
  assert.equal(parseAssistant(permitted,'discussion',f.context).text,legacy.draftPlan.clarification);
+});
+
+test('the fixture bridge never invents a missing complete answer for a valid plan',()=>{
+ const f=fixture(),wire=f.bridge({kind:'discussion',text:'准备已选笔记。',requestDelivery:f.declaration(),draftPlan:f.plan});
+ assert.equal(wire.operation,'prepare_message');assert.equal(wire.answer,undefined);
+ assert.throws(()=>parseAssistant(wire,'discussion',f.context),error=>error.code==='whole_answer_invalid');
 });

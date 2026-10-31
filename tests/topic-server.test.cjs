@@ -1,19 +1,19 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),path=require('node:path');
-const {Store}=require('../src/store.cjs');const {Controller}=require('./fixtures/assistant-protocol.cjs');const {createServer}=require('../src/server.cjs');const {scope}=require('./fixtures/native.cjs');
+const {Store}=require('../src/store.cjs');const {Controller}=require('./fixtures/whole-answer-fidelity.cjs');const {createServer}=require('../src/server.cjs');const {scope}=require('./fixtures/native.cjs');
 test('explicit HTTP feedback continuation is full-scope bound, idempotent, and retains canonical feedback on model failure',async t=>{
- const store=new Store(':memory:');let calls=0;const settings={auto:false,apiKey:'synthetic',model:'synthetic',baseUrl:'http://fixture.invalid',realChatConsent:{accountUid:scope.accountUid,peerUin:scope.peerUin,model:'synthetic',baseUrl:'http://fixture.invalid'}};
- const controller=new Controller({store,settings,read:async command=>command==='bind'?scope:{messages:[]},assistantModel:async()=>{calls++;if(calls===2)throw new Error('synthetic provider failure');return {kind:'discussion',text:'synthetic scoped help'};}});controller.updateStatus({phase:'ready',account:{uid:scope.accountUid,uin:scope.accountUin}});await controller.bind(scope.peerUin);
+ const store=new Store(':memory:');let calls=0,primaryCalls=0;const settings={auto:false,apiKey:'synthetic',model:'synthetic',baseUrl:'http://fixture.invalid',realChatConsent:{accountUid:scope.accountUid,peerUin:scope.peerUin,model:'synthetic',baseUrl:'http://fixture.invalid'}};
+ const controller=new Controller({store,settings,read:async command=>command==='bind'?scope:{messages:[]},assistantModel:async(_,input)=>{calls++;if(input.payload.purpose==='fidelity_check')return {checkRef:input.payload.checkRef,verdict:'allow',issues:[]};if(++primaryCalls===2)throw new Error('synthetic provider failure');return {kind:'discussion',text:'synthetic scoped help'};}});controller.updateStatus({phase:'ready',account:{uid:scope.accountUid,uin:scope.accountUin}});await controller.bind(scope.peerUin);
  const first=await controller.assist({text:'想商量一下表达方向'});const server=createServer({controller,token:'synthetic-token',uiDir:path.resolve(__dirname,'../ui')});await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));t.after(async()=>{controller.close();await new Promise(resolve=>server.close(resolve));store.close()});
  const base=`http://127.0.0.1:${server.address().port}`,headers={Authorization:'Bearer synthetic-token','Content-Type':'application/json'};
  const post=async(body)=>{const r=await fetch(base+'/api/feedback-continue',{method:'POST',headers,body:JSON.stringify({...scope,...body})});return {status:r.status,body:await r.json()}};
  const args={text:'这次先不要直接邀约，请给具体表达。',requestId:first.requestId,targetRef:{kind:'artifact',artifactRef:first.artifactRef},clientEventId:'http-feedback',taskId:'http-topic-continue'};
  for(const stale of [{accountUid:'other'},{accountUin:'other'},{peerUid:'other'},{peerUin:'other'},{accountUin:undefined}])assert.equal((await post({...args,...stale})).status,400);
- assert.equal(store.experiences.listFeedback(scope).length,0);assert.equal(calls,1);
- const fail=await post(args);assert.equal(fail.status,200);assert.equal(fail.body.feedbackContinuation.status,'failed');assert.equal(store.experiences.listFeedback(scope).length,1);assert.equal(calls,2);
- assert.equal((await post(args)).body.feedbackContinuation.status,'failed');assert.equal(calls,2);
- const retry=await post({...args,taskId:'http-explicit-retry'});assert.equal(retry.body.feedbackContinuation.status,'complete');assert.equal(store.experiences.listFeedback(scope).length,1);assert.equal(calls,3);
+ assert.equal(store.experiences.listFeedback(scope).length,0);assert.equal(calls,2);
+ const fail=await post(args);assert.equal(fail.status,200);assert.equal(fail.body.feedbackContinuation.status,'failed');assert.equal(store.experiences.listFeedback(scope).length,1);assert.equal(calls,3);
+ assert.equal((await post(args)).body.feedbackContinuation.status,'failed');assert.equal(calls,3);
+ const retry=await post({...args,taskId:'http-explicit-retry'});assert.equal(retry.body.feedbackContinuation.status,'complete');assert.equal(store.experiences.listFeedback(scope).length,1);assert.equal(calls,5);
  const health=await(await fetch(base+'/api/health',{headers})).json();assert.equal(health.topicContinuity,true);
  const ref=store.getCompanion(scope).turns.find(t=>t.kind==='feedback_ref');controller.deleteTurn(ref.id);
- assert.equal((await post({...args,taskId:'after-forget'})).status,400);assert.equal(calls,3);assert.equal(store.memorySources(scope).some(s=>s.text===args.text),false);
+ assert.equal((await post({...args,taskId:'after-forget'})).status,400);assert.equal(calls,5);assert.equal(store.memorySources(scope).some(s=>s.text===args.text),false);
 });

@@ -84,7 +84,7 @@ test('actual format repair reassembly preserves the observation clock and select
  const observed={...context,rebuildForRequest:measure=>{rebuilds++;return context.rebuildForRequest(measure);}};
  const result=await assistModel(settings,observed,undefined,async(_url,request)=>{
   const body=JSON.parse(request.body),payload=JSON.parse(body.messages[1].content);requests.push({body,payload,bytes:Buffer.byteLength(request.body,'utf8')});
-  const answer=requests.length===1?{kind:'discussion',text:'Synthetic incomplete planning carrier',draftPlan:{intent:'reply',quotes:[]}}:{kind:'discussion',text:'Synthetic repaired consultation',draftPlan:withCurrentDraftControls({intent:'reply',quotes:[]},payload.originalInput)};
+  const answer=requests.length===1?{kind:'discussion',text:'Synthetic incomplete planning carrier',draftPlan:{intent:'reply',quotes:[]}}:{kind:'discussion',text:'Synthetic repaired consultation',draftPlan:withCurrentDraftControls({intent:'reply',quotes:[]},payload.originalInput),answer:{suggestions:[{text:'Synthetic complete consultation response.'}]}};
   return new Response(JSON.stringify({choices:[{message:{content:JSON.stringify(answer)}}]}),{status:200,headers:{'content-type':'application/json'}});
  });
  assert.equal(result.text,'Synthetic repaired consultation');assert.equal(requests.length,2);assert.equal(rebuilds,1,'repair wrapper must actually force a measured rebuild');

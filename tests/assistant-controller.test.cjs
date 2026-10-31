@@ -6,7 +6,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { Controller } = require('./fixtures/assistant-protocol.cjs');
+const { Controller } = require('./fixtures/whole-answer-fidelity.cjs');
 const { Store } = require('../src/store.cjs');
 const { scope, raw } = require('./fixtures/native.cjs');
 
@@ -21,7 +21,11 @@ function setup(assistantModel, filename = ':memory:') {
     auto: false, apiKey: 'synthetic-only', model: 'synthetic-assistant', baseUrl: 'http://fixture.invalid/v1',
     realChatConsent: { accountUid: scope.accountUid, peerUin: scope.peerUin, model: 'synthetic-assistant', baseUrl: 'http://fixture.invalid/v1' }
   };
-  const controller = new Controller({ store, settings, assistantModel,
+  const fidelityCalls=[];
+  const controller = new Controller({ store, settings, assistantModel:async(...args)=>{
+    if(args[1].payload.purpose==='fidelity_check'){fidelityCalls.push(structuredClone(args[1].payload));return {checkRef:args[1].payload.checkRef,verdict:'allow',issues:[]};}
+    return assistantModel(...args);
+  },
     read: async (command, args) => {
       if (command === 'bind') {
         selected = args.uin === scope.peerUin ? scope : { ...scope, peerUid: 'u_other', peerUin: String(args.uin) };
@@ -32,7 +36,7 @@ function setup(assistantModel, filename = ':memory:') {
     model: async () => { throw new Error('Legacy draft generation is not the private discussion path'); }
   });
   controller.updateStatus({ phase: 'ready', account: { uid: scope.accountUid, uin: scope.accountUin } });
-  return { controller, store, async bind() { await controller.bind(scope.peerUin); },
+  return { controller, store, fidelityCalls, async bind() { await controller.bind(scope.peerUin); },
     close() { controller.close(); store.close(); } };
 }
 function companion(app) { return app.controller.snapshot().companion; }
@@ -128,12 +132,11 @@ test('mixed current private meaning is control-only while outward material stays
       const material = context.payload.sources.find(source => source.type === 'note' && source.text === '今天去爬山了');
       assert.ok(material, 'selected draft material must reach preparation');
       return { kind: 'discussion', text: '只分享本次获准的真实近况。', draftPlan: withCurrentDraftControls({ style: 'short', quotes: [
-        { sourceId: context.payload.userRequest.sourceId, text: shareable },
+        { sourceId: context.payload.userRequest.sourceId, text: shareable,authorization:{permission:{sourceId:context.payload.userRequest.sourceId,text:context.payload.userRequest.text},referent:{sourceId:context.payload.userRequest.sourceId,text:shareable}} },
         { sourceId: material.id, text: material.text }
-      ] },context.payload) };
+      ] },context.payload),answer:{privateExplanation:'可以这样分享：',suggestions:[{style:'简短',text:'实验终于成功啦，今天还出去爬了山，挺开心的。'}]} };
     }
-    assert.equal(context.payload.purpose, 'draft');
-    return { kind: 'draft', text: '可以这样分享：', suggestions: [{ style: '简短', text: '实验终于成功啦，今天还出去爬了山，挺开心的。' }] };
+    assert.fail(`Unexpected primary purpose: ${context.payload.purpose}`);
   });
   t.after(() => app.close());
   await app.bind();
@@ -142,16 +145,19 @@ test('mixed current private meaning is control-only while outward material stays
   await app.controller.saveNote({ text: '今天去爬山了', use: 'draft' });
   const selected = companion(app).notes.find(note => note.text === '今天去爬山了');
   await app.controller.assist({ text: `${privateFear}，但想告诉她${shareable}，帮我写一句。`, purpose: 'draft', materialIds: [selected.id] });
-  assert.equal(contexts.length, 2);
+  assert.equal(contexts.length, 1);
+  assert.equal(app.fidelityCalls.length,1);
+  const admitted=app.controller.assistantContext().run.payload;
+  assert.equal(admitted.purpose,'draft');
   assert.match(JSON.stringify(contexts[0].payload), /PRIVATE_FEAR_/);
-  const outgoing = JSON.stringify(withoutCurrentControl(contexts[1].payload,`${privateFear}，但想告诉她${shareable}，帮我写一句。`));
-  assert.equal(contexts[1].payload.currentHumanControl.sourceId,contexts[0].payload.intentAuthority.sourceId);
-  assert.deepEqual(contexts[1].payload.outboundQuotes.map(quote=>({sourceId:quote.sourceId,text:quote.text})),[
+  const outgoing = JSON.stringify(withoutCurrentControl(admitted,`${privateFear}，但想告诉她${shareable}，帮我写一句。`));
+  assert.equal(admitted.currentHumanControl.sourceId,contexts[0].payload.intentAuthority.sourceId);
+  assert.deepEqual(admitted.outboundQuotes.map(quote=>({sourceId:quote.sourceId,text:quote.text})),[
     {sourceId:contexts[0].payload.userRequest.sourceId,text:shareable},{sourceId:`note:${selected.id}`,text:selected.text}
   ]);
   for (const excluded of [privateFear, privateNote, goal, '我怕她嫌我烦']) assert.equal(outgoing.includes(excluded), false, excluded);
-  assert.equal(contexts[1].payload.userRequest, undefined);
-  assert.equal(contexts[1].payload.goal, undefined);
+  assert.equal(admitted.userRequest, undefined);
+  assert.equal(admitted.goal, undefined);
   assert.match(outgoing, /实验终于成功了/);
   assert.match(outgoing, /今天去爬山了/);
   assert.equal(companion(app).turns.at(-1).suggestions.length, 1);
@@ -165,14 +171,15 @@ test('invalid draft references cannot authorize discussion-only or unselected no
   const app = setup(async (_, context) => {
     calls++;
     assert.equal(context.payload.purpose, 'draft_prepare');
-    return { kind: 'draft', text: '', draftPlan: withCurrentDraftControls({ style: 'natural', quotes: [{ sourceId: `note:${forbiddenId}`, text: '不想告诉她的担忧' }] },context.payload) };
+    return { kind: 'discussion', text: 'This unauthorized note must be rejected.', draftPlan: withCurrentDraftControls({ style: 'natural', quotes: [{ sourceId: `note:${forbiddenId}`, text: '不想告诉她的担忧' }] },context.payload),answer:{suggestions:[{style:'自然',text:'不想告诉她的担忧'}]} };
   });
   t.after(() => app.close());
   await app.bind();
   await app.controller.saveNote({ text: '不想告诉她的担忧', use: 'discussion' });
   forbiddenId = companion(app).notes[0].id;
-  await assert.rejects(app.controller.assist({ text: '帮我分享实验成功了。', purpose: 'draft', materialIds: [] }),/拟表达内容未能对应/);
-  assert.equal(calls, 1, 'invalid preparation must never reach the drafting call');
+  await assert.rejects(app.controller.assist({ text: '帮我分享实验成功了。', purpose: 'draft', materialIds: [] }),error=>error.code==='primary_authority_reference_missing'&&error.issues?.some(item=>item.path==='draftPlan.quotes[0].authorityRef'));
+  assert.equal(calls, 1, 'a readable discussion-only note has no outward authority and cannot reach checking');
+  assert.equal(app.fidelityCalls.length, 0);
   assert.equal(assistantTexts(app).length, 0);
 });
 

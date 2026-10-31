@@ -8,7 +8,7 @@ const selected=id=>definitions().filter(item=>item.id===id);
 const stages=(item,stepId,purpose)=>item.stages.filter(stage=>stage.stepId===stepId&&(!purpose||stage.purpose===purpose));
 function responder(payload,definition){
  const step=definition.activeStep;
- if(payload.purpose==='draft')return {kind:'draft',text:'Synthetic transport output, not a quality verdict.',suggestions:[{style:'自然',text:step.syntheticWording}]};
+ if(payload.purpose==='fidelity_check')return {checkRef:payload.checkRef,verdict:'allow',issues:[]};
  const sourceId=payload.intentAuthority?.sourceId||payload.userRequest?.sourceId,control=text=>({text,sourceIds:[sourceId]});
  const plan={quotes:[],intent:'reply',guidance:{objective:control('按本轮明确意思回应当前交流'),allowedApproach:control('接住实际内容，不编自己的经历'),avoidances:[]}};
  if(step.id==='invite-now'){
@@ -20,7 +20,7 @@ function responder(payload,definition){
   plan.useEmoji=true;
   plan.guidance.allowedApproach=control('正常说完整一句，不刻意压成碎短句，可以用一个表情');
  }
- const reply={operation:'prepare_message',text:'Synthetic planning verifies carriers only.',draftPlan:plan};
+ const reply={operation:'prepare_message',text:'Synthetic planning verifies carriers only.',draftPlan:plan,answer:{privateExplanation:'Synthetic transport output, not a quality verdict.',suggestions:[{style:'自然',text:step.syntheticWording}]}};
  if(step.id==='save-defaults'){
   const text=step.request.slice(step.request.indexOf('以后'),step.request.indexOf('。'));
   reply.actions=[{type:'set_preference',text,evidenceQuote:step.request}];
@@ -52,7 +52,8 @@ test('work correction, actual send and next incoming retain one history and the 
 });
 
 test('the current explicit invitation reaches restricted wording as authorized current material',async()=>{
- const report=await run(selected('S2-now-invite')),item=report.cases[0],draft=stages(item,'invite-now','draft')[0].effectivePayload;
+ const report=await run(selected('S2-now-invite')),item=report.cases[0];
+ assert.equal(item.status,'executed_semantic_review_required',JSON.stringify(item.error||item.checks));const draft=item.steps.find(step=>step.id==='invite-now').admittedContext.payload;
  assert.equal(item.status,'executed_semantic_review_required',JSON.stringify(item.error||item.checks));
  assert.deepEqual(draft.outboundQuotes.map(quote=>quote.text),['我周六下午有空','想约她语音一起拼一会儿']);
  assert.ok(draft.outboundQuotes.every(quote=>draft.draftingGuidance.objective.sourceIds.includes(quote.sourceId)));
@@ -69,9 +70,9 @@ test('a real saved preference is overridden for one request and remains intact a
  assert.ok(saved&&/简短/.test(saved.text)&&/不要额外加表情/.test(saved.text));
  assert.deepEqual(later.effectivePayload.preferences.find(value=>value.sourceId===receipt.sourceId),saved);
  assert.equal(later.effectiveManifest.sourceRevisions[receipt.sourceId],override.effectiveManifest.sourceRevisions[receipt.sourceId]);
- const currentControls=stages(item,'this-turn-complete-emoji','draft')[0].effectivePayload.wordingControls?.items||[];
+ const currentControls=item.steps.find(step=>step.id==='this-turn-complete-emoji').admittedContext.payload.wordingControls?.items||[];
  assert.ok(!currentControls.some(value=>/用简短句子|不额外添加 emoji/.test(value.text)),`opposing saved defaults must not contradict this one-off request: ${JSON.stringify(currentControls)}`);
- const restored=stages(item,'third-party-is-not-my-default','draft')[0].effectivePayload.wordingControls?.items||[];
+ const restored=item.steps.find(step=>step.id==='third-party-is-not-my-default').admittedContext.payload.wordingControls?.items||[];
  assert.ok(restored.some(value=>/用简短句子/.test(value.text)));
  assert.ok(restored.some(value=>/不额外添加 emoji/.test(value.text)));
  assert.ok(!item.steps.slice(1).some(step=>step.reply.actionReceipts.some(value=>value.status==='applied')),'one-off and reported wishes do not rewrite saved preferences');
@@ -81,9 +82,10 @@ test('report-only judgements stay outside prompts and a wrong old-topic sentence
  const scenario=selected('S1-work-not-old-activity')[0];scenario.steps=scenario.steps.slice(0,1);
  scenario.steps[0].criteria.expectedGood='REPORT_ONLY_STYLE_GOOD';scenario.steps[0].criteria.expectedBad='REPORT_ONLY_STYLE_BAD';
  scenario.steps[0].syntheticWording='要不要现在一起玩之前那个双人拼图？';
- const report=await run([scenario]),wire=JSON.stringify(report.requests.map(value=>value.request));
+ const report=await run([scenario]),wire=JSON.stringify(report.requests.map(value=>value.request)),primaryWire=JSON.stringify(report.requests.filter(value=>value.purpose!=='fidelity_check').map(value=>value.request));
  assert.equal(report.cases[0].status,'executed_semantic_review_required','the harness measures transport, not whether an old-topic invitation is natural');
  assert.equal(report.semanticVerdict,'requires_independent_review');assert.equal(wire.includes('REPORT_ONLY_STYLE_'),false);
- assert.equal(wire.includes(scenario.steps[0].syntheticWording),false,'the synthetic bad wording is not a model hint');
+ assert.equal(primaryWire.includes(scenario.steps[0].syntheticWording),false,'the synthetic bad wording is not a primary generation hint');
+ const checked=stages(report.cases[0],scenario.steps[0].id,'fidelity_check')[0].effectivePayload.candidate;assert.equal(checked.suggestions[0].text,scenario.steps[0].syntheticWording,'read-only checking receives the actual generated candidate, including synthetic bad controls');
  assert.equal(report.realHttpAttempts,0);
 });

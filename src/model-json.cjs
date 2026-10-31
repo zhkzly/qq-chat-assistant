@@ -48,7 +48,7 @@ function readModelOutput(response) {
   let text, shape;
   const calls=choice?.message?.tool_calls;
   if(Array.isArray(calls)&&calls.length){
-    if(calls.length!==1||!['assistant_result','draft_result','discussion_compaction_result','memory_result'].includes(calls[0]?.function?.name))throw jsonError('模型返回了不明确或非结果格式的调用；未执行任何调用');
+    if(calls.length!==1||!['assistant_result','draft_result','fidelity_result','discussion_compaction_result','memory_result'].includes(calls[0]?.function?.name))throw jsonError('模型返回了不明确或非结果格式的调用；未执行任何调用');
     const args=calls[0].function.arguments;
     if(typeof args==='string'){
       text=args;try{text=JSON.stringify(normalizeResultPadding(JSON.parse(args),calls[0].function.name));}catch{}

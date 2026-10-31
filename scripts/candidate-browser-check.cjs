@@ -2,7 +2,7 @@
 // Synthetic continuous UI evidence. This fixture never reads real QQ or calls a provider.
 const fs=require('node:fs'),os=require('node:os'),path=require('node:path'),assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');
-const {Store}=require('../src/store.cjs'),{Controller}=require('../src/controller.cjs'),{createServer}=require('../src/server.cjs');
+const {Store}=require('../src/store.cjs'),{Controller}=require('../tests/fixtures/whole-answer-fidelity.cjs'),{createServer}=require('../src/server.cjs');
 const {scope,raw}=require('../tests/fixtures/native.cjs'),{withCurrentDraftControls}=require('../tests/fixtures/draft-controls.cjs');
 const {CDP}=require('./cdp.cjs'),{actions}=require('./browser-actions.cjs');
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
@@ -18,8 +18,10 @@ async function until(predicate,label){for(let attempt=0;attempt<100;attempt++){i
   return {source:'synthetic',messages:command==='latest'&&selected.peerUid===scope.peerUid?[first]:[]};
  },assistantModel:async(_,context)=>{
   const p=context.payload;calls.push(structuredClone(p));
-  if(p.purpose==='reply'){subtle=false;if(holdNextAutomatic&&p.taskContext.invocation.origin==='automatic'){holdNextAutomatic=false;await new Promise(resolve=>{releaseAutomatic=resolve});}return {kind:'discussion',text:'接住她分享的完成感，不预设画的内容。',draftPlan:withCurrentDraftControls({quotes:[],intent:'reply'},p)};}
-  if(p.userRequest?.text.includes('换含蓄')){subtle=true;return {kind:'discussion',text:'按新的局部要求改写。',draftPlan:withCurrentDraftControls({quotes:[],intent:'reply'},p)};}
+  if(p.purpose==='fidelity_check')return {checkRef:p.checkRef,verdict:'allow',issues:[]};
+  const complete=()=>{drafts++;return {privateExplanation:'回应她分享的近况。',suggestions:[{style:'自然',text:subtle?'画到忘记时间，看来这幅画还挺让你投入的。':drafts===1?'终于完成啦，感觉可以长舒一口气了。':'那种画到忘记时间的感觉真好。'},{style:'轻松',text:'这下可以好好欣赏自己的作品啦。'}]};};
+  if(p.purpose==='reply'){subtle=false;if(holdNextAutomatic&&p.taskContext.invocation.origin==='automatic'){holdNextAutomatic=false;await new Promise(resolve=>{releaseAutomatic=resolve});}return {kind:'discussion',text:'接住她分享的完成感，不预设画的内容。',answer:complete(),draftPlan:withCurrentDraftControls({quotes:[],intent:'reply'},p)};}
+  if(p.userRequest?.text.includes('换含蓄')){subtle=true;return {kind:'discussion',text:'按新的局部要求改写。',answer:complete(),draftPlan:withCurrentDraftControls({quotes:[],intent:'reply'},p)};}
   if(p.purpose==='draft'){drafts++;return {kind:'draft',text:'回应她分享的近况。',suggestions:[{style:'自然',text:subtle?'画到忘记时间，看来这幅画还挺让你投入的。':drafts===1?'终于完成啦，感觉可以长舒一口气了。':'那种画到忘记时间的感觉真好。'},{style:'轻松',text:'这下可以好好欣赏自己的作品啦。'}]};}
   return {kind:'discussion',text:'可以按你刚才说的想法继续，不急着把私下顾虑写给她。'};
  }});

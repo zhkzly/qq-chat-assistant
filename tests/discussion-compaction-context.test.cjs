@@ -106,7 +106,7 @@ test('compactor preserves exact original references and has one bounded format r
   await assert.rejects(assistDiscussionCompaction(settings, plan, undefined, async () => { failedCalls++; return response('bad'); }), /原文已保留/);
   assert.equal(failedCalls, 2);
 });
-test('wrapped early draft preparation is repaired into a plan and still uses the restricted final stage', async t => {
+test('wrapped early draft preparation is repaired into a complete primary answer with restricted admission', async t => {
   const { args, user } = fixture(t), prepared = buildContext({ ...args, purpose: 'draft_prepare', byteBudget: 48000 }), calls = [];
   const early = '先这样表达：\n```json\n' + JSON.stringify({ kind: 'draft', text: '表达', suggestions: [{ style: '自然', text: '周末一起散步吗？' }] }) + '\n```';
   assert.throws(() => parseAssistant(early, 'draft_prepare', prepared.payload), /purpose=draft_prepare.*draftPlan/);
@@ -118,12 +118,12 @@ test('wrapped early draft preparation is repaired into a plan and still uses the
     const material=input.sources.find(source=>source.id===id),body=material.segments.map(segment=>segment.text??segment.parts.map(part=>part[1]).join('')).join('');
     const authorityRef=material.authorityChoices.originalUserStatementCandidates.find(choice=>choice.materialRef===materialRefForText(material,body)).authorityRef;
     const plan={...planned.draftPlan,quotes:[{materialRef:materialRefForText(material,planned.draftPlan.quotes[0].text),authorityRef}]};
-    return response(JSON.stringify({draftPlan:withCurrentDraftControls(plan,prepared.payload)}));
+    return response(JSON.stringify({draftPlan:withCurrentDraftControls(plan,prepared.payload),answer:{privateExplanation:'参考表达',suggestions:[{style:'自然',text:'周末一起散步吗？'}]}}));
   });
   assert.equal(calls.length, 2); assert.match(calls[1].task,/prepare_message\+draftPlan/);assert.doesNotMatch(calls[1].task,/先保证kind\/text/); assert.equal(result.suggestions, undefined);
   const draft = buildDraftContext(prepared.resultContext || prepared, result.draftPlan, args);
-  await assistModel(settings, draft, undefined, async (_, request) => { calls.push(JSON.parse(JSON.parse(request.body).messages[1].content)); return response(JSON.stringify({ kind: 'draft', text: '参考表达', suggestions: [{ style: '自然', text: '周末一起散步吗？' }] })); });
-  assert.equal(calls.length, 3); assert.equal(calls[2].purpose, 'draft'); assert.equal(JSON.stringify(calls[2]).includes('PRIVATE_MOTIVE_'), false);
+  const {primaryOperationFor}=require('../src/primary-operation.cjs');assert.equal(primaryOperationFor(result).answer.suggestions[0].text,'周末一起散步吗？');
+  assert.equal(calls.length,2);assert.equal(draft.payload.purpose,'draft');assert.equal(JSON.stringify(draft.payload).includes('PRIVATE_MOTIVE_'),false);
 });
 test('ordinary uncompressed second-choice requests receive the original latest structured candidates', t => {
   const store = new Store(':memory:'); t.after(() => store.close());

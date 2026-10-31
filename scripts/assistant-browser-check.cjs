@@ -7,14 +7,14 @@ const assert = require('node:assert/strict');
 const { spawn } = require('node:child_process');
 const vm = require('node:vm');
 const { createServer } = require('../src/server.cjs');
-const { Controller } = require('../src/controller.cjs');
+const { Controller } = require('../tests/fixtures/whole-answer-fidelity.cjs');
 const { Store } = require('../src/store.cjs');
 const { raw, scope } = require('../tests/fixtures/native.cjs');
 const { CDP } = require('./cdp.cjs');
 const { actions } = require('./browser-actions.cjs');
 const { withCurrentDraftControls } = require('../tests/fixtures/draft-controls.cjs');
 const { withoutCurrentControl } = require('../tests/fixtures/wording-lanes.cjs');
-const { withRequestDelivery } = require('./synthetic-request-delivery.cjs');
+const {withCurrentStatementAuthority}=require('../tests/fixtures/current-statement-authority.cjs');
 
 const sleep = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds));
 async function until(predicate, label) {
@@ -46,11 +46,12 @@ async function until(predicate, label) {
     assistantModel: async (_, context) => {
       calls.push(structuredClone(context));
       const payload = context.payload;
+      if(payload.purpose==='fidelity_check')return {checkRef:payload.checkRef,verdict:'allow',issues:[]};
       const text=payload.userRequest?.text||'';
       if (text.includes('模拟网络失败')) throw new Error('synthetic-offline');
-      if (payload.purpose === 'draft_prepare') return { draftPlan: withCurrentDraftControls(payload.selectedOption ?
-        {option:payload.selectedOption,style:'short'} : {quotes:[{sourceId:payload.userRequest.sourceId,text:'实验终于成功了'}],style:'short'},payload) };
-      if (payload.purpose === 'reply') return {draftPlan:withCurrentDraftControls({quotes:[],intent:'reply',style:'short'},payload)};
+      if (payload.purpose === 'draft_prepare') return withCurrentStatementAuthority({answer:{suggestions:[{style:'简短',text:'实验终于成功啦，终于松了口气。'}]},draftPlan: withCurrentDraftControls(payload.selectedOption ?
+        {option:payload.selectedOption,style:'short'} : {quotes:[{sourceId:payload.userRequest.sourceId,text:'实验终于成功了'}],style:'short'},payload) },payload,context.primaryFrameSnapshot.receipt);
+      if (payload.purpose === 'reply') return {kind:'discussion',text:'按真实来信准备。',answer:{suggestions:[{style:'简短',text:'今晚先好好休息，不用急着回我。'}]},draftPlan:withCurrentDraftControls({quotes:[],intent:'reply',style:'short'},payload)};
       if (payload.purpose === 'draft') return { kind: 'draft', text: '可以用你自己的语气分享：',
         suggestions: [{ style: '简短', text: payload.outboundQuotes.length?'实验终于成功啦，终于松了口气。':'今晚先好好休息，不用急着回我。' }] };
       if(payload.actionReceipts?.length)return {kind:'acknowledgment',text:'已按你本次明确的意思处理，具体记录可以查看和撤销。',methodIds:['correction']};
@@ -61,13 +62,11 @@ async function until(predicate, label) {
       if(text===`记住${preference}。`)action={type:'set_preference',text:preference,evidenceQuote:text};
       if(text==='我们也许可以把目标调整一下。')action={type:'set_goal',text:'先多一些自然的双向交流',evidenceQuote:text};
       if(action)return {kind:'discussion',text:'可以核对下面这项具体记录。',actions:[action],methodIds:['correction']};
-      if(text===optionText)return {kind:'options',text:'可以分享终于有进展这件事；你不必把自己的担忧也告诉她。',methodIds:['choose_next_step'],
-        expressionOptions:[{label:'分享实验终于有进展',quotes:[{sourceId:payload.userRequest.sourceId,text:'实验终于成功了'}],style:'short'}]};
+      if(text===optionText)return withCurrentStatementAuthority({kind:'options',text:'可以分享终于有进展这件事；你不必把自己的担忧也告诉她。',methodIds:['choose_next_step'],
+        expressionOptions:[{label:'分享实验终于有进展',quotes:[{sourceId:payload.userRequest.sourceId,text:'实验终于成功了'}],style:'short'}]},payload,context.primaryFrameSnapshot.receipt);
       return { kind: 'discussion', text: '可以先聊清楚你想分享的心情。<img src=x onerror=alert(1)>',methodIds:['clarify'] };
     }
   });
-  const syntheticAssistantModel = controller.assistantModel;
-  controller.assistantModel = async (...args) => withRequestDelivery(await syntheticAssistantModel(...args), args[1].payload);
   controller.updateStatus({ phase: 'ready', account: { uid: scope.accountUid, uin: scope.accountUin } });
   const server = createServer({ controller, token: 'synthetic-assistant-browser-token', uiDir: path.join(root, 'ui'),
     saveSettings() {}, modelFetch: async () => ({ ok: true, json: async () => ({ data: [{ id: 'synthetic-assistant' }] }) }) });
@@ -163,7 +162,7 @@ async function until(predicate, label) {
     assert.equal(controller.snapshot().companion.turns.length,countBefore+2);
     assert.equal(await cdp.evaluate("document.querySelectorAll('#assistant-thread img').length"), 0);
     assert.equal(controller.snapshot().total, 0);
-    assert.equal(calls.length, callsBefore+1);
+    assert.equal(calls.length, callsBefore+2);
     checks.push('Private exchange is rendered as text and never creates an actual QQ record');
 
     await cdp.call('Page.reload');
@@ -181,16 +180,16 @@ async function until(predicate, label) {
     await until(()=>calls.length===optionCalls+2&&!controller.assistantBusy,'option to fresh draft context');
     assert.equal(calls.at(-2).payload.userRequest.text,'按选中的方向组织表达');
     assert.ok(calls.at(-2).payload.selectedOption);
-    assert.deepEqual(calls.at(-1).payload.outboundQuotes.map(q=>q.text),['实验终于成功了']);
-    assert.equal(JSON.stringify(calls.at(-1).payload).includes(privateFear),false);
+    assert.deepEqual(controller.assistantContext().run.payload.outboundQuotes.map(q=>q.text),['实验终于成功了']);
+    assert.equal(JSON.stringify(controller.assistantContext().run.payload).includes(privateFear),false);
     assert.equal(controller.snapshot().total,0);
     checks.push('Selecting a discussed expression direction creates a restricted draft without retyping the old private material');
     await until(()=>cdp.evaluate("!document.querySelector('#assistant-send').disabled"),'option draft rendered');
     const mixedPrivateRequest=`${privateFear}，但想告诉她实验终于成功了，帮我写一句。`;
     await submit(mixedPrivateRequest,'assistant-draft');
     await until(() => cdp.evaluate("document.querySelectorAll('#assistant-thread .assistant-suggestion').length===2"), 'one optional draft');
-    assert.deepEqual(calls.slice(-2).map(call => call.payload.purpose), ['draft_prepare', 'draft']);
-    const wordingPayload=calls.at(-1).payload;
+    assert.deepEqual(calls.slice(-2).map(call => call.payload.purpose), ['draft_prepare', 'fidelity_check']);
+    const wordingPayload=controller.assistantContext().run.payload;
     const outbound = JSON.stringify(withoutCurrentControl(wordingPayload,mixedPrivateRequest));
     assert.equal(wordingPayload.currentHumanControl.sourceId,calls.at(-2).payload.intentAuthority.sourceId);
     const renderedSuggestions=await cdp.evaluate("Array.from(document.querySelectorAll('#assistant-thread .assistant-suggestion')).map(node=>node.textContent).join('\\n')");

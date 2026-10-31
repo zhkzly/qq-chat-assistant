@@ -96,7 +96,7 @@ test('private help and its bounded structured recovery retain the same image att
 test('draft projection and structured delivery repair retain the actual image-source attribution', async t => {
   const { prepared, args, images } = fixture(t), calls = [];
   prepared.payload.purpose = 'draft_prepare'; prepared.payload.mediaContext = prepared.mediaContext;
-  const planned = await assistModel(settings, prepared, undefined, async (_, request) => { calls.push(request.body); return response(calls.length === 1 ? 'invalid response' : JSON.stringify({ draftPlan: withCurrentDraftControls({ intent: 'reply', quotes: [] },prepared.payload) })); });
+  const planned = await assistModel(settings, prepared, undefined, async (_, request) => { calls.push(request.body); return response(calls.length === 1 ? 'invalid response' : JSON.stringify({ draftPlan: withCurrentDraftControls({ intent: 'reply', quotes: [] },prepared.payload),answer:{suggestions:[{text:'哈哈，这张还挺逗的'}]} })); });
   const first = userPayload(calls[0]), repair = userPayload(calls[1]);
   assert.ok(Array.isArray(JSON.parse(calls[1]).messages[1].content));
   assert.deepEqual(repair.imageContext.attached,first.imageContext.attached);assert.deepEqual(repair.originalInput.imageContext.attached,first.imageContext.attached);

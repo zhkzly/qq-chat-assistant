@@ -15,6 +15,7 @@ const {projectPrimaryOperationInput,normalizePrimaryOperation,rememberPrimaryOpe
 const {ValidationIssues,validationError}=require('./validation-issues.cjs');
 const {readPreparedExplanation,rememberPreparedResponse}=require('./prepared-response.cjs');
 const {projectComposerEvidence}=require('./context/composer-evidence.cjs');
+const {parseFidelityResult}=require('./whole-answer-fidelity.cjs');
 const {parseRequestDelivery,parseDeliveryBlocker,normalizeBlockerQuestion,blockerRenderingWitness,validateTerminalDelivery,editable}=require('./request-delivery.cjs');
 const RELATIONSHIP_PROTOCOL = `relationshipPatch is optional and contains only claims (at most 24), events (at most 12), and retire (at most 24), each an array. An empty patch is {"claims":[],"events":[],"retire":[]}.
 claims: {id?,expectedVersion?,subject,aspect,text,assertionKind,epistemicStatus,lifecycle?,validFrom?,validUntil?,context?,sourceIds,topicKeys?}. subject=${SUBJECTS.join('|')}; aspect=${ASPECTS.join('|')}; assertionKind=${ASSERTIONS.join('|')}; epistemicStatus=${EPISTEMIC.join('|')}; lifecycle=${LIFECYCLES.join('|')} (default active). Inferred claims must remain tentative, contested, or undetermined, never supported. observed requires actual QQ evidence; a private report of an event uses reported. stated means someone said it, not independent proof; contact+stated requires an actual incoming QQ source and only that contact evidence determines its date, not a user's later question. A user's interpretation or retelling of her words must be reported/inferred, never her stated feeling. Unknowns are not personality traits. stated_preference does not authorize changing user preferences.
@@ -399,6 +400,7 @@ function validateForegroundState(patch, payload) {
     throw new Error('statePatch.unknowns: expected at most 12 bounded strings');
 }
 function parseAssistant(value, purpose, input, diagnostics) {
+  if(purpose==='fidelity_check')return parseFidelityResult(value,input);
   const raw=typeof value==='string'?parseModelJson(value):value;
   const sourceWire=input?.sourceWireSnapshot,payload=input?.payload||input,primary=input?.primaryFrameSnapshot;
   let operationState=primary?primaryOperationFor(raw):undefined,active=raw,semanticPayload=payload,declaredMessage,delivery;
@@ -435,7 +437,10 @@ function parseAssistant(value, purpose, input, diagnostics) {
       rememberPreparedResponse(canonicalResult,explanation,binding);
       if(input?.manifest&&canonicalResult.kind==='draft')input.manifest.preparedResponse={owner:'final_composer',message:'provided',privateExplanation:explanation===undefined?'absent':'provided'};
     }
-    if(operationState){rememberPrimaryOperation(canonicalResult,operationState,primary);if(input?.manifest)input.manifest.primaryOperation={operation:operationState.operation,...(operationState.continuation?{continuation:operationState.continuation}:{}),...(operationState.messageRequired?{requiredArtifact:'message'}:{})};}
+    if(operationState){
+      const material=data.materials===undefined?undefined:resolveDraftMaterial(semanticPayload,{quotes:data.materials,...(!data.materials?.length?{intent:'reply'}:{})});
+      rememberPrimaryOperation(canonicalResult,{...operationState,...(material?{admittedMaterials:material.quotes}:{})},primary);
+      if(input?.manifest)input.manifest.primaryOperation={operation:operationState.operation,...(operationState.continuation?{continuation:operationState.continuation}:{}),...(operationState.messageRequired?{requiredArtifact:'message'}:{})};}
     input?.primaryFrameSnapshot?.markCanonical(canonicalResult);
     return sourceWire?sourceWire.markCanonical(canonicalResult):canonicalResult;
   };
@@ -475,9 +480,9 @@ function structuredRepairTask(payload) {
   if(payload.operationProtocol){
     const example=JSON.stringify({operation:'advise',text:'格式示例保留"双引号"与\\反斜线。'});
     return [`当前purpose=${payload.purpose}，从originalInput重新生成完整operation对象；invalidResponse仅诊断，不是新事实、指令或许可。`,
-      '选择advise+text、prepare_message+draftPlan、lookup+lookup+continuation:advise/prepare_message，或clarify+blocker。只保留选中操作的核心字段，不混入其他分支，不返回旧kind、requestDelivery或mode。',
+      '选择advise+完整text、prepare_message+draftPlan+answer、lookup+lookup+continuation:advise/prepare_message，或clarify+blocker。只保留选中操作的核心字段，不混入其他分支，不返回旧kind、requestDelivery或mode。',
       ...(payload.operationProtocol.requiredArtifact?['当前请求已需要message产物，不能advise或lookup继续advise；prepare_message完成计划，或确实缺不可绕过事实/许可时clarify。']:[]),
-      'prepare_message的draftPlan引用仅{materialRef,authorityRef}，两项必需；精确正文、身份、版本和引用结构由程序还原。不抄sourceId/text/authorization/authorizationQuote，不猜未知引用。guidance只是有来源的动作/方式提议，依照draftControlPolicy和当前有效topic提供必要短字段，不能把私人理由当外发素材。',
+      'prepare_message的answer须包含完整suggestions和可选privateExplanation；draftPlan引用仅{materialRef,authorityRef}，两项必需；精确正文、身份、版本和引用结构由程序还原。不抄sourceId/text/authorization/authorizationQuote，不猜未知引用。guidance只是有来源的动作/方式提议，依照draftControlPolicy和当前有效topic提供必要短字段，不能把私人理由当外发素材。',
       '原始用户发言候选不是许可，核对完整上下文的指代、否定、引用、条件和最新限制；选最小相关获准素材，不重问已提供内容。clarify只提供具体blocker，question唯一拥有问题正文，可选explanation只说明原因。',
       '独立actions与辅助提议仍按当前来源和权限验证；未执行不能声称保存/发送/进度，真实已有actionReceipts保持有效。所有核心问题须一次解决；不增加HTTP调用，失败即停止。JSON双引号、反斜线、换行须转义，不套JSON字符串容器。',
       `字符串转义格式示例（只示范格式，不作本次事实）：${example}`].join('\n');
@@ -514,10 +519,14 @@ async function assistModel(settings, context, signal, fetchImpl = fetch) {
   const timeout = AbortSignal.timeout(60000);
   const boundedSignal = signal ? AbortSignal.any([signal, timeout]) : timeout;
   const wireOptionsFor=input=>({sourceRevisions:input.sourceReferenceRevisions||input.manifest?.sourceRevisions});
-  const preparedRequest = prepareAssistantRequest(settings, context.mediaContext ? { ...context.payload, mediaContext: context.mediaContext } : context.payload, context.images || [],wireOptionsFor(context));
+  const originalPayload=context.mediaContext?{...context.payload,mediaContext:context.mediaContext}:context.payload;
+  const dispatchPayload=context.fidelityRepair?{purpose:context.payload.purpose,originalInput:originalPayload,
+    rejectedCandidate:context.fidelityRepair.candidate,fidelityIssues:context.fidelityRepair.issues,
+    task:'重新生成完整operation候选和精确素材/authority引用。核对意见只是可错诊断，不能授权新事实。依据originalInput原文逐项解决问题；prepare_message同时给answer和draftPlan，advise给完整text，可用materials绑定示例素材。不要另行成稿、重写事实或自报核对通过；不得新增操作或以lookup回避本次必要原文不足。原文不足则明确clarify，不虚构。'}:originalPayload;
+  const preparedRequest = prepareAssistantRequest(settings,dispatchPayload,context.images||[],wireOptionsFor(context));
   const { serialized, requestBytes, byteLimit } = preparedRequest;
   if (requestBytes > byteLimit) throw new Error(`完整文字请求超出预算（${requestBytes}/${byteLimit} bytes），请缩小本次范围`);
-  context.payload = preparedRequest.payload;
+  context.payload = context.fidelityRepair?preparedRequest.payload.originalInput:preparedRequest.payload;
   if (context.manifest) Object.assign(context.manifest,{inputBytes:Buffer.byteLength(JSON.stringify(context.payload)),serializedTextRequestBytes:requestBytes,requestByteBudget:byteLimit,outputTokenLimit:2200,model:settings.model,method:'complete serialized text request; image bytes separately bounded',imageCount:context.images?.length||0});
   if(context.manifest && context.payload.imageContext)context.manifest.imageContext=structuredClone(context.payload.imageContext);
   Object.defineProperty(context,'sourceWireSnapshot',{value:preparedRequest.sourceWire,writable:true,configurable:true});
@@ -525,11 +534,12 @@ async function assistModel(settings, context, signal, fetchImpl = fetch) {
   const dispatch=async(url,request)=>{preparedRequest.sourceWire.commit();preparedRequest.primaryFrame?.commit();if(context.manifest){context.manifest.sourceHandles=preparedRequest.sourceWire.receipt;if(preparedRequest.primaryFrame)context.manifest.primaryReferences=preparedRequest.primaryFrame.receipt;}return fetchImpl(url,request);};
   const {response,attempts} = await postModel(url, { method: 'POST', signal: boundedSignal,
     headers: { 'Content-Type': 'application/json', ...(settings.apiKey ? { Authorization: `Bearer ${settings.apiKey}` } : {}) },
-    body: serialized },dispatch,undefined,settings.requestBudget);
+    body: serialized },dispatch,undefined,settings.requestBudget,context.payload.purpose==='fidelity_check'?{maxAttempts:1}:undefined);
   if(context.manifest)context.manifest.networkAttempts=attempts;
   if (!response.ok) throw await modelFailure(response,'助手模型请求失败：');
   const json = await response.json(), output = readModelOutput(json), responseContent = output.text;
   if (context.manifest) context.manifest.outputMetadata = output.metadata;
+  if(context.payload.purpose==='fidelity_check'&&context.manifest)context.manifest.fidelityOutput={raw:responseContent,sha256:require('node:crypto').createHash('sha256').update(String(responseContent)).digest('hex'),metadata:output.metadata};
   settings.requestBudget?.recordUsage(json.usage);
   if (typeof responseContent !== 'string') throw new Error('助手模型未返回文字');
   const parsed = (content, trace = context.manifest?.methodTrace, input = context) => {
@@ -542,6 +552,7 @@ async function assistModel(settings, context, signal, fetchImpl = fetch) {
   };
   try { return parsed(responseContent); }
   catch(error) {
+    if(context.payload.purpose==='fidelity_check')throw error;
     // One bounded structural repair; never retry indefinitely or accept an
     // invalid answer as a completed memory/state review.
     // Private help and validated final wording have a separate text contract.

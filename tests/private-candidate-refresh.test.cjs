@@ -3,7 +3,7 @@
 // A private correction may replace or withdraw current wording, but the old
 // wording must not remain the primary candidate after the correction succeeds.
 const test=require('node:test'),assert=require('node:assert/strict');
-const {Controller}=require('./fixtures/assistant-protocol.cjs'),{Store}=require('../src/store.cjs');
+const {Controller}=require('./fixtures/whole-answer-fidelity.cjs'),{Store}=require('../src/store.cjs');
 const {scope,raw}=require('./fixtures/native.cjs');
 const {withCurrentDraftControls}=require('./fixtures/draft-controls.cjs');
 const DIRECT='我想多了解你一点，下次一起去逛逛吧。';
@@ -13,9 +13,9 @@ function fixture(t){
  const settings={auto:false,anonymous:true,baseUrl:'http://fixture.invalid/v1',model:'synthetic-private-refresh',realChatConsent:{...scope,baseUrl:'http://fixture.invalid/v1',model:'synthetic-private-refresh'}};
  const controller=new Controller({store,settings,read:async()=>{throw Error('No native QQ read in this regression');},assistantModel:async(_,input)=>{
   const p=input.payload;calls.push(structuredClone(p));
+  if(p.purpose==='fidelity_check')return {checkRef:p.checkRef,verdict:'allow',issues:[]};
   if(corrected&&discussionOnly)return {kind:'discussion',text:'先商量怎样接她的分享，暂不提供另一份表达。'};
-  if(p.purpose==='draft')return {kind:'draft',text:'Fictional wording for the current instruction.',suggestions:[{style:corrected?'含蓄':'直白',text:corrected?REVISED:DIRECT}]};
-  return {kind:'discussion',text:corrected?'接她已分享的小店细节，去掉邀约和直白关系表达。':'先给一份待用户调整的合成参考。',draftPlan:withCurrentDraftControls({quotes:[],intent:'reply'},p)};
+  return {kind:'discussion',text:corrected?'接她已分享的小店细节，去掉邀约和直白关系表达。':'先给一份待用户调整的合成参考。',draftPlan:withCurrentDraftControls({quotes:[],intent:'reply'},p),answer:{privateExplanation:'Fictional wording for the current instruction.',suggestions:[{style:corrected?'含蓄':'直白',text:corrected?REVISED:DIRECT}]}};
  }});controller.scope={...scope};controller.ingest(scope,[raw('56001',false,{elements:[{textElement:{content:'今天路过一家小店，里面的手工摆件太多了，我逛了好久。'}}]})]);
  t.after(()=>{controller.close();store.close();});
  return {controller,store,calls,correct:({onlyDiscuss=false}={})=>{corrected=true;discussionOnly=onlyDiscuss;}};
@@ -30,7 +30,7 @@ test('a private request for subtler wording replaces or withdraws the previous a
  assert.equal(controller.revision,qqRevision,'there is no new QQ message to accidentally invalidate the old candidate');
  assert.notEqual(store.contextGeneration(scope),generation,'the applicable private instruction has changed');
  assert.equal(store.messages(scope).length,1);assert.equal(store.experiences.draft(scope).text,'My own unsent edit stays intact.');
- assert.equal(calls.length,4,'the probe executes planning and restricted wording for both requests');
+ assert.equal(calls.length,4,'the probe executes complete primary generation and read-only checking for both requests');
  const current=controller.snapshot().advice;
  assert.notEqual(current?.suggestions[0]?.text,DIRECT,'the prominently displayed candidate must not contradict the successful private correction');
  if(current)assert.equal(current.suggestions[0].text,REVISED,'a retained primary candidate must point to the revised wording');

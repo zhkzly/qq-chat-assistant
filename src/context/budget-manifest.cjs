@@ -52,4 +52,4 @@ function attachSelectionManifest(context,{historyPolicy,timeCandidateIds,selecte
   context.manifest.recentQQContext={limits:recentPlan.limits,projection:recentContextPlan?'loaded':'omitted_for_budget',candidateSourceIds:recentPlan.candidateMessageIds.map(id=>`qq:${id}`),
     admittedPrioritySourceIds:[...recentPriorityIds].filter(id=>selected.has(id)),initialAdditionalBytes:recentInitialAdditionalBytes,ordering:'current_neighborhood_before_optional_history'};
 }
-module.exports={contextBudget,finish,attachSelectionManifest,trimEmptyNavigation};
+module.exports={contextBudget,finish,attachSelectionManifest,trimEmptyNavigation,methodTrace};

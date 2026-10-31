@@ -1,10 +1,10 @@
 'use strict';
 const test=require('node:test');const assert=require('node:assert/strict');const path=require('node:path');
-const {Store}=require('../src/store.cjs');const {Controller}=require('./fixtures/assistant-protocol.cjs');const {createServer}=require('../src/server.cjs');const {scope}=require('./fixtures/native.cjs');
+const {Store}=require('../src/store.cjs');const {Controller}=require('./fixtures/whole-answer-fidelity.cjs');const {createServer}=require('../src/server.cjs');const {scope}=require('./fixtures/native.cjs');
 test('relationship HTTP consumers bind full identities, preserve exact feedback and enforce versions without sending',async t=>{
  const store=new Store(':memory:');let calls=0;
  const settings={auto:false,apiKey:'fixture-secret',model:'fixture',baseUrl:'http://fixture.invalid',realChatConsent:{accountUid:scope.accountUid,peerUin:scope.peerUin,model:'fixture',baseUrl:'http://fixture.invalid'}};
- const controller=new Controller({store,settings,read:async command=>command==='bind'?scope:{messages:[]},assistantModel:async()=>{calls++;return {kind:'discussion',text:'可以说说你想多认识她的意思。'}}});
+ const controller=new Controller({store,settings,read:async command=>command==='bind'?scope:{messages:[]},assistantModel:async(_,input)=>{calls++;if(input.payload.purpose==='fidelity_check')return {checkRef:input.payload.checkRef,verdict:'allow',issues:[]};return {kind:'discussion',text:'可以说说你想多认识她的意思。'}}});
  controller.updateStatus({phase:'ready',account:{uid:scope.accountUid,uin:scope.accountUin}});await controller.bind(scope.peerUin);
  const server=createServer({controller,token:'fixture-token',uiDir:path.resolve(__dirname,'../ui')});await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
  t.after(async()=>{controller.close();await new Promise(resolve=>server.close(resolve));store.close()});
@@ -16,7 +16,7 @@ test('relationship HTTP consumers bind full identities, preserve exact feedback 
  }
  assert.equal(store.experiences.draft(scope),null);
  const args={text:'想多认识她，怎么表达比较自然？',taskId:'http-once'};
- assert.equal((await post('/api/assistant',args)).status,200);assert.equal((await post('/api/assistant',args)).status,200);assert.equal(calls,1);
+ assert.equal((await post('/api/assistant',args)).status,200);assert.equal((await post('/api/assistant',args)).status,200);assert.equal(calls,2);
  assert.equal((await post('/api/assistant',{...args,text:'different'})).status,400);
  const assistant=store.getCompanion(scope).turns.find(turn=>turn.role==='assistant');
  assert.equal((await post('/api/feedback',{requestId:assistant.requestId,targetRef:{kind:'artifact',artifactRef:assistant.artifactRef},text:'这次请具体一点',clientEventId:'feedback-once'})).status,200);

@@ -19,7 +19,8 @@ test('synthetic default exercises production controller and separates semantic j
   assert.equal(report.realHttpAttempts, 0);
   assert.equal(report.cases.length, 13);
   assert.ok(report.cases.every(item => item.status === 'executed_semantic_review_required'));
-  assert.ok(report.cases.some(item => item.stages.some(stage => stage.purpose === 'draft')));
+  assert.ok(report.cases.some(item => item.admittedContext?.payload.purpose==='draft'));
+  assert.ok(report.cases.every(item=>item.stages.some(stage=>stage.purpose==='fidelity_check')));
   assert.ok(report.cases.every(item => item.checks.every(check => check.status === 'pass')));
   assert.ok(report.cases.every(item => item.semanticVerdict === 'requires_independent_review'));
   assert.equal(report.sourceUnchanged, true);
@@ -99,7 +100,7 @@ test('bounded synthetic material fixture selects only its offered fact sentence 
  const definition=definitions().find(item=>item.id==='Q3-material'),fact=definition.quoteFragments[0],report=await runHarness({cases:['Q3-material']});
  const input=JSON.parse(report.requests[0].request.messages[1].content),source=input.sources.find(item=>item.id===input.intentAuthority.sourceId);
  assert.equal(source.refinementCoverage.status,'partial');assert.throws(()=>materialRefForText(source,fact),/no exact offered span/);
- const item=report.cases[0],draft=item.stages.find(stage=>stage.purpose==='draft').effectivePayload,quote=draft.outboundQuotes[0];
+ const item=report.cases[0],draft=item.admittedContext.payload,quote=draft.outboundQuotes[0];
  assert.equal(item.status,'executed_semantic_review_required');assert.equal(report.httpAttempts,2);assert.equal(report.realHttpAttempts,0);
  assert.ok(quote.text.startsWith(fact));assert.equal(quote.text.slice(fact.length),'。','only the original sentence punctuation accompanies the same exact fact');
  const original=item.stages[0].effectivePayload.sources.find(row=>row.id===item.stages[0].effectivePayload.intentAuthority.sourceId);

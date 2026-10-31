@@ -8,7 +8,7 @@ const {parseRequestDelivery,editable}=require('./request-delivery.cjs');
 const owners=new WeakMap();
 function preparePrimaryFrame(payload,sourceOwner){
  const original=payload?.originalInput||payload;
- if(!original||['draft','memory','discussion_compaction','plain_help_recovery','plain_draft_recovery'].includes(payload.purpose)||
+ if(!original||['draft','memory','discussion_compaction','plain_help_recovery','plain_draft_recovery','fidelity_check'].includes(payload.purpose)||
   ['draft','memory','discussion_compaction'].includes(original.purpose))return undefined;
  let owner=owners.get(sourceOwner);
  if(!owner){owner=new PrimaryReferenceOwner(sourceOwner.taskBinding);owners.set(sourceOwner,owner);}
@@ -44,6 +44,7 @@ function compilePrimaryFrame(raw,snapshot,payload){
   const option=value.expressionOptions[index];
   if(plain(option)&&option.quotes!==undefined)option.quotes=quotes(option.quotes,`expressionOptions[${index}].quotes`);
  }
+ if(value.materials!==undefined)value.materials=quotes(value.materials,'materials');
  try{issues.throwIfAny();}catch(error){
   // Reuse the existing delivery validator: only an already valid current
   // interpretation can carry the sticky same-task editable obligation.

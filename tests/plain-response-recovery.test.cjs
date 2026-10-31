@@ -44,26 +44,26 @@ function fixture(t, purpose = 'discussion') {
   return { store, args, context: buildContext(args), prior, turn };
 }
 
-test('valid foreground help with rejected auxiliary metadata uses one call and preserves durable pending intent', async t => {
+test('valid foreground help with rejected auxiliary metadata uses one primary and one check while preserving pending intent', async t => {
   const { store, args } = fixture(t), calls = [], text = '按最新意思直接讨论邀请，保留实际交流中的未知。';
   const configured = { ...settings, auto: false, realChatConsent: { accountUid: scope.accountUid,
     peerUin: scope.peerUin, baseUrl: settings.baseUrl, model: settings.model } };
   const controller = new Controller({ store, settings: configured, memoryModel: null, compactionModel: null,
     read: async name => name === 'bind' ? scope : { messages: [] },
     assistantModel: (modelSettings, input, signal) => assistModel(modelSettings, input, signal, async (_url, request) => {
-      calls.push(JSON.parse(request.body)); return resultTool({ ...badOptionalTopic, text });
+      calls.push(JSON.parse(request.body));const p=requestPayload(calls.at(-1));return p.purpose==='fidelity_check'?response(JSON.stringify({checkRef:p.checkRef,verdict:'allow',issues:[]})):resultTool({ ...badOptionalTopic, text });
     }) });
   t.after(() => controller.close());
   controller.updateStatus({ phase: 'ready', account: { uid: scope.accountUid, uin: scope.accountUin } });
   await controller.bind(scope.peerUin);
   const before = store.getCompanion(scope), answer = await controller.assist({
     text: '我现在明确想直接邀请，先帮我商量。', taskId: 'retained-foreground-with-pending-metadata' });
-  assert.equal(calls.length, 1); assert.equal(answer.text, text); assert.equal(answer.responseRecovery, undefined);
+  assert.equal(calls.length, 2); assert.equal(answer.text, text); assert.equal(answer.responseRecovery, undefined);
   assert.equal(answer.privateReviewReceipt, undefined); assert.equal(answer.suggestions, undefined);
   assert.equal(answer.metadataReviewPending.reasonCode, 'auxiliary_metadata_rejected');
   const after = store.getCompanion(scope), run = after.runs.find(item => item.id === answer.requestId);
   assert.equal(after.state.version, before.state.version); assert.equal(after.topics.items.length, before.topics.items.length);
-  assert.equal(run.status, 'complete'); assert.equal(run.maintenance, 'partial_rejected'); assert.equal(run.requests.length, 1);
+  assert.equal(run.status, 'complete'); assert.equal(run.maintenance, 'partial_rejected'); assert.equal(run.requests.length, 2);
   assert.equal(run.auxiliaryErrors.length, 1); assert.equal(run.auxiliaryErrors[0].field, 'topicPatch');
   assert.equal(run.privateReviewReceipt, undefined); assert.equal(run.patchReceipt, null); assert.equal(run.topicReceipt, null);
   assert.equal(JSON.stringify(run).includes('MODEL_CANNOT_ASSIGN_AUTHORITY'), false, 'rejected model metadata is not retained');
@@ -132,7 +132,7 @@ test('draft_prepare still requires structured source-bound plans, including afte
   const purpose = 'draft_prepare';
   const { context, turn } = fixture(t, purpose), control = text => ({ text, sourceIds: [`private:${turn.id}`] });
   context.payload.topicContext.active = { id: 'active-topic', lifecycle: 'active', objective: '一起散步', direction: '直接邀请', constraints: ['不编造共同经历'] };
-  const valid = { draftPlan: { quotes: [], intent: 'reply', guidance: { objective: control('邀请一起散步'), allowedApproach: control('直接邀请'), avoidances: [control('不编造共同经历')] } } };
+  const valid = { answer:{suggestions:[{text:'这周有空一起出去走走吗？'}]},draftPlan: { quotes: [], intent: 'reply', guidance: { objective: control('邀请一起散步'), allowedApproach: control('直接邀请'), avoidances: [control('不编造共同经历')] } } };
   const calls = [], result = await assistModel(settings, context, undefined, async (_url, request) => {
     calls.push(JSON.parse(request.body)); return calls.length === 1 ? resultTool({ draftPlan: '<parameter name="_">true' }) : response(JSON.stringify(valid));
   });
@@ -158,7 +158,7 @@ test('reply invalid plans get one strict structured repair while valid plans sti
   assert.equal(requestPayload(calls[1]).purpose, 'reply');assert.equal(calls[1].tool_choice.function.name,'assistant_result');assert.equal(calls[1].response_format,undefined);
   assert.equal(help.deliveryBlocker.question,'你这周有空一起散步吗？');assert.equal(help.text,help.deliveryBlocker.question);assert.equal(help.draftPlan,undefined); assert.equal(help.suggestions, undefined); assert.equal(context.manifest.responseRecovery, undefined);
   assert.equal(context.manifest.formatRepair.planningCarrier, true); assert.equal(context.extraRequests[0].purpose, 'delivery_repair');
-  const prepared = buildContext(args), valid = { draftPlan: { quotes: [], intent: 'reply', guidance: { objective: control('邀请一起散步'),
+  const prepared = buildContext(args), valid = { answer:{suggestions:[{text:'这周有空一起出去走走吗？'}]},draftPlan: { quotes: [], intent: 'reply', guidance: { objective: control('邀请一起散步'),
     allowedApproach: control('直接邀请'), avoidances: [control('不编造共同经历')] } } };
   prepared.payload.topicContext.active = context.payload.topicContext.active;
   let count = 0;

@@ -23,7 +23,7 @@ const delivery=p=>({mode:'editable_message'});
 // Redundant audience/kind contradictions no longer exist in valid operation
 // payloads. Keep this HTTP test at active business admission: valid exact refs,
 // an invalid task-use and an independent QQ-only control. Canonical negatives remain below.
-function bad(p){const current=p.intentAuthority.sourceId,qq=p.sources.find(source=>source.type==='qq');return withCurrentStatementAuthority({operation:'prepare_message',text:'准备表达',actions:[{type:'save_note',evidenceQuote:'记住：今天我完成了查找功能',text:'今天我完成了查找功能'}],stateReview:'no_change',draftPlan:{quotes:[{sourceId:current,text:'今天我完成了查找功能'}],taskUse:'invalid_use',guidance:{objective:{text:'分享实际进展',sourceIds:[current]},allowedApproach:{text:'按本轮意思自然说明',sourceIds:[current]},avoidances:[],currentStep:{text:'立即写出这次内容',sourceIds:[qq.id]}}}},p);}
+function bad(p){const current=p.intentAuthority.sourceId,qq=p.sources.find(source=>source.type==='qq');return withCurrentStatementAuthority({operation:'prepare_message',text:'准备表达',answer:{suggestions:[{text:'今天我完成了查找功能。'}]},actions:[{type:'save_note',evidenceQuote:'记住：今天我完成了查找功能',text:'今天我完成了查找功能'}],stateReview:'no_change',draftPlan:{quotes:[{sourceId:current,text:'今天我完成了查找功能'}],taskUse:'invalid_use',guidance:{objective:{text:'分享实际进展',sourceIds:[current]},allowedApproach:{text:'按本轮意思自然说明',sourceIds:[current]},avoidances:[],currentStep:{text:'立即写出这次内容',sourceIds:[qq.id]}}}},p);}
 
 test('valid actions and state review inside a bad core never partially execute or buy another repair',async t=>{
  const app=await setup(t,p=>bad(p)),before=app.store.getCompanion(scope);
@@ -42,13 +42,13 @@ test('a valid editable interpretation remains sticky when core validation fails'
 });
 test('the one existing repair receives all issues and can return one fully validated safe plan',async t=>{
  const app=await setup(t,(p,w,index)=>{
-  if(p.purpose==='draft'){
-   assert.equal(p.userRequest,undefined);assert.equal(p.goal,undefined);assert.equal(JSON.stringify(p).includes('OLD_PRIVATE_FACT'),false);
-   return {kind:'draft',text:'今天终于把查找功能做好了，还挺开心。'};
+  if(p.purpose==='fidelity_check'){
+   assert.equal(p.userRequest,undefined);assert.equal(p.goal,app.store.getCompanion(scope).goal.text);assert.equal(JSON.stringify(p.candidate).includes('OLD_PRIVATE_FACT'),false);
+   return {checkRef:p.checkRef,verdict:'allow',issues:[]};
   }
   if(index===0){const value=bad(p);delete value.actions;return value;}
   assert.equal(w.validationIssues.length,2);const id=p.intentAuthority.sourceId,control=text=>({text,sourceIds:[id]});
-  return withCurrentStatementAuthority({operation:'prepare_message',text:'按完整错误集重新组织。',draftPlan:{quotes:[{sourceId:id,text:'今天我完成了查找功能'}],guidance:{objective:control('分享实际进展'),allowedApproach:control('只用本次明确内容'),avoidances:[]}}},p);
+  return withCurrentStatementAuthority({operation:'prepare_message',text:'按完整错误集重新组织。',answer:{suggestions:[{text:'今天终于把查找功能做好了。'}]},draftPlan:{quotes:[{sourceId:id,text:'今天我完成了查找功能'}],guidance:{objective:control('分享实际进展'),allowedApproach:control('只用本次明确内容'),avoidances:[]}}},p);
  });
  const answer=await app.controller.assist({text:request,taskId:'atomic-repair-success'});assert.equal(answer.kind,'draft');assert.equal(app.calls.length,3);
  assert.equal(app.run().requests.filter(item=>item.purpose==='delivery_repair').length,1);assert.equal(app.run().manifest.requestDelivery.status,'delivered');

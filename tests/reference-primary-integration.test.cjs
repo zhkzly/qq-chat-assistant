@@ -4,6 +4,8 @@ const {prepareAssistantRequest,parseAssistant,assistModel}=require('../src/assis
 const {SourceHandleOwner}=require('../src/source-handles.cjs');
 const {scope}=require('./fixtures/native.cjs');
 const TEXT='网页是我做来记下自己的摘记；查找功能已经能按标题找回。';
+const MESSAGE='我做了个记摘记的小网页，后来也加上了按标题查找。';
+const answer={suggestions:[{text:MESSAGE}]};
 function fixture(){
  const payload={purpose:'discussion',intentAuthority:{sourceId:'private:current'},userRequest:{sourceId:'private:current',text:'我愿把网页用途和查找进展告诉她，给我完整表达。'},requestDeliveryPolicy:{version:1},draftMaterialPolicy:{version:1},sources:[
   {id:'private:old',revision:'old-v1',type:'private',role:'user',text:TEXT,at:'2026-08-31T10:00:00.000Z'},
@@ -28,7 +30,7 @@ function whole(source){const first=source.segments[0].materialRef,last=source.se
 function planFrom(wire){
  const old=wire.sources.find(source=>source.type==='private'&&source.at.startsWith('2026-08')),current=wire.sources.find(source=>source.id===wire.intentAuthority.sourceId);
  const materialRef=whole(old),permission=whole(current),authorityRef=current.authorityChoices.originalUserStatementCandidates.find(choice=>choice.materialRef===permission).authorityRef;
- return {operation:'prepare_message',text:'按本轮范围分享已知进展。',draftPlan:{quotes:[{materialRef,authorityRef}]}};
+ return {operation:'prepare_message',text:'按本轮范围分享已知进展。',draftPlan:{quotes:[{materialRef,authorityRef}]},answer};
 }
 function response(value){return new Response(JSON.stringify({choices:[{message:{content:JSON.stringify(value)}}]}),{status:200});}
 test('actual primary refs reconstruct the exact semicolon/body/permission and second parse stays canonical',async()=>{
@@ -82,27 +84,25 @@ async function application(t,producer){
  controller.updateStatus({phase:'ready',account:{uid:scope.accountUid,uin:scope.accountUin}});await controller.bind(scope.peerUin);
  controller.live({scope,messages:[raw('91000000000000123',false,{msgTime:'1790848500',elements:[{textElement:{content:'你那个网页主要做什么？'}}]})]});
  t.after(()=>{controller.close();store.close();});
- return {store,controller,calls,contexts,old,run:()=>store.getCompanion(scope).runs.at(-1),assist:text=>controller.assist({text,sourceTurnIds:[old.id],taskId:'whole-primary-ref'})};
+ return {store,controller,calls,contexts,old,settings,run:()=>store.getCompanion(scope).runs.at(-1),assist:text=>controller.assist({text,sourceTurnIds:[old.id],taskId:'whole-primary-ref'})};
 }
 function controlledPlan(p){
  const value=planFrom(p),id=p.taskContext.draftControlPolicy.intentSourceId,control=text=>({text,sourceIds:[id]});
  value.draftPlan.guidance={objective:control('回答网页用途和真实查找进展'),allowedApproach:control('自然分享选中的具体内容'),avoidances:[]};
  return value;
 }
-test('controller reference primary reaches restricted wording with exact text, recording provenance and canonical storage',async t=>{
- const app=await application(t,p=>{
-  if(p.purpose!=='draft')return controlledPlan(p);
-  assert.equal(p.outboundQuotes[0].text,TEXT);assert.deepEqual(p.outboundQuotes[0].origin,{speaker:'user',recordedAt:'2026-08-31T10:00:00.000Z'});assert.equal(p.outboundQuotes[0].provenance,undefined);
-  const canonical=app.contexts.at(-1),quote=canonical.payload.outboundQuotes[0];
-  assert.equal(quote.text,TEXT);assert.equal(quote.provenance.version,1);assert.equal(quote.provenance.source.sourceId,quote.sourceId);
-  assert.equal(quote.provenance.source.revision,canonical.manifest.sourceRevisions[quote.sourceId]);assert.equal(typeof quote.provenance.source.revision,'string');
-  assert.equal(quote.provenance.source.recordedAt,'2026-08-31T10:00:00.000Z');assert.equal(quote.provenance.source.timeMeaning,'private_statement_recorded');
-  assert.equal(p.userRequest,undefined);assert.equal(p.privateConversation,undefined);assert.equal(p.primaryReferenceProtocol,undefined);
-  return {kind:'draft',text:'我做了个记摘记的小网页，后来也加上了按标题查找。'};
- });
+test('controller reference primary records admitted wording with exact text, recording provenance and canonical storage',async t=>{
+ const app=await application(t,p=>p.purpose==='fidelity_check'?{checkRef:p.checkRef,verdict:'allow',issues:[]}:controlledPlan(p));
  const result=await app.assist('我愿把网页用途和查找进展告诉她，给我完整表达。');
  assert.equal(result.kind,'draft');assert.equal(app.calls.length,2);assert.equal(app.run().manifest.requestDelivery.status,'delivered');
- assert.ok(app.contexts.every(context=>context.payload.sources.every(source=>/^(private|qq|request|note):/.test(source.id))));
+ const canonical=app.run(),quote=canonical.payload.outboundQuotes[0],admittedWire=prepareAssistantRequest(app.settings,canonical.payload).wirePayload;
+ assert.equal(quote.text,TEXT);assert.deepEqual(admittedWire.outboundQuotes[0].origin,{speaker:'user',recordedAt:'2026-08-31T10:00:00.000Z'});assert.equal(admittedWire.outboundQuotes[0].provenance,undefined);
+ assert.equal(quote.provenance.version,1);assert.equal(quote.provenance.source.sourceId,quote.sourceId);
+ assert.equal(quote.provenance.source.revision,canonical.manifest.sourceRevisions[quote.sourceId]);assert.equal(typeof quote.provenance.source.revision,'string');
+ assert.equal(quote.provenance.source.recordedAt,'2026-08-31T10:00:00.000Z');assert.equal(quote.provenance.source.timeMeaning,'private_statement_recorded');
+ assert.equal(canonical.payload.userRequest,undefined);assert.equal(canonical.payload.privateConversation,undefined);assert.equal(canonical.payload.primaryReferenceProtocol,undefined);
+ assert.equal(app.calls[1].p.purpose,'fidelity_check');assert.equal(app.calls[1].p.admittedFragments[0].text,TEXT);
+ assert.ok(app.contexts.every(context=>(context.payload.sources||context.payload.evidence).every(source=>/^(private|qq|request|note):/.test(source.id||source.sourceId))));
  assert.ok(app.run().requests[0].manifest.primaryReferences.materials.every(entry=>entry.sourceId.startsWith('private:')||entry.sourceId.startsWith('qq:')));
  assert.equal(app.run().requests[0].payload.primaryReferenceProtocol,undefined);assert.equal(app.store.getCompanion(scope).turns.at(-1).suggestions[0].text,result.suggestions[0].text);
  assert.ok(app.calls.every(call=>Buffer.byteLength(JSON.stringify(call.request))<=64000));
@@ -154,7 +154,7 @@ test('already allowed note uses its target-bound program choice without counterf
  const result=await assistModel(settings,context,undefined,async(_url,args)=>{
   const p=JSON.parse(JSON.parse(args.body).messages[1].content),note=p.sources.find(source=>source.type==='note');
   assert.equal(note.authorityChoices.originalUserStatementCandidates?.length||0,0);
-  return response({operation:'prepare_message',text:'只采用已选笔记。',draftPlan:{quotes:[{materialRef:whole(note),authorityRef:note.authorityChoices.program[0].authorityRef}]}});
+  return response({operation:'prepare_message',text:'只采用已选笔记。',draftPlan:{quotes:[{materialRef:whole(note),authorityRef:note.authorityChoices.program[0].authorityRef}]},answer});
  });
  assert.equal(result.draftPlan.quotes[0].sourceId,'note:allowed');assert.equal(result.draftPlan.quotes[0].text,TEXT);assert.equal(result.draftPlan.quotes[0].authorization,undefined);
 });
@@ -186,7 +186,7 @@ test('raw primary producer selects a relevant interior phrase across clauses wit
   const p=JSON.parse(JSON.parse(args.body).messages[1].content),current=p.sources.find(source=>source.id===p.intentAuthority.sourceId);calls.push(p);
   assert.equal(current.authorityChoices.program?.length||0,0,'a current input is not an automatic program sharing grant');
   const authorityRef=current.authorityChoices.originalUserStatementCandidates.find(choice=>choice.materialRef===whole(current)).authorityRef;
-  return response({operation:'prepare_message',text:'保留本轮直接表达的意思。',draftPlan:{quotes:[{materialRef:interior(current,meaning),authorityRef}]}});
+  return response({operation:'prepare_message',text:'保留本轮直接表达的意思。',draftPlan:{quotes:[{materialRef:interior(current,meaning),authorityRef}]},answer:{suggestions:[{text:'我对你有好感，也想多认识你。'}]}});
  });
  assert.equal(calls.length,1);assert.equal(result.draftPlan.quotes[0].text,meaning);assert.equal(result.draftPlan.quotes[0].authorization.permission.text,request);
  assert.equal(result.draftPlan.quotes[0].authorization.referent.text,meaning);assert.equal(result.draftPlan.quotes[0].text.includes('我现在想直接说'),false);

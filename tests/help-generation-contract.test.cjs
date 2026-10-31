@@ -77,7 +77,7 @@ test('canonical examples keep unknown self facts private and preserve explicitly
  assert.match(HELP_BEHAVIOR,/即使历史少也帮助表达/);
  assert.doesNotMatch(HELP_BEHAVIOR,/private:[a-z]|qq:\d|\[你的城市\]/);
 });
-test('malformed planning carrier receives one strict JSON repair then the restricted composer within the same budget',async t=>{
+test('malformed primary carrier shares one strict repair with the read-only fidelity check within the same budget',async t=>{
  const {Controller}=require('./fixtures/assistant-protocol.cjs'),{Store}=require('../src/store.cjs'),{assistModel}=require('./fixtures/assistant-protocol.cjs');
  const {scope,raw}=require('./fixtures/native.cjs'),calls=[];
  const store=new Store(':memory:'),configured={...settings,anonymous:true,baseUrl:'http://fixture.invalid/v1',auto:false,assistantRequestLimit:3,
@@ -87,22 +87,23 @@ test('malformed planning carrier receives one strict JSON repair then the restri
   assistantModel:(modelSettings,input,signal)=>assistModel(modelSettings,input,signal,async(_url,args)=>{
    const body=JSON.parse(args.body),payload=JSON.parse(body.messages[1].content);calls.push(body);
    if(calls.length===3){
-    assert.equal(payload.purpose,'draft');assert.equal(payload.userRequest,undefined);assert.equal(payload.goal,undefined);
-    assert.equal(payload.privateConversation,undefined);assert.equal(payload.outboundQuotes[0].text,'我住得很近');
-    return response(JSON.stringify({kind:'draft',text:'回答实际距离',suggestions:[{style:'自然',text:'不远，我住得挺近的。'}]}));
+    assert.equal(payload.purpose,'fidelity_check');assert.equal(payload.admittedFragments[0].text,'我住得很近');
+    assert.equal(payload.candidate.suggestions[0].text,'不远，我住得挺近的。');
+    assert.equal(JSON.stringify(payload.candidate).includes('我住得很近，帮我直接回答她。'),false,'private request remains outside the outward candidate');
+    return response(JSON.stringify({checkRef:payload.checkRef,verdict:'allow',issues:[]}));
    }
    const original=payload.originalInput||payload,control=text=>({text,sourceIds:[original.userRequest.sourceId]}),plan={quotes:[{sourceId:original.userRequest.sourceId,text:'我住得很近'}],style:'natural',
     guidance:{objective:control('回答她询问的实际距离'),allowedApproach:control('按已授权事实直接回应'),avoidances:[]}};
    if(calls.length===1)return {ok:true,json:async()=>({choices:[{message:{tool_calls:[{function:{name:'assistant_result',arguments:JSON.stringify({kind:'discussion',text:'准备完整表达。',draftPlan:JSON.stringify({...plan,_:true})+'}'})}}]}}]})};
    assert.equal(body.tool_choice.function.name,'assistant_result');assert.equal(body.response_format,undefined);assert.ok(payload.invalidResponse);assert.equal(payload.purpose,'reply');
-   return response(JSON.stringify(withCurrentStatementAuthority({kind:'discussion',text:'按授权事实组织表达。',draftPlan:plan},original)));
+   return response(JSON.stringify(withCurrentStatementAuthority({kind:'discussion',text:'按授权事实组织表达。',draftPlan:plan,answer:{suggestions:[{style:'自然',text:'不远，我住得挺近的。'}]}},original)));
   })});
  t.after(()=>{controller.close();store.close()});controller.updateStatus({phase:'ready',account:{uid:scope.accountUid,uin:scope.accountUin}});
  await controller.bind(scope.peerUin);controller.live({scope,messages:[raw('72057594037927941',false,{elements:[{textElement:{content:'离你住的地方远吗？'}}]})]});
  const answer=await controller.assist({purpose:'reply',text:'我住得很近，帮我直接回答她。',taskId:'planning-carrier-three-stages'});
  assert.equal(calls.length,3);assert.equal(answer.kind,'draft');assert.equal(answer.responseRecovery,undefined);
  const run=store.getCompanion(scope).runs.find(item=>item.id===answer.requestId);
- assert.deepEqual(run.requests.map(item=>item.purpose),['reply','delivery_repair','draft']);assert.equal(run.patchReceipt,null);assert.equal(run.topicReceipt,null);
+ assert.deepEqual(run.requests.map(item=>item.purpose),['reply','delivery_repair','fidelity_check']);assert.equal(run.patchReceipt,null);assert.equal(run.topicReceipt,null);
  assert.equal(controller.usage.get(scope,answer.requestId).attempts,3);
 });
 test('a failed structured planning repair gets no extra fallback and cannot commit auxiliary updates',async t=>{
@@ -140,7 +141,7 @@ test('generic planning repair teaches valid escaping and only requires necessary
     {kind:'discussion',text:'准备表达',draftPlan:'{malformed planning container'}:{kind:'question',text:'需要先核对一个会改变表达的事实。'})}}]})};
   });
   assert.equal(bodies.length,2);const repair=JSON.parse(bodies[1].messages[1].content),task=repair.task;
-  assert.match(task,/从originalInput重新生成/);assert.match(task,/invalidResponse仅诊断/);assert.match(task,/选择advise\+text、prepare_message\+draftPlan/);assert.doesNotMatch(task,/先保证kind\/text|private_help|editable_message/);
+  assert.match(task,/从originalInput重新生成/);assert.match(task,/invalidResponse仅诊断/);assert.match(task,/advise\+完整text/);assert.match(task,/prepare_message\+draftPlan\+answer/);assert.doesNotMatch(task,/先保证kind\/text|private_help|editable_message/);
   assert.match(task,/双引号.*反斜线.*转义/);assert.match(task,/不增加HTTP调用/);
   assert.match(task,/只保留选中操作的核心字段/);assert.match(task,/draftControlPolicy和当前有效topic/);
   for(const secret of ['PRIVATE_OBJECTIVE_SENTINEL','PRIVATE_DIRECTION_SENTINEL','PRIVATE_CONSTRAINT_SENTINEL','PRIVATE_GOAL_SENTINEL'])assert.equal(task.includes(secret),false);

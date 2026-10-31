@@ -1,7 +1,7 @@
 'use strict';
 const test=require('node:test');const assert=require('node:assert/strict');
 const fs=require('node:fs');const os=require('node:os');const path=require('node:path');
-const {Store}=require('../src/store.cjs');const {Controller}=require('./fixtures/assistant-protocol.cjs');const {normalize}=require('../src/messages.cjs');
+const {Store}=require('../src/store.cjs');const {Controller}=require('./fixtures/whole-answer-fidelity.cjs');const {normalize}=require('../src/messages.cjs');
 const {replyFocusFor}=require('../src/model.cjs');const {assistModel}=require('./fixtures/assistant-protocol.cjs');const {scope,raw}=require('./fixtures/native.cjs');
 const {withCurrentDraftControls}=require('./fixtures/draft-controls.cjs');
 const records=Array.from({length:80},(_,i)=>normalize(raw(String(72057594037927000n+BigInt(i)),i===76),scope));
@@ -16,7 +16,7 @@ function app(t,assistantModel,overrides={}) {
 
 test('recent incoming burst is grouped and selected old targets remain in the unified bounded context',async t=>{
  assert.deepEqual(replyFocusFor(records,[]).messageIds,records.slice(-3).map(r=>r.messageId));
- let context;const {controller}=app(t,async(_,input)=>{context=input;return {kind:'discussion',text:'合成场景暂不提供新句子。',replyDisposition:'wait'};});
+ let context;const {controller}=app(t,async(_,input)=>{if(input.payload.purpose==='fidelity_check')return {checkRef:input.payload.checkRef,verdict:'allow',issues:[]};context=input;return {kind:'discussion',text:'合成场景暂不提供新句子。',replyDisposition:'wait'};});
  const ids=[records[0].messageId,records[1].messageId];controller.configure({instruction:'自然一点',replyMessageIds:ids});
  await controller.suggest();assert.equal(context.payload.purpose,'reply');assert.deepEqual(context.payload.replyFocus,ids);
  assert.ok(ids.every(id=>context.payload.sources.some(s=>s.id===`qq:${id}`)));assert.ok(context.manifest.inputBytes<=context.manifest.byteBudget);
@@ -33,14 +33,15 @@ test('changing reply focus discards a pending answer and contact binding clears 
 test('both unified model stages preserve exact selected targets as quoted data without QQ commands',async t=>{
  const inputs=[];const network=async(_,args)=>{
   const body=JSON.parse(args.body),input=JSON.parse(body.messages[1].content);inputs.push(input);
-  return {ok:true,json:async()=>({choices:[{message:{content:JSON.stringify(input.purpose==='draft'?draft:{...plan,draftPlan:withCurrentDraftControls(plan.draftPlan,input)})}}]})};
+  return {ok:true,json:async()=>({choices:[{message:{content:JSON.stringify(input.purpose==='fidelity_check'?{checkRef:input.checkRef,verdict:'allow',issues:[]}:{...plan,draftPlan:withCurrentDraftControls(plan.draftPlan,input),answer:{privateExplanation:draft.text,suggestions:draft.suggestions}})}}]})};
  };
  const {store,controller}=app(t,(model,context,signal)=>assistModel(model,context,signal,network));
  const ids=[records[0].messageId];controller.configure({replyMessageIds:ids});const actualCount=store.messages(scope).length;
- await controller.suggest();assert.deepEqual(inputs.map(p=>p.purpose),['reply','draft']);
- for(const input of inputs){assert.deepEqual(input.replyFocus,ids);assert.ok(input.sources.some(s=>s.messageId===ids[0]));assert.equal(input.send,undefined);assert.equal(input.command,undefined);}
+ await controller.suggest();assert.deepEqual(inputs.map(p=>p.purpose),['reply','fidelity_check']);
+ assert.deepEqual(inputs[0].replyFocus,ids);const selected=inputs[0].sources.find(s=>s.messageId===ids[0]);assert.ok(selected);assert.ok(inputs[1].evidence.some(source=>source.sourceId===selected.id),'the checker reads the exact selected original QQ target');
+ for(const input of inputs){assert.equal(input.send,undefined);assert.equal(input.command,undefined);}
  assert.equal(controller.advice.suggestions.length,1);assert.equal(store.messages(scope).length,actualCount);
- assert.equal(inputs[1].privateConversation,undefined);assert.equal(inputs[1].goal,undefined);
+ assert.equal(controller.assistantContext().run.payload.privateConversation,undefined);assert.equal(controller.assistantContext().run.payload.goal,undefined);assert.deepEqual(controller.assistantContext().run.payload.replyFocus,ids);
 });
 
 test('changing selected images invalidates a pending unified request even before another request starts',async t=>{
@@ -61,7 +62,7 @@ function cachedImage(t) {
 }
 
 test('authorized current-scope cached images reach both unified stages; foreign and ignored selections do not',async t=>{
- const file=cachedImage(t),calls=[];const {store,controller}=app(t,async(_,context)=>{calls.push(context);return context.payload.purpose==='draft'?draft:{...plan,draftPlan:withCurrentDraftControls(plan.draftPlan,context.payload)};});
+ const file=cachedImage(t),calls=[];const {store,controller}=app(t,async(_,context)=>{calls.push(context);return context.payload.purpose==='fidelity_check'?{checkRef:context.payload.checkRef,verdict:'allow',issues:[]}:{...plan,draftPlan:withCurrentDraftControls(plan.draftPlan,context.payload),answer:{privateExplanation:draft.text,suggestions:draft.suggestions}};});
  const id='72057594037927991',message=normalize(raw(id,false,{elements:[{picElement:{sourcePath:file,fileName:'one.png'}}]}),scope);store.add(scope,[message]);
  controller.settings.visionEnabled=true;controller.settings.realChatConsent.allowImages=true;controller.configure({images:[{messageId:id,index:0}]});
  await controller.suggest();assert.equal(calls.length,2);assert.ok(calls.every(c=>c.images.length===1&&c.images[0].messageId===id&&c.images[0].url.startsWith('data:image/png;base64,')));

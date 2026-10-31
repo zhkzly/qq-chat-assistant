@@ -139,14 +139,16 @@ function stopError(message, code='verification_stopped') {
   const error = new Error(message); error.name='AbortError'; error.code=code; return error;
 }
 function syntheticResult(payload, definition) {
+  if(payload.purpose==='fidelity_check')return {checkRef:payload.checkRef,verdict:'allow',issues:[]};
+  const complete=value=>payload.operationProtocol&&value.draftPlan?{...value,answer:{suggestions:[{style:'自然',text:'合成运输示例，仅验证完整交接，不作为建议质量证据。'}],privateExplanation:value.text}}:value;
   const step=definition.activeStep;
   if(step?.syntheticClarification)return payload.operationProtocol?{operation:'clarify',blocker:{kind:'missing_fact',missing:'这轮表达不可绕过的真实信息',question:step.syntheticClarification}}:{kind:'question',text:step.syntheticClarification,replyDisposition:'clarify'};
   if(step && payload.purpose==='draft')return {kind:'draft',text:'Synthetic transport wording; independent semantic review remains required.',
     suggestions:[{style:'自然',text:step.syntheticWording}]};
   if(step){
     const sourceId=payload.intentAuthority?.sourceId||payload.userRequest?.sourceId,control=text=>({text,sourceIds:[sourceId]});
-    return {kind:'discussion',text:'Synthetic planning, not evidence of actual conversational usefulness.',draftPlan:{quotes:[],intent:'reply',
-      guidance:{objective:control('回应这轮真实交流中的具体内容'),allowedApproach:control('保留当前有效的表达分寸，不虚构自己的经历'),avoidances:[]}}};
+    return complete({kind:'discussion',text:'Synthetic planning, not evidence of actual conversational usefulness.',draftPlan:{quotes:[],intent:'reply',
+      guidance:{objective:control('回应这轮真实交流中的具体内容'),allowedApproach:control('保留当前有效的表达分寸，不虚构自己的经历'),avoidances:[]}}});
   }
   if (definition.invocation) return {kind:'discussion',text:'合成触发路径示例，不提供实际语义质量结论。',replyDisposition:'wait'};
   if (payload.purpose === 'draft') return {kind:'draft',text:'Synthetic transport summary; no quality verdict.',suggestions:[{style:'自然',text:'合成运输示例，仅验证完整交接，不作为建议质量证据。'}]};
@@ -167,9 +169,9 @@ function syntheticResult(payload, definition) {
     if(!sentence||!authority)throw new Error('Synthetic single-fact sentence and current statement candidate must actually be offered');
     quotes=[{materialRef:sentence.ref,authorityRef:authority.authorityRef}];
   }
-  return withCurrentStatementAuthority({kind:'discussion',text:'合成运输解释，只验证私下解释与成稿交接，不证明实际帮助质量。',
+  return complete(withCurrentStatementAuthority({kind:'discussion',text:'合成运输解释，只验证私下解释与成稿交接，不证明实际帮助质量。',
     draftPlan:{quotes,...(quotes.length ? {} : {intent:'reply'}),guidance:{
-      objective:control('按用户本次意思提供表达帮助'),allowedApproach:control('保留本次明确方向'),avoidances:[]}}},payload);
+      objective:control('按用户本次意思提供表达帮助'),allowedApproach:control('保留本次明确方向'),avoidances:[]}}},payload));
 }
 function nativeMessage(scope,index,own,text,stamp,options={}) {
   return {chatType:1,peerUid:scope.peerUid,peerUin:scope.peerUin,senderUid:own?scope.accountUid:scope.peerUid,
@@ -307,6 +309,10 @@ async function runHarness(options={}) {
               reply=store.getCompanion(scope).turns.filter(turn=>turn.role==='assistant').at(-1);
             }else reply=await controller.assist({text:step.request,purpose:'discussion'});
             observed.reply=reply?clone(reply):null;observed.visibleHelp=reply?runtime.visibleResponseText(reply):null;
+            // Read persisted admission after the actual reply; this report is
+            // never supplied to the producer or used as expected model state.
+            const savedRun=controller.assistantContext().run;
+            observed.admittedContext=savedRun?.payload?.purpose==='draft'?{payload:clone(savedRun.payload),manifest:clone(savedRun.manifest)}:null;
             observed.adviceAfter=clone(controller.snapshot().advice);observed.httpAttempts=item.stepHttpAttempts;
             stepCheck('a completed visible reply exists',!!reply&&!!observed.visibleHelp);
             stepCheck('candidate or explicit no-candidate disposition',!!reply?.suggestions?.length||['wait','clarify','unavailable'].includes(reply?.replyDisposition));
@@ -335,6 +341,8 @@ async function runHarness(options={}) {
       } else reply=await controller.assist({text:definition.request,purpose:'discussion'});
       item.reply=reply?clone(reply):null;
       item.visibleHelp=reply?runtime.visibleResponseText(reply):null;
+      const savedRun=controller.assistantContext().run;
+      item.admittedContext=savedRun?.payload?.purpose==='draft'?{payload:clone(savedRun.payload),manifest:clone(savedRun.manifest)}:null;
       const after=store.getCompanion(scope); item.tasks=controller.usage.recent(scope,4);
       check('actual messages and original string IDs preserved',JSON.stringify(expectedRecords)===JSON.stringify(store.messages(scope)) && expectedRecords.every(record=>typeof record.messageId==='string'));
       check('user-owned goal preserved',JSON.stringify(goalBefore)===JSON.stringify(after.goal));
@@ -346,9 +354,8 @@ async function runHarness(options={}) {
       check('fixed observation time delivered',item.stages[0]?.initialPayload.asOf===definition.asOf);
       check('scope preserved',item.stages.every(stage=>JSON.stringify(stage.effectiveManifest.scope)===JSON.stringify(scope)));
       check('bounded HTTP calls',attempts<=maxHttp && (definition.steps?item.steps.every(step=>(step.httpAttempts||0)<=4):item.httpAttempts<=4));
-      check('draft excludes private rationale and note',item.stages.filter(stage=>stage.purpose==='draft').every(stage=>{
-        const value=JSON.stringify(stage.effectivePayload); return !value.includes(PRIVATE_MARKER) && !stage.effectivePayload.privateConversation && !stage.effectivePayload.goal;
-      }));
+      check('outward candidate and admitted fragments exclude private rationale and note',(reply?.suggestions||[]).every(suggestion=>!suggestion.text.includes(PRIVATE_MARKER))&&
+        !(item.admittedContext?.payload.outboundQuotes||[]).some(quote=>quote.text.includes(PRIVATE_MARKER)));
       if (reply) {
         check('whole-help artifact matches displayed help',store.experiences.artifact(scope,reply.artifactRef)?.body===item.visibleHelp);
         check('draft artifacts contain editable wording only',(reply.suggestions || []).every(suggestion=>store.experiences.artifact(scope,suggestion.artifactRef)?.body===suggestion.text));

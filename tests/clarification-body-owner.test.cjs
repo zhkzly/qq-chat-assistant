@@ -5,7 +5,7 @@ const test=require('node:test'),assert=require('node:assert/strict'),fs=require(
 const {parseAssistant}=require('../src/assistant-model.cjs');
 const {blockerRenderingWitness}=require('../src/request-delivery.cjs');
 const {projectVisibleTurn}=require('../scripts/eval-qq-adapter.cjs');
-const {Controller}=require('../src/controller.cjs'),{Store}=require('../src/store.cjs');
+const {Controller}=require('./fixtures/whole-answer-fidelity.cjs'),{Store}=require('../src/store.cjs');
 const {scope,raw}=require('./fixtures/native.cjs');
 const CURRENT='private:clarifier-current',HUMAN='请先核对真正缺少的信息，再帮我组织表达。';
 const QUESTION='你这次愿意向她分享哪件具体的小事？',WHY='需要先确认这次希望分享的具体事情。';
@@ -48,17 +48,17 @@ test('a malformed explicitly typed explanation remains invalid rather than being
  for(const explanation of [{text:WHY},[WHY],7,'x'.repeat(1001)])assert.throws(()=>parseAssistant(response(false,{explanation}),'discussion',payload(),{}));
 });
 
-test('the actual controller record drops prior planning prose when the restricted result is a blocker',async t=>{
+test('the actual controller discards a rejected candidate explanation when regeneration needs a canonical blocker',async t=>{
  const store=new Store(':memory:'),calls=[],planning='PLANNING_ONLY_PARAPHRASE：再问一遍用户要分享什么？';
- const controller=new Controller({store,compactionModel:null,settings:{anonymous:true,auto:false,baseUrl:'http://fixture.invalid/v1',model:'synthetic-clarifier-owner',assistantRequestLimit:3,discussionCompactionEnabled:false,
+ const controller=new Controller({store,compactionModel:null,settings:{anonymous:true,auto:false,baseUrl:'http://fixture.invalid/v1',model:'synthetic-clarifier-owner',assistantRequestLimit:4,discussionCompactionEnabled:false,
   realChatConsent:{...scope,baseUrl:'http://fixture.invalid/v1',model:'synthetic-clarifier-owner'}},read:async command=>command==='bind'?scope:{messages:[]},
-  assistantModel:async(_settings,context)=>{calls.push(context);if(context.payload.purpose==='draft')return response(true,{explanation:WHY});
+  assistantModel:async(_settings,context)=>{calls.push(context);if(context.payload.purpose==='fidelity_check')return context.payload.candidate.suggestions.length?{checkRef:context.payload.checkRef,verdict:'reject',issues:[{path:'suggestions[0].text',code:'source_needed',reason:'Scripted missing-source rejection exercises the blocker regeneration lifecycle.'}]}:{checkRef:context.payload.checkRef,verdict:'allow',issues:[]};if(context.fidelityRepair)return {operation:'clarify',blocker:{kind:'missing_fact',missing:'本次希望分享的具体小事',question:QUESTION,explanation:WHY}};
    const id=context.payload.intentAuthority.sourceId,current=context.payload.sources.find(source=>source.id===id),control=text=>({text,sourceIds:[id]});
-   return {kind:'discussion',text:planning,requestDelivery:{mode:'editable_message',sourceId:id,quote:current.text},draftPlan:{intent:'reply',quotes:[],guidance:{objective:control('回应她的实际问题'),allowedApproach:control('仅用已经核对的素材'),avoidances:[]}}};}});
+   return {kind:'discussion',text:planning,answer:{privateExplanation:planning,suggestions:[{text:'A rejected outward candidate.'}]},requestDelivery:{mode:'editable_message',sourceId:id,quote:current.text},draftPlan:{intent:'reply',quotes:[],guidance:{objective:control('回应她的实际问题'),allowedApproach:control('仅用已经核对的素材'),avoidances:[]}}};}});
  t.after(()=>{controller.close();store.close();});controller.updateStatus({phase:'ready',account:{uid:scope.accountUid,uin:scope.accountUin}});await controller.bind(scope.peerUin);
  controller.live({scope,messages:[raw('72057594049927937141',false,{elements:[{textElement:{content:'最近有什么新鲜的小事？'}}]})]});
  const answer=await controller.assist({text:HUMAN,taskId:'clarification-body-owner',purpose:'discussion'}),saved=store.getCompanion(scope).turns.find(turn=>turn.id===answer.id),expected=WHY+'\n\n'+QUESTION;
- assert.equal(calls.length,2,'the existing planning and wording calls own the result; no new verifier or repair call');assert.equal(answer.kind,'question');assert.equal(answer.text,expected);assert.equal(answer.discussionExplanation,undefined);
+ assert.equal(calls.length,4,'one complete candidate, one rejection, one shared regeneration and one exact blocker check');assert.equal(answer.kind,'question');assert.equal(answer.text,expected);assert.equal(answer.discussionExplanation,undefined);
  assert.ok(saved);assert.equal(saved.text,expected);assert.equal(saved.discussionExplanation,undefined);visible(saved,expected);assert.equal(uiBody(saved).includes(planning),false);assert.equal(uiBody(saved).includes(OLD),false);
  assert.equal(store.messages(scope).some(message=>message.direction==='outgoing'),false);
 });

@@ -2,7 +2,7 @@
 const test=require('node:test');
 const assert=require('node:assert/strict');
 const {Store}=require('../src/store.cjs');
-const {Controller}=require('./fixtures/assistant-protocol.cjs');
+const {Controller}=require('./fixtures/whole-answer-fidelity.cjs');
 const {scope,raw}=require('./fixtures/native.cjs');
 const privateRecovery=id=>({kind:'private_help',reasonCode:'structured_output_invalid',metadataApplied:false,intentSourceIds:id?[id]:[]});
 const draftRecovery=()=>({kind:'restricted_draft',reasonCode:'structured_output_invalid',metadataApplied:false,intentSourceIds:[]});
@@ -16,6 +16,7 @@ function setup(t,assistantModel){
 
 test('private help recovery is a marked generated discussion, never a completed state review or new mutation',async t=>{
   const app=setup(t,async(_s,input)=>{
+    if(input.payload.purpose==='fidelity_check')return {checkRef:input.payload.checkRef,verdict:'allow',issues:[]};
     const id=input.payload.intentAuthority.sourceId;input.manifest.responseRecovery=privateRecovery(id);
     return {kind:'discussion',text:'先回应她刚说的具体内容，保持自然。',stateReview:'no_change',
       actions:[{type:'save_note',evidenceQuote:input.payload.userRequest.text,text:'我今天做了饭'}],
@@ -30,13 +31,14 @@ test('private help recovery is a marked generated discussion, never a completed 
 });
 
 test('a model-authored recovery flag cannot impersonate the trusted program manifest',async t=>{
-  const app=setup(t,async()=>({kind:'discussion',text:'An ordinary structured response.',responseRecovery:privateRecovery(),stateReview:'no_change'}));
-  await app.controller.bind(scope.peerUin);const answer=await app.controller.assist({text:'Help me understand the next step.',taskId:'forged-output-marker'});
-  assert.equal(answer.responseRecovery,undefined);assert.ok(answer.privateReviewReceipt.applied);assert.ok(answer.privateReviewReceipt.sourceIds.length);
+  const app=setup(t,async()=>({operation:'advise',text:'An ordinary structured response.',responseRecovery:privateRecovery(),stateReview:'no_change'}));
+  await app.controller.bind(scope.peerUin);await assert.rejects(app.controller.assist({text:'Help me understand the next step.',taskId:'forged-output-marker'}),/responseRecovery/);
+  assert.equal(app.store.getCompanion(scope).turns.some(turn=>turn.role==='assistant'),false,'a forged program flag cannot publish or impersonate a private review receipt');
 });
 
 test('private recovery drops previously queued proposals while preserving actual rejected action receipts',async t=>{
   let calls=0;const app=setup(t,async(_s,input)=>{
+    if(input.payload.purpose==='fidelity_check')return {checkRef:input.payload.checkRef,verdict:'allow',issues:[]};
     const id=input.payload.intentAuthority.sourceId;
     if(++calls===1)return {kind:'discussion',text:'A structured first response.',actions:[{type:'save_note',evidenceQuote:'not in the user request',text:'not in the user request'}],
       topicPatch:{operation:'create',objective:'Discuss a direct invitation',purposeSourceIds:[id],intentQuote:input.payload.userRequest.text},relationshipPatch:{claims:[],events:[],retire:[]}};
@@ -49,6 +51,7 @@ test('private recovery drops previously queued proposals while preserving actual
 test('already applied preferences and their receipts survive a later private-help recovery',async t=>{
   let calls=0;const text='Remember my preference: from now on keep expressions direct.';
   const app=setup(t,async(_s,input)=>{
+    if(input.payload.purpose==='fidelity_check')return {checkRef:input.payload.checkRef,verdict:'allow',issues:[]};
     if(++calls===1)return {kind:'discussion',text:'Apply the explicit preference.',actions:[{type:'set_preference',evidenceQuote:text,text:'keep expressions direct'}]};
     input.manifest.responseRecovery=privateRecovery(input.payload.intentAuthority.sourceId);return {kind:'discussion',text:'Here is private help under your preference.'};
   });await app.controller.bind(scope.peerUin);const answer=await app.controller.assist({text,taskId:'applied-pref-recovery'});
@@ -56,24 +59,26 @@ test('already applied preferences and their receipts survive a later private-hel
   assert.equal(answer.responseRecovery.kind,'private_help');assert.equal(answer.privateReviewReceipt,undefined);
 });
 
-test('restricted-draft recovery preserves verified preparation metadata and receives only the safe projected draft',async t=>{
+test('complete primary preserves verified preparation metadata until its exact whole candidate is allowed',async t=>{
   const app=setup(t,async(_s,input)=>{
     const p=input.payload;
-    if(p.purpose==='draft'){
-      assert.equal(p.userRequest,undefined);assert.equal(p.privateConversation,undefined);assert.equal(p.topicContext,undefined);
-      input.manifest.responseRecovery=draftRecovery();return {kind:'draft',text:'参考表达',suggestions:[{style:'自然',text:'周末要不要一起散步？'}]};
+    if(p.purpose==='fidelity_check'){
+      assert.equal(p.candidate.suggestions[0].text,'周末要不要一起散步？');
+      assert.equal(JSON.stringify(p.admittedFragments).includes('邀请她一起散步'),false);
+      return {checkRef:p.checkRef,verdict:'allow',issues:[]};
     }
-    const id=p.intentAuthority.sourceId;return {draftPlan:{quotes:[{sourceId:id,text:'一起散步'}],guidance:{objective:{text:'邀请一起散步',sourceIds:[id]},allowedApproach:{text:'直接自然地邀请',sourceIds:[id]},avoidances:[]}},
+    const id=p.intentAuthority.sourceId;return {kind:'discussion',text:'Prepare the requested invitation.',answer:{suggestions:[{text:'周末要不要一起散步？'}]},draftPlan:{intent:'reply',quotes:[],guidance:{objective:{text:'邀请一起散步',sourceIds:[id]},allowedApproach:{text:'直接自然地邀请',sourceIds:[id]},avoidances:[]}},
       topicPatch:{operation:'create',objective:'邀请她一起散步',direction:'直接自然地邀请',purposeSourceIds:[id],intentQuote:p.userRequest.text},stateReview:'no_change'};
   });await app.controller.bind(scope.peerUin);app.controller.live({scope,messages:[raw()]});
   const answer=await app.controller.assist({text:'我想邀请她周末一起散步，给我具体一句。',purpose:'draft',taskId:'restricted-draft-recovery'});
-  assert.equal(answer.kind,'draft');assert.equal(answer.responseRecovery.kind,'restricted_draft');assert.equal(app.store.topicView(scope).active.direction,'直接自然地邀请');
-  assert.equal(answer.privateReviewReceipt.applied,true);assert.ok(answer.privateReviewReceipt.sourceIds.length);
+  assert.equal(answer.kind,'draft');assert.equal(answer.responseRecovery,undefined);assert.equal(app.store.topicView(scope).active.direction,'直接自然地邀请');
+  assert.equal(answer.privateReviewReceipt.applied,true);assert.ok(answer.privateReviewReceipt.sourceIds.length);assert.equal(answer.suggestions[0].text,'周末要不要一起散步？');
 });
 
 test('failed invoke keeps stage diagnostics but never persists the invalid raw response body',async t=>{
   const secret='UNVALIDATED_RAW_PRIVATE_RESPONSE_SENTINEL';
   const app=setup(t,async(_s,input)=>{
+    if(input.payload.purpose==='fidelity_check')return {checkRef:input.payload.checkRef,verdict:'allow',issues:[]};
     input.manifest.outputMetadata={contentShape:'message_text'};
     input.extraRequests=[{purpose:'format_repair',manifest:{...input.manifest,purpose:'format_repair',stageId:'repair-stage',serializedTextRequestBytes:1000},payload:{purpose:'discussion',originalInput:input.payload,formatError:'unauthorized topic field',invalidResponse:secret}}];
     throw new Error('Synthetic repaired output remained invalid');
@@ -108,13 +113,13 @@ test('durable recovery and review source hashes cannot falsely review a revised 
 
 test('automatic QQ repair declares unavailable private advice without granting an outbound plan or pending user intent',async t=>{
   const {assistModel}=require('./fixtures/assistant-protocol.cjs');let calls=0;
-  const app=setup(t,(settings,input,signal)=>assistModel(settings,input,signal,async()=>({ok:true,json:async()=>({choices:[{finish_reason:'stop',message:{content:++calls===1?JSON.stringify({kind:'unsupported_kind',text:'Not delivered',topicPatch:{operation:'update',version:1},actions:[{type:'save_note',text:'not authorized'}]}):JSON.stringify({kind:'discussion',text:'先接住她分享的游戏变化，保持这次自然的交流分寸。',replyDisposition:'unavailable'})}}]})})));
+  const app=setup(t,(settings,input,signal)=>assistModel(settings,input,signal,async(_url,request)=>{const payload=JSON.parse(JSON.parse(request.body).messages[1].content);calls++;const value=payload.purpose==='fidelity_check'?{checkRef:payload.checkRef,verdict:'allow',issues:[]}:calls===1?{kind:'unsupported_kind',text:'Not delivered',topicPatch:{operation:'update',version:1},actions:[{type:'save_note',text:'not authorized'}]}:{kind:'discussion',text:'先接住她分享的游戏变化，保持这次自然的交流分寸。',replyDisposition:'unavailable'};return {ok:true,json:async()=>({choices:[{finish_reason:'stop',message:{content:JSON.stringify(value)}}]})};}));
   await app.controller.bind(scope.peerUin);app.controller.live({scope,messages:[raw('90071992547409999921',false,{elements:[{textElement:{content:'我最近改玩解谜闯关了。'}}]})]});
   const before=app.store.getCompanion(scope);await app.controller.suggest({automatic:true});
   const after=app.store.getCompanion(scope),answer=after.turns.filter(turn=>turn.role==='assistant').at(-1);
-  assert.equal(calls,2);assert.equal(answer.kind,'discussion');assert.equal(answer.responseRecovery,undefined);assert.equal(after.runs.at(-1).manifest.requestDelivery.status,'private_help');assert.equal(answer.suggestions,undefined);assert.deepEqual(answer.expressionOptions,[]);
+  assert.equal(calls,3);assert.equal(answer.kind,'discussion');assert.equal(answer.responseRecovery,undefined);assert.equal(after.runs.at(-1).manifest.requestDelivery.status,'private_help');assert.equal(answer.suggestions,undefined);assert.deepEqual(answer.expressionOptions,[]);
   assert.equal(after.turns.filter(turn=>turn.role==='user').length,before.turns.filter(turn=>turn.role==='user').length);
   assert.equal(after.notes.length,before.notes.length);assert.equal(after.state.version,before.state.version);assert.equal(after.topics.items.length,before.topics.items.length);
   assert.equal(app.controller.advice.suggestions.length,0);assert.ok(app.controller.advice.analysis);assert.equal(after.runs.at(-1).maintenance,'deferred');
-  const usage=app.controller.usage.get(scope,after.runs.at(-1).id);assert.equal(usage.attempts,2);assert.equal(usage.limit,4);assert.equal(usage.status,'complete');
+  const usage=app.controller.usage.get(scope,after.runs.at(-1).id);assert.equal(usage.attempts,3);assert.equal(usage.limit,4);assert.equal(usage.status,'complete');
 });

@@ -1,7 +1,7 @@
 'use strict';
 const test = require('node:test'), assert = require('node:assert/strict');
 const { Store } = require('../src/store.cjs');
-const { Controller } = require('./fixtures/assistant-protocol.cjs');
+const { Controller } = require('./fixtures/whole-answer-fidelity.cjs');
 const { parseAssistant } = require('./fixtures/assistant-protocol.cjs');
 const { buildContext } = require('../src/assistant-context.cjs');
 const { normalize } = require('../src/messages.cjs');
@@ -9,7 +9,7 @@ const { scope, raw } = require('./fixtures/native.cjs');
 const explanation = '她正在分享自己的游戏习惯；先接住吐槽，暂时不直接问游戏名，也不马上邀请一起玩。';
 const summary = '先接住她的吐槽';
 const wording = '哈哈，PVP确实有时候越打越上头';
-function setup(t, { composerRecovery = false } = {}) {
+function setup(t, { primaryRepairMetadata = false } = {}) {
   const store = new Store(':memory:');
   const message = normalize(raw('72057594037927937', false, { elements: [{ textElement: { content: '我不怎么玩PVP，玩点回合制PVE的' } }] }), scope);
   store.add(scope, [message]); store.setGoal(scope, '与她发展双方愿意的恋爱关系');
@@ -17,12 +17,10 @@ function setup(t, { composerRecovery = false } = {}) {
     realChatConsent: { ...scope, model: 'synthetic-explanation', baseUrl: 'http://synthetic.invalid/v1' } };
   const controller = new Controller({ store, settings, read: async () => ({ messages: [], source: 'synthetic' }), assistantModel: async (_, input) => {
     inputs.push(structuredClone(input.payload));
-    if (input.payload.purpose === 'draft') {
-      if (composerRecovery) input.manifest.formatRepair = { attempts: 1, reason: 'synthetic complete prepared response' };
-      return { kind: 'draft', text: summary, privateExplanation: explanation, suggestions: [{ style: '自然', text: wording }] };
-    }
+    if(input.payload.purpose==='fidelity_check')return {checkRef:input.payload.checkRef,verdict:'allow',issues:[]};
+    if (primaryRepairMetadata) input.manifest.formatRepair = { attempts: 1, reason: 'synthetic complete primary response' };
     const sourceId = input.payload.intentAuthority?.sourceId || input.payload.userRequest.sourceId;
-    return { kind: 'discussion', text: explanation, draftPlan: { intent: 'reply', quotes: [], guidance: {
+    return { kind: 'discussion', text: summary, answer:{privateExplanation:explanation,suggestions:[{style:'自然',text:wording}]}, draftPlan: { intent: 'reply', quotes: [], guidance: {
       objective: { text: '回应她真实分享的游戏习惯', sourceIds: [sourceId] },
       allowedApproach: { text: '先接住PVP吐槽，再自然接话', sourceIds: [sourceId] },
       avoidances: [{ text: '暂时不直接问游戏名，不马上邀请', sourceIds: [sourceId] }] } } };
@@ -40,17 +38,18 @@ test('readable planning and lookup steps retain their explanation while legacy p
     assert.equal(legacy.kind, undefined); assert.equal(legacy.text, undefined);
   }
 });
-for (const composerRecovery of [false, true]) test(`explicit final explanation survives composer${composerRecovery ? ' structured-repair metadata' : ''} without entering outgoing material`, async t => {
-  const { store, controller, inputs } = setup(t, { composerRecovery });
+for (const primaryRepairMetadata of [false, true]) test(`explicit primary explanation survives fidelity checking${primaryRepairMetadata ? ' with primary structured-repair metadata' : ''} without entering outgoing material`, async t => {
+  const { store, controller, inputs } = setup(t, { primaryRepairMetadata });
   const reply = await controller.assist({ text: '先接吐槽，暂时不直接问游戏名；给我一句，也解释为什么这样接', purpose: 'discussion' });
-  assert.deepEqual(inputs.map(input => input.purpose), ['discussion', 'draft']);
+  assert.deepEqual(inputs.map(input => input.purpose), ['discussion', 'fidelity_check']);
   assert.deepEqual(reply.discussionExplanation, { kind: 'discussion', text: explanation });
-  assert.equal(reply.text, summary); assert.equal(reply.suggestions[0].text, wording);
-  assert.ok(!JSON.stringify(inputs[1]).includes(explanation), 'private rationale is user-visible generated help, never drafting input or outbound authorization');
-  assert.ok(!JSON.stringify(inputs[1].outboundQuotes).includes(explanation));
+  assert.equal(reply.text, ''); assert.equal(reply.suggestions[0].text, wording);
+  assert.equal(inputs[1].candidate.discussionExplanation.text,explanation,'the complete displayed explanation is checked read-only');
+  assert.ok(!JSON.stringify(inputs[1].admittedFragments).includes(explanation),'generated rationale is not outward material authority');
+  assert.ok(!JSON.stringify(controller.assistantContext().run.payload.outboundQuotes).includes(explanation));
   const saved = store.getCompanion(scope).turns.find(turn => turn.id === reply.id);
   assert.deepEqual(saved.discussionExplanation, reply.discussionExplanation);
-  assert.equal(store.experiences.artifact(scope, reply.artifactRef).body, `${explanation}\n\n${summary}`);
+  assert.equal(store.experiences.artifact(scope, reply.artifactRef).body, explanation);
   assert.equal(store.experiences.artifact(scope, reply.suggestions[0].artifactRef).body, wording);
   assert.equal(store.messages(scope).length, 1, 'assistant explanation and wording create no actual QQ messages');
 });
@@ -58,7 +57,7 @@ test('whole-response feedback evaluates the displayed explanation, while draft f
   const { store, controller } = setup(t), reply = await controller.assist({ text: '解释依据，也给一句接话', purpose: 'discussion' });
   const responseFeedback = store.experiences.addFeedback(scope, { text: '这段依据有帮助', targetRef: { kind: 'artifact', artifactRef: reply.artifactRef }, clientEventId: 'synthetic-response-explanation-feedback' });
   const draftFeedback = store.experiences.addFeedback(scope, { text: '这句表达自然', targetRef: { kind: 'artifact', artifactRef: reply.suggestions[0].artifactRef }, clientEventId: 'synthetic-draft-wording-feedback' });
-  assert.equal(store.experiences.hydrateFeedback(scope, responseFeedback.id).target.body, `${explanation}\n\n${summary}`);
+  assert.equal(store.experiences.hydrateFeedback(scope, responseFeedback.id).target.body, explanation);
   assert.equal(store.experiences.hydrateFeedback(scope, draftFeedback.id).target.body, wording);
 });
 test('a later private discussion can retrieve the explanation as generated help, never as an original factual source', async t => {
@@ -81,19 +80,19 @@ test('a later private discussion can retrieve the explanation as generated help,
 test('a legacy clarification records only its canonical question without promoting untyped planning prose', async t => {
   const { store, controller, inputs } = setup(t);
   const raw={kind:'discussion',text:explanation,draftPlan:{clarification:'你这次希望只接住吐槽，还是也愿意邀请？'}};
-  controller.assistantModel = async (_, input) => { inputs.push(input.payload); return raw; };
+  controller.assistantModel = async (_, input) => { inputs.push(input.payload);return input.payload.purpose==='fidelity_check'?{checkRef:input.payload.checkRef,verdict:'allow',issues:[]}:raw; };
   const reply = await controller.assist({ text: '我还不确定怎么表达', purpose: 'discussion' });
-  assert.equal(inputs.length, 1); assert.equal(reply.kind, 'question'); assert.equal(reply.discussionExplanation,undefined);assert.equal(raw.text,explanation,'the original producer body is unchanged, not promoted');
+  assert.equal(inputs.length, 2);assert.equal(inputs[1].purpose,'fidelity_check'); assert.equal(reply.kind, 'question'); assert.equal(reply.discussionExplanation,undefined);assert.equal(raw.text,explanation,'the original producer body is unchanged, not promoted');
   assert.equal(reply.text, '你这次希望只接住吐槽，还是也愿意邀请？'); assert.equal(reply.suggestions, undefined);
   assert.equal(store.experiences.artifact(scope, reply.artifactRef).body,reply.text);
 });
 test('QQ reply advice exposes the same full help text while only wording remains adoptable', async t => {
   const { store, controller } = setup(t);
   const reply = await controller.assist({ text: '接住吐槽，暂时不邀请；解释依据，也给一句接话', purpose: 'reply' });
-  assert.equal(controller.advice.analysis, `${explanation}\n\n${summary}`);
+  assert.equal(controller.advice.analysis, explanation);
   assert.equal(controller.advice.suggestions[0].text, wording);
   await controller.suggest();
-  assert.equal(controller.advice.analysis, `${explanation}\n\n${summary}`);
+  assert.equal(controller.advice.analysis, explanation);
   assert.equal(controller.advice.suggestions[0].text, wording);
   assert.equal(store.messages(scope).length, 1);
 });

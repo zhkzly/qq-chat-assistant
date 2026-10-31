@@ -87,8 +87,8 @@ async function integrationFixture(t,{privateOnly=false}={}){
   realChatConsent:{...scope,baseUrl:'http://fixture.invalid/v1',model:'synthetic-final-carrier'}};
  const controller=new Controller({store,settings,read:async command=>command==='bind'?scope:{messages:[]},assistantModel:(configured,context,signal)=>assistModel(configured,context,signal,async(_url,args)=>{
   const request=JSON.parse(args.body),wrapper=JSON.parse(request.messages[1].content),p=wrapper.originalInput||wrapper;calls.push({request,wrapper,p});
-  let content=actualContents[2];
-  if(p.purpose!=='draft'){
+  let content=p.purpose==='fidelity_check'?JSON.stringify({checkRef:p.checkRef,verdict:'allow',issues:[]}):actualContents[2];
+  if(!['draft','fidelity_check'].includes(p.purpose)){
    const sourceId=p.intentAuthority.sourceId,requestDelivery={mode:'editable_message'};
    if(p.lookupHistory.length<2){
     const id=p.lookupHistory.length===0?p.sources.find(source=>source.type==='qq').id:'note:n1';
@@ -101,7 +101,7 @@ async function integrationFixture(t,{privateOnly=false}={}){
      const authorityRef=current.authorityChoices.originalUserStatementCandidates.find(choice=>choice.materialRef===materialRefForText(current,currentText)).authorityRef;
      quotes=[{materialRef:materialRefForText(note,actualQuote.text),authorityRef}];
     }
-    content=JSON.stringify({kind:'discussion',text:'按这次允许分享的经历回应。',requestDelivery,draftPlan:{quotes,intent:'reply',guidance:{objective:control('回应她当前对旧包的分享'),allowedApproach:control('仅用已经允许分享的真实旧包经历'),avoidances:[]}}});
+    content=JSON.stringify({kind:'discussion',text:'按这次允许分享的经历回应。',answer:{suggestions:[{style:'自然',text:body}]},requestDelivery,draftPlan:{quotes,intent:'reply',guidance:{objective:control('回应她当前对旧包的分享'),allowedApproach:control('仅用已经允许分享的真实旧包经历'),avoidances:[]}}});
    }
   }
   content=JSON.stringify(wireSourceView(JSON.parse(content),(wrapper.originalInput?context.extraRequests?.at(-1)?.manifest?.sourceHandles:undefined)||context.manifest.sourceHandles,(wrapper.originalInput?context.extraRequests?.at(-1)?.manifest?.primaryReferences:undefined)||context.manifest.primaryReferences,wrapper.originalInput?context.extraRequests.at(-1).payload.originalInput:context.payload));
@@ -116,9 +116,9 @@ async function integrationFixture(t,{privateOnly=false}={}){
 }
 test('the actual final text body succeeds after all four task calls are consumed without another repair',async t=>{
  const app=await integrationFixture(t),reply=await app.controller.assist({text:'回应她现在的包；只使用我明确允许分享的小经历，给我完整表达。',taskId:'final-carrier-four-call-task'});
- assert.equal(app.calls.length,4);assert.deepEqual(app.calls.map(call=>call.p.purpose),['discussion','discussion','discussion','draft']);
- const wording=app.calls[3].p,canonical=canonicalSourceView(wording,app.run().requests.at(-1).manifest.sourceHandles);assert.deepEqual(admittedQuotes(canonical.outboundQuotes,app.run().requests.at(-1).payload.outboundQuotes,app.run().requests.at(-1).manifest.sourceRevisions),[actualQuote]);
- assert.equal(wording.userRequest,undefined);assert.equal(wording.privateConversation,undefined);assert.equal(wording.goal,undefined);assert.equal(JSON.stringify(wording).includes('PRIVATE_REASON_DO_NOT_DISCLOSE'),false);
+ assert.equal(app.calls.length,4);assert.deepEqual(app.calls.map(call=>call.p.purpose),['discussion','discussion','discussion','fidelity_check']);
+ const wording=app.calls[3].p,canonical=canonicalSourceView(wording,app.run().requests.at(-1).manifest.sourceHandles);assert.deepEqual(canonical.admittedFragments,[actualQuote]);assert.equal(canonical.candidate.suggestions[0].text,body);
+ assert.equal(wording.userRequest,undefined);assert.equal(wording.privateConversation,undefined);assert.equal(wording.goal,app.store.getCompanion(scope).goal.text);assert.equal(JSON.stringify(wording.candidate).includes('PRIVATE_REASON_DO_NOT_DISCLOSE'),false);
  assert.equal(reply.suggestions.length,1);assert.equal(reply.suggestions[0].text,body);assert.equal(app.run().status,'complete');assert.equal(app.run().manifest.requestDelivery.status,'delivered');
  assert.equal(app.run().requests.some(request=>request.purpose==='delivery_repair'||request.purpose==='plain_response_recovery'),false);
  const usage=app.controller.usage.get(scope,'final-carrier-four-call-task');assert.equal(usage.limit,4);assert.equal(usage.attempts,4);assert.equal(usage.remaining,0);assert.equal(usage.status,'complete');

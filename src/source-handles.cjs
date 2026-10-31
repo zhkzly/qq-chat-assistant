@@ -3,7 +3,7 @@ const {createHash}=require('node:crypto');
 const VERSION='foreground-source-handles-v1';
 const SYSTEM='Typed source references use only this request’s s# handles. Copy offered handles exactly; never reconstruct IDs. A catalog handle is navigation, not delivered evidence or sharing permission. Record, turn, artifact and case IDs and all quoted text keep their separate meanings.';
 const SINGLE=new Set(['sourceId','currentObservationSourceId','currentRequestSourceId','intentSourceId','anchorSourceId','afterSourceId','beforeSourceId','targetSourceId','meaningFromSource','textFromSource']);
-const ARRAYS=new Set(['sourceIds','evidenceSourceIds','purposeSourceIds','observationSourceIds','lifecycleSourceIds','foldedSourceIds','protectedSourceIds','selfMessagesAfterLastContact','contactMessagesAfterLastSelf','selfEvidenceSourceIds','allowedMaterialIds','selectedMaterialIds','feedbackSourceIds','reviewSourceIds']);
+const ARRAYS=new Set(['sourceIds','evidenceSourceIds','purposeSourceIds','observationSourceIds','lifecycleSourceIds','foldedSourceIds','protectedSourceIds','selfMessagesAfterLastContact','contactMessagesAfterLastSelf','selfEvidenceSourceIds','allowedMaterialIds','selectedMaterialIds','feedbackSourceIds','reviewSourceIds','omittedSourceIds','partialSourceIds','unavailableRootSourceIds']);
 const MAPS=new Set(['sourceRevisions','evidenceRevisions','intentSourceRevisions']);
 const canonical=new WeakMap();
 const digest=value=>createHash('sha256').update(JSON.stringify(value)).digest('hex');

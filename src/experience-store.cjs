@@ -38,6 +38,17 @@ class ExperienceStore {
   _refs(scope, ids) { const live = this._sources(scope); return unique(ids || []).map(id => { const source = live.get(id); if (!source) throw new Error('Experience evidence is unavailable in this conversation'); return { sourceId: id, revision: source.revision }; }); }
   _transaction(fn) { return this.store._atomic(fn); }
   artifact(scope, reference) { const checked = ref(reference); return this._get(scope, 'artifact', refKey(checked)); }
+  readableArtifact(scope, reference) {
+    const artifact=this.artifact(scope,reference);
+    if(!artifact||artifact.kind!=='response'||artifact.availability==='redacted')return artifact;
+    const turn=this._raw(scope).turns.find(turn=>turn.id===artifact.assistantTurnId&&turn.role==='assistant'&&turn.artifactRef&&refKey(turn.artifactRef)===refKey(artifact.ref));
+    if(!turn)return artifact;
+    const view=this.projectGeneratedTurns(scope,[turn])[0];
+    // Feedback and experience links evaluate an exact artifact. A legacy
+    // parent whose duplicated leaf is now hidden cannot supply its old body
+    // as an alternate read path or silently become a different target.
+    return view&&visibleResponseText(view)===artifact.body?artifact:{...artifact,body:'',availability:'unavailable'};
+  }
   resolveMessageCandidate(scope, selection) {
     const fail=()=>{throw new Error('Editing reference artifact changed or is unavailable in this conversation');};
     if(!plain(selection)||typeof selection.turnId!=='string'||!Number.isSafeInteger(selection.suggestionIndex)||selection.suggestionIndex<0) return fail();
@@ -108,6 +119,11 @@ class ExperienceStore {
           return {artifactRef:item.artifactRef,availability:'unavailable',[bodyKey]:'',...(field==='expressionOptions'?{quotes:[]}:{})};
         });
       }
+      // Older draft carriers duplicated the outward body in turn.text. Treat
+      // that exact alias as owned by the same leaf when projecting a withdrawn
+      // candidate. Independent parent prose and sibling bodies stay readable;
+      // retained raw turns and artifact hashes remain unchanged.
+      if(turn.kind==='draft'&&(turn.suggestions||[]).some((item,index)=>item.text&&item.text===turn.text&&projected.suggestions[index]?.availability==='unavailable'))projected.text='';
       return [projected];
     });
   }
@@ -144,7 +160,16 @@ class ExperienceStore {
       if(value.purpose==='discussion_compaction'&&Array.isArray(value.turns)&&value.turns.some(turn=>!witnesses.has(turn.id)))return false;
       return Object.values(value).every(item=>covered(item,witnesses));
     };
-    const inspectable=run=>{const witnesses=new Set();return !hiddenIds.has(run.replyId)&&available(run,witnesses)&&covered(run,witnesses);};
+    const rawOutputs=new Map(current.turns.filter(turn=>turn.role==='assistant').map(turn=>[turn.id,turn]));
+    const projectedOutputs=new Map(currentTurns.map(turn=>[turn.id,turn]));
+    const inspectable=run=>{
+      // A whole-candidate check captures the generated output before its leaf
+      // artifacts exist. Its completed diagnostic belongs to that exact output
+      // view; it cannot recover a subsequently withdrawn leaf from the request.
+      const output=rawOutputs.get(run.replyId),view=projectedOutputs.get(run.replyId);
+      if(output&&(!view||discussionTurnFingerprint(output)!==discussionTurnFingerprint(view)))return false;
+      const witnesses=new Set();return !hiddenIds.has(run.replyId)&&available(run,witnesses)&&covered(run,witnesses);
+    };
     // Captured model inputs are diagnostics, not an alternate UI history from
     // which a withdrawn generated body may be recovered.
     return {...record,turns,runs:(record.runs||[]).filter(inspectable)};
@@ -369,8 +394,8 @@ class ExperienceStore {
     if (!feedback || feedback.redacted) return null;
     let target = null;
     if (feedback.targetRef.kind === 'artifact') {
-      const artifact = this.artifact(scope, feedback.targetRef.artifactRef);
-      if (artifact && artifact.availability !== 'redacted') target = { artifactRef: artifact.ref, body: artifact.body, kind: artifact.kind, availability: artifact.availability,
+      const artifact = this.readableArtifact(scope, feedback.targetRef.artifactRef);
+      if (artifact && !['redacted','unavailable'].includes(artifact.availability)) target = { artifactRef: artifact.ref, body: artifact.body, kind: artifact.kind, availability: artifact.availability,
         authority: 'generated_evaluation_target', deliveredMethodRefs: artifact.deliveredMethodRefs, reportedUsedMethodRefs: artifact.reportedUsedMethodRefs,
         generationStages: artifact.generationStages, sourceIds: artifact.sourceIds || [] };
     } else if (feedback.targetRef.kind === 'actual_message') {
@@ -603,7 +628,7 @@ class ExperienceStore {
     const messages = new Map(this.store.messages(scope).filter(m => !m.recalled).map(m => [m.messageId, m]));
     const live=this._sources(scope);
     return { ...clone(item), actualActions: item.actualActions.map(a => ({ ...a, text: item.status === 'invalidated' ? '' : a.kind==='qq_message'?messages.get(a.messageId)?.text || '':'用户报告活动发生', availability: item.status === 'invalidated' || a.kind==='qq_message'&&!messages.has(a.messageId) ? 'unavailable' : 'available' })),
-      links: item.links.map(link => ({ ...clone(link), artifacts: link.artifactRefs.map(r => this.artifact(scope, r)).filter(Boolean).map(a => ({ ref: a.ref, text: a.availability === 'redacted' ? '' : a.body, availability: a.availability })) })),
+      links: item.links.map(link => ({ ...clone(link), artifacts: link.artifactRefs.map(r => this.readableArtifact(scope, r)).filter(Boolean).map(a => ({ ref: a.ref, text: ['redacted','unavailable'].includes(a.availability) ? '' : a.body, availability: a.availability })) })),
       observations: item.observations.map(o => ({ ...o, text: o.kind==='activity_event'?(o.sourceIds||[]).every(id=>live.get(id)?.revision===o.sourceRevisions?.[id])?o.text:'':messages.get(o.messageId)?.text || '' })),
       reviews: item.feedbackIds.map(id => this._get(scope, 'feedback', id)).filter(f => f && !f.redacted).map(f => ({ id: f.id, sourceId: f.sourceId, text: f.text, targetRef: f.targetRef,version:f.revision })) };
   }

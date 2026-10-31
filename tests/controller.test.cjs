@@ -1,13 +1,13 @@
 'use strict';
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { Controller } = require('./fixtures/assistant-protocol.cjs');
+const { Controller } = require('./fixtures/whole-answer-fidelity.cjs');
 const { Store } = require('../src/store.cjs');
 const { scope, raw } = require('./fixtures/native.cjs');
 const tick = () => new Promise(resolve => setImmediate(resolve));
 function setup(assistantModel) {
   const store = new Store(':memory:'); let selected = scope, calls = [];
-  const controller = new Controller({ store, settings: { apiKey: 'fixture', model: 'fixture', baseUrl:'http://fixture.invalid/v1', realChatConsent:{accountUid:scope.accountUid,peerUin:scope.peerUin,baseUrl:'http://fixture.invalid/v1',model:'fixture'} }, assistantModel,
+  const controller = new Controller({ store, settings: { apiKey: 'fixture', model: 'fixture', baseUrl:'http://fixture.invalid/v1', realChatConsent:{accountUid:scope.accountUid,peerUin:scope.peerUin,baseUrl:'http://fixture.invalid/v1',model:'fixture'} }, assistantModel:assistantModel&& (async(...args)=>args[1].payload.purpose==='fidelity_check'?{checkRef:args[1].payload.checkRef,verdict:'allow',issues:[]}:assistantModel(...args)),
     read: async (command, args) => {
       calls.push({ command, args });
       if (command === 'bind') { selected = { ...scope, peerUin: args.uin, peerUid: args.uin === scope.peerUin ? scope.peerUid : 'u_second' }; return selected; }

@@ -1,7 +1,7 @@
 'use strict';
 const test=require('node:test');const assert=require('node:assert/strict');
-const {Store}=require('../src/store.cjs');const {Controller}=require('./fixtures/assistant-protocol.cjs');const {scope,raw}=require('./fixtures/native.cjs');
-function setup(t,model){const store=new Store(':memory:');const controller=new Controller({store,assistantModel:model,read:async command=>command==='bind'?scope:{messages:[]},settings:{auto:false,apiKey:'synthetic',model:'synthetic',baseUrl:'http://fixture.invalid',realChatConsent:{accountUid:scope.accountUid,peerUin:scope.peerUin,model:'synthetic',baseUrl:'http://fixture.invalid'}}});controller.updateStatus({phase:'ready',account:{uid:scope.accountUid,uin:scope.accountUin}});t.after(()=>{controller.close();store.close()});return {store,controller};}
+const {Store}=require('../src/store.cjs');const {Controller}=require('./fixtures/whole-answer-fidelity.cjs');const {scope,raw}=require('./fixtures/native.cjs');
+function setup(t,model){const store=new Store(':memory:'),fidelityCalls=[];const controller=new Controller({store,assistantModel:async(...args)=>{if(args[1].payload.purpose==='fidelity_check'){fidelityCalls.push(args[1]);return {checkRef:args[1].payload.checkRef,verdict:'allow',issues:[]};}return model(...args);},read:async command=>command==='bind'?scope:{messages:[]},settings:{auto:false,apiKey:'synthetic',model:'synthetic',baseUrl:'http://fixture.invalid',realChatConsent:{accountUid:scope.accountUid,peerUin:scope.peerUin,model:'synthetic',baseUrl:'http://fixture.invalid'}}});controller.updateStatus({phase:'ready',account:{uid:scope.accountUid,uin:scope.accountUin}});t.after(()=>{controller.close();store.close()});return {store,controller,fidelityCalls};}
 test('foreground person understanding and exact artifact methods feed the next scoped decision',async t=>{
  let captured,round=0;
  const app=setup(t,async(_settings,context)=>{captured=context;round++;const qq=context.payload.sources.find(source=>source.type==='qq');
@@ -42,7 +42,7 @@ test('specific feedback becomes an inactive scoped guidance candidate and helps 
 test('idempotent browser submissions do not create duplicate private turns or model requests',async t=>{
  let calls=0;const app=setup(t,async()=>{calls++;return {kind:'discussion',text:'可以先说说你愿意表达的意思。'}});await app.controller.bind(scope.peerUin);
  const args={taskId:'client-retry-one',text:'我想找她聊天。'};const first=await app.controller.assist(args),second=await app.controller.assist(args);
- assert.equal(first.id,second.id);assert.equal(calls,1);assert.equal(app.store.getCompanion(scope).turns.length,2);
+ assert.equal(first.id,second.id);assert.equal(calls,1);assert.equal(app.fidelityCalls.length,1);assert.equal(app.store.getCompanion(scope).turns.length,2);
  await assert.rejects(app.controller.assist({...args,text:'不一样的请求'}),/不同/);
 });
 test('a late rejected old attempt cannot overwrite the completed resumed task ledger',async t=>{
@@ -57,8 +57,8 @@ test('a late rejected old attempt cannot overwrite the completed resumed task le
 });
 test('automatic requests deduplicate unchanged context but an explicit regeneration remains available',async t=>{
  let calls=0;const app=setup(t,async()=>{calls++;return {kind:'discussion',text:'合成场景暂不需要新回复。',replyDisposition:'wait',stateReview:'no_change'}});await app.controller.bind(scope.peerUin);
- await app.controller.suggest({automatic:true});await app.controller.suggest({automatic:true});assert.equal(calls,1);
- await app.controller.suggest();assert.equal(calls,2);
+ await app.controller.suggest({automatic:true});await app.controller.suggest({automatic:true});assert.equal(calls,1);assert.equal(app.fidelityCalls.length,1);
+ await app.controller.suggest();assert.equal(calls,2);assert.equal(app.fidelityCalls.length,2);
 });
 test('rejected derived-claim edits return an actionable failure instead of a successful snapshot',async t=>{
  const app=setup(t,async()=>({kind:'discussion',text:'test'}));await app.controller.bind(scope.peerUin);
@@ -84,7 +84,7 @@ test('a correction cannot upgrade an earlier staged claim to the replacement sou
  const original=app.store.appendTurn(scope,{role:'user',kind:'discussion',text:'我周六去了展览'});sourceId=`private:${original.id}`;
  await app.controller.bind(scope.peerUin);
  await app.controller.assist({text:request,sourceTurnIds:[original.id],taskId:'no-stale-provenance-upgrade'});
- assert.equal(calls,2);
+ assert.equal(calls,2);assert.equal(app.fidelityCalls.length,1);
  const source=app.store.memorySources(scope).find(s=>s.id===sourceId);assert.equal(source.text,'我周日去了展览');
  const claims=app.store.relationshipView(scope).claims;assert.deepEqual(claims.map(c=>c.text),['用户周日去了展览']);
  assert.equal(claims[0].sourceRevisions[sourceId],source.revision);
@@ -98,7 +98,7 @@ test('old feedback review commits no-change state and an experience candidate wi
  await app.controller.bind(scope.peerUin);const first=await app.controller.assist({text:'帮我想一条普通问候。'});
  app.controller.addFeedback({requestId:first.requestId,targetRef:{kind:'artifact',artifactRef:first.artifactRef},text:'这句普通问候太正式了。'});
  const result=await app.controller.assist({taskId:'feedback-state-review',text:'回顾这次普通问候太正式的问题。',purpose:'review'});
- assert.equal(result.kind,'review');assert.equal(app.controller.usage.get(scope,'feedback-state-review').status,'complete');
+ assert.equal(result.kind,'discussion');assert.equal(app.controller.usage.get(scope,'feedback-state-review').status,'complete');
  assert.equal(app.store.experiences.list(scope).adaptations[0].status,'candidate');
- const run=app.store.getCompanion(scope).runs.find(r=>r.id==='feedback-state-review');assert.equal(run.patchReceipt.applied,true);assert.equal(run.status,'complete');
+ const run=app.store.getCompanion(scope).runs.find(r=>r.id==='feedback-state-review');assert.equal(run.purpose,'review');assert.equal(run.requests[0].payload.purpose,'review');assert.equal(run.patchReceipt.applied,true);assert.equal(run.status,'complete');
 });

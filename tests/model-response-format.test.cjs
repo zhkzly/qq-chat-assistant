@@ -3,7 +3,7 @@ const test=require('node:test'),assert=require('node:assert/strict');
 const {responseEnvelope}=require('../src/model-response-format.cjs'),{readModelOutput,parseModelJson}=require('../src/model-json.cjs');
 const {assistModel,prepareAssistantRequest,parseAssistant,canonicalSourceView}=require('./fixtures/assistant-protocol.cjs');
 test('verified Claude and GPT use result envelopes; thinking Claude retains compatible JSON mode',()=>{
- for(const purpose of ['discussion','draft','discussion_compaction','memory']){
+ for(const purpose of ['discussion','draft','discussion_compaction','memory','fidelity_check']){
   const settings={model:'claude-sonnet-4-6'},result=responseEnvelope(settings,purpose);
   assert.equal(result.tools.length,1);assert.equal(result.tools[0].function.name,result.tool_choice.function.name);
   assert.equal(result.response_format,undefined);assert.equal(result.parallel_tool_calls,false);
@@ -13,7 +13,7 @@ test('verified Claude and GPT use result envelopes; thinking Claude retains comp
 });
 test('every nested transport object declares the fields that the local parser consumes',()=>{
  function check(schema){if(schema.type==='object'){assert.ok(Object.keys(schema.properties||{}).length,'untyped objects can be replaced with provider placeholder fields');for(const value of Object.values(schema.properties))check(value);}if(schema.items)check(schema.items);}
- for(const purpose of ['discussion','draft','discussion_compaction','memory'])check(responseEnvelope({model:'claude-sonnet-4-6'},purpose).tools[0].function.parameters);
+ for(const purpose of ['discussion','draft','discussion_compaction','memory','fidelity_check'])check(responseEnvelope({model:'claude-sonnet-4-6'},purpose).tools[0].function.parameters);
  const refs=responseEnvelope({model:'claude-sonnet-4-6'},'discussion_compaction').tools[0].function.parameters.properties.quoteRefs.items;
  assert.ok(refs.properties.turnId);assert.ok(refs.properties.text);assert.ok(refs.properties.role);
 });
@@ -67,14 +67,22 @@ test('malformed nested tool arguments get one same-carrier repair without weaken
  const settings={model:'claude-sonnet-4-6',baseUrl:'http://fixture.invalid/v1',anonymous:true};
  const id='private:current',source={id,type:'private',role:'user',text:'第二个方向，不邀约',revision:'r1'};
  const context={payload:{purpose:'draft_prepare',userRequest:{sourceId:id,text:source.text},sources:[source],topicContext:{active:{id:'topic',lifecycle:'active',objective:'接住游戏分享',direction:'保留反差',constraints:['不邀约']}}},manifest:{}};
+ const answer={suggestions:[{style:'自然',text:'这个玩法听着挺有意思。'}]};
  const control=text=>({text,sourceIds:[id]}),valid={draftPlan:{quotes:[],intent:'reply',guidance:{objective:control('接住游戏分享'),allowedApproach:control('保留人与关卡的反差'),avoidances:[control('不邀约')]}}};
  const bodies=[];
- const transport=async(_url,args)=>{const body=JSON.parse(args.body);bodies.push(body);return {ok:true,json:async()=>({choices:[{message:bodies.length===1?{content:null,tool_calls:[{function:{name:'assistant_result',arguments:JSON.stringify({draftPlan:'<parameter name="_">true',kind:'draft',text:'invalid'})}}]}:{content:JSON.stringify({operation:'prepare_message',draftPlan:valid.draftPlan})}}]})};};
+ const transport=async(_url,args)=>{const body=JSON.parse(args.body);bodies.push(body);return {ok:true,json:async()=>({choices:[{message:bodies.length===1?{content:null,tool_calls:[{function:{name:'assistant_result',arguments:JSON.stringify({draftPlan:'<parameter name="_">true',kind:'draft',text:'invalid'})}}]}:{content:JSON.stringify({operation:'prepare_message',draftPlan:valid.draftPlan,answer})}}]})};};
  const result=await assistModel(settings,context,undefined,transport);
  assert.deepEqual(result.draftPlan.guidance,valid.draftPlan.guidance);assert.equal(bodies.length,2);
  assert.equal(bodies[0].tool_choice.function.name,'assistant_result');assert.equal(bodies[1].tool_choice.function.name,'assistant_result');assert.equal(bodies[1].response_format,undefined);
  assert.deepEqual(canonicalSourceView(JSON.parse(bodies[1].messages[1].content).originalInput,context.extraRequests[0].manifest.sourceHandles,context.resultContext?.payload||context.payload),context.payload);assert.equal(context.manifest.formatRepair.responseMode,'model_default');
  const bad={payload:context.payload,manifest:{}};let calls=0;
- await assert.rejects(assistModel(settings,bad,undefined,async()=>{calls++;return {ok:true,json:async()=>({choices:[{message:calls===1?{content:null,tool_calls:[{function:{name:'assistant_result',arguments:'{"draftPlan":"broken"}'}}]}:{content:JSON.stringify({operation:'prepare_message',draftPlan:{quotes:[],intent:'reply'}})}}]})};}),/current effective topic requires/);
+ await assert.rejects(assistModel(settings,bad,undefined,async()=>{calls++;return {ok:true,json:async()=>({choices:[{message:calls===1?{content:null,tool_calls:[{function:{name:'assistant_result',arguments:'{"draftPlan":"broken"}'}}]}:{content:JSON.stringify({operation:'prepare_message',draftPlan:{quotes:[],intent:'reply'},answer})}}]})};}),/current effective topic requires/);
  assert.equal(calls,2,'the alternate carrier is still exactly one format repair');
+});
+
+test('the fidelity envelope cannot advertise reply rewriting or auxiliary writes',()=>{
+ const envelope=responseEnvelope({model:'gpt-6-luna'},'fidelity_check');
+ assert.equal(envelope.tool_choice.function.name,'fidelity_result');
+ assert.deepEqual(Object.keys(envelope.tools[0].function.parameters.properties).sort(),['checkRef','issues','verdict']);
+ assert.deepEqual(envelope.tools[0].function.parameters.required,['checkRef','verdict','issues']);
 });

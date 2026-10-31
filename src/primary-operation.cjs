@@ -1,13 +1,14 @@
 'use strict';
 const {editable,parseDeliveryBlocker,clarificationBody}=require('./request-delivery.cjs');
 const {validationError}=require('./validation-issues.cjs');
+const {parseWholeAnswer}=require('./whole-answer-fidelity.cjs');
 
 const VERSION='primary-operation-v1';
 const plain=value=>value&&typeof value==='object'&&!Array.isArray(value);
 const own=(value,key)=>Object.hasOwn(value,key);
 const clone=value=>value===undefined?undefined:structuredClone(value);
 const freeze=value=>{if(value&&typeof value==='object'){for(const child of Object.values(value))freeze(child);Object.freeze(value);}return value;};
-const excluded=new Set(['draft','memory','discussion_compaction','plain_help_recovery','plain_draft_recovery']);
+const excluded=new Set(['draft','memory','discussion_compaction','plain_help_recovery','plain_draft_recovery','fidelity_check']);
 const auxiliary=['methodIds','actions','stateReview','statePatch','topicPatch','relationshipPatch','experienceProposals','expressionOptions'];
 const planFields=new Set(['editingReference','quotes','intent','style','language','askFollowup','useEmoji','taskUse','option','guidance']);
 const lookupFields=new Set(['query','discussionTurnIds','sourceIds','offset','maxChars','methodIds','discover','before','after','types']);
@@ -35,6 +36,8 @@ function normalizePrimaryOperation(raw,payload={}){
  if(operation!=='clarify')allowed.add('text');
  for(const key of auxiliary)allowed.add(key);
  if(operation==='prepare_message')allowed.add('draftPlan');
+ if(operation==='prepare_message')allowed.add('answer');
+ if(operation==='advise')allowed.add('materials');
  if(operation==='lookup'){allowed.add('lookup');allowed.add('continuation');}
  if(operation==='clarify')allowed.add('blocker');
  for(const key of Object.keys(raw))if(!allowed.has(key))
@@ -62,6 +65,7 @@ function normalizePrimaryOperation(raw,payload={}){
  const establishesMessage=operation==='prepare_message'||operation==='lookup'&&raw.continuation==='prepare_message';
  const messageRequired=required||establishesMessage;
  const state={operation,...(operation==='lookup'?{continuation:raw.continuation}:{}),messageRequired,establishesMessage};
+ if(operation==='prepare_message')state.answer=parseWholeAnswer(raw.answer);
  let value;
  if(operation==='clarify'){
   let blocker;
@@ -76,6 +80,7 @@ function normalizePrimaryOperation(raw,payload={}){
  }else{
   value={kind:'discussion',...(hasText?{text:raw.text}:{})};
   if(operation==='prepare_message')value.draftPlan=clone(raw.draftPlan);
+  if(operation==='advise'&&own(raw,'materials'))value.materials=clone(raw.materials);
   if(operation==='lookup')value.lookup=clone(raw.lookup);
  }
  // Shared proposals are not an alternate core branch. The existing domain

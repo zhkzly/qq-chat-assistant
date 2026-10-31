@@ -1,7 +1,7 @@
 'use strict';
 // Current producer/controller fixtures with local deterministic model transport.
 const test=require('node:test'),assert=require('node:assert/strict');
-const {Store}=require('../src/store.cjs'),{Controller}=require('./fixtures/assistant-protocol.cjs');
+const {Store}=require('../src/store.cjs'),{Controller}=require('./fixtures/whole-answer-fidelity.cjs');
 const {scope,raw}=require('./fixtures/native.cjs');
 const {withCurrentDraftControls}=require('./fixtures/draft-controls.cjs');
 const {buildContext}=require('../src/assistant-context.cjs');
@@ -17,9 +17,9 @@ function fixture(t){
  realChatConsent:{...scope,baseUrl:'http://fixture.invalid/v1',model:'synthetic-generated-projection'}};
  const controller=new Controller({store,settings,read:async()=>{throw Error('No native QQ read');},assistantModel:async(_,input)=>{
   const p=input.payload;calls.push(structuredClone(p));
-  if(p.purpose==='draft')return {kind:'draft',text:'独立的私下解释。',suggestions:p.editingReference?[{style:'自然',text:p.editingReference.text.replace('旧句','改句')}]:[{style:'自然',text:`旧句 ${SECRET}`},{style:'另外',text:SIBLING}]};
+  if(p.purpose==='fidelity_check')return {checkRef:p.checkRef,verdict:'allow',issues:[]};
   const selected=/改/.test(p.userRequest.text)?p.editingReferences?.[0]:null;
-  return {kind:'discussion',text:'独立的规划说明。',draftPlan:withCurrentDraftControls({quotes:[],intent:'reply',...(selected?{editingReference:{choice:selected.choice}}:{})},p)};
+  return {kind:'discussion',text:'独立的规划说明。',draftPlan:withCurrentDraftControls({quotes:[],intent:'reply',...(selected?{editingReference:{choice:selected.choice}}:{})},p),answer:{privateExplanation:'独立的私下解释。',suggestions:selected?[{style:'自然',text:selected.text.replace('旧句','改句')}]:[{style:'自然',text:`旧句 ${SECRET}`},{style:'另外',text:SIBLING}]}};
  }});controller.scope={...scope};controller.ingest(scope,[raw('59001',false,{elements:[{textElement:{content:'薄荷又长新叶了。'}}]})]);
  t.after(()=>{controller.close();store.close();});return {store,controller,calls};
 }
@@ -100,7 +100,7 @@ test('older ordinary generated artifacts without input-artifact metadata retain 
  assert.deepEqual(store.getCompanion(scope).turns.find(turn=>turn.id===original.id),original);
  store.experiences.invalidateArtifacts(scope,[original.suggestions[0].artifactRef]);
  const view=store.getCompanion(scope).turns.find(turn=>turn.id===original.id);
- assert.equal(view.text,original.text);assert.equal(view.suggestions[0].text,'');assert.deepEqual(view.suggestions[1],original.suggestions[1]);
+ assert.equal(view.text,'','the canonical first-suggestion duplicate must disappear with its withdrawn leaf');assert.deepEqual(view.discussionExplanation,original.discussionExplanation);assert.equal(view.suggestions[0].text,'');assert.deepEqual(view.suggestions[1],original.suggestions[1]);
  assert.equal(JSON.stringify(controller.snapshot()).includes(SECRET),false);
 });
 

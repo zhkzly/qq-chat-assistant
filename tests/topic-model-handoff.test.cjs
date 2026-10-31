@@ -124,7 +124,7 @@ test('a new explicit user direction reaches planner and final instead of restori
   const calls = [], plan = await assistModel(settings, prepared, undefined, async (_, request) => {
     calls.push(JSON.parse(JSON.parse(request.body).messages[1].content));
     assert.equal(calls[0].userRequest.text, changed.text);
-    const value={ draftPlan: { taskUse: 'continue', quotes: [{ sourceId: currentId, text: '我对她有好感，想多认识她' }],
+    const value={ answer:{suggestions:[{text:'我对你有好感，想多认识你一点。'}]},draftPlan: { taskUse: 'continue', quotes: [{ sourceId: currentId, text: '我对她有好感，想多认识她' }],
       guidance: { objective: { text: '直接表达好感和想多认识对方', sourceIds: [currentId] }, allowedApproach: { text: '直接真诚表达，不沿用之前的含蓄方式', sourceIds: [currentId] },
         avoidances: [{ text: '不追加连续无关问题', sourceIds: topic.purposeBindings.constraints.sourceIds }] } } };
     const captured=prepared.extraRequests?.at(-1)?.payload?.originalInput||prepared.payload,receipt=prepared.extraRequests?.at(-1)?.manifest?.primaryReferences||prepared.manifest.primaryReferences;
@@ -314,7 +314,7 @@ test('ordinary help rejects unsupported progress without repair while source-bou
   assert.throws(() => parseAssistant({ ...invalid, draftPlan: plan }, 'draft_prepare', strict.payload), /topicPatch.observationSourceIds.*progress/);
   const strictCalls = [], planned = await assistModel(settings, strict, undefined, async (_, request) => {
     strictCalls.push(JSON.parse(JSON.parse(request.body).messages[1].content));
-    const output = strictCalls.length === 1 ? { ...invalid, draftPlan: plan } : { kind: 'discussion', text: '当前只是在准备表达，尚未观察到发送。', draftPlan: plan };
+    const answer={suggestions:[{text:'A complete proposed message, still not sent.'}]};const output = strictCalls.length === 1 ? { ...invalid, draftPlan: plan,answer } : { kind: 'discussion', text: '当前只是在准备表达，尚未观察到发送。', draftPlan: plan,answer };
     return { ok: true, json: async () => ({ choices: [{ message: { content: JSON.stringify(output) } }] }) };
   });
   assert.equal(strictCalls.length,2);assert.ok(strictCalls[1].validationIssues.some(issue=>issue.path==='topicPatch.observationSourceIds'&&/progress/.test(issue.message)));
@@ -365,7 +365,7 @@ test('legacy active-topic draft preparation is repaired once into source-bound g
   const result = await assistModel(settings, prepared, undefined, async (_, request) => {
     calls.push(JSON.parse(JSON.parse(request.body).messages[1].content));
     const draftPlan = calls.length === 1 ? { taskUse:'continue', intent: 'reply', quotes: [], style: 'natural' } : { taskUse:'continue', intent: 'reply', quotes: [], style: 'natural', guidance };
-    return { ok: true, json: async () => ({ choices: [{ message: { content: JSON.stringify({ draftPlan }) } }] }) };
+    return { ok: true, json: async () => ({ choices: [{ message: { content: JSON.stringify({ draftPlan,answer:{suggestions:[{text:'A complete message retaining the current controls.'}]} }) } }] }) };
   });
   assert.equal(calls.length, 2); assert.match(calls[1].formatError, /draftPlan.guidance/);
   const effective = prepared.resultContext || prepared, draft = buildDraftContext(effective, result.draftPlan, args);
