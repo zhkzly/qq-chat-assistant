@@ -121,8 +121,7 @@ test('a preparation response preserves sourced understanding alongside its draft
     const readable = parseAssistant({ kind: 'discussion', text: '尝试保存', relationshipPatch: invalidPatch, stateReview: 'no_change' }, 'discussion', prepared.payload, diagnostics);
     assert.equal(readable.text, '尝试保存'); assert.equal(readable.relationshipPatch, undefined); assert.equal(readable.stateReview, undefined);
     assert.equal(diagnostics.auxiliaryErrors[0].field, 'relationshipPatch'); assert.match(diagnostics.auxiliaryErrors[0].message, expected);
-    assert.throws(() => parseAssistant({ draftPlan: { quotes: [{ sourceId, text: '我对她有好感，想多认识她' }] }, relationshipPatch: invalidPatch }, 'discussion', prepared.payload), expected,
-      'source-bound preparation retains its strict evidence contract');
+    const preparedDiagnostics={},safe=parseAssistant({ draftPlan:withCurrentDraftControls({quotes:[{sourceId,text:'我对她有好感，想多认识她'}]},prepared.payload), relationshipPatch:invalidPatch,stateReview:'no_change'},'discussion',prepared.payload,preparedDiagnostics);assert.equal(safe.relationshipPatch,undefined);assert.equal(safe.stateReview,undefined);assert.match(preparedDiagnostics.auxiliaryErrors[0].message,expected);assert.deepEqual(safe.draftPlan.quotes,[{sourceId,text:'我对她有好感，想多认识她'}]);
   }
 });
 

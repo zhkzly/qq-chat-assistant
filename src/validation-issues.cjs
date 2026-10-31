@@ -1,5 +1,6 @@
 'use strict';
 function validationError(path,code,message){const error=new Error(message);error.field=path;error.code=code;return error;}
+function failureWitness(error){return {name:error.name||'Error',message:String(error.message),...(error.code?{code:error.code}:{}),...(error.field?{field:error.field}:{}),...(error.issues?{issues:structuredClone(error.issues)}:{}),...(error.originalFailure?{originalFailure:structuredClone(error.originalFailure)}:{})};}
 class ValidationIssues {
  #items=[];#errors=[];
  mark(){return this.#items.length;}
@@ -25,4 +26,4 @@ class ValidationIssues {
   error.issues=issues;throw error;
  }
 }
-module.exports={ValidationIssues,validationError};
+module.exports={ValidationIssues,validationError,failureWitness};

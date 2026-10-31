@@ -4,7 +4,7 @@ const {parseModelJson}=require('./model-json.cjs');
 const {validationError}=require('./validation-issues.cjs');
 const {sameScopeIfPresent}=require('./context/source-snapshot.cjs');
 const {sourceClosure}=require('./provenance.cjs');
-const VERSION='whole-answer-fidelity-v1';
+const VERSION='whole-answer-fidelity-v2';
 const marks=new WeakMap(),clone=value=>structuredClone(value);
 const plain=value=>value&&typeof value==='object'&&!Array.isArray(value);
 const hash=value=>createHash('sha256').update(JSON.stringify(value)).digest('hex');
@@ -112,6 +112,7 @@ function buildFidelityContext(prepared,result,info={}){
   ...(prepared.payload.goal!==undefined?{goal:clone(prepared.payload.goal)}:{}),
   ...(prepared.payload.viewerTimeZone?{viewerTimeZone:prepared.payload.viewerTimeZone}:{}),
   ...(prepared.payload.taskContext?.timeContext?{timeContext:clone(prepared.payload.taskContext.timeContext)}:{}),
+  ...(prepared.payload.actionReceipts?.length?{actionReceipts:clone(prepared.payload.actionReceipts)}:{}),
   candidate:freeze(clone(candidate)),evidence,
   ...(intentId?{intentAuthority:{sourceId:intentId}}:{}),
   admittedFragments:admitted.map(({sourceId,text})=>({sourceId,text})),
@@ -160,7 +161,10 @@ function buildFidelityContext(prepared,result,info={}){
  if(candidate.discussionExplanation)paths.add('discussionExplanation.text');
  candidate.suggestions.forEach((_,index)=>{paths.add(`suggestions[${index}].text`);paths.add(`suggestions[${index}].style`);});
  candidate.expressionOptions.forEach((_,index)=>paths.add(`expressionOptions[${index}].label`));
- const frame=Object.freeze({candidateHash,bindingHash:bound,paths,sourceIds:new Set(sourceIds),
+ const bodyAt=path=>path==='text'?candidate.text:path==='discussionExplanation.text'?candidate.discussionExplanation?.text:
+  /^suggestions\[(\d+)\]\.(text|style)$/.test(path)?candidate.suggestions[Number(path.match(/\[(\d+)\]/)[1])]?.[path.endsWith('.style')?'style':'text']:
+  /^expressionOptions\[(\d+)\]\.label$/.test(path)?candidate.expressionOptions[Number(path.match(/\[(\d+)\]/)[1])]?.label:undefined;
+ const frame=Object.freeze({candidateHash,bindingHash:bound,paths,sourceIds:new Set(sourceIds),bodyAt,evidenceAt:id=>payload.evidence.find(source=>source.sourceId===id),
   assert(){if(binding()!==bound||hash(visibleCandidate(result,options))!==candidateHash||hash(payload.candidate)!==candidateHash||hash(payload)!==evidenceHash)throw fail('candidate','fidelity_binding_invalid','The candidate or captured evidence binding changed after checking');}});
  manifest.fidelity={version:VERSION,candidateHash,bindingHash:bound,evidenceHash,status:'pending'};
  context={payload,manifest,images};Object.defineProperty(context,'fidelityFrameSnapshot',{value:frame});
@@ -174,19 +178,41 @@ function parseFidelityResult(value,input){
  if(plain(value)&&marks.has(value)){if(marks.get(value).frame!==frame||marks.get(value).hash!==hash(value))throw fail('checkRef','fidelity_binding_invalid','Checker result belongs to another candidate or was modified');return value;}
  let data=typeof value==='string'?parseModelJson(value):value;
  if(input.sourceWireSnapshot)data=input.sourceWireSnapshot.decode(data);
- if(!plain(data)||Object.keys(data).some(key=>!['checkRef','verdict','issues'].includes(key))||data.checkRef!=='c1'||
-  !['allow','reject','uncertain'].includes(data.verdict)||!Array.isArray(data.issues)||data.issues.length>12)
+ if(!plain(data)||Object.keys(data).some(key=>!['checkRef','verdict','issues','concerns'].includes(key))||data.checkRef!=='c1'||
+  !['allow','reject','uncertain'].includes(data.verdict)||!Array.isArray(data.issues)||data.issues.length>12||
+  data.concerns!==undefined&&(!Array.isArray(data.concerns)||data.concerns.length>12))
   throw fail('checkRef','fidelity_result_invalid','Return only this checkRef, allow/reject/uncertain and bounded issues; never rewrite or execute');
- const issues=data.issues.map((issue,index)=>{
-  if(!plain(issue)||Object.keys(issue).some(key=>!['path','code','sourceIds','reason'].includes(key))||!frame.paths.has(issue.path)||
-   !['unsupported_fact','current_boundary','omitted_qualifier','evidence_mismatch','internal_conflict','coverage_unknown','source_needed'].includes(issue.code)||
+ const softCodes=['pragmatic_ambiguity','style','helpfulness','coverage_gap'];
+ const concerns=[],issues=[];
+ const quoted=(path,quote)=>typeof quote==='string'&&quote.trim()&&quote.length<=1200&&typeof frame.bodyAt(path)==='string'&&frame.bodyAt(path).includes(quote);
+ const concern=(item,index)=>{
+  if(!plain(item)||Object.keys(item).some(key=>!['path','code','quote','reason'].includes(key))||!frame.paths.has(item.path)||!softCodes.includes(item.code)||
+   typeof item.reason!=='string'||!item.reason.trim()||item.reason.length>500||item.quote!==undefined&&!quoted(item.path,item.quote))
+   throw fail(`concerns[${index}]`,'fidelity_result_invalid','Nonblocking concerns cite a visible path; they are private diagnostics, not new facts or warnings');
+  concerns.push(clone(item));
+ };
+ for(const [index,issue]of data.issues.entries()){
+  if(softCodes.includes(issue?.code)){concern(issue,index);continue;}
+  if(!plain(issue)||Object.keys(issue).some(key=>!['path','code','quote','sourceIds','evidence','basis','relatedPath','relatedQuote','reason'].includes(key))||!frame.paths.has(issue.path)||
+   !['unsupported_fact','private_disclosure','current_boundary','omitted_qualifier','evidence_mismatch','internal_conflict'].includes(issue.code)||!quoted(issue.path,issue.quote)||
    typeof issue.reason!=='string'||!issue.reason.trim()||issue.reason.length>500||
    issue.sourceIds!==undefined&&(!Array.isArray(issue.sourceIds)||issue.sourceIds.length>16||issue.sourceIds.some(id=>!frame.sourceIds.has(id))))
-   throw fail(`issues[${index}]`,'fidelity_result_invalid','Cite an actual candidate path and only offered original evidence references');
-  return clone(issue);
- });
- if(data.verdict==='allow'&&issues.length||data.verdict==='reject'&&!issues.length)throw fail('issues','fidelity_result_invalid','Allow has no issues; rejection needs a concrete issue');
- const result=freeze({checkRef:'c1',verdict:data.verdict,issues});marks.set(result,{frame,hash:hash(result)});input.sourceWireSnapshot?.markCanonical(result);return result;
+   throw fail(`issues[${index}]`,'fidelity_result_invalid','A blocking defect requires an exact visible claim and captured evidence grounding, not reviewer confidence');
+  const evidence=issue.evidence||[];
+  if(!Array.isArray(evidence)||evidence.length>8||evidence.some(ref=>!plain(ref)||Object.keys(ref).some(key=>!['sourceId','quote'].includes(key))||typeof ref.quote!=='string'||!ref.quote.trim()||ref.quote.length>1200||!frame.evidenceAt(ref.sourceId)?.text.includes(ref.quote)))
+   throw fail(`issues[${index}].evidence`,'fidelity_result_invalid','Defect evidence must quote only an original body actually supplied to this checker');
+  if(['private_disclosure','current_boundary','omitted_qualifier','evidence_mismatch'].includes(issue.code)&&!evidence.length||
+   issue.code==='current_boundary'&&!evidence.some(ref=>['qq','private','feedback'].includes(frame.evidenceAt(ref.sourceId)?.type)&&['user','contact'].includes(frame.evidenceAt(ref.sourceId)?.role))||
+   issue.code==='unsupported_fact'&&issue.basis!=='no_support_in_supplied_evidence'||
+   issue.code==='internal_conflict'&&(!quoted(issue.relatedPath,issue.relatedQuote)||issue.relatedPath===issue.path&&issue.relatedQuote===issue.quote))
+   throw fail(`issues[${index}]`,'fidelity_grounding_missing','Ground a concrete original conflict, unsupported factual assertion, or exact other candidate statement; social/style readings alone cannot veto');
+  issues.push(clone(issue));
+ }
+ for(const [index,item]of (data.concerns||[]).entries())concern(item,index);
+ if(data.verdict==='allow'&&issues.length||data.verdict==='reject'&&!issues.length&&!concerns.length)throw fail('issues','fidelity_result_invalid','Allow has no blocking defect; rejection needs one, and concerns never block');
+ const verdict=data.verdict==='reject'&&!issues.length&&concerns.length?'allow':data.verdict;
+ if(input.manifest)input.manifest.fidelity={...input.manifest.fidelity,reportedVerdict:data.verdict};
+ const result=freeze({checkRef:'c1',verdict,issues,...(concerns.length?{concerns}:{})});marks.set(result,{frame,hash:hash(result)});input.sourceWireSnapshot?.markCanonical(result);return result;
 }
 function buildFidelityRepairContext(prepared,checkedInput){
  const frame=checkedInput?.fidelityFrameSnapshot;if(!frame)throw fail('evidence','fidelity_binding_invalid','Regeneration requires its captured fidelity frame');frame.assert();

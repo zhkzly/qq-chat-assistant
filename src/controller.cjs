@@ -27,7 +27,7 @@ function inFlightMessageRequirement(owner,scope){
   if(typeof revision!=='string'||source?.revision!==revision||source.role!=='user'||!['private','request','feedback'].includes(source.type)||source.deleted||source.excluded||source.use==='disabled')return undefined;
   return {mode:policy.obligation.mode,sourceId,sourceRevision:revision};
 }
-const { assistModel, parseAssistant, imageContextFor } = require('./assistant-model.cjs');
+const { assistModel, parseAssistant, withoutInapplicableTopic, imageContextFor } = require('./assistant-model.cjs');
 const { buildContext, buildDraftContext, expressionOptionsFor, PROMPT_VERSION } = require('./assistant-context.cjs');
 const { planDiscussionCompaction, assistDiscussionCompaction } = require('./discussion-compaction.cjs');
 const { discussionTopicBinding, discussionModelBinding, DISCUSSION_COMPACTION_VERSION,automaticDiscussionTurnIds } = require('./discussion-compaction-store.cjs');
@@ -644,9 +644,16 @@ class Controller extends EventEmitter {
           assertArtifactInputs(input);
           assertDraftSourcesCurrent(input,Object.keys(input.manifest.sourceRevisions||{}),{scope,store:this.store});
           const checked=parseFidelityResult(output,input);
-          input.manifest.fidelity={...input.manifest.fidelity,verdict:checked.verdict,issues:checked.issues};
+          input.manifest.fidelity={...input.manifest.fidelity,verdict:checked.verdict,issues:checked.issues,concerns:checked.concerns||[]};
           return checked;
         }finally{capturedRequests.push({purpose:'fidelity_check',manifest:input.manifest,payload:input.payload});}
+      };
+      const topicOptions=proposal=>{
+        const manifest=proposal.context.manifest,view=proposal.context.payload.topicContext;
+        const actual=records.filter(record=>record.kind==='actual'&&!record.recalled&&manifest.sourceIds.includes(`qq:${record.messageId}`)).at(-1);
+        return {baseRevision,baseTopicVersion:view?.version??0,activeId:view?.activeId??null,sourceIds:manifest.sourceIds,sourceRevisions:manifest.sourceRevisions,
+          currentSourceId:feedbackIntentId?`private:feedback-${feedbackIntentId}`:transient?actual&&`qq:${actual.messageId}`:`private:${turn.id}`,
+          currentFeedbackId:feedbackIntentId,origin:feedbackIntentId?'user_feedback':transient?'qq_observation':'private_discussion',requestId};
       };
       let result;
       for(let pass=0;pass<5;pass++) {
@@ -728,6 +735,16 @@ class Controller extends EventEmitter {
       if(!result||result.lookup)throw new Error('本次信息整理未能完成，请重试；原始输入已保存');
       let reviewed,discussionExplanation,expressionOptions,checkInput,checked,approval;
       for(;;){
+        const proposal=topicProposals.at(-1);
+        if(proposal?.context===context&&this.store.previewTopicPatch){
+          const preview=this.store.previewTopicPatch(scope,proposal.patch,topicOptions(proposal));
+          if(!current())return;
+          if(!preview.valid){
+            if(preview.reason!=='inapplicable_optional_proposal'){const error=new Error(preview.detail||preview.reason);error.code='topic_patch_rejected';error.field='topicPatch';throw error;}
+            result=withoutInapplicableTopic(result,context);topicProposals.length=0;
+            context.manifest.auxiliaryErrors=[...(context.manifest.auxiliaryErrors||[]),{field:'topicPatch',code:preview.reason,message:preview.detail}];
+          }
+        }
         const primaryContext=context,primaryResult=result,state=primaryOperationFor(result);
         reviewed=context;stagedReview={context,result};
         expressionOptions=[];
@@ -777,17 +794,11 @@ class Controller extends EventEmitter {
         assertDraftSourcesCurrent(checkInput,Object.keys(checkInput.manifest.sourceRevisions||{}),{scope,store:this.store});
         assertArtifactInputs(context);
         const rejectedAux=capturedRequests.flatMap(r=>r.manifest?.auxiliaryErrors||[]);
-        const bestEffort=context.payload.purpose!=='draft'&&stagedReview?.context.payload.taskContext?.auxiliaryPolicy==='best_effort';
         const recordRejection=(field,receipt)=>{if(receipt&&receipt.applied===false)rejectedAux.push({field,code:'rejected_auxiliary_metadata',message:String(receipt.detail||receipt.reason||'metadata rejected').slice(0,500)});};
         const topic=topicProposals.at(-1);
         if(topic&&this.store.applyTopicPatch){
-          const manifest=topic.context.manifest,view=topic.context.payload.topicContext;
-          const actualSource=records.filter(record=>record.kind==='actual'&&!record.recalled&&manifest.sourceIds.includes(`qq:${record.messageId}`)).at(-1);
-          topicReceipt=this.store.applyTopicPatch(scope,topic.patch,{baseRevision,baseTopicVersion:view?.version??0,
-            activeId:view?.activeId??null,sourceIds:manifest.sourceIds,sourceRevisions:manifest.sourceRevisions,
-            currentSourceId:feedbackIntentId?`private:feedback-${feedbackIntentId}`:transient?actualSource&&`qq:${actualSource.messageId}`:`private:${turn.id}`,
-            currentFeedbackId:feedbackIntentId,origin:feedbackIntentId?'user_feedback':transient?'qq_observation':'private_discussion',requestId});
-          if(!topicReceipt.applied){if(bestEffort)recordRejection('topicPatch',topicReceipt);else{const error=new Error(`这次交流方向未能安全更新：${topicReceipt.detail||topicReceipt.reason}；你的输入已保留。`);error.code='topic_patch_rejected';throw error;}}
+          topicReceipt=this.store.applyTopicPatch(scope,topic.patch,topicOptions(topic));
+          if(!topicReceipt.applied){const error=new Error(`这次交流方向未能安全更新：${topicReceipt.detail||topicReceipt.reason}；你的输入已保留。`);error.code='topic_patch_rejected';error.field='topicPatch';error.topicReceipt=topicReceipt;throw error;}
         }
         if(relationshipProposals.length&&this.store.applyRelationshipPatch){
           const patch={claims:[],events:[],retire:[]},refs=new Map();
@@ -849,7 +860,7 @@ class Controller extends EventEmitter {
       // A later producer failure does not undo an independently applied user
       // action. An unavailable post-forget context must not revive old inputs.
       this.store.saveRun(scope,{id:requestId,baseRevision,purpose:context?.payload.purpose||purpose,status:'failed',payload:context?.payload||{purpose},manifest:context?.manifest||{scope,requestId,purpose},requests:capturedRequests,
-        actionReceipts:receipts.filter(receipt=>receipt.status==='applied'),error:error.message,maintenance:'failed'});
+        actionReceipts:receipts.filter(receipt=>receipt.status==='applied'),error:error.message,errorDetails:require('./validation-issues.cjs').failureWitness(error),maintenance:'failed'});
       throw error;
     } finally {
       if(this.assistantAbort===abort){

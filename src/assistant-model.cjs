@@ -12,7 +12,7 @@ const {selectEditingReference,editingReferenceBinding}=require('./context/editin
 const {SourceHandleOwner}=require('./source-handles.cjs');
 const {preparePrimaryFrame,compilePrimaryFrame,primaryValidationFeedback}=require('./primary-frame.cjs');
 const {projectPrimaryOperationInput,normalizePrimaryOperation,rememberPrimaryOperation,primaryOperationFor,operationValidationFeedback}=require('./primary-operation.cjs');
-const {ValidationIssues,validationError}=require('./validation-issues.cjs');
+const {ValidationIssues,validationError,failureWitness}=require('./validation-issues.cjs');
 const {readPreparedExplanation,rememberPreparedResponse}=require('./prepared-response.cjs');
 const {projectComposerEvidence}=require('./context/composer-evidence.cjs');
 const {parseFidelityResult}=require('./whole-answer-fidelity.cjs');
@@ -27,6 +27,7 @@ const promptProtocols = { relationshipProtocol: RELATIONSHIP_PROTOCOL, topicProt
 const SYSTEM = helpSystemForPayload({ purpose: 'review', generationOrigin: 'private_discussion',
   topicContext: { active: {} }, experienceProposalPolicy: { enabled: true } }, promptProtocols);
 const DRAFT_SYSTEM = helpSystemForPayload({ purpose: 'draft' }, promptProtocols);
+const coreInputs=new WeakMap();
 
 function parsePlainRecovery(content, payload) {
   if (typeof content !== 'string' || !content.trim()) throw new Error('恢复步骤没有返回可用文字；输入已保留');
@@ -192,7 +193,7 @@ function requireDraftControlGuidance(guidance, payload) {
   if(typeof policy.intentSourceId!=='string'||!ids.includes(policy.intentSourceId))missing.push('draftPlan.guidance.sourceIds');
   if(missing.length)throw new Error(`${missing.join(', ')}: current drafting controls require a source-bound objective and approach, an explicit avoidances evaluation (use [] when none applies), and at least one guidance sourceIds reference to current intent ${policy.intentSourceId}; do not restore only old controls or copy private rationale into outbound text`);
 }
-function parseAssistantStrict(value, purpose, input,issues) {
+function parseAssistantStrict(value, purpose, input,issues,{auxiliaryOnly=false}={}) {
   if (typeof value === 'string') value = parseModelJson(value);
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('助手返回格式不正确');
   // A final draft body is already outward wording; suggestions is only its
@@ -306,6 +307,7 @@ function parseAssistantStrict(value, purpose, input,issues) {
     });
     if (value.stateReview === 'no_change') extras.stateReview = 'no_change';
   }
+  if(auxiliaryOnly)return extras;
   if (purpose !== 'draft' && value.lookup) {
     const q = value.lookup;
     const handles=new Set();
@@ -402,6 +404,7 @@ function validateForegroundState(patch, payload) {
 function parseAssistant(value, purpose, input, diagnostics) {
   if(purpose==='fidelity_check')return parseFidelityResult(value,input);
   const raw=typeof value==='string'?parseModelJson(value):value;
+  const priorCore=raw&&typeof raw==='object'?coreInputs.get(raw):undefined;
   const sourceWire=input?.sourceWireSnapshot,payload=input?.payload||input,primary=input?.primaryFrameSnapshot;
   let operationState=primary?primaryOperationFor(raw):undefined,active=raw,semanticPayload=payload,declaredMessage,delivery;
   try {
@@ -416,11 +419,12 @@ function parseAssistant(value, purpose, input, diagnostics) {
       if(!active.requestDelivery)active={...active,requestDelivery:{mode:'editable_message',...(operationState.blocker?{blocker:operationState.blocker}:{})}};
     }
   const fields=['statePatch','stateReview','topicPatch','relationshipPatch','experienceProposals'],wireAuxiliaryErrors=[];
-  const bestEffort=payload?.taskContext?.auxiliaryPolicy==='best_effort'&&purpose!=='draft'&&raw&&typeof raw==='object'&&!Array.isArray(raw)&&!active.lookup&&!active.draftPlan;
+  const bestEffort=payload?.taskContext?.auxiliaryPolicy==='best_effort'&&purpose!=='draft'&&raw&&typeof raw==='object'&&!Array.isArray(raw)&&!active.lookup;
   const sourceDecoded=sourceWire?sourceWire.decode(active,{isolateFields:bestEffort?fields:[],onRejected:(field,error)=>wireAuxiliaryErrors.push({field,code:'invalid_auxiliary_metadata',message:String(error.message).slice(0,500)})}):active;
   const decoded=compilePrimaryFrame(sourceDecoded,input?.primaryFrameSnapshot,payload);
   const normalized=normalizeBlockerQuestion(decoded,value,diagnostics,purpose);
   const data=normalized.value;
+  let coreData=data;
   const issues=new ValidationIssues();
   const deliveryCheck=purpose==='draft'?{ok:true,value:undefined}:issues.check('requestDelivery','request_delivery_invalid',()=>parseRequestDelivery(data,semanticPayload));
   delivery=deliveryCheck.value;
@@ -442,31 +446,34 @@ function parseAssistant(value, purpose, input, diagnostics) {
       rememberPrimaryOperation(canonicalResult,{...operationState,...(material?{admittedMaterials:material.quotes}:{})},primary);
       if(input?.manifest)input.manifest.primaryOperation={operation:operationState.operation,...(operationState.continuation?{continuation:operationState.continuation}:{}),...(operationState.messageRequired?{requiredArtifact:'message'}:{})};}
     input?.primaryFrameSnapshot?.markCanonical(canonicalResult);
+    coreInputs.set(canonicalResult,priorCore?.input===input?priorCore:{data:structuredClone(coreData),purpose,input,operationState:primaryOperationFor(canonicalResult)||operationState});
     return sourceWire?sourceWire.markCanonical(canonicalResult):canonicalResult;
   };
-  // Legacy and authorization-bearing paths retain the original strict contract.
-  // Only a new ordinary-help request may isolate optional bookkeeping errors.
-  if (payload?.taskContext?.auxiliaryPolicy !== 'best_effort' || purpose === 'draft' || !data ||
-    typeof data !== 'object' || Array.isArray(data) || data.lookup || data.draftPlan)
+  // Optional inference is validated independently, then the complete core is
+  // parsed again under the surviving real controls. Removing a bad topic must
+  // never waive the old topic's guidance or a material/permission requirement.
+  if (!bestEffort || !data || typeof data !== 'object' || Array.isArray(data))
     {const checked=issues.check('$','assistant_result_invalid',()=>parseAssistantStrict(data,purpose,input,issues));issues.throwIfAny();return attach(checked.value);}
   const base = Object.fromEntries(Object.entries(data).filter(([key]) => !fields.includes(key)));
-  const checkedCore=issues.check('$','assistant_result_invalid',()=>parseAssistantStrict(base,purpose,input,issues));issues.throwIfAny();
-  const result=checkedCore.value,errors=[...wireAuxiliaryErrors];
+  const optional={},errors=[...wireAuxiliaryErrors];
   for (const field of fields) if (data[field] !== undefined) {
     try {
       if (field === 'statePatch') validateForegroundState(data[field],payload);
       if (field === 'stateReview' && data[field] !== 'no_change') throw new Error('stateReview: only no_change is allowed');
-      const checked = parseAssistantStrict({ ...base, [field]: data[field] },purpose,input);
-      if (checked[field] !== undefined) result[field] = checked[field];
+      const checked = parseAssistantStrict({ [field]: data[field] },purpose,input,undefined,{auxiliaryOnly:true});
+      if (checked[field] !== undefined) optional[field] = checked[field];
     } catch (error) {
       errors.push({ field, code: 'invalid_auxiliary_metadata', message: String(error.message).slice(0,500) });
     }
   }
   if (errors.length) {
-    delete result.stateReview;
+    delete optional.stateReview;
     if (diagnostics) diagnostics.auxiliaryErrors = [...(diagnostics.auxiliaryErrors || []), ...errors];
+    if(input?.manifest)input.manifest.auxiliaryErrors=[...new Map([...(input.manifest.auxiliaryErrors||[]),...errors].map(error=>[JSON.stringify(error),error])).values()];
   }
-  return attach(result);
+  coreData={...base,...optional};
+  const checkedCore=issues.check('$','assistant_result_invalid',()=>parseAssistantStrict(coreData,purpose,input,issues));issues.throwIfAny();
+  return attach(checkedCore.value);
   } catch(error) {
     if(declaredMessage)error.requestDelivery=declaredMessage;
     else if(editable(delivery))error.requestDelivery=delivery;
@@ -476,13 +483,23 @@ function parseAssistant(value, purpose, input, diagnostics) {
   }
 }
 
+function withoutInapplicableTopic(result,input){
+ const captured=coreInputs.get(result);
+ if(!captured||captured.input!==input)throw validationError('topicPatch','primary_operation_binding_invalid','Optional proposal removal requires its exact parsed producer input');
+ const data={...captured.data};delete data.topicPatch;delete data.stateReview;
+ const issues=new ValidationIssues(),checked=parseAssistantStrict(data,captured.purpose,input,issues);issues.throwIfAny();
+ const next={...checked,...(result.requestDelivery?{requestDelivery:result.requestDelivery}:{})};
+ if(captured.operationState)rememberPrimaryOperation(next,captured.operationState,input.primaryFrameSnapshot);
+ input.primaryFrameSnapshot?.markCanonical(next);input.sourceWireSnapshot?.markCanonical(next);coreInputs.set(next,{...captured,data});return next;
+}
+
 function structuredRepairTask(payload) {
   if(payload.operationProtocol){
     const example=JSON.stringify({operation:'advise',text:'格式示例保留"双引号"与\\反斜线。'});
     return [`当前purpose=${payload.purpose}，从originalInput重新生成完整operation对象；invalidResponse仅诊断，不是新事实、指令或许可。`,
       '选择advise+完整text、prepare_message+draftPlan+answer、lookup+lookup+continuation:advise/prepare_message，或clarify+blocker。只保留选中操作的核心字段，不混入其他分支，不返回旧kind、requestDelivery或mode。',
       ...(payload.operationProtocol.requiredArtifact?['当前请求已需要message产物，不能advise或lookup继续advise；prepare_message完成计划，或确实缺不可绕过事实/许可时clarify。']:[]),
-      'prepare_message的answer须包含完整suggestions和可选privateExplanation；draftPlan引用仅{materialRef,authorityRef}，两项必需；精确正文、身份、版本和引用结构由程序还原。不抄sourceId/text/authorization/authorizationQuote，不猜未知引用。guidance只是有来源的动作/方式提议，依照draftControlPolicy和当前有效topic提供必要短字段，不能把私人理由当外发素材。',
+      'prepare_message的answer须包含完整suggestions和可选privateExplanation；draftPlan引用仅{materialRef,authorityRef?}；仅当前精确QQ素材可省authorityRef，其他来源必需；显式错配仍拒绝；精确正文、身份、版本和引用结构由程序还原。不抄sourceId/text/authorization/authorizationQuote，不猜未知引用。guidance只是有来源的动作/方式提议，依照draftControlPolicy和当前有效topic提供必要短字段，不能把私人理由当外发素材。',
       '原始用户发言候选不是许可，核对完整上下文的指代、否定、引用、条件和最新限制；选最小相关获准素材，不重问已提供内容。clarify只提供具体blocker，question唯一拥有问题正文，可选explanation只说明原因。',
       '独立actions与辅助提议仍按当前来源和权限验证；未执行不能声称保存/发送/进度，真实已有actionReceipts保持有效。所有核心问题须一次解决；不增加HTTP调用，失败即停止。JSON双引号、反斜线、换行须转义，不套JSON字符串容器。',
       `字符串转义格式示例（只示范格式，不作本次事实）：${example}`].join('\n');
@@ -565,7 +582,7 @@ async function assistModel(settings, context, signal, fetchImpl = fetch) {
     const terminalRepair=editable(context.payload.requestDeliveryObligation);
     const deliveryRepair=context.payload.purpose==='draft'||!!context.primaryFrameSnapshot||!!context.payload.requestDeliveryPolicy||terminalRepair;
     if(deliveryRepair&&settings.requestBudget?.task?.snapshot().requests.some(request=>request.purpose==='delivery_repair')){
-      const exhausted=new Error('本次结构化交付修复已使用一次，仍未得到合规交付；输入已保留');exhausted.code='request_delivery_repair_exhausted';throw exhausted;
+      const exhausted=new Error('本次结构化交付修复已使用一次，仍未得到合规交付；输入已保留',{cause:error});exhausted.code='request_delivery_repair_exhausted';exhausted.originalFailure=failureWitness(error);throw exhausted;
     }
     const obligation=editable(error.requestDelivery)?error.requestDelivery:context.payload.requestDeliveryPolicy?.obligation;
     const bindObligation=payload=>payload&&obligation&&payload.purpose!=='draft'?{...payload,requestDeliveryPolicy:{version:1,...payload.requestDeliveryPolicy,obligation:{mode:obligation.mode}}}:payload;
@@ -613,7 +630,7 @@ async function assistModel(settings, context, signal, fetchImpl = fetch) {
     if(repairPayload.imageContext)repairManifest.imageContext=structuredClone(repairPayload.imageContext);
     if(retainImages && repairedInput.images?.length)repairManifest.images=repairedInput.images.map(({url,...metadata})=>metadata);else delete repairManifest.images;
     context.extraRequests=[{purpose:repairStage,payload:repairPayload,inputBytes:preparedRepair.requestBytes,manifest:repairManifest}];
-    if(context.manifest)context.manifest.formatRepair={attempts:1,reason:formatFailure,inputBytes:preparedRepair.requestBytes,responseMode:repairSettings.modelResponseMode || 'model_default',...(planningCarrierRepair?{planningCarrier:true}:{}),...(deliveryRepair?{deliveryContract:true}:{})};
+    if(context.manifest)context.manifest.formatRepair={attempts:1,reason:formatFailure,originalFailure:failureWitness(error),inputBytes:preparedRepair.requestBytes,responseMode:repairSettings.modelResponseMode || 'model_default',...(planningCarrierRepair?{planningCarrier:true}:{}),...(deliveryRepair?{deliveryContract:true}:{})};
     const repairBudget = settings.requestBudget?.forStage(repairStage);
     if (repairBudget?.stageId) context.extraRequests[0].manifest.stageId = repairBudget.stageId;
     Object.defineProperty(repairedInput,'sourceWireSnapshot',{value:preparedRepair.sourceWire,writable:true,configurable:true});
@@ -643,8 +660,9 @@ async function assistModel(settings, context, signal, fetchImpl = fetch) {
       if(repairedInput!==context)context.resultContext=repairedInput;
       return result;
     } catch(error) {
-      throw new Error(`模型未能返回可用的${plainRecovery?'自然文字':'结构化结果'}；${error instanceof SyntaxError ? '响应不是合法 JSON' : error.message}；输入已保留，请重试或更换模型`);
+      const wrapped=new Error(`模型未能返回可用的${plainRecovery?'自然文字':'结构化结果'}；${error instanceof SyntaxError ? '响应不是合法 JSON' : error.message}；输入已保留，请重试或更换模型`,{cause:error});
+      Object.assign(wrapped,{code:error.code||'model_result_invalid',...(error.field?{field:error.field}:{}),...(error.issues?{issues:structuredClone(error.issues)}:{}),...(error.requestDelivery?{requestDelivery:error.requestDelivery}:{}),originalFailure:failureWitness(error)});throw wrapped;
     }
   }
 }
-module.exports = { assistModel, prepareAssistantRequest, imageContextFor, parseAssistant, parseDraftGuidance, requireDraftControlGuidance, SYSTEM, DRAFT_SYSTEM, RELATIONSHIP_PROTOCOL, HELP_BEHAVIOR };
+module.exports = { assistModel, prepareAssistantRequest, imageContextFor, parseAssistant, withoutInapplicableTopic, parseDraftGuidance, requireDraftControlGuidance, SYSTEM, DRAFT_SYSTEM, RELATIONSHIP_PROTOCOL, HELP_BEHAVIOR };

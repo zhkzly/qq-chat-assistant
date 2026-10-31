@@ -45,7 +45,7 @@ test('opt-in foreground isolates invalid auxiliary metadata without hiding the f
  assert.match(diagnostics.auxiliaryErrors[0].field,/topicPatch/);
  assert.throws(()=>parseAssistant(invalid,'reply',{...foreground,taskContext:undefined}),/topicPatch/,'legacy validators remain strict');
  const badPlan={...invalid,draftPlan:{quotes:[],intent:'reply'}};
- assert.throws(()=>parseAssistant(badPlan,'reply',foreground),/topicPatch/,'draft authorization/plan paths remain strict');
+ const planDiagnostics={},prepared=parseAssistant(badPlan,'reply',foreground,planDiagnostics);assert.equal(prepared.topicPatch,undefined);assert.equal(prepared.stateReview,undefined);assert.deepEqual(prepared.draftPlan.quotes,[]);assert.equal(planDiagnostics.auxiliaryErrors[0].field,'topicPatch');assert.throws(()=>parseAssistant({...badPlan,draftPlan:{quotes:[],intent:'invalid'}},'reply',foreground),/拟表达|draftPlan/,'isolating optional bookkeeping does not waive the core plan contract');
 });
 test('invalid state-source bindings are auxiliary errors and program receipts cannot be spoofed',()=>{
  const diagnostics={};const answer=parseAssistant({kind:'discussion',text:'Keep the actual help.',statePatch:{items:[{text:'A claim.',sourceIds:['private:unavailable']}]},privateReviewReceipt:{applied:true},responseRecovery:{metadataApplied:true}},'reply',foreground,diagnostics);

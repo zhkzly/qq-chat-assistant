@@ -23,7 +23,7 @@ async function app(t,producer,{partial=false}={}){
 
 test('the single regeneration receives the complete original qualifier first restored only for the checker',async t=>{
  let checks=0;const repaired='我看过朋友装书架，不过那次只是旁观，还没有亲手装过。',a=await app(t,(p,wrapper)=>{
-  if(p.purpose==='fidelity_check'){checks++;assert.ok(p.evidence.some(source=>source.text===FULL));return checks===1?{checkRef:p.checkRef,verdict:'reject',issues:[{path:'suggestions[0].text',code:'omitted_qualifier',reason:'The candidate drops a decisive original qualification.'}]}:{checkRef:p.checkRef,verdict:'allow',issues:[]};}
+  if(p.purpose==='fidelity_check'){checks++;assert.ok(p.evidence.some(source=>source.text===FULL));const source=p.evidence.find(source=>source.text===FULL);return checks===1?{checkRef:p.checkRef,verdict:'reject',issues:[{path:'suggestions[0].text',code:'omitted_qualifier',quote:p.candidate.suggestions[0].text,evidence:[{sourceId:source.sourceId,quote:source.text}],reason:'The candidate drops a decisive original qualification.'}]}:{checkRef:p.checkRef,verdict:'allow',issues:[]};}
   const note=p.sources.find(source=>source.type==='note');if(!wrapper.originalInput){assert.equal(body(note),PREFIX);return candidate(p,'我亲手装过书架。');}
   assert.equal(body(note),FULL,'repair must read the actual omitted qualifier, not infer it from a checker reason');return candidate(p,repaired);
  },{partial:true});
@@ -45,8 +45,8 @@ for(const failure of ['transport','http'])test(`a checker ${failure} failure con
 
 for(const allow of [true,false])test(`terminal state and relationship proposals ${allow?'commit only after allowance':'do not survive a rejected candidate regeneration'}`,async t=>{
  let checks=0;const marker='我周六下午有空',a=await app(t,(p,wrapper)=>{
-  if(p.purpose==='fidelity_check'){assert.equal(a.store.relationshipView(scope).claims.length,0);assert.equal(a.store.getCompanion(scope).state.items.length,0);checks++;return !allow&&checks===1?{checkRef:p.checkRef,verdict:'reject',issues:[{path:'text',code:'internal_conflict',reason:'Scripted rejection tests proposal staging.'}]}:{checkRef:p.checkRef,verdict:'allow',issues:[]};}
-  return {operation:'advise',text:'A complete private explanation.',...(!wrapper.originalInput?{statePatch:{items:[{text:marker,sourceIds:[p.intentAuthority.sourceId]}]},relationshipPatch:{claims:[{text:marker,sourceIds:[p.intentAuthority.sourceId],subject:'self',aspect:'recent_context',assertionKind:'reported',epistemicStatus:'supported'}]}}:{})};
+  if(p.purpose==='fidelity_check'){assert.equal(a.store.relationshipView(scope).claims.length,0);assert.equal(a.store.getCompanion(scope).state.items.length,0);checks++;const source=p.evidence.find(source=>source.text===FULL);return !allow&&checks===1?{checkRef:p.checkRef,verdict:'reject',issues:[{path:'text',code:'evidence_mismatch',quote:p.candidate.text,evidence:[{sourceId:source.sourceId,quote:source.text}],reason:'Scripted concrete first-hand claim rejection tests proposal staging.'}]}:{checkRef:p.checkRef,verdict:'allow',issues:[]};}
+  return {operation:'advise',text:!allow&&!wrapper.originalInput?'我昨天亲手装过一个四层书架。':'A complete private explanation.',...(!wrapper.originalInput?{statePatch:{items:[{text:marker,sourceIds:[p.intentAuthority.sourceId]}]},relationshipPatch:{claims:[{text:marker,sourceIds:[p.intentAuthority.sourceId],subject:'self',aspect:'recent_context',assertionKind:'reported',epistemicStatus:'supported'}]}}:{})};
  });
  await a.assist();assert.equal(a.store.relationshipView(scope).claims.length,allow?1:0);assert.equal(a.store.getCompanion(scope).state.items.length,allow?1:0);assert.equal(a.store.getCompanion(scope).turns.filter(turn=>turn.role==='assistant').length,1);
 });

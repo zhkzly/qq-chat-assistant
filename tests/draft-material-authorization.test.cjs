@@ -73,7 +73,7 @@ test('authorization and referent require delivered original user sources and cur
 test('provider schema advertises required selectors while canonical legacy admission remains available',t=>{
  const {prepared}=fixture(t),request=prepareAssistantRequest({model:'synthetic',modelResponseMode:'result_tool'},prepared.payload).request;
  const q=request.tools[0].function.parameters.properties.draftPlan.properties.quotes.items;
- assert.equal(q.properties.materialRef.type,'string');assert.equal(q.properties.authorityRef.type,'string');assert.deepEqual(q.required,['materialRef','authorityRef']);assert.equal(q.properties.authorization,undefined);
+ assert.equal(q.properties.materialRef.type,'string');assert.equal(q.properties.authorityRef.type,'string');assert.deepEqual(q.required,['materialRef']);assert.match(q.properties.authorityRef.description,/non-QQ.*public QQ/s);assert.equal(q.properties.authorization,undefined);
 });
 test('explicit UI option selection authorizes only its exact live original tuple',t=>{
  const {store,args,prepared,plan,id}=fixture(t),source=prepared.payload.sources.find(source=>source.id===id);

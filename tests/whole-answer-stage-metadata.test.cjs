@@ -28,8 +28,8 @@ test('one four-stage rejection and regeneration retains the primary auxiliary er
  const controller=new ProductController({store,settings,compactionModel:null,read:async()=>{throw Error('No QQ reads');},assistantModel:(configured,input,signal)=>assistModel(configured,input,signal,async(_url,args)=>{
   const request=JSON.parse(args.body),wrapper=JSON.parse(request.messages[1].content),payload=wrapper.originalInput||wrapper;calls.push({payload,wrapper,stage:configured.requestBudget.purpose});
   let value;
-  if(payload.purpose==='fidelity_check')value=calls.length===2?{checkRef:payload.checkRef,verdict:'reject',issues:[{path:'text',code:'internal_conflict',reason:'Scripted rejection verifies fresh regeneration metadata, not model quality.'}]}:{checkRef:payload.checkRef,verdict:'allow',issues:[]};
-  else value=wrapper.originalInput?{operation:'advise',text:'The repaired complete private answer.'}:{operation:'advise',text:'The rejected complete private answer.',topicPatch:{operation:'update',topicId:'unavailable-topic',authority:'MODEL_CANNOT_ASSIGN_AUTHORITY'}};
+  if(payload.purpose==='fidelity_check')value=calls.length===2?{checkRef:payload.checkRef,verdict:'reject',issues:[{path:'text',code:'internal_conflict',quote:'The action has happened.',relatedPath:'text',relatedQuote:'The action has not happened.',reason:'Scripted explicit contradiction verifies fresh regeneration metadata, not model quality.'}]}:{checkRef:payload.checkRef,verdict:'allow',issues:[]};
+  else value=wrapper.originalInput?{operation:'advise',text:'The repaired complete private answer.'}:{operation:'advise',text:'The action has happened. The action has not happened.',topicPatch:{operation:'update',topicId:'unavailable-topic',authority:'MODEL_CANNOT_ASSIGN_AUTHORITY'}};
   return new Response(JSON.stringify({choices:[{message:{tool_calls:[{id:'synthetic-four-stage-result',type:'function',function:{name:request.tool_choice.function.name,arguments:JSON.stringify(value)}}]}}]}),{status:200});
  })});
  t.after(()=>{controller.close();store.close();});controller.scope={...scope};controller.ingest(scope,[raw('91000000000000422')]);

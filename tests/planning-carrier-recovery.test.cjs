@@ -61,8 +61,8 @@ for(const mode of ['guidance_only','new_material'])test(`structured repair prese
  const answer=await controller.assist({taskId,text});assert.equal(answer.kind,'draft');assert.equal(requests.length,3);
  const receipts=store.getCompanion(scope).runs.at(-1).requests;
  const normal={...requests[0],payload:canonicalSourceView(requests[0].payload,receipts[0].manifest.sourceHandles,receipts[0].payload)},repair={...requests[1],payload:canonicalSourceView(requests[1].payload,receipts[1].manifest.sourceHandles,receipts[1].payload)},checked=canonicalSourceView(requests[2].payload,receipts[2].manifest.sourceHandles,receipts[2].payload),run=store.getCompanion(scope).runs.at(-1),draft=require('../src/context/composer-evidence.cjs').projectComposerEvidence(run.payload),currentId=normal.payload.userRequest.sourceId;
- assert.match(normal.wire.messages[0].content,/quotes:\[\{materialRef,authorityRef\}\]/);
- assert.match(normal.wire.messages[0].content,/quotes≤8，两项必需/);
+ assert.match(normal.wire.messages[0].content,/quotes:\[\{materialRef,authorityRef\?\}\]/);
+ assert.match(normal.wire.messages[0].content,/quotes≤8；仅当前精确QQ素材可省authorityRef，其他来源必需/);
  assert.match(normal.wire.messages[0].content,/动作\/提问\/口吻入guidance/);
  assert.match(repair.payload.task,/guidance只是有来源的动作\/方式提议/);assert.match(repair.payload.task,/不能把私人理由当外发素材/);
  assert.match(repair.payload.task,/原始用户发言候选不是许可/);

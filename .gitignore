@@ -20,3 +20,4 @@ research/archive.zip
 
 # Private per-round Goal evidence and state
 .goal-runs/
+.implementation-checks/

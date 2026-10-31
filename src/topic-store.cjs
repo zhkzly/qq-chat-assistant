@@ -149,7 +149,7 @@ function prepareTopicPatch(record,sources,input,options={}) {
     }
     observationAuthorities={stage:privateTaskSources?'private_task_state':'source_backed_observation',unknowns:privateTaskSources?'private_task_state':'source_backed_observation',progress:privateTaskSources?'user_reported_progress':'source_backed_observation'};
     const at=observationIds.map(id=>live.get(id).at).sort().at(-1);
-    if((qqCompletion||patch.progress?.length||observationIds.some(id=>live.get(id)?.type==='qq'))&&old?.lastObservationAt&&at<old.lastObservationAt)throw new Error('Older backfill cannot replace later topic progress');
+    if((qqCompletion||patch.progress?.length||observationIds.some(id=>live.get(id)?.type==='qq'))&&old?.lastObservationAt&&at<old.lastObservationAt)throw Object.assign(new Error('Older backfill cannot replace later topic progress'),{code:'topic_proposal_inapplicable',field:'topicPatch.observationSourceIds'});
   }else if(patch.observationSourceIds?.length)throw new Error('Topic evidence cannot be changed without an observation');
   const now=new Date().toISOString();
   let topic=old?{...old}:{id:randomUUID(),version:0,lifecycle:'active',objective:'',direction:'',constraints:[],interpretationStatus:'tentative',stage:'',progress:[],unknowns:[],purposeSourceIds:[],purposeSourceRevisions:{},observationSourceIds:[],observationSourceRevisions:{},lifecycleSourceIds:[],lifecycleSourceRevisions:{},createdAt:now};

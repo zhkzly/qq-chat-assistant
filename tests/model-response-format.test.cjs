@@ -83,6 +83,6 @@ test('malformed nested tool arguments get one same-carrier repair without weaken
 test('the fidelity envelope cannot advertise reply rewriting or auxiliary writes',()=>{
  const envelope=responseEnvelope({model:'gpt-6-luna'},'fidelity_check');
  assert.equal(envelope.tool_choice.function.name,'fidelity_result');
- assert.deepEqual(Object.keys(envelope.tools[0].function.parameters.properties).sort(),['checkRef','issues','verdict']);
+ assert.deepEqual(Object.keys(envelope.tools[0].function.parameters.properties).sort(),['checkRef','concerns','issues','verdict']);
  assert.deepEqual(envelope.tools[0].function.parameters.required,['checkRef','verdict','issues']);
 });

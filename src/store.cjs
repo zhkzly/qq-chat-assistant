@@ -487,6 +487,16 @@ class Store {
   }
   getDiscussionCompaction(scope,options={}) { return this.discussionCompactions.get(scope,options); }
   saveDiscussionCompaction(scope,record,expected={}) { return this.discussionCompactions.save(scope,record,expected); }
+  previewTopicPatch(scope,patch,options={}) {
+    const record=this._getCompanion(scope),key=scopeKey(scope);
+    const reject=reason=>({valid:false,reason});
+    if(options.scopeKey!==undefined&&options.scopeKey!==key)return reject('wrong_scope');
+    if(options.baseRevision!==record.revision)return reject('stale_revision');
+    if(options.baseTopicVersion!==record.topics.version)return reject('stale_topic_version');
+    if(Object.hasOwn(options,'activeId')&&options.activeId!==record.topics.activeId)return reject('stale_active_topic');
+    try{prepareTopicPatch(record,this._rawMemorySources(scope,record),patch,options);return {valid:true};}
+    catch(error){return {valid:false,reason:error.code==='topic_proposal_inapplicable'?'inapplicable_optional_proposal':'invalid_topic_patch',detail:error.message,...(error.code?{code:error.code}:{}),...(error.field?{field:error.field}:{})};}
+  }
   applyTopicPatch(scope,patch,options={}) {
     try{return this._atomic(()=>{
       const record=this._getCompanion(scope),key=scopeKey(scope);

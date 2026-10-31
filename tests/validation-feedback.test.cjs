@@ -24,7 +24,7 @@ function issues(error){
  for(const issue of error.issues)for(const key of ['path','code','message'])assert.ok(typeof issue[key]==='string'&&issue[key].length,`${key} is actionable plain text`);
  return error.issues;
 }
-function parse(response,payload){return parseAssistant(response,payload.purpose,payload);}
+function parse(response,payload,diagnostics){return parseAssistant(response,payload.purpose,payload,diagnostics);}
 function byPath(error){return new Map(issues(error).map(issue=>[issue.path,issue]));}
 
 test('actual020 primary responses retain exact raw hashes, recorded aliases and full canonical validator inputs',()=>{
@@ -109,8 +109,8 @@ test('a malformed guidance item reports its parent while a valid-shaped sibling 
 
 test('an invalid topic parent leaves delivered QQ-only control roles checked without guessing dependent topic requirements',()=>{
  const {response,payload}=fixture(1);response.topicPatch='not an object';
- const before=clone(response),found=byPath(rejected(()=>parse(response,payload)));
- assert.deepEqual([...found.keys()].sort(),['draftPlan.guidance.currentStep.sourceIds','requestDelivery.mode','topicPatch'].sort());
+ const before=clone(response),diagnostics={},found=byPath(rejected(()=>parse(response,payload,diagnostics)));assert.equal(diagnostics.auxiliaryErrors[0].field,'topicPatch');
+ assert.deepEqual([...found.keys()].sort(),['draftPlan.guidance.currentStep.sourceIds','requestDelivery.mode'].sort());
  assert.equal(found.get('draftPlan.guidance.currentStep.sourceIds').code,'draft_guidance_source_invalid');
  assert.equal(found.get('requestDelivery.mode').code,'request_delivery_unfulfilled');
  assert.deepEqual(response,before,'neither a topic repair nor a control source is inferred');
@@ -118,8 +118,8 @@ test('an invalid topic parent leaves delivered QQ-only control roles checked wit
 
 test('an invalid topic parent does not hide either independently checkable material defect',()=>{
  const {response,payload}=fixture();response.topicPatch='not an object';
- const before=clone(response),found=byPath(rejected(()=>parse(response,payload)));
- assert.deepEqual([...found.keys()].sort(),['draftPlan.quotes[1].authorization','draftPlan.quotes[2].authorization.referent','topicPatch'].sort());
+ const before=clone(response),diagnostics={},found=byPath(rejected(()=>parse(response,payload,diagnostics)));assert.equal(diagnostics.auxiliaryErrors[0].field,'topicPatch');
+ assert.deepEqual([...found.keys()].sort(),['draftPlan.quotes[1].authorization','draftPlan.quotes[2].authorization.referent'].sort());
  assert.equal(found.get('draftPlan.quotes[1].authorization').code,'draft_material_authorization_missing');
  assert.equal(found.get('draftPlan.quotes[2].authorization.referent').code,'draft_material_referent_mismatch');
  assert.deepEqual(response,before);assert.equal(Object.hasOwn(response.draftPlan.quotes[1],'authorization'),false);

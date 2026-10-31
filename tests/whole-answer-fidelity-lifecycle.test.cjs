@@ -49,7 +49,7 @@ test('the primary whole why/message candidate is admitted then checked without a
 
 test('a scripted rejection of a why/body discrepancy regenerates the whole candidate once and rechecks original unselected qualifiers',async t=>{
  let checks=0;const bad='我以前独自装过一个四层书架。',badWhy='原文没有本人组装经历，不能把旁观当成亲历。',app=await application(t,(p,wrapper)=>{
-  if(p.purpose==='fidelity_check'){checks++;assert.ok(p.evidence.some(source=>source.text===ORIGINAL_QUALIFIER));if(checks===1){assert.equal(p.candidate.suggestions[0].text,bad);assert.equal(p.candidate.discussionExplanation.text,badWhy);return {checkRef:p.checkRef,verdict:'reject',issues:[{path:'suggestions[0].text',code:'internal_conflict',reason:'Scripted rejection tests the lifecycle, not model quality.'}]};}return {checkRef:p.checkRef,verdict:'allow',issues:[]};}
+  if(p.purpose==='fidelity_check'){checks++;assert.ok(p.evidence.some(source=>source.text===ORIGINAL_QUALIFIER));if(checks===1){assert.equal(p.candidate.suggestions[0].text,bad);assert.equal(p.candidate.discussionExplanation.text,badWhy);return {checkRef:p.checkRef,verdict:'reject',issues:[{path:'suggestions[0].text',code:'internal_conflict',quote:bad,relatedPath:'discussionExplanation.text',relatedQuote:badWhy,reason:'Scripted rejection tests the lifecycle, not model quality.'}]};}return {checkRef:p.checkRef,verdict:'allow',issues:[]};}
   if(!wrapper.originalInput){const value=prepared(p,{message:bad,why:badWhy,fragment:'我只看过朋友组装书架，'});value.statePatch={items:[{text:'REJECTED_CANDIDATE_STATE_NOT_COMMITTED',sourceIds:[p.intentAuthority.sourceId]}]};return value;}
   return prepared(p,{message:OPINION,why:'保留真实看法与未来打算，不补亲历事件。',current:true,fragment:OPINION});
  },{noteText:ORIGINAL_QUALIFIER});
@@ -59,7 +59,7 @@ test('a scripted rejection of a why/body discrepancy regenerates the whole candi
 });
 
 test('a checker rejection cannot obtain a second shared repair after the primary format repair was already spent',async t=>{
- const app=await application(t,(p,_wrapper,index)=>{if(index===0)return {operation:'prepare_message',draftPlan:'malformed plan',answer:{suggestions:[{text:'Unusable candidate.'}]}};if(p.purpose==='fidelity_check')return {checkRef:p.checkRef,verdict:'reject',issues:[{path:'text',code:'current_boundary',reason:'Scripted terminal rejection.'}]};const value=prepared(p);value.statePatch={items:[{text:'UNAPPROVED_STATE_EFFECT',sourceIds:[p.intentAuthority.sourceId]}]};return value;},{noteText:SELF_MATERIAL});
+ const bad='我以前独自装过一个四层书架。',app=await application(t,(p,_wrapper,index)=>{if(index===0)return {operation:'prepare_message',draftPlan:'malformed plan',answer:{suggestions:[{text:'Unusable candidate.'}]}};if(p.purpose==='fidelity_check'){const source=p.evidence.find(source=>source.text===SELF_MATERIAL);return {checkRef:p.checkRef,verdict:'reject',issues:[{path:'suggestions[0].text',code:'evidence_mismatch',quote:bad,evidence:[{sourceId:source.sourceId,quote:source.text}],reason:'Scripted terminal rejection preserves the explicit two-layer material.'}]};}const value=prepared(p,{message:bad});value.statePatch={items:[{text:'UNAPPROVED_STATE_EFFECT',sourceIds:[p.intentAuthority.sourceId]}]};return value;},{noteText:SELF_MATERIAL});
  const before=app.store.getCompanion(scope).state.version;await assert.rejects(app.assist('按所选原话准备表达。'),error=>error.code==='request_delivery_repair_exhausted');
  const ledger=app.controller.usage.get(scope,'whole-answer-fidelity');assert.equal(app.calls.length,3);assert.equal(ledger.attempts,3);assert.equal(ledger.requests.filter(request=>request.purpose==='delivery_repair').length,1);assert.equal(app.store.getCompanion(scope).state.version,before);assert.equal(app.store.getCompanion(scope).turns.some(turn=>turn.role==='assistant'),false);
 });
@@ -90,9 +90,9 @@ for(const event of ['account','contact','QQ','withdrawal'])test(`a delayed check
 });
 
 test('source withdrawal during the one candidate-regeneration repair cannot publish or recheck a stale answer',async t=>{
- let release,enter;const entered=new Promise(resolve=>{enter=resolve;}),app=await application(t,(p,wrapper)=>{
-  if(p.purpose==='fidelity_check')return {checkRef:p.checkRef,verdict:'reject',issues:[{path:'suggestions[0].text',code:'evidence_mismatch',reason:'Scripted rejection starts the one repair.'}]};
-  if(wrapper.originalInput)return new Promise(resolve=>{release=()=>resolve(prepared(p));enter();});return prepared(p);
+ let release,enter;const bad='我以前装过一个四层书架。',entered=new Promise(resolve=>{enter=resolve;}),app=await application(t,(p,wrapper)=>{
+  if(p.purpose==='fidelity_check'){const source=p.evidence.find(source=>source.text===SELF_MATERIAL);return {checkRef:p.checkRef,verdict:'reject',issues:[{path:'suggestions[0].text',code:'evidence_mismatch',quote:bad,evidence:[{sourceId:source.sourceId,quote:source.text}],reason:'Scripted rejection starts the one repair against the supplied two-layer original.'}]};}
+  if(wrapper.originalInput)return new Promise(resolve=>{release=()=>resolve(prepared(p));enter();});return prepared(p,{message:bad});
  },{noteText:SELF_MATERIAL});
  const pending=app.assist();pending.catch(()=>{});t.after(()=>release?.());await Promise.race([entered,pending.then(()=>{throw Error('Expected a controlled regeneration repair');})]);app.store.forgetSource(scope,'note:'+app.note.id);release();await pending.catch(()=>{});
  assert.equal(app.calls.length,3);assert.equal(app.controller.usage.get(scope,'whole-answer-fidelity').requests.filter(request=>request.purpose==='delivery_repair').length,1);assert.equal(app.store.getCompanion(scope).turns.some(turn=>turn.role==='assistant'),false);

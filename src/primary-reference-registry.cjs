@@ -4,7 +4,7 @@ const {deliveryRange}=require('./context/source-delivery.cjs');
 const {validationError}=require('./validation-issues.cjs');
 
 const VERSION='primary-reference-choices-v1';
-const SYSTEM='Use offered materialRef+authorityRef per fragment; addresses are not grants. parts pairs are [boundaryRef,text], null is unanchored; endBoundary follows anchored parts. Refine only as mPARENT@bSTART:bEND using offered ordered boundaries inside that parent. from/to include those atoms. ORIGINALUSERSTATEMENTCANDIDATE is NOT GRANT: judge full context, quotes, negation, conditions and later restrictions. a# cannot refine. PROGRAM_SOURCE_AUTHORITY is target-bound. Program restores exact text/identity; never copy or fix them. Catalog-only records provide no material/permission.';
+const SYSTEM='Use offered materialRef per fragment. Only currently offered public QQ material may omit authorityRef under its existing target-bound PROGRAM_SOURCE_AUTHORITY; other material requires its exact offered authorityRef. Explicit wrong pairs still fail. parts pairs are [boundaryRef,text], null is unanchored; endBoundary follows anchored parts. Refine only as mPARENT@bSTART:bEND inside the same offered parent; from/to include those atoms. ORIGINALUSERSTATEMENTCANDIDATE is NOT GRANT: judge full context, quotes, negation, conditions and later restrictions. a# cannot refine. Program restores exact text/identity; never copy or fix them. Catalog-only records provide no material/permission.';
 const canonical=new WeakMap(),materialBindings=new WeakMap();
 const clone=value=>value===undefined?undefined:structuredClone(value);
 const freeze=value=>{if(value&&typeof value==='object'){for(const item of Object.values(value))freeze(item);Object.freeze(value);}return value;};
@@ -188,6 +188,13 @@ class PrimaryReferenceOwner{
     }
     const result=freeze({sourceId:metadata.sourceId,text,revision:metadata.revision});
     materialBindings.set(result,{snapshot,metadata});return result;
+   },
+   publicAuthority:(material,path='authorityRef')=>{
+    requireCommit();const bound=material&&materialBindings.get(material);
+    if(!bound||bound.snapshot!==snapshot)throw fail(path,'material_reference_binding_invalid','public authority requires this exact dispatched material');
+    const source=sourceById.get(material.sourceId);
+    if(!source?.available||!sameScope(source.source,this.#scope)||source.source.deleted||source.source.excluded||source.source.use==='disabled'||source.source.type!=='qq'||source.source.revision!==material.revision)return undefined;
+    return [...offeredAuthorities.values()].find(authority=>authority.kind==='PROGRAM_SOURCE_AUTHORITY'&&authority.targetSourceId===material.sourceId&&authority.targetRevision===material.revision&&authority.start===undefined)?.authorityRef;
    },
    authority:(ref,material,path='authorityRef')=>{
     requireCommit();const found=typeof ref==='string'&&offeredAuthorities.get(ref),bound=material&&materialBindings.get(material);

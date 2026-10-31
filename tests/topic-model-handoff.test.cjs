@@ -201,7 +201,7 @@ test('bounded whole-response drafting repair retains guidance provenance and cho
   for (const forbidden of ['PRIVATE_MOTIVE_', 'PRIVATE_LONG_GOAL_']) assert.ok(calls.every(body => !body.includes(forbidden)));
 });
 
-test('ordinary help drops closed-topic updates and active-topic resumes while legacy and planning stay strict', t => {
+test('ordinary and prepared help isolate invalid lifecycle proposals while legacy parsing stays strict', t => {
   const { args, topic, guidance } = fixture(t), prepared = buildContext(args), currentId = prepared.payload.userRequest.sourceId;
   const plan = { taskUse:'continue', quotes: [], intent: 'reply', guidance };
   const rejected = (output, payload) => {
@@ -210,7 +210,7 @@ test('ordinary help drops closed-topic updates and active-topic resumes while le
     assert.equal(diagnostics.auxiliaryErrors[0].field, 'topicPatch'); assert.match(diagnostics.auxiliaryErrors[0].message, /topicPatch.*(?:lifecycle|closed|active)/);
     assert.throws(() => parseAssistant(output, 'discussion', { ...payload, taskContext: undefined }), /topicPatch.*(?:lifecycle|closed|active)/);
     assert.ok(parseAssistant({ kind: 'discussion', text: output.text, draftPlan: plan }, 'draft_prepare', payload).draftPlan, 'the planning fixture is valid without the rejected auxiliary');
-    assert.throws(() => parseAssistant({ ...output, draftPlan: plan }, 'draft_prepare', payload), /topicPatch.*(?:lifecycle|closed|active)/);
+    const preparedDiagnostics={},prepared=parseAssistant({...output,draftPlan:plan},'draft_prepare',payload,preparedDiagnostics);assert.equal(prepared.topicPatch,undefined);assert.deepEqual(prepared.draftPlan.guidance,plan.guidance);assert.equal(preparedDiagnostics.auxiliaryErrors[0].field,'topicPatch');
   };
   for (const lifecycle of ['paused','completed','cancelled']) {
     const payload = { ...prepared.payload, topicContext: { ...prepared.payload.topicContext, active: null, activeId: null,
@@ -287,7 +287,7 @@ test('recorded LIVE new-topic shape accepts current private task phase without i
   assert.equal(topic.observationAuthorities.unknowns, 'private_task_state');
 });
 
-test('ordinary help rejects unsupported progress without repair while source-bound planning still repairs strictly', async t => {
+test('ordinary and prepared help isolate unsupported optional progress without spending core repair', async t => {
   const { store, args, topic, guidance } = fixture(t);
   const turn = store.appendTurn(scope, { role: 'user', kind: 'discussion', requestId: 'synthetic-progress-intent', text: '继续按已有方向商量参考表达。' });
   const options = { ...args, turn, companion: store.getCompanion(scope), availableSources: store.memorySources(scope), requestId: turn.requestId, purpose: 'discussion' };
@@ -311,13 +311,13 @@ test('ordinary help rejects unsupported progress without repair while source-bou
   const plan = { taskUse:'continue', quotes: [], intent: 'reply', guidance: { ...guidance, currentStep: { text: '提供一句待用户选择的参考表达', sourceIds: [currentId] } } };
   const strict = buildContext({ ...options, purpose: 'draft_prepare' });
   assert.ok(parseAssistant({ kind: 'discussion', text: '按真实意思准备', draftPlan: plan }, 'draft_prepare', strict.payload).draftPlan);
-  assert.throws(() => parseAssistant({ ...invalid, draftPlan: plan }, 'draft_prepare', strict.payload), /topicPatch.observationSourceIds.*progress/);
+  const preparedDiagnostics={},safe=parseAssistant({...invalid,draftPlan:plan},'draft_prepare',strict.payload,preparedDiagnostics);assert.equal(safe.topicPatch,undefined);assert.match(preparedDiagnostics.auxiliaryErrors[0].message,/topicPatch.observationSourceIds.*progress/);
   const strictCalls = [], planned = await assistModel(settings, strict, undefined, async (_, request) => {
     strictCalls.push(JSON.parse(JSON.parse(request.body).messages[1].content));
     const answer={suggestions:[{text:'A complete proposed message, still not sent.'}]};const output = strictCalls.length === 1 ? { ...invalid, draftPlan: plan,answer } : { kind: 'discussion', text: '当前只是在准备表达，尚未观察到发送。', draftPlan: plan,answer };
     return { ok: true, json: async () => ({ choices: [{ message: { content: JSON.stringify(output) } }] }) };
   });
-  assert.equal(strictCalls.length,2);assert.ok(strictCalls[1].validationIssues.some(issue=>issue.path==='topicPatch.observationSourceIds'&&/progress/.test(issue.message)));
+  assert.equal(strictCalls.length,1);assert.equal(strict.manifest.formatRepair,undefined);assert.ok(strict.manifest.auxiliaryErrors.some(issue=>issue.field==='topicPatch'&&/progress/.test(issue.message)));
   assert.deepEqual(planned.draftPlan.guidance, plan.guidance); assert.equal(planned.topicPatch, undefined);
 });
 
