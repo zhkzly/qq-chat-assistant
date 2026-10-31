@@ -45,19 +45,19 @@ function setup(t,{badCompaction=false}={}){
 test('long discussion automatically compacts once, drafts safely and reuses the validated cache on the next request',async t=>{
  const app=setup(t);const original=await app.seed();
  const first=await app.controller.assist({text:'按第二个给一句完整的话',purpose:'draft',taskId:'compaction-first'});
- const admitted=app.controller.assistantContext().run.payload;assert.equal(JSON.stringify(admitted).includes('PRIVATE_MOTIVE_SENTINEL'),false);assert.equal(admitted.discussionCompaction,undefined);assert.equal(app.calls.at(-1).purpose,'fidelity_check');
+ const admitted=app.controller.assistantContext().run.payload;assert.equal(JSON.stringify(admitted).includes('PRIVATE_MOTIVE_SENTINEL'),false);assert.equal(admitted.discussionCompaction,undefined);assert.equal(app.calls.at(-1).purpose,'draft_prepare');
  assert.equal(first.suggestions[0].text,SECOND);assert.equal(app.calls.filter(x=>x.purpose==='discussion_compaction').length,1);
  assert.equal(app.store.getCompanion(scope).turns.find(x=>x.id===original.oldAssistant.id).text,original.oldAssistant.text);
- const task=app.controller.usage.get(scope,'compaction-first');assert.equal(task.attempts,3);assert.equal(task.status,'complete');
+ const task=app.controller.usage.get(scope,'compaction-first');assert.equal(task.attempts,2);assert.equal(task.status,'complete');
  assert.equal(app.controller.snapshot().discussionCompaction.phase,'applied');
  const again=await app.controller.assist({text:'沿这个方向再给一句',purpose:'draft',taskId:'compaction-reuse'});
  assert.equal(again.kind,'draft');assert.equal(app.calls.filter(x=>x.purpose==='discussion_compaction').length,1);
- assert.equal(app.controller.usage.get(scope,'compaction-reuse').attempts,2);assert.equal(app.controller.snapshot().discussionCompaction.phase,'reused');
+ assert.equal(app.controller.usage.get(scope,'compaction-reuse').attempts,1);assert.equal(app.controller.snapshot().discussionCompaction.phase,'reused');
 });
 test('automatic/quick reply can compact private history without recording a virtual request as evidence',async t=>{
  const app=setup(t);await app.seed();
  const answer=await app.controller.assist({text:'自然接话',purpose:'reply',transient:true,origin:'automatic',taskId:'virtual-reply'});
- assert.equal(answer.kind,'draft');assert.equal(app.controller.usage.get(scope,'virtual-reply').attempts,3);
+ assert.equal(answer.kind,'draft');assert.equal(app.controller.usage.get(scope,'virtual-reply').attempts,2);
  assert.equal(app.store.getCompanion(scope).turns.some(x=>x.id==='virtual-reply'&&x.role==='user'),false);
 });
 test('a failed compaction keeps all originals, counts its bounded repair and never invokes the assistance stage',async t=>{

@@ -73,8 +73,8 @@ for(const restricted of [false,true])test(`${restricted?'restricted final':'actu
  const rawContent=app.calls.filter(call=>call.p.purpose!=='fidelity_check').at(-1).content;
  const operation=JSON.parse(rawContent);assert.equal(operation.operation,'clarify');assert.equal(operation.text,undefined);assert.deepEqual(operation.blocker,repairResponse.requestDelivery.blocker);
  assert.equal(app.run().manifest.primaryOperation.operation,'clarify');assert.equal(app.run().manifest.primaryOperation.requiredArtifact,restricted?'message':undefined);assert.equal(app.run().manifest.blockerRendering,undefined,'the new operation has no untyped second body; raw legacy final rendering remains covered separately');
- assert.equal(app.calls.at(-1).p.purpose,'fidelity_check');assert.equal(app.calls.at(-1).p.candidate.text,question);
- assert.equal(app.calls.length,restricted?3:2,'the complete blocker requires one read-only check, without a fulfillment repair');
+ assert.equal(app.calls.at(-1).p.purpose,'discussion');assert.equal(reply.text,question);
+ assert.equal(app.calls.length,restricted?2:1,'the complete blocker needs only its actual lookup/primary stages, without an automatic critic');
  assert.equal(app.run().requests.some(request=>request.purpose==='delivery_repair'),false);
  const saved=app.store.getCompanion(scope).turns.at(-1);assert.equal(saved.text,question);assert.equal(saved.discussionExplanation,undefined);
  assert.equal(app.store.messages(scope).some(message=>message.direction==='outgoing'),false);
@@ -110,7 +110,7 @@ test('applied forget clears a normalized blocker sentinel before every subsequen
  const reply=await app.respond();
  assert.ok(reply.actionReceipts.some(receipt=>receipt.type==='forget'&&receipt.status==='applied'),'the source removal must actually apply before taint checks');
  assert.equal(app.store.memorySources(scope).some(source=>source.id===targetId||source.text.includes(secret)),false);
- assert.equal(app.calls.length,3);assert.equal(app.calls.slice(1).some(call=>JSON.stringify(call).includes(secret)),false,'no post-forget serialized field may contain the removed blocker content');
+ assert.equal(app.calls.length,2);assert.equal(app.calls.slice(1).some(call=>JSON.stringify(call).includes(secret)),false,'no post-forget serialized field may contain the removed blocker content');
  assert.equal(JSON.stringify(afterForgetArgs).includes(secret),false);
  assert.equal(JSON.stringify(app.contexts.slice(1).map(context=>({payload:context.payload,manifest:context.manifest}))).includes(secret),false);
  assert.equal(JSON.stringify(app.run()).includes(secret),false,'normalized explanation, blocker witness and captured requests must all be sanitized');

@@ -39,14 +39,14 @@ test('readable planning and lookup steps retain their explanation while legacy p
     assert.equal(legacy.kind, undefined); assert.equal(legacy.text, undefined);
   }
 });
-for (const primaryRepairMetadata of [false, true]) test(`explicit primary explanation survives fidelity checking${primaryRepairMetadata ? ' with primary structured-repair metadata' : ''} without entering outgoing material`, async t => {
+for (const primaryRepairMetadata of [false, true]) test(`explicit primary explanation survives publication sealing${primaryRepairMetadata ? ' with primary structured-repair metadata' : ''} without entering outgoing material`, async t => {
   const { store, controller, inputs } = setup(t, { primaryRepairMetadata });
   const reply = await controller.assist({ text: '先接吐槽，暂时不直接问游戏名；给我一句，也解释为什么这样接', purpose: 'discussion' });
-  assert.deepEqual(inputs.map(input => input.purpose), ['discussion', 'fidelity_check']);
+  assert.deepEqual(inputs.map(input => input.purpose), ['discussion']);
   assert.deepEqual(reply.discussionExplanation, { kind: 'discussion', text: explanation });
   assert.equal(reply.text, ''); assert.equal(reply.suggestions[0].text, wording);
-  assert.equal(inputs[1].candidate.discussionExplanation.text,explanation,'the complete displayed explanation is checked read-only');
-  assert.ok(!JSON.stringify(inputs[1].admittedFragments).includes(explanation),'generated rationale is not outward material authority');
+  assert.equal(controller.assistantContext().run.manifest.publicationSeal.semanticCheck,false);
+  assert.equal(reply.semanticReview,undefined,'there is no automatic semantic badge on a normal reply');
   assert.ok(!JSON.stringify(controller.assistantContext().run.payload.outboundQuotes).includes(explanation));
   const saved = store.getCompanion(scope).turns.find(turn => turn.id === reply.id);
   assert.deepEqual(saved.discussionExplanation, reply.discussionExplanation);
@@ -83,7 +83,7 @@ test('a legacy clarification records only its canonical question without promoti
   const raw={kind:'discussion',text:explanation,draftPlan:{clarification:'你这次希望只接住吐槽，还是也愿意邀请？'}};
   controller.assistantModel = async (_, input) => { inputs.push(input.payload);return input.payload.purpose==='fidelity_check'?{checkRef:input.payload.checkRef,auditProtocol:'sparse-defects-v1',issues:[]}:raw; };
   const reply = await controller.assist({ text: '我还不确定怎么表达', purpose: 'discussion' });
-  assert.equal(inputs.length, 2);assert.equal(inputs[1].purpose,'fidelity_check'); assert.equal(reply.kind, 'question'); assert.equal(reply.discussionExplanation,undefined);assert.equal(raw.text,explanation,'the original producer body is unchanged, not promoted');
+  assert.equal(inputs.length, 1);assert.equal(inputs[0].purpose,'discussion'); assert.equal(reply.kind, 'question'); assert.equal(reply.discussionExplanation,undefined);assert.equal(raw.text,explanation,'the original producer body is unchanged, not promoted');
   assert.equal(reply.text, '你这次希望只接住吐槽，还是也愿意邀请？'); assert.equal(reply.suggestions, undefined);
   assert.equal(store.experiences.artifact(scope, reply.artifactRef).body,reply.text);
 });

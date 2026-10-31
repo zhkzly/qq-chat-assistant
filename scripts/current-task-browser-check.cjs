@@ -84,8 +84,8 @@ async function until(check,label){for(let n=0;n<120;n++){if(await check())return
    assert.equal(await cdp.evaluate("document.querySelector('#draft').value"),'这份未发送草稿要保留。');assert.equal(await cdp.evaluate("document.querySelector('#goal-input').value"),'这个目标还没有保存，先保留。');assert.equal(controller.snapshot().total,totalBefore);
    checks.push('Synthetic task/readback shows actual QQ, unknown quote, self evidence and loaded guidance without clearing input, draft, goal or QQ');
    await ui.fill('#assistant-input','');
-   const before=calls.length;await ui.click('#generate');await until(()=>calls.length===before+2&&!controller.assistantBusy,'empty scoped QQ help');
-   const observation=calls[before];assert.equal(calls[before+1].purpose,'fidelity_check','the exact complete private question receives the normal read-only check');assert.equal(observation.purpose,'reply');assert.notEqual(observation.userRequest.text,controller.instruction,'saved style is separate from the actual QQ task');
+   const before=calls.length;await ui.click('#generate');await until(()=>calls.length===before+1&&!controller.assistantBusy,'empty scoped QQ help');
+   const observation=calls[before];assert.equal(calls.some(call=>call.purpose==='fidelity_check'),false,'ordinary help has no automatic critic');assert.equal(observation.purpose,'reply');assert.notEqual(observation.userRequest.text,controller.instruction,'saved style is separate from the actual QQ task');
    assert.equal(observation.generationOrigin,'qq_observation');assert.equal(observation.taskContext.requestOrigin,'qq_observation');assert.equal(observation.taskContext.responsePreference,controller.instruction);
    assert.equal(observation.taskContext.latestActual.sourceId,'qq:72057594037927939');assert.deepEqual(callScopes.at(-1),scope,'observation remains bound to all four scope fields');
    checks.push('Empty shortcut retains the actual QQ task, separate style preference and complete captured scope');

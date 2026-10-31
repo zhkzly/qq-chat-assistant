@@ -48,7 +48,7 @@ test('specific feedback becomes an inactive scoped guidance candidate and helps 
 test('idempotent browser submissions do not create duplicate private turns or model requests',async t=>{
  let calls=0;const app=setup(t,async()=>{calls++;return {kind:'discussion',text:'可以先说说你愿意表达的意思。'}});await app.controller.bind(scope.peerUin);
  const args={taskId:'client-retry-one',text:'我想找她聊天。'};const first=await app.controller.assist(args),second=await app.controller.assist(args);
- assert.equal(first.id,second.id);assert.equal(calls,1);assert.equal(app.fidelityCalls.length,1);assert.equal(app.store.getCompanion(scope).turns.length,2);
+ assert.equal(first.id,second.id);assert.equal(calls,1);assert.equal(app.fidelityCalls.length,0);assert.equal(app.store.getCompanion(scope).turns.length,2);
  await assert.rejects(app.controller.assist({...args,text:'不一样的请求'}),/不同/);
 });
 test('a late rejected old attempt cannot overwrite the completed resumed task ledger',async t=>{
@@ -63,8 +63,8 @@ test('a late rejected old attempt cannot overwrite the completed resumed task le
 });
 test('automatic requests deduplicate unchanged context but an explicit regeneration remains available',async t=>{
  let calls=0;const app=setup(t,async()=>{calls++;return {kind:'discussion',text:'合成场景暂不需要新回复。',replyDisposition:'wait',stateReview:'no_change'}});await app.controller.bind(scope.peerUin);
- await app.controller.suggest({automatic:true});await app.controller.suggest({automatic:true});assert.equal(calls,1);assert.equal(app.fidelityCalls.length,1);
- await app.controller.suggest();assert.equal(calls,2);assert.equal(app.fidelityCalls.length,2);
+ await app.controller.suggest({automatic:true});await app.controller.suggest({automatic:true});assert.equal(calls,1);assert.equal(app.fidelityCalls.length,0);
+ await app.controller.suggest();assert.equal(calls,2);assert.equal(app.fidelityCalls.length,0);
 });
 test('rejected derived-claim edits return an actionable failure instead of a successful snapshot',async t=>{
  const app=setup(t,async()=>({kind:'discussion',text:'test'}));await app.controller.bind(scope.peerUin);
@@ -90,7 +90,7 @@ test('a correction cannot upgrade an earlier staged claim to the replacement sou
  const original=app.store.appendTurn(scope,{role:'user',kind:'discussion',text:'我周六去了展览'});sourceId=`private:${original.id}`;
  await app.controller.bind(scope.peerUin);
  await app.controller.assist({text:request,sourceTurnIds:[original.id],taskId:'no-stale-provenance-upgrade'});
- assert.equal(calls,2);assert.equal(app.fidelityCalls.length,1);
+ assert.equal(calls,2);assert.equal(app.fidelityCalls.length,0);
  const source=app.store.memorySources(scope).find(s=>s.id===sourceId);assert.equal(source.text,'我周日去了展览');
  assert.deepEqual(app.store.relationshipView(scope).claims,[],'the replacement foreground proposal still cannot become an active profile');
  const batch=app.store.memoryBatch(scope);assert.equal(batch.pendingProposals.length,1);

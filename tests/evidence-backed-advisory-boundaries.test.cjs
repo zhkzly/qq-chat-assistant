@@ -32,7 +32,7 @@ async function application(t,verdict){
 const badAdvisory={path:'suggestions[0].text',code:'style',sourceIds:['s999'],reason:DIAGNOSTIC};
 function noExtraRequests(app){
  const ledger=app.controller.usage.get(scope,'advisory-boundary');
- assert.equal(app.calls.length,2);assert.equal(ledger.attempts,2);assert.equal(ledger.limit,4);
+ assert.equal(app.calls.length,1);assert.equal(ledger.attempts,1);assert.equal(ledger.limit,4);
  assert.deepEqual(ledger.requests.map(request=>request.purpose),['discussion','fidelity_check']);
  assert.equal(app.store.messages(scope).some(message=>message.direction==='outgoing'),false);
  return ledger;
@@ -44,16 +44,7 @@ function noPublication(app){
  assert.equal(app.store.memoryStatus(scope).pendingProposals,0);
 }
 
-test('unusable optional audit witnesses remain private diagnostics and expose incomplete review without new authority',async t=>{
- const app=await application(t,p=>({checkRef:p.checkRef,auditProtocol:'sparse-defects-v1',issues:[{...badAdvisory,code:'current_boundary',quote:MESSAGE}],concerns:[badAdvisory]})),reply=await app.assist(),ledger=noExtraRequests(app);
- assert.equal(ledger.status,'complete');assert.equal(reply.suggestions[0].text,MESSAGE);assert.equal(reply.semanticReview.status,'incomplete');assert.equal(reply.warning,undefined);assert.ok(reply.semanticReview.findings.some(f=>f.reason===DIAGNOSTIC));assert.equal(reply.suggestions[0].text.includes(DIAGNOSTIC),false);assert.deepEqual(app.calls[1].admittedFragments,[]);assert.equal(app.store.relationshipView(scope).claims.length,0);assert.equal(app.store.memoryStatus(scope).pendingProposals,0);
- const check=app.contexts.at(-1).manifest.fidelity;assert.equal(check.exhaustive,false);assert.equal(check.issues.length,0);assert.ok(check.diagnostics.length>=2);assert.equal(app.store.memorySources(scope).some(source=>source.id==='s999'),false);
-});
-test('uncertain private interpretation remains advice and invalid optional witnesses mark the audit incomplete without regeneration',async t=>{
- const app=await application(t,p=>({checkRef:p.checkRef,auditProtocol:'sparse-defects-v1',issues:[],concerns:[{path:'suggestions[0].text',code:'interpretation',quote:MESSAGE,reason:'This private reading is uncertain.'},badAdvisory]})),reply=await app.assist(),ledger=noExtraRequests(app);
- assert.equal(ledger.status,'complete');assert.equal(reply.semanticReview.status,'incomplete');const check=app.contexts.at(-1).manifest.fidelity;assert.equal(check.concerns.length,1);assert.ok(check.diagnostics.length);assert.equal(check.issues.length,0);
-});
-test('legacy global rejection cannot become a native pass certificate or override actual nonassertive help',async t=>{
- const app=await application(t,p=>({checkRef:p.checkRef,verdict:'reject',factual:factualReview(p,{}),issues:[],concerns:[badAdvisory]})),reply=await app.assist(),ledger=noExtraRequests(app);
- assert.equal(ledger.status,'complete');assert.equal(reply.suggestions[0].text,MESSAGE);assert.equal(reply.semanticReview.status,'incomplete');const check=app.contexts.at(-1).manifest.fidelity;assert.equal(check.exhaustive,false);assert.equal(check.verdict,'incomplete');assert.deepEqual(check.issues,[]);assert.equal(app.store.relationshipView(scope).claims.length,0);assert.equal(app.store.memoryStatus(scope).pendingProposals,0);
+for(const style of ['unusable optional witnesses','targeted uncertainty','legacy global rejection'])test(`ordinary help never invokes an unrequested critic with ${style}`,async t=>{
+ let checks=0;const app=await application(t,p=>{checks++;return {checkRef:p.checkRef,verdict:'reject',issues:[badAdvisory],concerns:[badAdvisory]};}),reply=await app.assist(),ledger=app.controller.usage.get(scope,'advisory-boundary');
+ assert.equal(checks,0);assert.equal(app.calls.length,1);assert.equal(ledger.attempts,1);assert.equal(ledger.status,'complete');assert.equal(reply.suggestions[0].text,MESSAGE);assert.equal(reply.semanticReview,undefined);assert.equal(JSON.stringify(reply).includes(DIAGNOSTIC),false);assert.equal(app.contexts.some(input=>input.payload.purpose==='fidelity_check'),false);assert.equal(app.store.memorySources(scope).some(source=>source.id==='s999'),false);assert.equal(app.store.relationshipView(scope).claims.length,0);assert.equal(app.store.memoryStatus(scope).pendingProposals,0);assert.equal(app.store.messages(scope).some(message=>message.direction==='outgoing'),false);
 });

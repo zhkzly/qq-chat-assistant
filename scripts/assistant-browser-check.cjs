@@ -174,7 +174,7 @@ async function until(predicate, label) {
     assert.equal(controller.snapshot().companion.turns.length,countBefore+2);
     assert.equal(await cdp.evaluate("document.querySelectorAll('#assistant-thread img').length"), 0);
     assert.equal(controller.snapshot().total, 0);
-    assert.equal(calls.length, callsBefore+2);
+    assert.equal(calls.length, callsBefore+1);
     checks.push('Private exchange is rendered as text and never creates an actual QQ record');
 
     await cdp.call('Page.reload');
@@ -189,9 +189,9 @@ async function until(predicate, label) {
     await until(()=>cdp.evaluate("document.querySelector('.method-basis')?.textContent.includes('研究来源')"),'method basis metadata');
     const optionCalls=calls.length;
     await ui.click('.expression-option button');
-    await until(()=>calls.length===optionCalls+2&&!controller.assistantBusy,'option to fresh draft context');
-    assert.equal(calls.at(-2).payload.userRequest.text,'按选中的方向组织表达');
-    assert.ok(calls.at(-2).payload.selectedOption);
+    await until(()=>calls.length===optionCalls+1&&!controller.assistantBusy,'option to fresh draft context');
+    assert.equal(calls.at(-1).payload.userRequest.text,'按选中的方向组织表达');
+    assert.ok(calls.at(-1).payload.selectedOption);
     assert.deepEqual(controller.assistantContext().run.payload.outboundQuotes.map(q=>q.text),[optionFact]);
     assert.equal(JSON.stringify(controller.assistantContext().run.payload).includes(privateFear),false);
     assert.equal(controller.snapshot().total,0);
@@ -200,10 +200,11 @@ async function until(predicate, label) {
     const mixedPrivateRequest=`${privateFear}，但想告诉她实验终于成功了，帮我写一句。`;
     await submit(mixedPrivateRequest,'assistant-draft');
     await until(() => cdp.evaluate("document.querySelectorAll('#assistant-thread .assistant-suggestion').length===2"), 'one optional draft');
-    assert.deepEqual(calls.slice(-2).map(call => call.payload.purpose), ['draft_prepare', 'fidelity_check']);
+    assert.equal(calls.at(-1).payload.purpose, 'draft_prepare');
+    assert.equal(calls.some(call=>call.payload.purpose==='fidelity_check'),false,'ordinary help never invokes the removed foreground critic');
     const wordingPayload=controller.assistantContext().run.payload;
     const outbound = JSON.stringify(withoutCurrentControl(wordingPayload,mixedPrivateRequest));
-    assert.equal(wordingPayload.currentHumanControl.sourceId,calls.at(-2).payload.intentAuthority.sourceId);
+    assert.equal(wordingPayload.currentHumanControl.sourceId,calls.at(-1).payload.intentAuthority.sourceId);
     const renderedSuggestions=await cdp.evaluate("Array.from(document.querySelectorAll('#assistant-thread .assistant-suggestion')).map(node=>node.textContent).join('\\n')");
     for (const secret of [privateFear, syntheticGoal, 'PRIVATE_BROWSER_NOTE_', '我主要想分享终于松了口气']) {
       assert.equal(outbound.includes(secret), false, secret);

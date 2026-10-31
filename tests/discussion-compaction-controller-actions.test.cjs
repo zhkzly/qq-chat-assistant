@@ -37,7 +37,7 @@ test('a correction after compaction clears retired request provenance and delive
   const answer=await controller.assist({text:command,taskId:'correct-after-compaction'});
   assert.equal(answer.text,'Here is help under the corrected direction.');
   assert.equal(calls.filter(p=>p.purpose==='discussion_compaction').length,1);assert.equal(helperCalls,2);
-  const task=controller.usage.get(scope,'correct-after-compaction');assert.equal(task.status,'complete');assert.equal(task.attempts,4);
+  const task=controller.usage.get(scope,'correct-after-compaction');assert.equal(task.status,'complete');assert.equal(task.attempts,3);
   const companion=store.getCompanion(scope);assert.equal(companion.turns.find(turn=>turn.id===originalUser.id).text,'NEW_PRIVATE_DIRECTION');
   assert.equal(companion.turns.some(turn=>turn.id===originalAssistant.id),false);
   assert.equal(answer.discussionTurnFingerprints?.[originalAssistant.id],undefined);
@@ -47,7 +47,7 @@ test('a correction after compaction clears retired request provenance and delive
   assert.equal(store.db.prepare('SELECT count(*) n FROM discussion_compactions').get().n,0);
 });
 
-for(const limit of [4,5])test(limit===4?'a goal change keeps its new cache and labels unaudited help without exceeding cap four':'a goal change publishes freshly bound help and reuses its new cache with declared five-call unit budget',async t=>{
+for(const limit of [4,5])test(limit===4?'a goal change keeps its new cache and completes four actual calls within cap four':'a goal change publishes freshly bound help and reuses its cache within a five-call allowance',async t=>{
   const store=new Store(':memory:'),calls=[],settings={model:'synthetic',baseUrl:'http://fixture.invalid/v1',anonymous:true,auto:false,assistantRequestLimit:limit};
   settings.realChatConsent={accountUid:scope.accountUid,peerUin:scope.peerUin,model:settings.model,baseUrl:settings.baseUrl};
   const command='Set my goal to NEW_ROMANTIC_GOAL and continue helping.';let compactCalls=0,helperCalls=0;
@@ -68,20 +68,20 @@ for(const limit of [4,5])test(limit===4?'a goal change keeps its new cache and l
   const originalAssistant=store.appendTurn(scope,{role:'assistant',kind:'discussion',text:'重复的讨论解释。'.repeat(550),sourceIds:[`private:${originalUser.id}`]});
   controller.live({scope,messages:[raw('90071992547409931001',false,{elements:[{textElement:{content:'虚构的游戏近况。'.repeat(560)}}]}),
     raw('90071992547409931002',true,{elements:[{textElement:{content:'虚构的近期回应。'.repeat(560)}}]})]});
-  const answer=await controller.assist({text:command,taskId:'goal-after-compaction'});assert.equal(answer.text,'Help with the new goal.');assert.equal(answer.semanticReview.status,limit===4?'incomplete':'reviewed');
+  const answer=await controller.assist({text:command,taskId:'goal-after-compaction'});assert.equal(answer.text,'Help with the new goal.');assert.equal(answer.semanticReview,undefined);
   assert.equal(compactCalls,2);assert.equal(helperCalls,2);
-  const task=controller.usage.get(scope,'goal-after-compaction');assert.equal(task.status,'complete');assert.equal(task.attempts,limit);assert.equal(task.remaining,0);
+  const task=controller.usage.get(scope,'goal-after-compaction');assert.equal(task.status,'complete');assert.equal(task.attempts,4);assert.equal(task.remaining,limit-4);
   const companion=store.getCompanion(scope);assert.equal(companion.goal.text,'NEW_ROMANTIC_GOAL');assert.equal(companion.goal.version,1);
   assert.equal(companion.turns.find(turn=>turn.id===originalAssistant.id).text,originalAssistant.text);
   const caches=store.db.prepare('SELECT record FROM discussion_compactions').all().map(row=>JSON.parse(row.record));
   assert.equal(caches.length,1);assert.equal(caches[0].goalVersion,1);assert.ok(caches[0].summary.startsWith('COMPACT_META_2'));
-  const run=companion.runs.find(run=>run.id==='goal-after-compaction');assert.equal(JSON.stringify(run.requests).includes('COMPACT_META_1'),false);assert.equal(companion.turns.filter(turn=>turn.role==='assistant').length,2,'fresh help is labelled with its actual audit status; original private discussion remains');
-  assert.deepEqual(calls.map(payload=>payload.purpose),['discussion_compaction','discussion','discussion_compaction','discussion',...(limit===5?['fidelity_check']:[])]);
+  const run=companion.runs.find(run=>run.id==='goal-after-compaction');assert.equal(JSON.stringify(run.requests).includes('COMPACT_META_1'),false);assert.equal(companion.turns.filter(turn=>turn.role==='assistant').length,2,'fresh primary help is added while the original private discussion remains');
+  assert.deepEqual(calls.map(payload=>payload.purpose),['discussion_compaction','discussion','discussion_compaction','discussion']);
   if(limit===5){
-    assert.equal(run.manifest.fidelity.verdict,'no_concrete_defect_reported');assert.equal(controller.snapshot().discussionCompaction.phase,'applied');
+    assert.equal(run.manifest.fidelity,undefined);assert.equal(run.manifest.publicationSeal.semanticCheck,false);assert.equal(controller.snapshot().discussionCompaction.phase,'applied');
     const reused=await controller.assist({text:'Continue helping under the current new goal.',taskId:'goal-after-compaction-reuse'});
     assert.equal(reused.text,'Help with the new goal.');assert.equal(compactCalls,2);assert.equal(helperCalls,3);
-    assert.equal(controller.usage.get(scope,'goal-after-compaction-reuse').attempts,2);assert.equal(controller.snapshot().discussionCompaction.phase,'reused');
+    assert.equal(controller.usage.get(scope,'goal-after-compaction-reuse').attempts,1);assert.equal(controller.snapshot().discussionCompaction.phase,'reused');
     assert.equal(store.getCompanion(scope).goal.text,'NEW_ROMANTIC_GOAL');
   }
 });

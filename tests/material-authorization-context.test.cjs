@@ -67,7 +67,7 @@ test('indexed missing-reference feedback preserves a real restricted handoff wit
  store.appendTurn(scope,{id:'p1',role:'user',kind:'discussion',text});store.appendTurn(scope,{id:currentSourceId.slice(8),role:'user',kind:'discussion',text:currentRequestText});
  t.after(()=>{controller.close();store.close();});
  const reply=await controller.assist({text:currentRequestText,resumeTurnId:currentSourceId.slice(8),taskId:'actual012-material-bindings'});
- assert.equal(calls.length,3);assert.equal(reply.suggestions.length,1);assert.equal(store.getCompanion(scope).runs.at(-1).manifest.requestDelivery.status,'delivered');
+ assert.equal(calls.length,2);assert.equal(reply.suggestions.length,1);assert.equal(store.getCompanion(scope).runs.at(-1).manifest.requestDelivery.status,'delivered');
 });
 test('derived work, requestDelivery and unrelated private material cannot replace original per-fragment references',()=>{
  const p=payload();p.work=buildConversationWork(p);p.requestDelivery=structuredClone(firstResponse.requestDelivery);

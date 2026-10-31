@@ -17,7 +17,7 @@ test('relationship HTTP consumers bind full identities, preserve exact feedback 
  }
  assert.equal(store.experiences.draft(scope),null);
  const args={text:'想多认识她，怎么表达比较自然？',taskId:'http-once'};
- assert.equal((await post('/api/assistant',args)).status,200);assert.equal((await post('/api/assistant',args)).status,200);assert.equal(calls,2);
+ assert.equal((await post('/api/assistant',args)).status,200);assert.equal((await post('/api/assistant',args)).status,200);assert.equal(calls,1);
  assert.equal((await post('/api/assistant',{...args,text:'different'})).status,400);
  const assistant=store.getCompanion(scope).turns.find(turn=>turn.role==='assistant');
  assert.equal((await post('/api/feedback',{requestId:assistant.requestId,targetRef:{kind:'artifact',artifactRef:assistant.artifactRef},text:'这次请具体一点',clientEventId:'feedback-once'})).status,200);

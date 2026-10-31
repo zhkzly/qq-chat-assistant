@@ -118,9 +118,9 @@ test('automatic QQ repair declares unavailable private advice without granting a
   await app.controller.bind(scope.peerUin);app.controller.live({scope,messages:[raw('90071992547409999921',false,{elements:[{textElement:{content:'我最近改玩解谜闯关了。'}}]})]});
   const before=app.store.getCompanion(scope);await app.controller.suggest({automatic:true});
   const after=app.store.getCompanion(scope),answer=after.turns.filter(turn=>turn.role==='assistant').at(-1);
-  assert.equal(calls,3);assert.equal(answer.kind,'discussion');assert.equal(answer.responseRecovery,undefined);assert.equal(after.runs.at(-1).manifest.requestDelivery.status,'private_help');assert.equal(answer.suggestions,undefined);assert.deepEqual(answer.expressionOptions,[]);
+  assert.equal(calls,2);assert.equal(answer.kind,'discussion');assert.equal(answer.responseRecovery,undefined);assert.equal(after.runs.at(-1).manifest.requestDelivery.status,'private_help');assert.equal(answer.suggestions,undefined);assert.deepEqual(answer.expressionOptions,[]);
   assert.equal(after.turns.filter(turn=>turn.role==='user').length,before.turns.filter(turn=>turn.role==='user').length);
   assert.equal(after.notes.length,before.notes.length);assert.equal(after.state.version,before.state.version);assert.equal(after.topics.items.length,before.topics.items.length);
   assert.equal(app.controller.advice.suggestions.length,0);assert.ok(app.controller.advice.analysis);assert.equal(after.runs.at(-1).maintenance,'deferred');
-  const usage=app.controller.usage.get(scope,after.runs.at(-1).id);assert.equal(usage.attempts,3);assert.equal(usage.limit,4);assert.equal(usage.status,'complete');
+  const usage=app.controller.usage.get(scope,after.runs.at(-1).id);assert.equal(usage.attempts,2);assert.equal(usage.limit,4);assert.equal(usage.status,'complete');
 });

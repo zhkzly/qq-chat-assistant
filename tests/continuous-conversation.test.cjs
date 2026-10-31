@@ -39,16 +39,14 @@ test('actual-send and next-incoming steps share one history and replace the curr
   assert.ok(noFailedChecks(report));
 });
 
-test('the next automatic primary and checker see the original local correction without treating it as outward material',async()=>{
+test('the next automatic primary sees the original local correction without treating it as outward material',async()=>{
   const report=await runHarness({continuousCases:selected('L4-correction-survives-next-turn')});
   const item=report.cases[0],request=definitions().find(value=>value.id===item.id).steps[0].request;
   const stages=item.stages.filter(stage=>stage.stepId==='next-incoming-keeps-correction');
   const planner=stages.find(stage=>stage.purpose!=='fidelity_check');
   assert.ok(planner.effectivePayload.sources.some(source=>source.role==='user'&&source.text===request));
-  const checker=stages.find(stage=>stage.purpose==='fidelity_check');assert.ok(checker,'the automatic candidate must be checked');
-  assert.ok(checker.effectivePayload.evidence.some(source=>source.role==='user'&&source.text===request),'checking can read the original private correction');
-  assert.ok(checker.effectivePayload.admittedFragments.every(quote=>!quote.text.includes(request)),'private controls are not granted as outward material');
-  assert.equal(JSON.stringify(checker.effectivePayload.candidate.suggestions).includes(request),false);
+  assert.equal(stages.some(stage=>stage.purpose==='fidelity_check'),false,'ordinary suggestions have no automatic critic');
+  assert.equal(JSON.stringify(item.steps.at(-1).reply.suggestions).includes(request),false,'private control text is not copied as outward content');
   assert.equal(stages.some(stage=>stage.purpose==='draft'),false,'complete wording is generated in the primary request');
   assert.ok(noFailedChecks(report));
 });
@@ -94,8 +92,9 @@ test('a real critical unknown permits honest private clarification without prete
 test('continuous cases share the global attempt cap and retain incomplete work',async()=>{
   const report=await runHarness({continuousCases:definitions(),maxHttp:1});
   assert.equal(report.httpAttempts,1);assert.equal(report.stopped.reason,'global_http_cap');
-  assert.equal(report.cases[0].status,'execution_failure');
-  assert.ok(report.cases.slice(1).every(item=>item.status==='skipped_verification_stopped'));
+  assert.equal(report.cases[0].status,'executed_semantic_review_required','the first one-call case completes before the global cap stops later work');
+  assert.equal(report.cases[1].status,'execution_failure','the next independent case records the exhausted budget');
+  assert.ok(report.cases.slice(2).every(item=>item.status==='skipped_verification_stopped'));
   await assert.rejects(runHarness({cases:['Q1-live'],continuousCases:definitions()}),/cannot be mixed/);
   await assert.rejects(runHarness({continuousCases:definitions(),maxHttp:25}),/1\.\.24/);
 });

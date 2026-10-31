@@ -68,10 +68,10 @@ test('QQ-triggered same-task resume preserves the editable obligation and origin
  const resumed=app.calls.find((call,index)=>index>=2&&!call.wrapper.originalInput&&call.p.purpose!=='draft');
  assert.equal(resumed.p.operationProtocol.requiredArtifact,'message','same task cannot drop its declared delivery obligation after QQ arrival');
  assert.equal(pendingArgs.requestDeliveryObligation?.mode,'editable_message','the resume owner must carry the request-local obligation');
- assert.equal(app.calls.length,5,'the resumed private-help downgrade must consume one repair before the restricted composer');
+ assert.equal(app.calls.length,4,'the resumed private-help downgrade must consume one repair before the restricted composer');
  assert.equal(new Set(app.calls.map(call=>call.taskId)).size,1,'resume and repair must retain the original task');
  const usage=app.controller.usage.get(scope,'resume-delivery-lifecycle');
- assert.equal(usage.limit,8);assert.equal(usage.attempts,5);assert.equal(usage.requests.filter(request=>request.purpose==='delivery_repair').length,1);
+ assert.equal(usage.limit,8);assert.equal(usage.attempts,4);assert.equal(usage.requests.filter(request=>request.purpose==='delivery_repair').length,1);
  assert.equal(app.store.getCompanion(scope).turns.filter(turn=>turn.role==='user').length,1,'resume must not duplicate the private request');
  assert.equal(app.run().manifest.requestDelivery.status,'delivered');assert.equal(app.store.getCompanion(scope).turns.at(-1).suggestions.length,1);
  await tick();
@@ -99,7 +99,7 @@ test('same-task resume reinterprets an authority revision changed away and back 
  await app.controller.assist({...retry.args,taskId:retry.taskId,resumeTurnId:retry.turnId,resumes:retry.resumes+1});
  const resumed=app.calls.find((call,index)=>index>=2&&call.p.purpose!=='fidelity_check');
  assert.equal(resumed.taskId,'changed-authority-delivery-lifecycle');assert.equal(resumed.p.operationProtocol.requiredArtifact,undefined,'a changed authority revision must trigger fresh interpretation, even when its text is restored');
- assert.equal(app.calls.length,4);assert.equal(app.controller.usage.get(scope,retry.taskId).attempts,4);assert.equal(app.run().manifest.requestDelivery.interpretation.mode,'private_help');
+ assert.equal(app.calls.length,3);assert.equal(app.controller.usage.get(scope,retry.taskId).attempts,3);assert.equal(app.run().manifest.requestDelivery.interpretation.mode,'private_help');
 });
 test('QQ resume after applied forget restores only the sanitized request and nontext delivery binding',async t=>{
  const secret='FICTIONAL_FORGET_THEN_RESUME_SENTINEL_20261030';let targetId,finishPostForget,resumeArgs;
@@ -123,14 +123,14 @@ test('QQ resume after applied forget restores only the sanitized request and non
  assert.equal(resumeArgs.requestDeliveryObligation?.mode,'editable_message');
  assert.deepEqual(Object.keys(resumeArgs.requestDeliveryObligation).sort(),['mode','sourceId','sourceRevision']);
  assert.ok(resumeArgs.requestDeliveryObligation.sourceId.startsWith('request:'),'the excluded user turn must be represented only by its sanitized invocation source');
- assert.equal(app.calls.length,5,'the resumed downgrade must still repair and compose under the same obligation');
+ assert.equal(app.calls.length,4,'the resumed downgrade must still repair and compose under the same obligation');
  for(const call of app.calls.slice(1)){
   assert.equal(JSON.stringify(call).includes(secret),false,'no post-forget transport field may restore forgotten content');
   if(!['draft','fidelity_check'].includes(call.p.purpose))assert.equal(call.p.operationProtocol.requiredArtifact,'message','the wire receives only the message artifact requirement');
  }
  const resumed=app.calls[2];assert.equal(resumed.p.userRequest.text,resumeArgs.text);assert.equal(canonicalSourceView(resumed.p,app.run().requests.find(request=>request.payload?.userRequest?.text===resumeArgs.text)?.manifest?.sourceHandles||app.invocations[2].manifest.sourceHandles).userRequest.sourceId,resumeArgs.requestDeliveryObligation.sourceId);
  assert.equal(app.calls.every(call=>call.taskId==='forget-then-resume-delivery-lifecycle'),true);
- assert.equal(app.controller.usage.get(scope,'forget-then-resume-delivery-lifecycle').attempts,5);
+ assert.equal(app.controller.usage.get(scope,'forget-then-resume-delivery-lifecycle').attempts,4);
  assert.equal(app.run().manifest.requestDelivery.status,'delivered');assert.equal(JSON.stringify(app.run()).includes(secret),false);
  assert.equal(JSON.stringify(app.invocations.slice(1).map(context=>context.manifest)).includes(secret),false);
 });

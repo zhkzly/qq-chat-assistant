@@ -147,13 +147,10 @@ test('raw typed unsupported cannot masquerade as approval and is shown without r
   }
   primaries++;return {operation:'prepare_message',answer:{suggestions:[{text:primaries===1?UNSUPPORTED:repaired}],privateExplanation:primaries===1?CAVEAT:question}};
  });
- const reply=await app.assist();assert.equal(app.calls.length,2);assert.equal(primaries,1);assert.equal(checks,1);assert.equal(reply.text,'');assert.equal(reply.suggestions[0].text,UNSUPPORTED);assert.ok(reply.semanticReview.findings.some(f=>f.quote===UNSUPPORTED));
- const ledger=app.controller.usage.get(scope,'factual-authority-task');assert.equal(ledger.attempts,2);assert.equal(ledger.requests.filter(request=>request.purpose==='delivery_repair').length,0);assert.equal(ledger.limit,4);
- const checkRuns=app.store.getCompanion(scope).runs.at(-1).requests.filter(request=>request.purpose==='fidelity_check');assert.equal(checkRuns[0].manifest.fidelity.reportedVerdict,undefined);assert.ok(checkRuns[0].manifest.fidelity.diagnostics.length);assert.equal(app.store.messages(scope).some(message=>message.direction==='outgoing'),false);
+ const reply=await app.assist();assert.equal(app.calls.length,1);assert.equal(primaries,1);assert.equal(checks,0);assert.equal(reply.suggestions[0].text,UNSUPPORTED);assert.equal(reply.semanticReview,undefined);const ledger=app.controller.usage.get(scope,'factual-authority-task');assert.equal(ledger.attempts,1);assert.equal(ledger.requests.some(r=>r.purpose==='fidelity_check'||r.purpose==='delivery_repair'),false);assert.equal(app.store.messages(scope).some(m=>m.direction==='outgoing'),false);
 });
 
 for(const limit of [2,4])test(`an unsupported factual report cannot automatically consume the remaining task budget ${limit}`,async t=>{
  const app=await application(t,p=>p.purpose==='fidelity_check'?wireDecision(p,{'suggestions[0].text':[unsupported()]}):{operation:'prepare_message',answer:{suggestions:[{text:UNSUPPORTED}],privateExplanation:CAVEAT}},{limit});
- const reply=await app.assist();assert.equal(reply.suggestions[0].text,UNSUPPORTED);assert.ok(reply.semanticReview.findings.some(f=>f.quote===UNSUPPORTED));const ledger=app.controller.usage.get(scope,'factual-authority-task');assert.equal(ledger.attempts,2);assert.equal(ledger.limit,limit);assert.equal(ledger.requests.filter(request=>request.purpose==='delivery_repair').length,0);
-
+ const reply=await app.assist();assert.equal(reply.suggestions[0].text,UNSUPPORTED);assert.equal(reply.semanticReview,undefined);const ledger=app.controller.usage.get(scope,'factual-authority-task');assert.equal(ledger.attempts,1);assert.equal(ledger.limit,limit);assert.equal(ledger.requests.some(r=>r.purpose==='fidelity_check'||r.purpose==='delivery_repair'),false);
 });

@@ -26,7 +26,7 @@ async function app(t,{close=false}={}){
 
 test('an unchanged-input older optional backfill cannot invalidate a checked core or overwrite newer topic progress',async t=>{
  const a=await app(t),state=a.store.getCompanion(scope).state.version,reply=await a.assist(),run=a.store.getCompanion(scope).runs.find(r=>r.id===reply.requestId);
- assert.equal(a.calls.length,2);assert.equal(reply.suggestions.length,1);assert.deepEqual(a.store.topicView(scope),a.before);assert.equal(a.store.getCompanion(scope).state.version,state);assert.equal(run.topicReceipt,null);assert.equal(run.patchReceipt,null);assert.equal(reply.privateReviewReceipt,undefined);assert.equal(reply.metadataReviewPending.reasonCode,'auxiliary_metadata_rejected');assert.ok(run.auxiliaryErrors.some(e=>e.field==='topicPatch'&&e.code==='inapplicable_optional_proposal'));assert.equal(a.store.messages(scope).some(m=>m.direction==='outgoing'),false);
+ assert.equal(a.calls.length,1);assert.equal(reply.suggestions.length,1);assert.deepEqual(a.store.topicView(scope),a.before);assert.equal(a.store.getCompanion(scope).state.version,state);assert.equal(run.topicReceipt,null);assert.equal(run.patchReceipt,null);assert.equal(reply.privateReviewReceipt,undefined);assert.equal(reply.metadataReviewPending.reasonCode,'auxiliary_metadata_rejected');assert.ok(run.auxiliaryErrors.some(e=>e.field==='topicPatch'&&e.code==='inapplicable_optional_proposal'));assert.equal(a.store.messages(scope).some(m=>m.direction==='outgoing'),false);
 });
 
 test('discarding an inapplicable close proposal cannot make an unsupported current fact valid',async t=>{
@@ -49,7 +49,7 @@ test('discarding an older optional backfill preserves declared advice facts and 
    topicPatch:{operation:'update',topicId:p.topicContext.active.id,progress:['An older optional progress inference.'],observationSourceIds:['qq:91000000000000431']}};
  };
  const reply=await a.controller.assist({text:human,sourceTurnIds:[historical.id],taskId:'store-domain-advice-material'}),run=a.store.getCompanion(scope).runs.at(-1),currentId=run.payload.currentHumanControl.sourceId;
- assert.equal(calls.length,2);assert.equal(reply.text,body);assert.equal(reply.suggestions,undefined);assert.deepEqual(a.store.topicView(scope),a.before);
+ assert.equal(calls.length,1);assert.equal(reply.text,body);assert.equal(reply.suggestions,undefined);assert.deepEqual(a.store.topicView(scope),a.before);
  assert.ok(run.auxiliaryErrors.some(error=>error.field==='topicPatch'&&error.code==='inapplicable_optional_proposal'));
  assert.equal(run.payload.purpose,'answer_admission');assert.deepEqual(run.payload.outboundQuotes.map(quote=>quote.text),[oldFact,currentFact]);
  assert.equal(run.manifest.disclosureBindings.length,2);assert.ok(run.manifest.disclosureBindings.every(binding=>binding.permission.sourceId===currentId&&binding.permission.text===human&&binding.permission.revision===run.manifest.sourceRevisions[currentId]));

@@ -59,21 +59,21 @@ function fixture(t,mode){
 
 for(const mode of ['guidance_only','new_material'])test(`structured repair preserves prior intent and current correction through real wording: ${mode}`,async t=>{
  const {store,controller,requests,priorId}=fixture(t,mode),taskId=`carrier-repair-${mode}`,text=CRITICISM+(mode==='new_material'?`另外${NEW_MATERIAL}，愿意告诉她这点。`:'');
- const answer=await controller.assist({taskId,text});assert.equal(answer.kind,'draft');assert.equal(requests.length,3);
+ const answer=await controller.assist({taskId,text});assert.equal(answer.kind,'draft');assert.equal(requests.length,2);
  const receipts=store.getCompanion(scope).runs.at(-1).requests;
- const normal={...requests[0],payload:canonicalSourceView(requests[0].payload,receipts[0].manifest.sourceHandles,receipts[0].payload)},repair={...requests[1],payload:canonicalSourceView(requests[1].payload,receipts[1].manifest.sourceHandles,receipts[1].payload)},checked=canonicalSourceView(requests[2].payload,receipts[2].manifest.sourceHandles,receipts[2].payload),run=store.getCompanion(scope).runs.at(-1),draft=require('../src/context/composer-evidence.cjs').projectComposerEvidence({...run.payload,purpose:'draft'}),currentId=normal.payload.userRequest.sourceId;
+ const normal={...requests[0],payload:canonicalSourceView(requests[0].payload,receipts[0].manifest.sourceHandles,receipts[0].payload)},repair={...requests[1],payload:canonicalSourceView(requests[1].payload,receipts[1].manifest.sourceHandles,receipts[1].payload)},run=store.getCompanion(scope).runs.at(-1),draft=require('../src/context/composer-evidence.cjs').projectComposerEvidence({...run.payload,purpose:'draft'}),currentId=normal.payload.userRequest.sourceId;
  const schema=normal.wire.tools[0].function.parameters;assert.ok(schema.properties.answer&&schema.properties.currentFacts&&schema.properties.materials);assert.equal(schema.properties.draftPlan,undefined);
  assert.match(repair.payload.task,/answer/);assert.equal(repair.wire.tool_choice.function.name,'assistant_result');assert.equal(requests[1].payload.originalInput.taskContext.draftControlPolicy,undefined);
  assert.equal(repair.payload.originalInput.userRequest.text,text);assert.equal(repair.payload.originalInput.sources.find(source=>source.id===priorId).text,PRIOR);
- assert.equal(checked.purpose,'fidelity_check');assert.equal(run.payload.purpose,'answer_admission');assert.equal(run.payload.draftingGuidance,undefined);
+ assert.equal(requests.some(request=>request.payload.purpose==='fidelity_check'),false);assert.equal(run.payload.purpose,'answer_admission');assert.equal(run.payload.draftingGuidance,undefined);
  assert.deepEqual(admittedQuotes(draft.outboundQuotes,run.payload.outboundQuotes,run.manifest.sourceRevisions),mode==='new_material'?[{sourceId:currentId,text:NEW_MATERIAL}]:[]);
  assert.ok(draft.sources.every(source=>source.type==='qq'),'private instructions are control references, not raw composer sources');
  const other=withoutCurrentControl(draft,text);assert.equal(draft.currentHumanControl.sourceId,currentId);assert.equal(draft.draftingGuidance,undefined);
  for(const privateBody of [PRIOR,CRITICISM,'PRIVATE_PRIOR_REASON'])assert.equal(JSON.stringify(other).includes(privateBody),false);
  assert.ok(answer.suggestions.every(item=>![PRIOR,CRITICISM,'PRIVATE_PRIOR_REASON'].some(privateBody=>item.text.includes(privateBody))));
  assert.equal(store.getCompanion(scope).turns.find(turn=>turn.id===priorId.slice('private:'.length)).text,PRIOR);
- const budget=controller.usage.get(scope,taskId);assert.equal(budget.status,'complete');assert.equal(budget.attempts,3);assert.equal(budget.limit,3);
- assert.deepEqual(budget.requests.map(request=>request.purpose),['discussion','delivery_repair','fidelity_check']);
+ const budget=controller.usage.get(scope,taskId);assert.equal(budget.status,'complete');assert.equal(budget.attempts,2);assert.equal(budget.limit,3);
+ assert.deepEqual(budget.requests.map(request=>request.purpose),['discussion','delivery_repair']);
 });
 
 test('a repaired plan still cannot promote old private instructions into unauthorized outbound quotes',async t=>{

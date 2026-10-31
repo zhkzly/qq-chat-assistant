@@ -30,7 +30,7 @@ test('the private review retains complete original qualifiers without a regenera
   const note=p.sources.find(source=>source.type==='note');if(!wrapper.originalInput){assert.equal(body(note),PREFIX);return candidate(p,'我亲手装过书架。');}
   assert.equal(body(note),FULL,'repair must read the actual omitted qualifier, not infer it from a checker reason');return candidate(p,repaired);
  },{partial:true});
- const reply=await a.assist();assert.equal(a.calls.length,2);assert.equal(reply.suggestions[0].text,'我亲手装过书架。');assert.ok(reply.semanticReview.findings.some(f=>f.code==='omitted_qualifier'&&f.evidence?.some(ref=>ref.quote===FULL)));assert.equal(a.calls.some(call=>call.p.purpose==='draft'),false);assert.equal(a.calls.some(call=>call.wrapper.fidelityIssues),false);assert.equal(a.store.messages(scope).some(message=>message.direction==='outgoing'),false);
+ const reply=await a.assist();assert.equal(a.calls.length,1);assert.equal(checks,0);assert.equal(reply.suggestions[0].text,'我亲手装过书架。');assert.equal(reply.semanticReview,undefined);assert.equal(a.calls.some(call=>call.wrapper.fidelityIssues),false);assert.equal(a.store.getCompanion(scope).runs.at(-1).manifest.publicationSeal.semanticCheck,false);assert.equal(a.store.messages(scope).some(message=>message.direction==='outgoing'),false);
 });
 
 test('every retained earlier-only body gets its original revision fence and stale earlier bodies are omitted',t=>{
@@ -43,7 +43,7 @@ test('every retained earlier-only body gets its original revision fence and stal
 for(const failure of ['transport','http'])test(`a checker ${failure} failure consumes exactly one attempt without retry and labels delivery incomplete`,async t=>{
  const a=await app(t,p=>{if(p.purpose==='fidelity_check')throw Error('Scripted checker failure');return {operation:'advise',text:'A complete private answer.'};});
  if(failure==='http'){const old=a.controller.assistantModel;a.controller.assistantModel=(settings,input,signal)=>input.payload.purpose==='fidelity_check'?assistModel(settings,input,signal,async()=>{a.calls.push({p:{purpose:'fidelity_check'}});return new Response('{}',{status:503});}):old(settings,input,signal);}
- const reply=await a.assist();assert.equal(reply.semanticReview.status,'incomplete');assert.equal(a.calls.length,2);assert.equal(a.controller.usage.get(scope,'recovery-evidence').attempts,2);assert.equal(a.store.getCompanion(scope).turns.filter(turn=>turn.role==='assistant').length,1);
+ const reply=await a.assist();assert.equal(reply.semanticReview,undefined);assert.equal(a.calls.length,1);assert.equal(a.controller.usage.get(scope,'recovery-evidence').attempts,1);assert.equal(a.store.getCompanion(scope).turns.filter(turn=>turn.role==='assistant').length,1);
 });
 
 for(const allow of [true,false])test(`terminal state and pending understanding proposals ${allow?'commit after a no-defect report':'remain independent of a semantic criticism'}`,async t=>{

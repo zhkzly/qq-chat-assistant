@@ -147,7 +147,7 @@ test('mixed current private meaning is control-only while outward material stays
   const selected = companion(app).notes.find(note => note.text === '今天去爬山了');
   await app.controller.assist({ text: `${privateFear}，但想告诉她${shareable}，帮我写一句。`, purpose: 'draft', materialIds: [selected.id] });
   assert.equal(contexts.length, 1);
-  assert.equal(app.fidelityCalls.length,1);
+  assert.equal(app.fidelityCalls.length,0,'ordinary assistance does not invoke an automatic semantic critic');
   const admitted=app.controller.assistantContext().run.payload;
   assert.equal(admitted.purpose,'answer_admission');
   assert.match(JSON.stringify(contexts[0].payload), /PRIVATE_FEAR_/);

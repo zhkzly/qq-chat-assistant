@@ -128,8 +128,8 @@ test('a qualified factual report normalizes its address without invoking either 
    if(wrapper.originalInput&&repairKind==='private_question')return {operation:'clarify',blocker:{kind:'missing_fact',missing:'用户愿意分享的真实近况',question:QUESTION}};
    return candidate(p,wrapper.originalInput?GOOD:BAD);
   }),reply=await app.assist(),ledger=app.controller.usage.get(scope,'candidate-address-independent-lifecycle');
-  assert.equal(app.calls.length,2);assert.equal(checks,1);assert.equal(ledger.requests.filter(request=>request.purpose==='delivery_repair').length,0);assert.deepEqual(app.calls.map(call=>call.p.purpose),['discussion','fidelity_check']);assert.equal(new Set(app.calls.map(call=>call.taskId)).size,1);
-  assert.equal(app.calls[1].context.manifest.fidelity.addressNormalizations[0].canonical,'suggestions[0].text');assert.equal(app.calls[1].context.manifest.fidelityOutput.raw.includes('candidate.suggestions[0].text'),true);
-  assert.equal(reply.suggestions[0].text,BAD);assert.ok(reply.semanticReview.findings.some(f=>f.path==='suggestions[0].text'&&f.quote===BAD));assert.equal(app.run().status,'complete');assert.equal(app.store.getCompanion(scope).turns.filter(turn=>turn.role==='assistant').length,1);assert.equal(app.store.messages(scope).some(message=>message.direction==='outgoing'),false);
+  assert.equal(app.calls.length,1);assert.equal(checks,0);assert.equal(ledger.requests.filter(request=>request.purpose==='delivery_repair').length,0);assert.deepEqual(app.calls.map(call=>call.p.purpose),['discussion']);assert.equal(new Set(app.calls.map(call=>call.taskId)).size,1);
+  assert.equal(app.run().manifest.publicationSeal.semanticCheck,false);assert.equal(app.run().manifest.fidelity,undefined);
+  assert.equal(reply.suggestions[0].text,BAD);assert.equal(reply.semanticReview,undefined);assert.equal(app.run().status,'complete');assert.equal(app.store.getCompanion(scope).turns.filter(turn=>turn.role==='assistant').length,1);assert.equal(app.store.messages(scope).some(message=>message.direction==='outgoing'),false);
  });
 });

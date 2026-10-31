@@ -76,6 +76,6 @@ test('report-only judgements stay outside prompts and a wrong old-topic sentence
  assert.equal(report.cases[0].status,'executed_semantic_review_required','the harness measures transport, not whether an old-topic invitation is natural');
  assert.equal(report.semanticVerdict,'requires_independent_review');assert.equal(wire.includes('REPORT_ONLY_STYLE_'),false);
  assert.equal(primaryWire.includes(scenario.steps[0].syntheticWording),false,'the synthetic bad wording is not a primary generation hint');
- const checked=stages(report.cases[0],scenario.steps[0].id,'fidelity_check')[0].effectivePayload.candidate;assert.equal(checked.suggestions[0].text,scenario.steps[0].syntheticWording,'read-only checking receives the actual generated candidate, including synthetic bad controls');
+ assert.equal(stages(report.cases[0],scenario.steps[0].id,'fidelity_check').length,0);assert.equal(report.cases[0].steps[0].reply.suggestions[0].text,scenario.steps[0].syntheticWording,'actual bad synthetic wording remains observable, without a quality pass or a second judge');
  assert.equal(report.realHttpAttempts,0);
 });

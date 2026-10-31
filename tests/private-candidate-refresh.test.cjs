@@ -31,7 +31,7 @@ test('a private request for subtler wording replaces or withdraws the previous a
  assert.equal(controller.revision,qqRevision,'there is no new QQ message to accidentally invalidate the old candidate');
  assert.notEqual(store.contextGeneration(scope),generation,'the applicable private instruction has changed');
  assert.equal(store.messages(scope).length,1);assert.equal(store.experiences.draft(scope).text,'My own unsent edit stays intact.');
- assert.equal(calls.length,4,'the probe executes complete primary generation and read-only checking for both requests');
+ assert.equal(calls.length,2,'the probe executes complete primary generation and read-only checking for both requests');
  const current=controller.snapshot().advice;
  assert.notEqual(current?.suggestions[0]?.text,DIRECT,'the prominently displayed candidate must not contradict the successful private correction');
  if(current)assert.equal(current.suggestions[0].text,REVISED,'a retained primary candidate must point to the revised wording');
@@ -45,7 +45,7 @@ test('a private correction that pauses drafting withdraws old wording while pres
 test('a fresh private explanation can identify the withdrawn current automatic candidate as generated help',async t=>{
  const {controller,calls,correct}=fixture(t);await controller.suggest({automatic:true});const prior=controller.currentAdvice();
  correct({onlyDiscuss:true});await controller.assist({text:'为什么这样说？',purpose:'discussion',taskId:'synthetic-implicit-reference'});
- const input=calls[2],reference=(input.privateCandidates||[]).find(item=>item.turnId===prior.turnId);
+ const input=calls[1],reference=(input.privateCandidates||[]).find(item=>item.turnId===prior.turnId);
  assert.ok(reference,'the new private planning input needs the exact candidate the user is discussing');
  assert.equal(reference.text,DIRECT);assert.deepEqual(reference.artifactRef,prior.suggestions[0].artifactRef);assert.match(reference.authority,/generated/);
  assert.ok(!input.sources.some(source=>source.id===`private:${prior.turnId}`),'generated help is not an original user/factual source');
@@ -56,10 +56,10 @@ test('an explicit historical reference takes precedence over the current automat
  const {controller,store,calls,correct}=fixture(t);await controller.suggest({automatic:true});const automatic=controller.currentAdvice();
  const selected=store.appendTurn(scope,{role:'assistant',kind:'draft',origin:'user',text:'A specifically selected older response.',suggestions:[{style:'自然',text:'Explicitly selected generated wording.'}],sourceIds:['qq:56001']});
  correct({onlyDiscuss:true});await controller.assist({text:'解释我选中的这一份。',purpose:'discussion',sourceTurnIds:[selected.id]});
- const refs=calls[2].privateCandidates||[];assert.ok(refs.some(item=>item.turnId===selected.id));assert.ok(!refs.some(item=>item.turnId===automatic.turnId),'implicit current selection must not override an explicit target');
+ const refs=calls[1].privateCandidates||[];assert.ok(refs.some(item=>item.turnId===selected.id));assert.ok(!refs.some(item=>item.turnId===automatic.turnId),'implicit current selection must not override an explicit target');
 });
 test('the next automatic observation does not inherit the previous automatic candidate history',async t=>{
  const {controller,calls}=fixture(t);await controller.suggest({automatic:true});const prior=controller.currentAdvice();
  controller.live({scope,messages:[raw('56002',false,{elements:[{textElement:{content:'那家店还卖手工明信片。'}}]})]});await controller.suggest({automatic:true});
- assert.ok(!(calls[2].privateCandidates||[]).some(item=>item.turnId===prior.turnId));
+ assert.ok(!(calls[1].privateCandidates||[]).some(item=>item.turnId===prior.turnId));
 });

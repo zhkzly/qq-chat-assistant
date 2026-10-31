@@ -14,7 +14,7 @@ const fingerprint=value=>createHash('sha256').update(JSON.stringify(value)).dige
 const FORGOTTEN_REQUEST='所选来源已从助手参考中移除。仅使用仍可用的信息继续本次帮助，不复述已移除内容。';
 const {SourceHandleOwner}=require('./source-handles.cjs');
 const {primaryOperationFor}=require('./primary-operation.cjs');
-const {buildFidelityContext,parseFidelityResult,deliveryFor,incompleteFidelity}=require('./whole-answer-fidelity.cjs');
+const {createPublicationSeal}=require('./publication-seal.cjs');
 const {assertDraftSourcesCurrent}=require('./context/draft-material.cjs');
 const {editable,validateTerminalDelivery,blockerRenderingWitness,deliveryStatus,clarificationBody}=require('./request-delivery.cjs');
 function inFlightMessageRequirement(owner,scope){
@@ -637,32 +637,6 @@ class Controller extends EventEmitter {
           if(input.resultContext&&input.resultContext!==input)context=input.resultContext;
         }
       };
-      const invokeFidelity=async(input)=>{
-        if(this.activeAssist?.taskId===budget.id)Object.defineProperty(this.activeAssist,'inflightInput',{value:input,writable:true,configurable:true});
-        assertArtifactInputs(input);
-        assertDraftSourcesCurrent(input,Object.keys(input.manifest.sourceRevisions||{}),{scope,store:this.store});
-        this.store.saveRun(scope,{id:requestId,baseRevision,purpose:'fidelity_check',status:'pending',payload:input.payload,manifest:input.manifest});
-        try{
-          let output;
-          try{
-            if(budget.snapshot().remaining<1)throw new Error('Semantic audit not started: request allowance already used');
-            const stage=budget.forStage('fidelity_check');settings.requestBudget=stage;input.manifest.stageId=stage.stageId;
-            output=await this.assistantModel(settings,input,abort.signal);
-          }catch(error){
-            if(abort.signal.aborted)throw error;
-            input.fidelityFrameSnapshot.assert();
-            assertArtifactInputs(input);
-            assertDraftSourcesCurrent(input,Object.keys(input.manifest.sourceRevisions||{}),{scope,store:this.store});
-            output=incompleteFidelity(input,error);
-          }
-          if(!current())return;
-          assertArtifactInputs(input);
-          assertDraftSourcesCurrent(input,Object.keys(input.manifest.sourceRevisions||{}),{scope,store:this.store});
-          const checked=parseFidelityResult(output,input);
-          input.manifest.fidelity={...input.manifest.fidelity,verdict:checked.verdict,issues:checked.issues,concerns:checked.concerns||[]};
-          return checked;
-        }finally{capturedRequests.push({purpose:'fidelity_check',manifest:input.manifest,payload:input.payload});}
-      };
       const topicOptions=proposal=>{
         const manifest=proposal.context.manifest,view=proposal.context.payload.topicContext;
         const actual=records.filter(record=>record.kind==='actual'&&!record.recalled&&manifest.sourceIds.includes(`qq:${record.messageId}`)).at(-1);
@@ -750,7 +724,7 @@ class Controller extends EventEmitter {
         break;
       }
       if(!result||result.lookup)throw new Error('本次信息整理未能完成，请重试；原始输入已保存');
-      let reviewed,discussionExplanation,expressionOptions,optionAdmission,checkInput,checked,approval;
+      let reviewed,discussionExplanation,expressionOptions,optionAdmission,publication;
       {
         const proposal=topicProposals.at(-1);
         if(proposal?.context===context&&this.store.previewTopicPatch){
@@ -782,13 +756,11 @@ class Controller extends EventEmitter {
         }else if(state?.admittedMaterials){admitted={payload:{outboundQuotes:state.admittedMaterials},manifest:primaryContext.manifest};}
         discussionExplanation=result.requestDelivery?.blocker||result.deliveryBlocker?undefined:result.discussionExplanation;
         validateTerminalDelivery(result,requestDeliveryObligation);
-        checkInput=buildFidelityContext(primaryContext,result,{scope,requestId,store:this.store,settings,admittedContext:admitted,expressionOptions,optionAdmission,sourceContexts:capturedRequests});
-        checked=await invokeFidelity(checkInput);if(!current())return;
-        approval=deliveryFor(checked,checkInput);
-        if(!approval){const error=new Error('这次建议的来源或候选绑定已变化；输入已保留');error.code='fidelity_binding_invalid';throw error;}
-        // A semantic review is a fallible second opinion for a manual-copy
-        // coach. It cannot veto, rewrite, or buy another provider request.
-        context.manifest.fidelity={...checkInput.manifest.fidelity,...approval,publicationPolicy:'manual_review'};
+        publication=createPublicationSeal({result,expressionOptions,contexts:[...capturedRequests,primaryContext,admitted],optionAdmission,scope,requestId});
+        publication.assert(result,expressionOptions);
+        assertDraftSourcesCurrent(publication.context,Object.keys(publication.context.manifest.sourceRevisions),{scope,store:this.store});
+        assertArtifactInputs(publication.context);
+        context.manifest.publicationSeal=publication.receipt;
       }
 
       const methodIds=(result.methodIds||[]).filter(id=>methodFor(id));
@@ -805,9 +777,9 @@ class Controller extends EventEmitter {
       context.manifest.candidateSession={qqRevision:revision,privateInputSeq:candidateTicket.privateInputSeq,validatedPlanDigest};
       const reply=this.store._atomic(()=>{
         if(!current())return null;
-        if(!deliveryFor(checked,checkInput))throw new Error('Delivery receipt no longer matches this candidate');
-        assertDraftSourcesCurrent(checkInput,Object.keys(checkInput.manifest.sourceRevisions||{}),{scope,store:this.store});
-        assertArtifactInputs(context);
+        publication.assert(result,expressionOptions);
+        assertDraftSourcesCurrent(publication.context,Object.keys(publication.context.manifest.sourceRevisions),{scope,store:this.store});
+        assertArtifactInputs(publication.context);
         const rejectedAux=capturedRequests.flatMap(r=>r.manifest?.auxiliaryErrors||[]);
         const recordRejection=(field,receipt)=>{if(receipt&&receipt.applied===false)rejectedAux.push({field,code:'rejected_auxiliary_metadata',message:String(receipt.detail||receipt.reason||'metadata rejected').slice(0,500)});};
         const topic=topicProposals.at(-1);
@@ -847,10 +819,13 @@ class Controller extends EventEmitter {
         const metadataReviewPending=rejectedAux.length&&intent?.role==='user'&&intentId?.startsWith('private:')
           ?{reasonCode:'auxiliary_metadata_rejected',sourceIds:[intentId],sourceRevisions:{[intentId]:intent.revision}}:undefined;
         const privateReviewReceipt=!metadataReviewPending&&responseRecovery?.kind!=='private_help'&&privateReviewed.length?{applied:true,sourceIds:privateReviewed}:undefined;
+        publication.assert(result,expressionOptions);
+        assertDraftSourcesCurrent(publication.context,Object.keys(publication.context.manifest.sourceRevisions),{scope,store:this.store});
+        assertArtifactInputs(publication.context);
         const saved=this.store.appendTurn(scope,{role:'assistant',kind:result.kind,text:result.text,discussionExplanation,requestId,suggestions:result.suggestions,origin:invocation.origin,replyDisposition:result.replyDisposition||(purpose==='reply'&&!result.suggestions?.length?'unavailable':undefined),
-          sourceIds:[...new Set([...context.manifest.sourceIds,...capturedRequests.flatMap(r=>r.manifest?.sourceIds||[])])],expressionOptions,methodIds,actionReceipts:receipts,generationStages,responseRecovery,privateReviewReceipt,metadataReviewPending,semanticReview:approval?.reviewStatus?{status:approval.reviewStatus,candidateHash:approval.candidateHash,bindingHash:approval.bindingHash,exhaustive:false,findings:approval.findings||[]}:undefined,
-          artifactMetadata:{generationStages,goalVersion:companion.goal.version,inputArtifactRefs:assertArtifactInputs(context),inputSourceRefs:
-            [...new Map(capturedRequests.flatMap(request=>Object.entries({...request.manifest?.discussionCompaction?.sourceRevisions,...request.manifest?.sourceRevisions}))).entries()].filter(([sourceId])=>/^(qq|private|note):/.test(sourceId)).map(([sourceId,revision])=>({sourceId,revision})),
+          sourceIds:publication.context.manifest.sourceIds,expressionOptions,methodIds,actionReceipts:receipts,generationStages,responseRecovery,privateReviewReceipt,metadataReviewPending,
+          artifactMetadata:{generationStages,goalVersion:companion.goal.version,inputArtifactRefs:assertArtifactInputs(publication.context),inputSourceRefs:
+            Object.entries(publication.context.manifest.sourceRevisions).filter(([sourceId])=>/^(qq|private|note):/.test(sourceId)).map(([sourceId,revision])=>({sourceId,revision})),
             discussionTurnFingerprints:Object.assign({},...capturedRequests.map(request=>({...request.manifest?.discussionCompaction?.turnFingerprints,...Object.fromEntries((request.manifest?.discussionReads||[]).filter(read=>['delivered','partial'].includes(read.delivery?.status)&&read.turnFingerprint).map(read=>[read.turnId,read.turnFingerprint]))}))),model:settings.model,promptVersion:context.payload.promptVersion}});
         if(requestDelivery)context.manifest.requestDelivery.status=deliveryStatus(requestDelivery,result,{restricted:context.payload.purpose==='draft'});
         this.store.saveRun(scope,{id:requestId,baseRevision,purpose:context.payload.purpose,status:'complete',payload:context.payload,manifest:context.manifest,

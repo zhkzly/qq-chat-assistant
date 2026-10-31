@@ -82,11 +82,11 @@ test('actual feedback continuation binds the original feedback human rather than
  t.after(()=>{controller.close();store.close();});controller.scope=clone(scope);controller.ingest(scope,[raw('72057594049927937144',false)]);
  const previous=store.appendTurn(scope,{role:'assistant',kind:'discussion',text:'A fictional previous suggestion.',requestId:'grounded-feedback-target',sourceIds:['qq:72057594049927937144']});
  const answer=await controller.continueFeedback({taskId:'grounded-original-feedback',clientEventId:'grounded-feedback-event',requestId:previous.requestId,targetRef:{kind:'artifact',artifactRef:previous.artifactRef},text:feedbackText});
- assert.equal(answer.feedbackContinuation.status,'complete');assert.equal(calls.length,2);const original=store.experiences.listFeedback(scope)[0],control=controller.assistantContext().run.payload.currentHumanControl;
+ assert.equal(answer.feedbackContinuation.status,'complete');assert.equal(calls.length,1);const original=store.experiences.listFeedback(scope)[0],control=controller.assistantContext().run.payload.currentHumanControl;
  assert.equal(control.sourceId,original.sourceId);assert.equal(control.sourceType,'feedback');assert.equal(control.text,feedbackText);assert.equal(control.authority,'CONTROL_ONLY');
  assert.equal(calls[0].payload.intentAuthority.sourceId,original.sourceId);assert.equal(control.text.includes('结合我选中的这条反馈'),false);
  assert.ok(store.getCompanion(scope).turns.some(turn=>turn.kind==='feedback_continue'),'the generated wrapper really exists and is not being mistaken for the human');
- assert.equal(controller.assistantContext().run.payload.outboundQuotes.length,0);assert.equal(calls[1].payload.purpose,'fidelity_check');
+ assert.equal(controller.assistantContext().run.payload.outboundQuotes.length,0);assert.equal(calls.some(call=>call.payload.purpose==='fidelity_check'),false);
 });
 
 test('missing, changed, withdrawn and foreign current human sources are rejected without stale text fallback',()=>{
@@ -179,15 +179,14 @@ test('necessary whole human controls that cannot fit fail explicitly rather than
  assert.throws(()=>buildDraftContext(app.prepared,app.plan,{...app.args,settings:{...app.settings,assistantRequestBytes:8000}}),/预算|必要|超过|完整/);
 });
 
-test('cancelling while the exact candidate check is pending cannot publish a result bound to the old human-control request',async t=>{
+test('cancelling while the primary response is pending cannot publish a result bound to the old human-control request',async t=>{
  const store=new Store(':memory:'),calls=[];let resolveWording;
  const controller=new Controller({store,compactionModel:null,settings:{anonymous:true,auto:false,model:'synthetic-cancel-control',baseUrl:'http://fixture.invalid/v1',discussionCompactionEnabled:false,realChatConsent:{...scope,model:'synthetic-cancel-control',baseUrl:'http://fixture.invalid/v1'}},read:async()=>{throw Error('No native QQ reads in this fictional test');},
-  assistantModel:async(_settings,context)=>{calls.push(context);const id=context.payload.intentAuthority?.sourceId;if(context.payload.purpose==='fidelity_check')return new Promise(resolve=>{resolveWording=()=>resolve({checkRef:context.payload.checkRef,auditProtocol:'sparse-defects-v1',issues:[]});});
-   const control=text=>({text,sourceIds:[id]});return {kind:'discussion',text:'Prepare an evidence-bound response.',requestDelivery:{mode:'editable_message',sourceId:id,quote:context.payload.sources.find(item=>item.id===id).text},draftPlan:{intent:'reply',quotes:[],guidance:{objective:control('回应实际来信'),allowedApproach:control('保持本次明确邀请的方向'),avoidances:[]}},answer:{suggestions:[{style:'自然',text:'OBSOLETE_WORDING'}]}};}});
+  assistantModel:async(_settings,context)=>{calls.push(context);const id=context.payload.intentAuthority.sourceId,control=text=>({text,sourceIds:[id]});return new Promise(resolve=>{resolveWording=()=>resolve({kind:'discussion',text:'Prepare an evidence-bound response.',requestDelivery:{mode:'editable_message',sourceId:id,quote:context.payload.sources.find(item=>item.id===id).text},draftPlan:{intent:'reply',quotes:[],guidance:{objective:control('回应实际来信'),allowedApproach:control('保持本次明确邀请的方向'),avoidances:[]}},answer:{suggestions:[{style:'自然',text:'OBSOLETE_WORDING'}]}});});}});
  t.after(()=>{controller.close();store.close();});controller.scope=clone(scope);controller.ingest(scope,[raw('72057594049927937143',false)]);
  const pending=controller.assist({text:HUMAN,taskId:'cancel-current-human-control'});for(let n=0;n<30&&!resolveWording;n++)await new Promise(resolve=>setImmediate(resolve));assert.ok(resolveWording);
- const wordingInput=calls.at(-1);controller.invalidateAssistant();resolveWording();await pending;
- assert.equal(wordingInput.payload.purpose,'fidelity_check');assert.equal(wordingInput.payload.evidence.find(source=>source.sourceId===wordingInput.payload.currentHumanControl.sourceId).text,HUMAN);
+ const primaryInput=calls[0];controller.invalidateAssistant();resolveWording();await pending;
+ assert.equal(primaryInput.payload.purpose,'discussion');assert.equal(primaryInput.payload.sources.find(source=>source.id===primaryInput.payload.intentAuthority.sourceId).text,HUMAN);
  assert.equal(store.getCompanion(scope).turns.some(turn=>turn.role==='assistant'&&JSON.stringify(turn).includes('OBSOLETE_WORDING')),false);
- assert.equal(controller.usage.get(scope,'cancel-current-human-control').status,'cancelled');assert.equal(calls.length,2);
+ assert.equal(controller.usage.get(scope,'cancel-current-human-control').status,'cancelled');assert.equal(calls.length,1);
 });

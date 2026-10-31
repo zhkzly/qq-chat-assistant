@@ -38,10 +38,10 @@ for(const targetKind of ['private-explanation','message'])test(`actual feedback 
  let feedback=false;const app=await application(t,p=>p.purpose==='fidelity_check'?allow(p):feedback?{operation:'advise',text:'这是针对实际选中产物的私下解释，不重新出稿。'}:complete(p)),reply=await app.assist();feedback=true;
  const reference=targetKind==='private-explanation'?reply.artifactRef:reply.suggestions[0].artifactRef,feedbackText=targetKind==='private-explanation'?'请再解释这个帮助中的日期理由，先不要改写消息。':'请解释给对方这句表达的口吻，先不要改写消息。';
  const result=await app.controller.continueFeedback({taskId:'whole-feedback-'+targetKind,clientEventId:'whole-feedback-event-'+targetKind,requestId:reply.requestId,targetRef:{kind:'artifact',artifactRef:reference},text:feedbackText});
- assert.equal(result.feedbackContinuation.status,'complete');assert.equal(app.calls.length,4);const targets=app.calls[2].p.feedbackTargets,target=targets.find(item=>item.target?.artifactRef?.artifactId===reference.artifactId).target;
+ assert.equal(result.feedbackContinuation.status,'complete');assert.equal(app.calls.length,2);const targets=app.calls[1].p.feedbackTargets,target=targets.find(item=>item.target?.artifactRef?.artifactId===reference.artifactId).target;
  assert.equal(target.authority,'generated_evaluation_target_not_factual_evidence');assert.equal(target.kind,targetKind==='private-explanation'?'response':'message_candidate');assert.equal(target.body,targetKind==='private-explanation'?WHY:MESSAGE);assert.equal(target.body.includes(PRIMARY),false);
- const input=app.contexts.at(-2).payload,current=input.sources.find(source=>source.id===input.intentAuthority.sourceId);assert.equal(current.type,'feedback');assert.equal(current.text,feedbackText);assert.equal(input.sources.some(source=>source.id==='private:'+reply.id),false);
- assert.equal(app.calls[2].p.operationProtocol.requiredArtifact,undefined);assert.equal(app.store.messages(scope).some(message=>message.direction==='outgoing'),false);assert.equal(app.store.experiences.draft(scope),null);
+ const input=app.contexts.at(-1).payload,current=input.sources.find(source=>source.id===input.intentAuthority.sourceId);assert.equal(current.type,'feedback');assert.equal(current.text,feedbackText);assert.equal(input.sources.some(source=>source.id==='private:'+reply.id),false);
+ assert.equal(app.calls[1].p.operationProtocol.requiredArtifact,undefined);assert.equal(app.store.messages(scope).some(message=>message.direction==='outgoing'),false);assert.equal(app.store.experiences.draft(scope),null);
 });
 
 test('withdrawing the final parent response invalidates both its feedback target and message leaf',async t=>{
@@ -54,7 +54,7 @@ test('withdrawing the final parent response invalidates both its feedback target
 
 for(const mutation of ['cancel','contact','source-version','forget','editing-leaf-withdrawal'])test(`late whole prepared response cannot publish either part after ${mutation}`,async t=>{
  let release,enter;const entered=new Promise(resolve=>{enter=resolve;}),taskId='whole-late-'+mutation;
- const app=await application(t,p=>p.purpose==='fidelity_check'?new Promise(resolve=>{release=()=>resolve(allow(p));enter();}):prepare(p),{previous:mutation==='editing-leaf-withdrawal'});
+ const app=await application(t,p=>new Promise(resolve=>{release=()=>resolve(prepare(p));enter();}),{previous:mutation==='editing-leaf-withdrawal'});
  const pending=app.assist('核对当前事实与实际旧句，并说明完整帮助。',taskId);pending.catch(()=>{});t.after(()=>release?.());await Promise.race([entered,pending.then(()=>{throw Error('The request ended before the controlled final response');})]);
  if(mutation==='cancel')app.controller.invalidateAssistant();
  if(mutation==='contact'){app.controller.scope={...scope,peerUid:'another-contact',peerUin:'77889900'};app.controller.changedContext();}

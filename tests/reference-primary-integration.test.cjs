@@ -91,7 +91,7 @@ async function application(t,producer){
 test('controller reference primary records admitted wording with exact text, recording provenance and canonical storage',async t=>{
  const app=await application(t,p=>p.purpose==='fidelity_check'?{checkRef:p.checkRef,auditProtocol:'sparse-defects-v1',issues:[]}:planFrom(p));
  const result=await app.assist('我愿把网页用途和查找进展告诉她，给我完整表达。');
- assert.equal(result.kind,'draft');assert.equal(app.calls.length,2);assert.equal(app.run().manifest.requestDelivery.status,'delivered');
+ assert.equal(result.kind,'draft');assert.equal(app.calls.length,1);assert.equal(app.run().manifest.requestDelivery.status,'delivered');
  const canonical=app.run(),quote=canonical.payload.outboundQuotes[0];
  assert.equal(canonical.payload.purpose,'answer_admission');assert.equal(quote.text,TEXT);
  assert.equal(quote.provenance.source.role,'user');assert.equal(quote.provenance.source.recordedAt,'2026-08-31T10:00:00.000Z');
@@ -99,33 +99,28 @@ test('controller reference primary records admitted wording with exact text, rec
  assert.equal(quote.provenance.source.revision,canonical.manifest.sourceRevisions[quote.sourceId]);assert.equal(typeof quote.provenance.source.revision,'string');
  assert.equal(quote.provenance.source.recordedAt,'2026-08-31T10:00:00.000Z');assert.equal(quote.provenance.source.timeMeaning,'private_statement_recorded');
  assert.equal(canonical.payload.userRequest,undefined);assert.equal(canonical.payload.privateConversation,undefined);assert.equal(canonical.payload.primaryReferenceProtocol,undefined);
- assert.equal(app.calls[1].p.purpose,'fidelity_check');assert.equal(app.calls[1].p.admittedFragments[0].text,TEXT);
+ assert.equal(app.calls[0].p.purpose,'discussion');assert.equal(canonical.payload.outboundQuotes[0].text,TEXT);
  assert.ok(app.contexts.every(context=>(context.payload.sources||context.payload.evidence).every(source=>/^(private|qq|request|note):/.test(source.id||source.sourceId))));
  assert.ok(app.run().requests[0].manifest.primaryReferences.materials.every(entry=>entry.sourceId.startsWith('private:')||entry.sourceId.startsWith('qq:')));
  assert.equal(app.run().requests[0].payload.primaryReferenceProtocol,undefined);assert.equal(app.store.getCompanion(scope).turns.at(-1).suggestions[0].text,result.suggestions[0].text);
  assert.ok(app.calls.every(call=>Buffer.byteLength(JSON.stringify(call.request))<=64000));
 });
-test('private advice keeps its declared historical fact through the actual admission and checker consumers',async t=>{
+test('private advice keeps its declared historical fact through actual admission and publication',async t=>{
  const app=await application(t,p=>p.purpose==='fidelity_check'?{checkRef:p.checkRef,auditProtocol:'sparse-defects-v1',issues:[]}:
   {operation:'advise',text:'可以用已完成的标题查找来回答她，私下先比较这条表达是否自然。',materials:planFrom(p).materials});
  const result=await app.assist('网页用途和查找进展这两件事实可以作为表达例子，但这次先只和我分析，不要给最终稿。');
- assert.equal(result.kind,'discussion');assert.equal(app.calls.length,2);
- assert.equal(app.calls[1].p.purpose,'fidelity_check');assert.equal(app.calls[1].p.admittedFragments[0]?.text,TEXT);
- assert.equal(app.calls[1].p.evidence.find(source=>source.sourceId===app.calls[1].p.admittedFragments[0].sourceId).role,'user');
- assert.equal(app.calls[1].p.evidence.find(source=>source.sourceId===app.calls[1].p.currentHumanControl.sourceId).text,'网页用途和查找进展这两件事实可以作为表达例子，但这次先只和我分析，不要给最终稿。');
+ assert.equal(result.kind,'discussion');assert.equal(app.calls.length,1);
+ assert.equal(app.calls[0].p.purpose,'discussion');assert.equal(app.run().payload.outboundQuotes[0].text,TEXT);assert.equal(app.run().payload.outboundQuotes[0].provenance.source.role,'user');
+ assert.equal(app.run().payload.currentHumanControl.text,'网页用途和查找进展这两件事实可以作为表达例子，但这次先只和我分析，不要给最终稿。');
  assert.equal(typeof app.run().manifest.sourceRevisions[app.old.sourceId||`private:${app.old.id}`],'string');
 });
-test('private advice retains an exact new fact and the full current permission through checker admission',async t=>{
+test('private advice retains an exact new fact and the full current permission through terminal admission',async t=>{
  const fact='我今天把台灯修好了',request=fact+'，可以拿这件事作表达例子，但先只和我讨论，PRIVATE_REASON不要转出去。';
  const app=await application(t,p=>p.purpose==='fidelity_check'?{checkRef:p.checkRef,auditProtocol:'sparse-defects-v1',issues:[]}:
   {operation:'advise',text:'先私下分析：修好台灯是具体的日常进展，可以围绕这件小事找表达方向。',currentFacts:[fact]});
  const result=await app.assist(request);
- assert.equal(result.kind,'discussion');assert.equal(app.calls.length,2);
- assert.equal(app.calls[1].p.admittedFragments[0]?.text,fact);
- assert.equal(app.calls[1].p.currentHumanControl.authority,'CONTROL_ONLY');
- assert.equal(app.calls[1].p.evidence.find(source=>source.sourceId===app.calls[1].p.currentHumanControl.sourceId).text,request);
- assert.equal(app.calls[1].p.admittedFragments[0].sourceId,app.calls[1].p.currentHumanControl.sourceId);
- assert.equal(typeof app.run().manifest.sourceRevisions[app.contexts[1].payload.currentHumanControl.sourceId],'string');
+ assert.equal(result.kind,'discussion');assert.equal(app.calls.length,1);
+ assert.equal(app.run().payload.outboundQuotes[0].text,fact);assert.equal(app.run().payload.currentHumanControl.authority,'CONTROL_ONLY');assert.equal(app.run().payload.currentHumanControl.text,request);assert.equal(app.run().payload.outboundQuotes[0].sourceId,app.run().payload.currentHumanControl.sourceId);assert.equal(typeof app.run().manifest.sourceRevisions[app.run().payload.currentHumanControl.sourceId],'string');
 });
 test('missing authority is not inferred from willingness and bad primary commits no valid actions or state',async t=>{
  const app=await application(t,p=>{

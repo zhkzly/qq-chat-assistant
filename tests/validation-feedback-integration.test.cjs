@@ -50,7 +50,7 @@ test('the one existing repair receives all issues and can return one fully valid
   assert.equal(w.validationIssues.length,2);const id=p.intentAuthority.sourceId,control=text=>({text,sourceIds:[id]});
   return {operation:'prepare_message',answer:{suggestions:[{text:'今天终于把查找功能做好了。'}]},currentFacts:['今天我完成了查找功能']};
  });
- const answer=await app.controller.assist({text:request,taskId:'atomic-repair-success'});assert.equal(answer.kind,'draft');assert.equal(app.calls.length,3);
+ const answer=await app.controller.assist({text:request,taskId:'atomic-repair-success'});assert.equal(answer.kind,'draft');assert.equal(app.calls.length,2);
  assert.equal(app.run().requests.filter(item=>item.purpose==='delivery_repair').length,1);assert.equal(app.run().manifest.requestDelivery.status,'delivered');
 });
 test('diagnostic issue strings cannot allocate source handles and oversized feedback is never silently truncated',()=>{

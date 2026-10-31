@@ -83,7 +83,7 @@ test('canonical examples keep unknown self facts private and preserve explicitly
  assert.match(HELP_BEHAVIOR,/即使历史少也帮助表达/);
  assert.doesNotMatch(HELP_BEHAVIOR,/private:[a-z]|qq:\d|\[你的城市\]/);
 });
-test('malformed primary carrier shares one strict repair with the read-only fidelity check within the same budget',async t=>{
+test('malformed primary carrier uses one strict repair without an automatic fidelity check within the same budget',async t=>{
  const {Controller}=require('./fixtures/assistant-protocol.cjs'),{Store}=require('../src/store.cjs'),{assistModel}=require('./fixtures/assistant-protocol.cjs');
  const {scope,raw}=require('./fixtures/native.cjs'),calls=[];
  const store=new Store(':memory:'),configured={...settings,anonymous:true,baseUrl:'http://fixture.invalid/v1',auto:false,assistantRequestLimit:3,
@@ -107,10 +107,10 @@ test('malformed primary carrier shares one strict repair with the read-only fide
  t.after(()=>{controller.close();store.close()});controller.updateStatus({phase:'ready',account:{uid:scope.accountUid,uin:scope.accountUin}});
  await controller.bind(scope.peerUin);controller.live({scope,messages:[raw('72057594037927941',false,{elements:[{textElement:{content:'离你住的地方远吗？'}}]})]});
  const answer=await controller.assist({purpose:'reply',text:'我住得很近，帮我直接回答她。',taskId:'planning-carrier-three-stages'});
- assert.equal(calls.length,3);assert.equal(answer.kind,'draft');assert.equal(answer.responseRecovery,undefined);
+ assert.equal(calls.length,2);assert.equal(answer.kind,'draft');assert.equal(answer.responseRecovery,undefined);
  const run=store.getCompanion(scope).runs.find(item=>item.id===answer.requestId);
- assert.deepEqual(run.requests.map(item=>item.purpose),['reply','delivery_repair','fidelity_check']);assert.equal(run.patchReceipt,null);assert.equal(run.topicReceipt,null);
- assert.equal(controller.usage.get(scope,answer.requestId).attempts,3);
+ assert.deepEqual(run.requests.map(item=>item.purpose),['reply','delivery_repair']);assert.equal(run.patchReceipt,null);assert.equal(run.topicReceipt,null);
+ assert.equal(controller.usage.get(scope,answer.requestId).attempts,2);
 });
 test('a failed structured planning repair gets no extra fallback and cannot commit auxiliary updates',async t=>{
  const {Controller}=require('./fixtures/assistant-protocol.cjs'),{Store}=require('../src/store.cjs'),{assistModel}=require('./fixtures/assistant-protocol.cjs');

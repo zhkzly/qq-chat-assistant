@@ -59,6 +59,6 @@ test('a semantic rejection does not replace the actual candidate with an automat
  t.after(()=>{controller.close();store.close();});controller.updateStatus({phase:'ready',account:{uid:scope.accountUid,uin:scope.accountUin}});await controller.bind(scope.peerUin);
  controller.live({scope,messages:[raw('72057594049927937141',false,{elements:[{textElement:{content:'最近有什么新鲜的小事？'}}]})]});
  const answer=await controller.assist({text:HUMAN,taskId:'clarification-body-owner',purpose:'discussion'}),saved=store.getCompanion(scope).turns.find(turn=>turn.id===answer.id);
- assert.equal(calls.length,2,'primary candidate plus its fallible semantic review, no automatic blocker rewrite');assert.equal(answer.kind,'draft');assert.equal(answer.suggestions[0].text,'昨天我完成了一个未提供来源的小项目。');assert.ok(answer.semanticReview.findings.some(f=>f.quote===answer.suggestions[0].text));assert.ok(saved);
+ assert.equal(calls.length,1,'primary candidate plus its fallible semantic review, no automatic blocker rewrite');assert.equal(answer.kind,'draft');assert.equal(answer.suggestions[0].text,'昨天我完成了一个未提供来源的小项目。');assert.equal(answer.semanticReview,undefined);assert.equal(calls.some(input=>input.payload.purpose==='fidelity_check'),false);assert.ok(saved);
  assert.equal(answer.suggestions[0].text.includes(QUESTION),false);assert.equal(store.messages(scope).some(message=>message.direction==='outgoing'),false);
 });

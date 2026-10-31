@@ -36,7 +36,7 @@ function currentTopic(p){return {operation:'create',objective:'回应当前盆�
 
 test('invalid optional prepared metadata keeps the complete checked candidate and pending human intent without writes or false review',async t=>{
  const app=await application(t,p=>p.purpose==='fidelity_check'?allow(p):{...candidate(p),topicPatch:{operation:'update',authority:'MODEL_CANNOT_ASSIGN_AUTHORITY'},stateReview:'no_change'}),before=app.store.getCompanion(scope),reply=await app.assist(),after=app.store.getCompanion(scope),check=app.calls.at(-1).p;
- assert.equal(app.calls.length,2);assert.equal(check.purpose,'fidelity_check');assert.deepEqual(visibleCandidate(reply),check.candidate);assert.equal(reply.suggestions[0].text,GOOD);
+ assert.equal(app.calls.length,1);assert.equal(check.purpose,'discussion');assert.equal(app.run().manifest.publicationSeal.semanticCheck,false);assert.equal(reply.suggestions[0].text,GOOD);
  assert.equal(after.goal.version,before.goal.version);assert.equal(after.state.version,before.state.version);assert.equal(after.topics.version,before.topics.version);
  assert.equal(reply.privateReviewReceipt,undefined);assert.equal(reply.metadataReviewPending.reasonCode,'auxiliary_metadata_rejected');
  const id=reply.metadataReviewPending.sourceIds[0],source=app.store.memorySources(scope).find(item=>item.id===id);assert.equal(source.text,HUMAN);assert.equal(reply.metadataReviewPending.sourceRevisions[id],source.revision);
@@ -46,8 +46,7 @@ test('invalid optional prepared metadata keeps the complete checked candidate an
 
 test('a plausible private pragmatic concern preserves the exact candidate without consuming a repair, showing its concern separately',async t=>{
  const marker='PRIVATE_UNCERTAIN_SOCIAL_READING',app=await application(t,p=>p.purpose==='fidelity_check'?{checkRef:p.checkRef,factual:factualReview(p,{}),verdict:'reject',issues:[],concerns:[{path:'suggestions[0].text',code:'pragmatic_ambiguity',quote:p.candidate.suggestions[0].text,reason:marker}]}:candidate(p)),reply=await app.assist();
- assert.equal(app.calls.length,2);assert.deepEqual(visibleCandidate(reply),app.calls[1].p.candidate);assert.ok(reply.semanticReview.findings.some(finding=>finding.reason===marker));assert.equal(reply.suggestions[0].text.includes(marker),false);assert.equal(JSON.stringify(app.run().requests).includes(marker),true,'private checker diagnostics retain the concern');
- assert.equal(app.controller.usage.get(scope,'decision-ownership-lifecycle').requests.filter(request=>request.purpose==='delivery_repair').length,0);
+ assert.equal(app.calls.length,1);assert.equal(reply.suggestions[0].text,GOOD);assert.equal(reply.semanticReview,undefined);assert.equal(JSON.stringify(reply).includes(marker),false);assert.equal(JSON.stringify(app.run().requests).includes(marker),false);assert.equal(app.controller.usage.get(scope,'decision-ownership-lifecycle').requests.some(r=>r.purpose==='fidelity_check'||r.purpose==='delivery_repair'),false);
 });
 
 for(const defect of ['invented_self_event'])test(`a grounded ${defect} is reported for manual judgment without automatically regenerating the candidate`,async t=>{
@@ -60,7 +59,7 @@ for(const defect of ['invented_self_event'])test(`a grounded ${defect} is report
   }
   return candidate(p,wrapper.originalInput?GOOD:bad);
  });
- const reply=await app.assist();assert.equal(app.calls.length,2);assert.equal(checks,1);assert.equal(reply.suggestions[0].text,bad);assert.deepEqual(visibleCandidate(reply),app.calls[1].p.candidate);assert.ok(reply.semanticReview.findings.some(finding=>finding.quote===bad));
+ const reply=await app.assist();assert.equal(app.calls.length,1);assert.equal(checks,0);assert.equal(reply.suggestions[0].text,bad);assert.equal(reply.semanticReview,undefined);
  const ledger=app.controller.usage.get(scope,'decision-ownership-lifecycle');assert.equal(ledger.requests.filter(request=>request.purpose==='delivery_repair').length,0);assert.equal(new Set(app.calls.map(call=>call.taskId)).size,1);assert.equal(app.calls.every(call=>call.request.model==='synthetic-decision-ownership'),true);assert.equal(app.calls.some(call=>call.p.purpose==='draft'),false);assert.equal(app.store.getCompanion(scope).turns.filter(turn=>turn.role==='assistant').length,1);assert.equal(app.store.messages(scope).some(message=>message.direction==='outgoing'),false);
 });
 
@@ -70,24 +69,24 @@ test('a sourced current social-boundary concern retains the exact answer without
   const current=p.evidence.find(source=>source.sourceId===p.intentAuthority.sourceId);
   return {checkRef:p.checkRef,factual:factualReview(p,{}),verdict:'reject',issues:[{path:'suggestions[0].text',code:'current_boundary',quote:text,evidence:[{sourceId:current.sourceId,quote:current.text}],reason:'Scripted social interpretation remains privately advisory.'}]};
  }),reply=await app.assist();
- assert.equal(app.calls.length,2);assert.equal(reply.suggestions[0].text,text);assert.equal(app.run().requests.filter(request=>request.purpose==='delivery_repair').length,0);assert.equal(app.store.messages(scope).some(message=>message.direction==='outgoing'),false);
+ assert.equal(app.calls.length,1);assert.equal(reply.suggestions[0].text,text);assert.equal(app.run().requests.filter(request=>request.purpose==='delivery_repair').length,0);assert.equal(app.store.messages(scope).some(message=>message.direction==='outgoing'),false);
 });
 
 test('a later sourced explicit invitation replaces the prior local action under its fresh human-control frame',async t=>{
  let invitation=false;const outward='这周末要不要一起看看附近的花市？',app=await application(t,p=>p.purpose==='fidelity_check'?allow(p):candidate(p,invitation?outward:GOOD));
  await app.assist(HUMAN,'decision-before-invite');invitation=true;const current='现在我改变主意，想邀请她这周末一起看看附近的花市，但不假装她已经答应。',reply=await app.assist(current,'decision-current-invite'),check=app.calls.at(-1).p;
- assert.equal(reply.suggestions[0].text,outward);assert.equal(app.calls.length,4);assert.ok(check.evidence.some(source=>source.text===HUMAN));assert.equal(check.evidence.find(source=>source.sourceId===check.currentHumanControl.sourceId).text,current);assert.equal(check.currentHumanControl.sourceId,check.intentAuthority.sourceId);assert.notEqual(app.calls[1].taskId,app.calls[3].taskId,'each human intent has its own source-handle namespace');
+ assert.equal(reply.suggestions[0].text,outward);assert.equal(app.calls.length,2);assert.ok(app.contexts.at(-1).payload.sources.some(source=>source.text===HUMAN));assert.equal(app.contexts.at(-1).payload.sources.find(source=>source.id===app.contexts.at(-1).payload.intentAuthority.sourceId).text,current);assert.notEqual(app.calls[0].taskId,app.calls[1].taskId,'each human intent has a fresh request namespace');
  assert.equal(app.store.messages(scope).some(message=>message.direction==='outgoing'),false);assert.equal(app.store.experiences.draft(scope),null);
 });
 
 test('missing self material still permits a checked private question without fabricating or mechanically blocking the known QQ topic',async t=>{
  const app=await application(t,p=>p.purpose==='fidelity_check'?allow(p):{operation:'clarify',blocker:{kind:'missing_fact',missing:'用户愿意分享的真实近况',question:PRIVATE_QUESTION,explanation:'可以先接她的花盆新叶；补充自己的日常还需要一件真实小事。'}}),reply=await app.assist('也想分享一点自己的近况，但你还不知道我最近做过什么。');
- assert.equal(app.calls.length,2);assert.equal(reply.kind,'question');assert.ok(reply.text.includes(PRIVATE_QUESTION));assert.equal(reply.suggestions,undefined);assert.equal(app.calls[1].p.candidate.text,reply.text);assert.equal(app.calls[1].p.evidence.some(source=>source.type==='qq'),true);assert.equal(app.store.messages(scope).some(message=>message.direction==='outgoing'),false);
+ assert.equal(app.calls.length,1);assert.equal(reply.kind,'question');assert.ok(reply.text.includes(PRIVATE_QUESTION));assert.equal(reply.suggestions,undefined);assert.equal(app.calls[0].p.sources.some(source=>source.type==='qq'),true);assert.equal(reply.semanticReview,undefined);assert.equal(app.store.messages(scope).some(message=>message.direction==='outgoing'),false);
 });
 
 for(const verdict of ['malformed','unknown factual kind'])test(`${verdict} checker output labels the unchanged candidate incomplete without another model or repair`,async t=>{
  const app=await application(t,p=>p.purpose==='fidelity_check'?{...allow(p),...(verdict==='malformed'?{unchecked:true}:{factual:factualReview(p,{'suggestions[0].text':[{quote:p.candidate.suggestions[0].text,kind:'looks_good'}]})})}:candidate(p)),before=app.store.getCompanion(scope);
- const reply=await app.assist();assert.equal(reply.semanticReview.status,'incomplete');assert.equal(reply.suggestions[0].text,GOOD);assert.equal(app.calls.length,2);assert.deepEqual(app.store.getCompanion(scope).goal,before.goal);assert.deepEqual(app.store.getCompanion(scope).state,before.state);assert.equal(app.run().status,'complete');assert.equal(app.controller.usage.get(scope,'decision-ownership-lifecycle').requests.filter(request=>request.purpose==='delivery_repair').length,0);
+ const reply=await app.assist();assert.equal(reply.semanticReview,undefined);assert.equal(reply.suggestions[0].text,GOOD);assert.equal(app.calls.length,1);assert.deepEqual(app.store.getCompanion(scope).goal,before.goal);assert.deepEqual(app.store.getCompanion(scope).state,before.state);assert.equal(app.run().status,'complete');assert.equal(app.controller.usage.get(scope,'decision-ownership-lifecycle').requests.filter(request=>request.purpose==='delivery_repair').length,0);
 });
 
 test('a real late Store topic CAS rejection remains fatal and rolls back candidate, state and goal writes',async t=>{
@@ -97,14 +96,14 @@ test('a real late Store topic CAS rejection remains fatal and rolls back candida
   const receipt=apply(identity,patch,options);receipts.push(receipt);return receipt;
  });
  await assert.rejects(app.assist(HUMAN,taskId),error=>error.code==='topic_patch_rejected'&&/stale_topic_version/.test(error.message));
- assert.equal(receipts.length,2);assert.equal(receipts[1].reason,'stale_topic_version','the real Store, rather than a fabricated rejection reason, performs the CAS check');assert.equal(app.calls.length,2);unchangedCore(app,before);assert.equal(app.run().status,'failed');
+ assert.equal(receipts.length,2);assert.equal(receipts[1].reason,'stale_topic_version','the real Store, rather than a fabricated rejection reason, performs the CAS check');assert.equal(app.calls.length,1);unchangedCore(app,before);assert.equal(app.run().status,'failed');
 });
 
 test('a changed current human source while checking invalid optional bookkeeping cannot publish a stale core',async t=>{
- let entered,release;const waiting=new Promise(resolve=>{entered=resolve;}),app=await application(t,p=>p.purpose==='fidelity_check'?new Promise(resolve=>{release=()=>resolve(allow(p));entered();}):{...candidate(p),topicPatch:{operation:'update',authority:'MODEL_CANNOT_ASSIGN_AUTHORITY'}}),pending=app.assist();
+ let entered,release;const waiting=new Promise(resolve=>{entered=resolve;}),app=await application(t,p=>new Promise(resolve=>{release=()=>resolve({...candidate(p),topicPatch:{operation:'update',authority:'MODEL_CANNOT_ASSIGN_AUTHORITY'}});entered();})),pending=app.assist();
  pending.catch(()=>{});t.after(()=>release?.());await Promise.race([waiting,pending.then(()=>{throw Error('Expected to reach the pending read-only check');})]);
  const turn=app.store.getCompanion(scope).turns.find(item=>item.role==='user');app.store.updateTurn(scope,turn.id,'现在按我更正后的当前意思重新商量。');const afterCorrection=app.store.getCompanion(scope);release();const reply=await pending;
- assert.equal(reply,undefined);assert.equal(app.calls.length,2);unchangedCore(app,afterCorrection);
+ assert.equal(reply,undefined);assert.equal(app.calls.length,1);unchangedCore(app,afterCorrection);
 });
 
 test('an exhausted structural repair preserves the original nested typed core failure and commits no candidate or goal',async t=>{

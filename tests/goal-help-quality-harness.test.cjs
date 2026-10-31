@@ -20,7 +20,7 @@ test('synthetic default exercises production controller and separates semantic j
   assert.equal(report.cases.length, 13);
   assert.ok(report.cases.every(item => item.status === 'executed_semantic_review_required'));
   assert.ok(report.cases.some(item => item.admittedContext?.payload.purpose==='answer_admission'));
-  assert.ok(report.cases.every(item=>item.stages.some(stage=>stage.purpose==='fidelity_check')));
+  assert.ok(report.cases.every(item=>item.stages.every(stage=>stage.purpose!=='fidelity_check')));
   assert.ok(report.cases.every(item => item.checks.every(check => check.status === 'pass')));
   assert.ok(report.cases.every(item => item.semanticVerdict === 'requires_independent_review'));
   assert.equal(report.sourceUnchanged, true);
@@ -65,7 +65,7 @@ test('global cap counts every stage and keeps incomplete work visible', async ()
   const report = await runHarness({ cases: ['Q1-live','Q5-invitation'], maxHttp: 1 });
   assert.equal(report.httpAttempts, 1);
   assert.equal(report.stopped.reason, 'global_http_cap');
-  assert.equal(report.cases[1].status, 'skipped_verification_stopped');
+  assert.equal(report.cases[0].status,'executed_semantic_review_required');assert.equal(report.cases[1].status,'execution_failure');
   await assert.rejects(runHarness({ maxHttp: 33 }), /1..32/);
 });
 
@@ -101,7 +101,7 @@ test('bounded synthetic current fact uses the complete human request without an 
  const input=JSON.parse(report.requests[0].request.messages[1].content);
  assert.equal(input.sources.some(item=>item.id===input.intentAuthority.sourceId),false);assert.ok(input.userRequest.text.includes(fact));assert.ok(input.currentPermission);
  const item=report.cases[0],admitted=item.admittedContext.payload,quote=admitted.outboundQuotes[0];
- assert.equal(item.status,'executed_semantic_review_required');assert.equal(report.httpAttempts,2);assert.equal(report.realHttpAttempts,0);
+ assert.equal(item.status,'executed_semantic_review_required');assert.equal(report.httpAttempts,1);assert.equal(report.realHttpAttempts,0);
  assert.equal(quote.text,fact);assert.equal(admitted.currentHumanControl.text,input.userRequest.text);
  const original=item.stages[0].effectivePayload.sources.find(row=>row.id===item.stages[0].effectivePayload.intentAuthority.sourceId);
  assert.ok(original.text.includes(quote.text));assert.equal(quote.text.includes('这件事我愿意分享'),false);assert.equal(quote.text.includes('给我一句'),false);
