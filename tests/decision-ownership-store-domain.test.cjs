@@ -1,4 +1,5 @@
 'use strict';
+const {factualReview}=require('./fixtures/factual-assessment.cjs');
 // Scripted production consumers test routing/transactions, not semantic quality.
 const test=require('node:test'),assert=require('node:assert/strict');
 const {Store}=require('../src/store.cjs'),{Controller}=require('./fixtures/whole-answer-fidelity.cjs');
@@ -7,7 +8,7 @@ const {scope,raw}=require('./fixtures/native.cjs');
 async function app(t,{close=false}={}){
  const store=new Store(':memory:'),calls=[],settings={auto:false,anonymous:true,model:'synthetic-store-domain',baseUrl:'http://fixture.invalid/v1',realChatConsent:{...scope,model:'synthetic-store-domain',baseUrl:'http://fixture.invalid/v1'}};
  const controller=new Controller({store,settings,compactionModel:null,read:async()=>{throw Error('No native reads');},assistantModel:async(_,input)=>{
-  calls.push(input);const p=input.payload;if(p.purpose==='fidelity_check')return {checkRef:p.checkRef,verdict:'allow',issues:[]};
+  calls.push(input);const p=input.payload;if(p.purpose==='fidelity_check')return {checkRef:p.checkRef,factual:factualReview(p,{}),verdict:'allow',issues:[]};
   const id=p.intentAuthority.sourceId,control=text=>({text,sourceIds:[id]});
   return {operation:'prepare_message',answer:{suggestions:[{text:'你后面提到的那个进展，现在怎么样啦？'}]},stateReview:'no_change',
    ...(close?{currentFacts:['UNSUPPORTED_CURRENT_FACT']}:{}),
@@ -38,7 +39,7 @@ test('discarding an older optional backfill preserves declared advice facts and 
   if(p.purpose==='fidelity_check'){
    assert.deepEqual(p.admittedFragments.map(quote=>quote.text),[oldFact,currentFact]);
    assert.equal(p.evidence.find(source=>source.sourceId===p.currentHumanControl.sourceId).text,human);
-   return {checkRef:p.checkRef,verdict:'allow',issues:[]};
+   return {checkRef:p.checkRef,factual:factualReview(p,{}),verdict:'allow',issues:[]};
   }
   const receipt=input.manifest.primaryReferences,material=receipt.materials.find(item=>item.sourceId==='private:'+historical.id&&item.end-item.start===oldFact.length),permission=receipt.authorities.find(item=>item.currentInstruction);
   assert.ok(material&&permission);
@@ -54,6 +55,6 @@ test('discarding an older optional backfill preserves declared advice facts and 
 });
 
 test('explicit uncertainty is never promoted to approval by a private nonblocking concern',()=>{
- const source={id:'private:human',type:'private',role:'user',text:'Only discuss the known current situation.',revision:'uncertain-source'},prepared={payload:{purpose:'discussion',sources:[source],intentAuthority:{sourceId:source.id}},manifest:{scope,requestId:'uncertain-concern',sourceIds:[source.id],sourceRevisions:{[source.id]:source.revision}},fullAvailableSources:[source]},input=buildFidelityContext(prepared,{text:'A complete private answer.'},{scope,requestMeasure:value=>Buffer.byteLength(JSON.stringify(value))}),result=parseFidelityResult({checkRef:'c1',verdict:'uncertain',issues:[],concerns:[{path:'text',code:'coverage_gap',reason:'Necessary evidence could not be checked.'}]},input);
+ const source={id:'private:human',type:'private',role:'user',text:'Only discuss the known current situation.',revision:'uncertain-source'},prepared={payload:{purpose:'discussion',sources:[source],intentAuthority:{sourceId:source.id}},manifest:{scope,requestId:'uncertain-concern',sourceIds:[source.id],sourceRevisions:{[source.id]:source.revision}},fullAvailableSources:[source]},input=buildFidelityContext(prepared,{text:'A complete private answer.'},{scope,requestMeasure:value=>Buffer.byteLength(JSON.stringify(value))}),result=parseFidelityResult({checkRef:'c1',factual:factualReview(input,{}),verdict:'uncertain',issues:[],concerns:[{path:'text',code:'coverage_gap',reason:'Necessary evidence could not be checked.'}]},input);
  assert.equal(result.verdict,'uncertain');assert.equal(approvalFor(result,input),undefined);
 });

@@ -1,4 +1,5 @@
 'use strict';
+const {factualReview}=require('./fixtures/factual-assessment.cjs');
 const test = require('node:test'), assert = require('node:assert/strict');
 const { Store } = require('../src/store.cjs');
 const { Controller } = require('./fixtures/whole-answer-fidelity.cjs');
@@ -17,7 +18,7 @@ function setup(t, { primaryRepairMetadata = false } = {}) {
     realChatConsent: { ...scope, model: 'synthetic-explanation', baseUrl: 'http://synthetic.invalid/v1' } };
   const controller = new Controller({ store, settings, read: async () => ({ messages: [], source: 'synthetic' }), assistantModel: async (_, input) => {
     inputs.push(structuredClone(input.payload));
-    if(input.payload.purpose==='fidelity_check')return {checkRef:input.payload.checkRef,verdict:'allow',issues:[]};
+    if(input.payload.purpose==='fidelity_check')return {checkRef:input.payload.checkRef,factual:factualReview(input.payload,{}),verdict:'allow',issues:[]};
     if (primaryRepairMetadata) input.manifest.formatRepair = { attempts: 1, reason: 'synthetic complete primary response' };
     const sourceId = input.payload.intentAuthority?.sourceId || input.payload.userRequest.sourceId;
     return { kind: 'discussion', text: summary, answer:{privateExplanation:explanation,suggestions:[{style:'自然',text:wording}]}, draftPlan: { intent: 'reply', quotes: [], guidance: {
@@ -80,7 +81,7 @@ test('a later private discussion can retrieve the explanation as generated help,
 test('a legacy clarification records only its canonical question without promoting untyped planning prose', async t => {
   const { store, controller, inputs } = setup(t);
   const raw={kind:'discussion',text:explanation,draftPlan:{clarification:'你这次希望只接住吐槽，还是也愿意邀请？'}};
-  controller.assistantModel = async (_, input) => { inputs.push(input.payload);return input.payload.purpose==='fidelity_check'?{checkRef:input.payload.checkRef,verdict:'allow',issues:[]}:raw; };
+  controller.assistantModel = async (_, input) => { inputs.push(input.payload);return input.payload.purpose==='fidelity_check'?{checkRef:input.payload.checkRef,factual:factualReview(input.payload,{}),verdict:'allow',issues:[]}:raw; };
   const reply = await controller.assist({ text: '我还不确定怎么表达', purpose: 'discussion' });
   assert.equal(inputs.length, 2);assert.equal(inputs[1].purpose,'fidelity_check'); assert.equal(reply.kind, 'question'); assert.equal(reply.discussionExplanation,undefined);assert.equal(raw.text,explanation,'the original producer body is unchanged, not promoted');
   assert.equal(reply.text, '你这次希望只接住吐槽，还是也愿意邀请？'); assert.equal(reply.suggestions, undefined);

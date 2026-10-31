@@ -1,4 +1,5 @@
 'use strict';
+const {factualReview}=require('./fixtures/factual-assessment.cjs');
 const {wireSourceView,canonicalSourceView}=require('./fixtures/source-wire.cjs');
 const test=require('node:test'),assert=require('node:assert/strict'),{createHash}=require('node:crypto');
 const {Store}=require('../src/store.cjs'),{Controller}=require('../src/controller.cjs');
@@ -63,7 +64,7 @@ test('actual013-shaped missing metadata repair uses the short choice again and r
   let response;
   if(p.purpose==='fidelity_check'){
    assert.equal(p.priorArtifact.text,f.observedOffer.text);assert.equal(p.userRequest,undefined);assert.equal(p.goal,store.getCompanion(scope).goal.text);
-   response={checkRef:p.checkRef,verdict:'allow',issues:[]};
+   response={checkRef:p.checkRef,factual:factualReview(p,{}),verdict:'allow',issues:[]};
   }else{
    if(wrapper.originalInput)assert.match(wrapper.formatError,/materials\[0\]\.authorityRef/);
    response=structuredClone(wrapper.originalInput?f.repairResponse:f.firstResponse);response.draftPlan.editingReference={choice:p.editingReferences[0].choice};response.answer={suggestions:[{style:'自然',text:'就是我给自己记读书笔记用的小网页，昨天查找功能终于弄好了，我挺开心。你平时怎么留住读到的东西？'}]};

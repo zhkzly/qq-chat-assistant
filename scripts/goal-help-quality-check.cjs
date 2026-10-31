@@ -1,4 +1,5 @@
 'use strict';
+const {factualReview}=require('../tests/fixtures/factual-assessment.cjs');
 const {withRequestDelivery,withCurrentStatementAuthority,withPrimaryOperation}=require('./synthetic-request-delivery.cjs');
 // Fictional production-path probes. Semantic judgments are deliberately not automated.
 const fs = require('node:fs'), path = require('node:path'), crypto = require('node:crypto');
@@ -139,7 +140,7 @@ function stopError(message, code='verification_stopped') {
   const error = new Error(message); error.name='AbortError'; error.code=code; return error;
 }
 function syntheticResult(payload, definition) {
-  if(payload.purpose==='fidelity_check')return {checkRef:payload.checkRef,verdict:'allow',issues:[]};
+  if(payload.purpose==='fidelity_check')return {checkRef:payload.checkRef,factual:factualReview(payload,{}),verdict:'allow',issues:[]};
   const complete=value=>payload.operationProtocol&&value.draftPlan?{...value,answer:{suggestions:[{style:'自然',text:'合成运输示例，仅验证完整交接，不作为建议质量证据。'}],privateExplanation:value.text}}:value;
   const step=definition.activeStep;
   if(step?.syntheticClarification)return payload.operationProtocol?{operation:'clarify',blocker:{kind:'missing_fact',missing:'这轮表达不可绕过的真实信息',question:step.syntheticClarification}}:{kind:'question',text:step.syntheticClarification,replyDisposition:'clarify'};

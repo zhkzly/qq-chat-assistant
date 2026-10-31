@@ -1,4 +1,5 @@
 'use strict';
+const {factualReview}=require('./fixtures/factual-assessment.cjs');
 // Fictional inputs and real context assembly/wire consumers. These checks bind
 // control provenance; they do not judge model meaning or prove no semantic leak.
 const test=require('node:test'),assert=require('node:assert/strict');
@@ -75,7 +76,7 @@ test('canonical original feedback is retained but the generated feedback continu
 test('actual feedback continuation binds the original feedback human rather than its generated wrapper',async t=>{
  const store=new Store(':memory:'),calls=[],feedbackText='我仍然想直接邀请她一起看，但不要问成她已经用过；PRIVATE_FEEDBACK_CONTROL只用于商量。';
  const controller=new Controller({store,compactionModel:null,settings:{anonymous:true,auto:false,model:'synthetic-original-feedback',baseUrl:'http://fixture.invalid/v1',discussionCompactionEnabled:false,realChatConsent:{...scope,model:'synthetic-original-feedback',baseUrl:'http://fixture.invalid/v1'}},read:async()=>{throw Error('No native QQ reads in this fictional test');},
-  assistantModel:async(_settings,context)=>{calls.push(context);if(context.payload.purpose==='fidelity_check')return {checkRef:context.payload.checkRef,verdict:'allow',issues:[]};
+  assistantModel:async(_settings,context)=>{calls.push(context);if(context.payload.purpose==='fidelity_check')return {checkRef:context.payload.checkRef,factual:factualReview(context.payload,{}),verdict:'allow',issues:[]};
    const id=context.payload.intentAuthority.sourceId,current=context.payload.sources.find(source=>source.id===id),control=text=>({text,sourceIds:[id]});
    return {kind:'discussion',text:'按当前真实反馈修正提议。',requestDelivery:{mode:'editable_message',sourceId:id,quote:current.text},draftPlan:{intent:'reply',quotes:[],guidance:{objective:control('保留本次明确邀请'),allowedApproach:control('按实际材料修正问题'),avoidances:[]}},answer:{privateExplanation:'Synthetic completion.',suggestions:[{style:'自然',text:'先保留邀请的意思。'}]}};}});
  t.after(()=>{controller.close();store.close();});controller.scope=clone(scope);controller.ingest(scope,[raw('72057594049927937144',false)]);
@@ -181,7 +182,7 @@ test('necessary whole human controls that cannot fit fail explicitly rather than
 test('cancelling while the exact candidate check is pending cannot publish a result bound to the old human-control request',async t=>{
  const store=new Store(':memory:'),calls=[];let resolveWording;
  const controller=new Controller({store,compactionModel:null,settings:{anonymous:true,auto:false,model:'synthetic-cancel-control',baseUrl:'http://fixture.invalid/v1',discussionCompactionEnabled:false,realChatConsent:{...scope,model:'synthetic-cancel-control',baseUrl:'http://fixture.invalid/v1'}},read:async()=>{throw Error('No native QQ reads in this fictional test');},
-  assistantModel:async(_settings,context)=>{calls.push(context);const id=context.payload.intentAuthority?.sourceId;if(context.payload.purpose==='fidelity_check')return new Promise(resolve=>{resolveWording=()=>resolve({checkRef:context.payload.checkRef,verdict:'allow',issues:[]});});
+  assistantModel:async(_settings,context)=>{calls.push(context);const id=context.payload.intentAuthority?.sourceId;if(context.payload.purpose==='fidelity_check')return new Promise(resolve=>{resolveWording=()=>resolve({checkRef:context.payload.checkRef,factual:factualReview(context.payload,{}),verdict:'allow',issues:[]});});
    const control=text=>({text,sourceIds:[id]});return {kind:'discussion',text:'Prepare an evidence-bound response.',requestDelivery:{mode:'editable_message',sourceId:id,quote:context.payload.sources.find(item=>item.id===id).text},draftPlan:{intent:'reply',quotes:[],guidance:{objective:control('回应实际来信'),allowedApproach:control('保持本次明确邀请的方向'),avoidances:[]}},answer:{suggestions:[{style:'自然',text:'OBSOLETE_WORDING'}]}};}});
  t.after(()=>{controller.close();store.close();});controller.scope=clone(scope);controller.ingest(scope,[raw('72057594049927937143',false)]);
  const pending=controller.assist({text:HUMAN,taskId:'cancel-current-human-control'});for(let n=0;n<30&&!resolveWording;n++)await new Promise(resolve=>setImmediate(resolve));assert.ok(resolveWording);

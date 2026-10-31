@@ -1,4 +1,5 @@
 'use strict';
+const {factualReview}=require('./fixtures/factual-assessment.cjs');
 // Real Controller/Store and raw fictional result-tool transport. Checker
 // verdicts below test admission/repair lifecycle, never semantic classifier quality.
 const test=require('node:test'),assert=require('node:assert/strict');
@@ -13,7 +14,7 @@ function whole(source){const first=source.segments[0].materialRef,last=source.se
 function candidate(p,text=GOOD){
  return {operation:'prepare_message',answer:{privateExplanation:'接住她刚说的具体变化。',suggestions:[{style:'自然',text}]}};
 }
-const allow=p=>({checkRef:p.checkRef,verdict:'allow',issues:[]});
+const allow=p=>({checkRef:p.checkRef,factual:factualReview(p,{}),verdict:'allow',issues:[]});
 function toolResponse(value,name){return new Response(JSON.stringify({choices:[{finish_reason:'stop',message:{tool_calls:[{id:'fictional-decision-owner',type:'function',function:{name,arguments:JSON.stringify(value)}}]}}]}),{status:200});}
 async function application(t,producer,{limit=4}={}){
  t.mock.method(globalThis,'fetch',async()=>{throw Error('This fictional test permits no external model call');});
@@ -44,7 +45,7 @@ test('invalid optional prepared metadata keeps the complete checked candidate an
 });
 
 test('a plausible private pragmatic concern preserves the exact candidate without consuming a repair or showing its warning',async t=>{
- const marker='PRIVATE_UNCERTAIN_SOCIAL_READING',app=await application(t,p=>p.purpose==='fidelity_check'?{checkRef:p.checkRef,verdict:'reject',issues:[],concerns:[{path:'suggestions[0].text',code:'pragmatic_ambiguity',quote:p.candidate.suggestions[0].text,reason:marker}]}:candidate(p)),reply=await app.assist();
+ const marker='PRIVATE_UNCERTAIN_SOCIAL_READING',app=await application(t,p=>p.purpose==='fidelity_check'?{checkRef:p.checkRef,factual:factualReview(p,{}),verdict:'reject',issues:[],concerns:[{path:'suggestions[0].text',code:'pragmatic_ambiguity',quote:p.candidate.suggestions[0].text,reason:marker}]}:candidate(p)),reply=await app.assist();
  assert.equal(app.calls.length,2);assert.deepEqual(visibleCandidate(reply),app.calls[1].p.candidate);assert.equal(JSON.stringify(reply).includes(marker),false);assert.equal(JSON.stringify(app.run().requests).includes(marker),true,'private checker diagnostics retain the concern');
  assert.equal(app.controller.usage.get(scope,'decision-ownership-lifecycle').requests.filter(request=>request.purpose==='delivery_repair').length,0);
 });
@@ -55,7 +56,7 @@ for(const defect of ['invented_self_event'])test(`a grounded ${defect} rejects o
   if(p.purpose==='fidelity_check'){
    checks++;if(checks>1)return allow(p);
    const current=p.evidence.find(source=>source.sourceId===p.intentAuthority.sourceId),issue={path:'suggestions[0].text',code:defect==='invented_self_event'?'unsupported_fact':'current_boundary',quote:bad,reason:'Scripted concrete defect exercises the repair boundary only.',...(defect==='invented_self_event'?{basis:'no_support_in_supplied_evidence'}:{evidence:[{sourceId:current.sourceId,quote:current.text}]})};
-   assert.equal(p.candidate.suggestions[0].text,bad);return {checkRef:p.checkRef,verdict:'reject',issues:[issue]};
+   assert.equal(p.candidate.suggestions[0].text,bad);return {checkRef:p.checkRef,factual:factualReview(p,{}),verdict:'reject',issues:[issue]};
   }
   return candidate(p,wrapper.originalInput?GOOD:bad);
  });
@@ -67,7 +68,7 @@ test('a sourced current social-boundary concern retains the exact answer without
  const text='下次我们一起去给花盆换土吧。',app=await application(t,p=>{
   if(p.purpose!=='fidelity_check')return candidate(p,text);
   const current=p.evidence.find(source=>source.sourceId===p.intentAuthority.sourceId);
-  return {checkRef:p.checkRef,verdict:'reject',issues:[{path:'suggestions[0].text',code:'current_boundary',quote:text,evidence:[{sourceId:current.sourceId,quote:current.text}],reason:'Scripted social interpretation remains privately advisory.'}]};
+  return {checkRef:p.checkRef,factual:factualReview(p,{}),verdict:'reject',issues:[{path:'suggestions[0].text',code:'current_boundary',quote:text,evidence:[{sourceId:current.sourceId,quote:current.text}],reason:'Scripted social interpretation remains privately advisory.'}]};
  }),reply=await app.assist();
  assert.equal(app.calls.length,2);assert.equal(reply.suggestions[0].text,text);assert.equal(app.run().requests.filter(request=>request.purpose==='delivery_repair').length,0);assert.equal(app.store.messages(scope).some(message=>message.direction==='outgoing'),false);
 });

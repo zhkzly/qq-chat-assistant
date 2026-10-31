@@ -1,4 +1,5 @@
 'use strict';
+const {factualReview}=require('./fixtures/factual-assessment.cjs');
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('node:path');
@@ -11,7 +12,7 @@ test('private HTTP routes enforce scope and local auth, expose actual request, a
   const settings = { auto: false, apiKey: 'synthetic', model: 'synthetic', baseUrl: 'http://fixture.invalid/v1',
     realChatConsent: { accountUid: scope.accountUid, peerUin: scope.peerUin, model: 'synthetic', baseUrl: 'http://fixture.invalid/v1' } };
   const controller = new Controller({ store, settings, read: async command => command === 'bind' ? scope : { source: 'synthetic', messages: [] },
-    assistantModel: async (_,input) => input.payload.purpose==='fidelity_check' ? {checkRef:input.payload.checkRef,verdict:'allow',issues:[]} : ({ kind: 'discussion', text: '先从自己的真实近况想起。', stateReview:'no_change' }) });
+    assistantModel: async (_,input) => input.payload.purpose==='fidelity_check' ? {checkRef:input.payload.checkRef,factual:factualReview(input.payload,{}),verdict:'allow',issues:[]} : ({ kind: 'discussion', text: '先从自己的真实近况想起。', stateReview:'no_change' }) });
   controller.updateStatus({ phase: 'ready', account: { uid: scope.accountUid, uin: scope.accountUin } });
   await controller.bind(scope.peerUin);
   const server = createServer({ controller, token: 'synthetic-token', uiDir: path.resolve(__dirname, '../ui') });

@@ -1,5 +1,7 @@
 # 完整答复与证据核对
 
+> 024 的必需事实评估与程序发布决定见[事实核对与发布决定](factual-publication-authority_CN.md)。下文继续保留此前冻结实现与证据的历史说明。
+
 > 本页记录此前冻结的完整答复候选。021 的当前前台契约见[薄前台答复契约](thin-answer-ownership_CN.md)：不再要求正常主调用回传 `draftPlan/guidance/taskUse`，事实准入与完整当前指令分开。以下历史实现身份和证据不自动转为新候选的结论。
 
 当前决策归属及实际第 040 轮状态见[后续说明](decision-ownership_CN.md)。下文保留此前冻结候选的实现说明。

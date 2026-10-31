@@ -1,4 +1,5 @@
 'use strict';
+const {factualReview}=require('./fixtures/factual-assessment.cjs');
 // Checker scripts below are contract probes, never semantic quality ratings.
 // Production owns admission; the checker cannot invent a source or a grant.
 const test=require('node:test'),assert=require('node:assert/strict');
@@ -16,7 +17,7 @@ function fixture(t,{partial=false,requestId='fidelity-boundary',priorText,humanT
  const identity=structuredClone(scope),info={scope:identity,requestId,store,admittedContext:{payload:{outboundQuotes:[{sourceId:material.id,text:delivered.text}],currentHumanControl:{authority:'CONTROL_ONLY',sourceId:current.id,text:current.text}},manifest:{sourceRevisions:prepared.manifest.sourceRevisions}},settings:{assistantRequestBytes:64000},requestMeasure:value=>Buffer.byteLength(JSON.stringify(value))};
  return {store,prepared,result,info,material,current,prior,context:buildFidelityContext(prepared,result,info)};
 }
-const allow=context=>({checkRef:context.payload.checkRef,verdict:'allow',issues:[]});
+const allow=context=>({checkRef:context.payload.checkRef,factual:factualReview(context.payload,{}),verdict:'allow',issues:[]});
 const invalid=error=>/^fidelity_/.test(error.code||'');
 
 test('every visible candidate surface is exact and only a privately validated same-frame allow can approve it',t=>{
@@ -31,11 +32,11 @@ test('checker issues can identify only real visible paths and supplied original 
  const app=fixture(t),sourceId=app.current.id;
  const bodies={text:app.result.text,'discussionExplanation.text':app.result.discussionExplanation.text,'suggestions[0].text':app.result.suggestions[0].text,'suggestions[0].style':app.result.suggestions[0].style,'expressionOptions[0].label':app.result.expressionOptions[0].label};
  for(const path of ['text','discussionExplanation.text','suggestions[0].text','suggestions[0].style','expressionOptions[0].label']){
-  const verdict=parseFidelityResult({checkRef:'c1',verdict:'reject',issues:[{path,code:'current_boundary',quote:bodies[path],sourceIds:[sourceId],evidence:[{sourceId,quote:app.current.text}],reason:'Scripted rejection exercises a source-bound visible path, not its semantic rating.'}]},app.context);assert.equal(verdict.verdict,'allow');assert.equal(verdict.concerns[0].path,path);assert.ok(approvalFor(verdict,app.context));
+  const verdict=parseFidelityResult({checkRef:'c1',factual:factualReview(app.context,{}),verdict:'reject',issues:[{path,code:'current_boundary',quote:bodies[path],sourceIds:[sourceId],evidence:[{sourceId,quote:app.current.text}],reason:'Scripted rejection exercises a source-bound visible path, not its semantic rating.'}]},app.context);assert.equal(verdict.verdict,'allow');assert.equal(verdict.concerns[0].path,path);assert.ok(approvalFor(verdict,app.context));
  }
  const grounded={path:'text',code:'evidence_mismatch',quote:app.result.text,evidence:[{sourceId,quote:app.current.text}],reason:'A mechanically grounded contract probe.'};
- for(const issue of [{...grounded,path:'draftPlan.guidance',reason:'Not visible.'},{...grounded,sourceIds:['private:unoffered'],reason:'Unknown source.'},{...grounded,evidence:[{sourceId:'private:unoffered',quote:app.current.text}],reason:'Unknown original body.'},{...grounded,code:'grant_permission',reason:'Checker cannot grant.'}])assert.throws(()=>parseFidelityResult({checkRef:'c1',verdict:'reject',issues:[issue]},app.context),invalid);
- const uncertain=parseFidelityResult({checkRef:'c1',verdict:'uncertain',issues:[]},app.context);assert.equal(approvalFor(uncertain,app.context),undefined);
+ for(const issue of [{...grounded,path:'draftPlan.guidance',reason:'Not visible.'},{...grounded,sourceIds:['private:unoffered'],reason:'Unknown source.'},{...grounded,evidence:[{sourceId:'private:unoffered',quote:app.current.text}],reason:'Unknown original body.'},{...grounded,code:'grant_permission',reason:'Checker cannot grant.'}])assert.throws(()=>parseFidelityResult({checkRef:'c1',factual:factualReview(app.context,{}),verdict:'reject',issues:[issue]},app.context),invalid);
+ const uncertain=parseFidelityResult({checkRef:'c1',factual:factualReview(app.context,{}),verdict:'uncertain',issues:[]},app.context);assert.equal(approvalFor(uncertain,app.context),undefined);
 });
 
 test('mutating the original candidate after a check invalidates approval while the checker candidate copy is immutable',t=>{
@@ -51,7 +52,7 @@ test('a substituted original evidence body cannot retain the old source-bound al
 });
 
 test('a same-frame parsed rejection cannot be mutated into an allowed checker receipt',t=>{
- const app=fixture(t),rejected=parseFidelityResult({checkRef:'c1',verdict:'reject',issues:[{path:'text',code:'unsupported_fact',quote:app.result.text,basis:'no_support_in_supplied_evidence',reason:'A scripted factual rejection, not a quality rating.'}]},app.context);assert.equal(approvalFor(rejected,app.context),undefined);let immutable=false;
+ const app=fixture(t),rejected=parseFidelityResult({checkRef:'c1',factual:factualReview(app.context,{}),verdict:'reject',issues:[{path:'text',code:'unsupported_fact',quote:app.result.text,basis:'no_support_in_supplied_evidence',reason:'A scripted factual rejection, not a quality rating.'}]},app.context);assert.equal(approvalFor(rejected,app.context),undefined);let immutable=false;
  try{rejected.verdict='allow';rejected.issues=[];}catch(error){assert.equal(error instanceof TypeError,true);immutable=true;}
  if(!immutable){let receipt;try{receipt=approvalFor(rejected,app.context);}catch(error){assert.equal(invalid(error),true);}assert.equal(receipt,undefined,'the original checker decision itself must be privately bound');}
 });
@@ -62,7 +63,7 @@ test('an available full original qualifier is not replaced by the selected parti
  assert.equal(app.context.payload.admittedFragments[0].text,selected.text,'selected material remains a separate exact span');assert.equal(app.context.payload.evidence.find(source=>source.sourceId===app.current.id).text,HUMAN);
  const unavailable=buildFidelityContext({...app.prepared,fullAvailableSources:[selected,app.current]},app.result,{...app.info,store:undefined}),partial=unavailable.payload.evidence.find(source=>source.sourceId===app.material.id);
  assert.equal(partial.text,selected.text);assert.equal(partial.delivery.status,'partial');assert.ok(unavailable.payload.coverage.partialSourceIds.includes(app.material.id));
- const uncertain=parseFidelityResult({checkRef:'c1',verdict:'uncertain',issues:[]},unavailable);assert.equal(approvalFor(uncertain,unavailable),undefined,'an unresolved check cannot approve by inventing the unread remainder');
+ const uncertain=parseFidelityResult({checkRef:'c1',factual:factualReview(unavailable,{}),verdict:'uncertain',issues:[]},unavailable);assert.equal(approvalFor(uncertain,unavailable),undefined,'an unresolved check cannot approve by inventing the unread remainder');
 });
 
 test('a delivered prior human boundary without typed topic refs is retained under byte pressure or fails explicitly',t=>{

@@ -1,4 +1,5 @@
 'use strict';
+const {factualReview}=require('./fixtures/factual-assessment.cjs');
 const test=require('node:test');
 const assert=require('node:assert/strict');
 const {Store}=require('../src/store.cjs');
@@ -20,7 +21,7 @@ test('a correction after compaction clears retired request provenance and delive
   let originalUser,originalAssistant,helperCalls=0;
   const transport=async(_url,request)=>{
     const envelope=JSON.parse(request.body),payload=JSON.parse(envelope.messages[1].content);calls.push(payload);
-    const result=payload.purpose==='fidelity_check'?{checkRef:payload.checkRef,verdict:'allow',issues:[]}:payload.purpose==='discussion_compaction'
+    const result=payload.purpose==='fidelity_check'?{checkRef:payload.checkRef,factual:factualReview(payload,{}),verdict:'allow',issues:[]}:payload.purpose==='discussion_compaction'
       ?{summary:'Earlier private direction and generated discussion, without an actual message being sent.',reviewedTurnIds:payload.turns.map(turn=>turn.id),quoteRefs:[]}
       :++helperCalls===1
         ?{kind:'discussion',text:'Apply the requested source correction.',actions:[{type:'correct_source',sourceId:`private:${originalUser.id}`,targetQuote:originalUser.text,evidenceQuote:command,text:'NEW_PRIVATE_DIRECTION'}]}
@@ -52,7 +53,7 @@ for(const limit of [4,5])test(limit===4?'a goal change keeps its new cache but c
   const command='Set my goal to NEW_ROMANTIC_GOAL and continue helping.';let compactCalls=0,helperCalls=0;
   const transport=async(_url,request)=>{
     const envelope=JSON.parse(request.body),payload=JSON.parse(envelope.messages[1].content);calls.push(payload);
-    const result=payload.purpose==='fidelity_check'?{checkRef:payload.checkRef,verdict:'allow',issues:[]}:payload.purpose==='discussion_compaction'
+    const result=payload.purpose==='fidelity_check'?{checkRef:payload.checkRef,factual:factualReview(payload,{}),verdict:'allow',issues:[]}:payload.purpose==='discussion_compaction'
       ?{summary:`COMPACT_META_${++compactCalls}: earlier private discussion and generated explanation; no actual sending.`,reviewedTurnIds:payload.turns.map(turn=>turn.id),quoteRefs:[]}
       :++helperCalls===1
         ?{kind:'discussion',text:'Updating your goal.',actions:[{type:'set_goal',evidenceQuote:command,text:'NEW_ROMANTIC_GOAL'}]}

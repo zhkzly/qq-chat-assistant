@@ -1,4 +1,5 @@
 'use strict';
+const {factualReview}=require('./fixtures/factual-assessment.cjs');
 // Fictional raw model result-tool transport plus real Controller/Store. These
 // are routing/state/effect checks, not semantic operation-choice grading.
 const test=require('node:test'),assert=require('node:assert/strict');
@@ -16,7 +17,7 @@ function messagePlan(p){
  return {intent:'reply',quotes:[{materialRef:whole(note),authorityRef:note.authorityChoices.program[0].authorityRef}],guidance:{objective:control('按这次实际意思介绍已知功能'),allowedApproach:control('只使用独立准入素材'),avoidances:[]}};
 }
 function preparedMessage(p){const note=p.sources.find(source=>source.type==='note');return {operation:'prepare_message',materials:[{materialRef:whole(note),authorityRef:note.authorityChoices.program[0].authorityRef}],answer:{suggestions:[{style:'自然',text:MESSAGE}]}};}
-const allow=p=>({checkRef:p.checkRef,verdict:'allow',issues:[]});
+const allow=p=>({checkRef:p.checkRef,factual:factualReview(p,{}),verdict:'allow',issues:[]});
 function toolResponse(value,name){const args=typeof value==='string'?value:JSON.stringify(value);return new Response(JSON.stringify({choices:[{message:{tool_calls:[{id:'fictional-operation-life',type:'function',function:{name,arguments:args}}]}}]}),{status:200});}
 async function until(check,label){for(let n=0;n<120;n++){if(check())return;await new Promise(resolve=>setTimeout(resolve,5));}assert.fail(label);}
 async function modelStage(pending,check,label){let failure;pending.catch(error=>{failure=error;});await until(()=>check()||failure,label);if(failure)throw failure;}

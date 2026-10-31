@@ -1,4 +1,5 @@
 'use strict';
+const {factualReview}=require('./fixtures/factual-assessment.cjs');
 function admittedQuotes(quotes,canonicalQuotes,revisions){
  assert.equal(quotes.length,canonicalQuotes.length);
  return quotes.map((quote,index)=>{
@@ -52,7 +53,7 @@ test('indexed missing-reference feedback preserves a real restricted handoff wit
   if(p.purpose==='fidelity_check'){
    assert.deepEqual(canonicalSourceView(p,context.manifest.sourceHandles).admittedFragments,factualPlan().quotes);assert.equal(p.userRequest,undefined);assert.equal(p.goal,store.getCompanion(scope).goal.text);assert.equal(p.privateConversation,undefined);
    assert.equal(JSON.stringify(p.candidate.suggestions).includes('想告诉她这个小进展'),false);
-   return new Response(JSON.stringify({choices:[{message:{content:JSON.stringify({checkRef:p.checkRef,verdict:'allow',issues:[]})}}]}),{status:200});
+   return new Response(JSON.stringify({choices:[{message:{content:JSON.stringify({checkRef:p.checkRef,factual:factualReview(p,{}),verdict:'allow',issues:[]})}}]}),{status:200});
   }
   let response={...structuredClone(firstResponse),answer:{suggestions:[{style:'自然',text:'是我给自己记读书笔记的小网页，昨天查找功能终于做好了，还挺开心。你平时怎么留住读到的东西？'}]}};
   if(wrapper.originalInput){

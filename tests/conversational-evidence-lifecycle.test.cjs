@@ -1,4 +1,5 @@
 'use strict';
+const {factualReview}=require('./fixtures/factual-assessment.cjs');
 // Fictional real-assembly/Controller/transport fences. Compact origins convey
 // anchors only; canonical permissions and dependency witnesses remain decisive.
 const test=require('node:test'),assert=require('node:assert/strict');
@@ -25,7 +26,7 @@ async function application(t,producer,{previous=false}={}){
  const currentNote=store.memorySources(scope).find(source=>source.id==='note:'+note.id),prior=previous?store.appendTurn(scope,{role:'assistant',kind:'draft',origin:'user',requestId:'compact-previous',text:MESSAGE,suggestions:[{style:'自然',text:MESSAGE}],expressionOptions:[{label:'直接确认本轮已选时段，保留邀请力度。',style:'casual',quotes:[{sourceId:currentNote.id,text:FACT,revision:currentNote.revision}]}],sourceIds:[currentNote.id]}):null;
  return {store,controller,note,roots,prior,calls,contexts,run:()=>store.getCompanion(scope).runs.at(-1),assist:()=>controller.assist({text:HUMAN,taskId:'compact-evidence-life',materialIds:[note.id],...(prior?{sourceTurnIds:[prior.id],selectedOption:{turnId:prior.id,index:0}}:{})})};
 }
-const allow=p=>({checkRef:p.checkRef,verdict:'allow',issues:[]});
+const allow=p=>({checkRef:p.checkRef,factual:factualReview(p,{}),verdict:'allow',issues:[]});
 const complete=p=>p.purpose==='fidelity_check'?allow(p):plan(p);
 
 test('recorded admission and the isolated legacy compact view retains every hidden canonical root revision in manifest and generated artifact fences',async t=>{

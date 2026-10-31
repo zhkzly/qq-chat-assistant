@@ -1,4 +1,5 @@
 'use strict';
+const {factualReview}=require('./fixtures/factual-assessment.cjs');
 // Real Controller/Store consumers with deterministic local model responses.
 // These checks prove delivery and authority boundaries, not wording quality.
 const test=require('node:test'),assert=require('node:assert/strict');
@@ -18,7 +19,7 @@ function fixture(t,model){
   realChatConsent:{...scope,model:'synthetic-preference-handoff',baseUrl:'http://fixture.invalid/v1'}};
  const controller=new Controller({store,settings,read:async()=>{throw Error('This regression cannot read native QQ');},
   assistantModel:async(_settings,input)=>{calls.push(structuredClone(input.payload));
-   if(input.payload.purpose==='fidelity_check')return {checkRef:input.payload.checkRef,verdict:'allow',issues:[]};
+   if(input.payload.purpose==='fidelity_check')return {checkRef:input.payload.checkRef,factual:factualReview(input.payload,{}),verdict:'allow',issues:[]};
    return model?model(input.payload,calls.length):{kind:'discussion',text:'按本次明确意思组织表达。',draftPlan:plan(input.payload),answer:{privateExplanation:'按本次明确意思组织的合成参考。',suggestions:[{style:'自然',text:WORDING}]}};}});
  controller.scope={...scope};controller.ingest(scope,[raw('56701',false,{elements:[{textElement:{content:'周末我打算去看那个展。'}}]})]);
  t.after(()=>{controller.close();store.close();});return {controller,store,calls};

@@ -1,4 +1,5 @@
 'use strict';
+const {factualReview}=require('./fixtures/factual-assessment.cjs');
 const test=require('node:test'),assert=require('node:assert/strict');
 const {Store}=require('../src/store.cjs');
 const {SourceHandleOwner}=require('../src/source-handles.cjs');
@@ -93,7 +94,7 @@ test('automatic controller entry uses the configured envelope and persists the e
    realChatConsent:{accountUid:scope.accountUid,peerUin:scope.peerUin,model:settings.model,baseUrl:settings.baseUrl}},
   read:async command=>command==='bind'?scope:{messages:[],source:'synthetic'},
   assistantModel:(configured,context,signal)=>assistModel(configured,context,signal,async(_,request)=>{
-   calls.push(request.body);const wrapper=JSON.parse(JSON.parse(request.body).messages[1].content);if(wrapper.purpose==='fidelity_check')return ok(JSON.stringify({checkRef:wrapper.checkRef,verdict:'allow',issues:[]}));return ok(calls.length===1?JSON.stringify({kind:'discussion',text:''}):JSON.stringify({kind:'discussion',text:'参考她实际说的安排自然回应。',replyDisposition:'unavailable'}));
+   calls.push(request.body);const wrapper=JSON.parse(JSON.parse(request.body).messages[1].content);if(wrapper.purpose==='fidelity_check')return ok(JSON.stringify({checkRef:wrapper.checkRef,factual:factualReview(wrapper,{}),verdict:'allow',issues:[]}));return ok(calls.length===1?JSON.stringify({kind:'discussion',text:''}):JSON.stringify({kind:'discussion',text:'参考她实际说的安排自然回应。',replyDisposition:'unavailable'}));
   })});
  controller.visible=false;t.after(()=>controller.close());controller.updateStatus({phase:'ready',account:{uid:scope.accountUid,uin:scope.accountUin}});await controller.bind(scope.peerUin);
  await controller.suggest({automatic:true});assert.equal(controller.assistantError,'');assert.equal(calls.length,3);assert.ok(calls.every(body=>Buffer.byteLength(body)<=32000));
@@ -126,7 +127,7 @@ test('a repaired whole answer retains selected image evidence for its factual ch
  assert.equal(prepared.extraRequests[0].manifest.imageCount,1);assert.deepEqual(prepared.extraRequests[0].manifest.images,images.map(({url,...metadata})=>metadata));
  assert.equal(result.kind,'draft');assert.equal(result.suggestions[0].text,'我想多认识你一点。');assert.equal(result.draftPlan,undefined);
  const admitted=buildAnswerAdmission(effective,result,args),check=buildFidelityContext(effective,result,{...args,admittedContext:admitted});
- await assistModel(args.settings,check,undefined,async(_,request)=>{const body=JSON.parse(request.body),payload=JSON.parse(body.messages[1].content[0].text);calls.push(body);return ok(JSON.stringify({checkRef:payload.checkRef,verdict:'allow',issues:[]}));});
+ await assistModel(args.settings,check,undefined,async(_,request)=>{const body=JSON.parse(request.body),payload=JSON.parse(body.messages[1].content[0].text);calls.push(body);return ok(JSON.stringify({checkRef:payload.checkRef,factual:factualReview(payload,{}),verdict:'allow',issues:[]}));});
  assert.equal(calls[2].messages[1].content[1].image_url.url,images[0].url);
  assert.equal(check.payload.purpose,'fidelity_check');assert.ok(check.manifest.sourceRevisions[`qq:${imageMessageId}`]);
  assert.deepEqual(structuredClone(effective).payload,effective.payload,'internal callbacks must not break plain-data context copies');

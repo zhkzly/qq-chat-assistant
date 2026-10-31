@@ -1,4 +1,5 @@
 'use strict';
+const {factualReview}=require('./fixtures/factual-assessment.cjs');
 const test=require('node:test');
 const assert=require('node:assert/strict');
 const {Store}=require('../src/store.cjs');
@@ -16,7 +17,7 @@ function setup(t,assistantModel){
 
 test('private help recovery is a marked generated discussion, never a completed state review or new mutation',async t=>{
   const app=setup(t,async(_s,input)=>{
-    if(input.payload.purpose==='fidelity_check')return {checkRef:input.payload.checkRef,verdict:'allow',issues:[]};
+    if(input.payload.purpose==='fidelity_check')return {checkRef:input.payload.checkRef,factual:factualReview(input.payload,{}),verdict:'allow',issues:[]};
     const id=input.payload.intentAuthority.sourceId;input.manifest.responseRecovery=privateRecovery(id);
     return {kind:'discussion',text:'先回应她刚说的具体内容，保持自然。',stateReview:'no_change',
       actions:[{type:'save_note',evidenceQuote:input.payload.userRequest.text,text:'我今天做了饭'}],
@@ -38,7 +39,7 @@ test('a model-authored recovery flag cannot impersonate the trusted program mani
 
 test('private recovery drops previously queued proposals while preserving actual rejected action receipts',async t=>{
   let calls=0;const app=setup(t,async(_s,input)=>{
-    if(input.payload.purpose==='fidelity_check')return {checkRef:input.payload.checkRef,verdict:'allow',issues:[]};
+    if(input.payload.purpose==='fidelity_check')return {checkRef:input.payload.checkRef,factual:factualReview(input.payload,{}),verdict:'allow',issues:[]};
     const id=input.payload.intentAuthority.sourceId;
     if(++calls===1)return {kind:'discussion',text:'A structured first response.',actions:[{type:'save_note',evidenceQuote:'not in the user request',text:'not in the user request'}],
       topicPatch:{operation:'create',objective:'Discuss a direct invitation',purposeSourceIds:[id],intentQuote:input.payload.userRequest.text},relationshipPatch:{claims:[],events:[],retire:[]}};
@@ -51,7 +52,7 @@ test('private recovery drops previously queued proposals while preserving actual
 test('already applied preferences and their receipts survive a later private-help recovery',async t=>{
   let calls=0;const text='Remember my preference: from now on keep expressions direct.';
   const app=setup(t,async(_s,input)=>{
-    if(input.payload.purpose==='fidelity_check')return {checkRef:input.payload.checkRef,verdict:'allow',issues:[]};
+    if(input.payload.purpose==='fidelity_check')return {checkRef:input.payload.checkRef,factual:factualReview(input.payload,{}),verdict:'allow',issues:[]};
     if(++calls===1)return {kind:'discussion',text:'Apply the explicit preference.',actions:[{type:'set_preference',evidenceQuote:text,text:'keep expressions direct'}]};
     input.manifest.responseRecovery=privateRecovery(input.payload.intentAuthority.sourceId);return {kind:'discussion',text:'Here is private help under your preference.'};
   });await app.controller.bind(scope.peerUin);const answer=await app.controller.assist({text,taskId:'applied-pref-recovery'});
@@ -65,7 +66,7 @@ test('complete primary preserves verified preparation metadata until its exact w
     if(p.purpose==='fidelity_check'){
       assert.equal(p.candidate.suggestions[0].text,'周末要不要一起散步？');
       assert.equal(JSON.stringify(p.admittedFragments).includes('邀请她一起散步'),false);
-      return {checkRef:p.checkRef,verdict:'allow',issues:[]};
+      return {checkRef:p.checkRef,factual:factualReview(p,{}),verdict:'allow',issues:[]};
     }
     const id=p.intentAuthority.sourceId;return {kind:'discussion',text:'Prepare the requested invitation.',answer:{suggestions:[{text:'周末要不要一起散步？'}]},draftPlan:{intent:'reply',quotes:[],guidance:{objective:{text:'邀请一起散步',sourceIds:[id]},allowedApproach:{text:'直接自然地邀请',sourceIds:[id]},avoidances:[]}},
       topicPatch:{operation:'create',objective:'邀请她一起散步',direction:'直接自然地邀请',purposeSourceIds:[id],intentQuote:p.userRequest.text},stateReview:'no_change'};
@@ -78,7 +79,7 @@ test('complete primary preserves verified preparation metadata until its exact w
 test('failed invoke keeps stage diagnostics but never persists the invalid raw response body',async t=>{
   const secret='UNVALIDATED_RAW_PRIVATE_RESPONSE_SENTINEL';
   const app=setup(t,async(_s,input)=>{
-    if(input.payload.purpose==='fidelity_check')return {checkRef:input.payload.checkRef,verdict:'allow',issues:[]};
+    if(input.payload.purpose==='fidelity_check')return {checkRef:input.payload.checkRef,factual:factualReview(input.payload,{}),verdict:'allow',issues:[]};
     input.manifest.outputMetadata={contentShape:'message_text'};
     input.extraRequests=[{purpose:'format_repair',manifest:{...input.manifest,purpose:'format_repair',stageId:'repair-stage',serializedTextRequestBytes:1000},payload:{purpose:'discussion',originalInput:input.payload,formatError:'unauthorized topic field',invalidResponse:secret}}];
     throw new Error('Synthetic repaired output remained invalid');
@@ -113,7 +114,7 @@ test('durable recovery and review source hashes cannot falsely review a revised 
 
 test('automatic QQ repair declares unavailable private advice without granting an outbound plan or pending user intent',async t=>{
   const {assistModel}=require('./fixtures/assistant-protocol.cjs');let calls=0;
-  const app=setup(t,(settings,input,signal)=>assistModel(settings,input,signal,async(_url,request)=>{const payload=JSON.parse(JSON.parse(request.body).messages[1].content);calls++;const value=payload.purpose==='fidelity_check'?{checkRef:payload.checkRef,verdict:'allow',issues:[]}:calls===1?{kind:'unsupported_kind',text:'Not delivered',topicPatch:{operation:'update',version:1},actions:[{type:'save_note',text:'not authorized'}]}:{kind:'discussion',text:'先接住她分享的游戏变化，保持这次自然的交流分寸。',replyDisposition:'unavailable'};return {ok:true,json:async()=>({choices:[{finish_reason:'stop',message:{content:JSON.stringify(value)}}]})};}));
+  const app=setup(t,(settings,input,signal)=>assistModel(settings,input,signal,async(_url,request)=>{const payload=JSON.parse(JSON.parse(request.body).messages[1].content);calls++;const value=payload.purpose==='fidelity_check'?{checkRef:payload.checkRef,factual:factualReview(payload,{}),verdict:'allow',issues:[]}:calls===1?{kind:'unsupported_kind',text:'Not delivered',topicPatch:{operation:'update',version:1},actions:[{type:'save_note',text:'not authorized'}]}:{kind:'discussion',text:'先接住她分享的游戏变化，保持这次自然的交流分寸。',replyDisposition:'unavailable'};return {ok:true,json:async()=>({choices:[{finish_reason:'stop',message:{content:JSON.stringify(value)}}]})};}));
   await app.controller.bind(scope.peerUin);app.controller.live({scope,messages:[raw('90071992547409999921',false,{elements:[{textElement:{content:'我最近改玩解谜闯关了。'}}]})]});
   const before=app.store.getCompanion(scope);await app.controller.suggest({automatic:true});
   const after=app.store.getCompanion(scope),answer=after.turns.filter(turn=>turn.role==='assistant').at(-1);

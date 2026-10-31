@@ -1,4 +1,5 @@
 'use strict';
+const {factualReview}=require('./fixtures/factual-assessment.cjs');
 const {withoutCurrentControl}=require('./fixtures/wording-lanes.cjs');
 const {withCurrentDraftControls}=require('./fixtures/draft-controls.cjs');
 const test = require('node:test');
@@ -23,7 +24,7 @@ function setup(assistantModel, filename = ':memory:') {
   };
   const fidelityCalls=[];
   const controller = new Controller({ store, settings, assistantModel:async(...args)=>{
-    if(args[1].payload.purpose==='fidelity_check'){fidelityCalls.push(structuredClone(args[1].payload));return {checkRef:args[1].payload.checkRef,verdict:'allow',issues:[]};}
+    if(args[1].payload.purpose==='fidelity_check'){fidelityCalls.push(structuredClone(args[1].payload));return {checkRef:args[1].payload.checkRef,factual:factualReview(args[1].payload,{}),verdict:'allow',issues:[]};}
     return assistantModel(...args);
   },
     read: async (command, args) => {

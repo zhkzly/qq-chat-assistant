@@ -1,4 +1,5 @@
 'use strict';
+const {factualReview}=require('./fixtures/factual-assessment.cjs');
 const test=require('node:test'),assert=require('node:assert/strict');
 const {createHash}=require('node:crypto');
 const {Store}=require('../src/store.cjs'),{Controller}=require('./fixtures/whole-answer-fidelity.cjs');
@@ -9,7 +10,7 @@ function fixture(t){
  const settings={auto:false,anonymous:true,baseUrl:'http://fixture.invalid/v1',model:'synthetic',
   realChatConsent:{...scope,baseUrl:'http://fixture.invalid/v1',model:'synthetic'}};
  const controller=new Controller({store,settings,now:()=>now,viewerTimeZone:'Asia/Shanghai',read:async()=>{throw Error('No native read in this fixture');},
-  assistantModel:async(_settings,input)=>{if(input.payload.purpose==='fidelity_check'){fidelityInputs.push(input);return {checkRef:input.payload.checkRef,verdict:'allow',issues:[]};}inputs.push(input);return {kind:'discussion',text:'Synthetic help, not a semantic verdict.',...(input.payload.purpose==='reply'?{replyDisposition:'wait'}:{})};}});
+  assistantModel:async(_settings,input)=>{if(input.payload.purpose==='fidelity_check'){fidelityInputs.push(input);return {checkRef:input.payload.checkRef,factual:factualReview(input.payload,{}),verdict:'allow',issues:[]};}inputs.push(input);return {kind:'discussion',text:'Synthetic help, not a semantic verdict.',...(input.payload.purpose==='reply'?{replyDisposition:'wait'}:{})};}});
  t.after(()=>{controller.close();store.close();});controller.updateStatus({phase:'ready',account:{uid:scope.accountUid,uin:scope.accountUin}});controller.scope={...scope};
  store.setGoal(scope,'Develop a mutually desired relationship.');
  store.add(scope,[normalize(raw('41001',false,{msgTime:String(Math.floor(now/1000)-60),elements:[{textElement:{content:'I finally finished the sketch.'}}]}),scope)]);

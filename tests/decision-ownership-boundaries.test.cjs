@@ -1,4 +1,5 @@
 'use strict';
+const {factualReview}=require('./fixtures/factual-assessment.cjs');
 // Fictional contract probes derived from the existing reference/operation
 // fixtures. Scripted checker results never establish semantic model quality.
 const test=require('node:test'),assert=require('node:assert/strict');
@@ -92,15 +93,15 @@ function checkerFixture(text='这两片新叶看着挺精神。'){
 }
 
 test('a plausible pragmatic reading is a private nonblocking concern without creating a user-visible warning',()=>{
- const app=checkerFixture(),quote=app.result.suggestions[0].text,verdict=parseFidelityResult({checkRef:'c1',verdict:'reject',issues:[],concerns:[{path:'suggestions[0].text',code:'pragmatic_ambiguity',quote,reason:'A possible social reading is uncertain rather than an attributable action defect.'}]},app.context);
+ const app=checkerFixture(),quote=app.result.suggestions[0].text,verdict=parseFidelityResult({checkRef:'c1',factual:factualReview(app.context,{}),verdict:'reject',issues:[],concerns:[{path:'suggestions[0].text',code:'pragmatic_ambiguity',quote,reason:'A possible social reading is uncertain rather than an attributable action defect.'}]},app.context);
  assert.equal(verdict.verdict,'allow');assert.ok(approvalFor(verdict,app.context));assert.equal(verdict.concerns.length,1);assert.equal(app.context.payload.candidate.suggestions[0].text,quote);assert.equal(app.result.warning,undefined);
 });
 
 test('social concerns retain exact witnesses while unsupported factual claims remain blocking',()=>{
  const app=checkerFixture('这周末要不要一起去给花盆换土？'),quote=app.result.suggestions[0].text,issue={path:'suggestions[0].text',code:'current_boundary',quote,evidence:[{sourceId:app.current.id,quote:app.current.text}],reason:'Scripted grounded current-action rejection exercises the contract only.'};
- const advisory=parseFidelityResult({checkRef:'c1',verdict:'reject',issues:[issue]},app.context);assert.equal(advisory.verdict,'allow');assert.deepEqual(advisory.concerns,[issue]);assert.ok(approvalFor(advisory,app.context));
- for(const patch of [{quote:'An absent candidate body.'},{evidence:[{sourceId:app.current.id,quote:'An absent original sentence.'}]},{evidence:[{sourceId:'private:unoffered',quote:app.current.text}]}]){const soft=parseFidelityResult({checkRef:'c1',verdict:'reject',issues:[{...issue,...patch}]},app.context);assert.equal(soft.verdict,'uncertain');assert.equal(approvalFor(soft,app.context),undefined);assert.ok(app.context.manifest.fidelity.unusableAdvisory.length);assert.throws(()=>parseFidelityResult({checkRef:'c1',verdict:'reject',issues:[{...issue,code:'evidence_mismatch',...patch}]},app.context),error=>typed(error,'fidelity_result_invalid'));}
- const factual=checkerFixture('我昨天也给自己养的花盆换了土。'),unsupported={path:'suggestions[0].text',code:'unsupported_fact',quote:factual.result.suggestions[0].text,basis:'no_support_in_supplied_evidence',reason:'Scripted unsupported-event defect.'};assert.equal(parseFidelityResult({checkRef:'c1',verdict:'reject',issues:[unsupported]},factual.context).verdict,'reject');
- for(const value of [{checkRef:'c1',verdict:'reject',issues:[]},{checkRef:'c1',verdict:'unknown',issues:[]}])assert.throws(()=>parseFidelityResult(value,app.context),error=>typed(error,'fidelity_result_invalid'));
- assert.equal(approvalFor(parseFidelityResult({checkRef:'c1',verdict:'uncertain',issues:[]},app.context),app.context),undefined,'a well-formed unresolved check still cannot approve publication');
+ const advisory=parseFidelityResult({checkRef:'c1',factual:factualReview(app.context,{}),verdict:'reject',issues:[issue]},app.context);assert.equal(advisory.verdict,'allow');assert.deepEqual(advisory.concerns,[issue]);assert.ok(approvalFor(advisory,app.context));
+ for(const patch of [{quote:'An absent candidate body.'},{evidence:[{sourceId:app.current.id,quote:'An absent original sentence.'}]},{evidence:[{sourceId:'private:unoffered',quote:app.current.text}]}]){const soft=parseFidelityResult({checkRef:'c1',factual:factualReview(app.context,{}),verdict:'reject',issues:[{...issue,...patch}]},app.context);assert.equal(soft.verdict,'allow');assert.ok(approvalFor(soft,app.context));assert.ok(app.context.manifest.fidelity.unusableAdvisory.length);assert.throws(()=>parseFidelityResult({checkRef:'c1',factual:factualReview(app.context,{}),verdict:'reject',issues:[{...issue,code:'evidence_mismatch',...patch}]},app.context),error=>typed(error,'fidelity_result_invalid'));}
+ const factual=checkerFixture('我昨天也给自己养的花盆换了土。'),unsupported={path:'suggestions[0].text',code:'unsupported_fact',quote:factual.result.suggestions[0].text,basis:'no_support_in_supplied_evidence',reason:'Scripted unsupported-event defect.'};assert.equal(parseFidelityResult({checkRef:'c1',factual:factualReview(factual.context,{}),verdict:'reject',issues:[unsupported]},factual.context).verdict,'reject');
+ assert.throws(()=>parseFidelityResult({checkRef:'c1',verdict:'reject',issues:[]},app.context),error=>typed(error,'factual_assessment_missing'),'a legacy rejection with no mandatory assessment has no publication authority');assert.throws(()=>parseFidelityResult({checkRef:'c1',factual:factualReview(app.context,{}),verdict:'unknown',issues:[]},app.context),error=>typed(error,'fidelity_result_invalid'));
+ assert.equal(approvalFor(parseFidelityResult({checkRef:'c1',factual:factualReview(app.context,{}),verdict:'uncertain',issues:[]},app.context),app.context),undefined,'a well-formed unresolved check still cannot approve publication');
 });

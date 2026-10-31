@@ -1,4 +1,5 @@
 'use strict';
+const {factualReview}=require('../tests/fixtures/factual-assessment.cjs');
 // Synthetic model transport through the real controller/server and pointer UI.
 // No private user data, native QQ integration or real provider calls.
 const fs=require('node:fs'),os=require('node:os'),path=require('node:path'),assert=require('node:assert/strict');
@@ -31,7 +32,7 @@ async function until(check,label){for(let n=0;n<120;n++){if(await check())return
   assert.equal(requests.length,2,'one complete primary and one read-only fidelity check');assert.equal(input.payload.purpose,'fidelity_check');
   assert.equal(input.payload.candidate.discussionExplanation.text,explanation);assert.equal(input.payload.candidate.text,'');
   assert.equal(JSON.stringify(input.payload.admittedFragments).includes('PRIVATE_PLANNER_SENTINEL'),false,'private explanation is not outward material');
-  return {checkRef:input.payload.checkRef,verdict:'allow',issues:[]};
+  return {checkRef:input.payload.checkRef,factual:factualReview(input.payload,{}),verdict:'allow',issues:[]};
  },memoryModel:null});
  controller.updateStatus({phase:'ready',account:{uid:scope.accountUid,uin:scope.accountUin}});
  const server=createServer({controller,token:'synthetic-explanation-ui',uiDir:path.join(root,'ui'),saveSettings(){},modelFetch:async()=>({ok:true,json:async()=>({data:[{id:'synthetic-explanation'}]})})});

@@ -1,4 +1,5 @@
 'use strict';
+const {factualReview}=require('./fixtures/factual-assessment.cjs');
 function admittedQuotes(quotes){
  return quotes.map(quote=>{assert.equal(quote.provenance?.version,1);assert.equal(quote.provenance.source.sourceId,quote.sourceId);return {sourceId:quote.sourceId,text:quote.text};});
 }
@@ -134,9 +135,9 @@ async function currentOptionApplication(t,{human,options,wrongSelection=false,re
    if(rejectConditions){
     const label=p.candidate.expressionOptions[0].label,current=p.evidence.find(source=>source.sourceId===p.currentHumanControl.sourceId);
     assert.equal(current.text,human);
-    return {checkRef:p.checkRef,verdict:'reject',issues:[{path:'expressionOptions[0].label',code:'private_disclosure',quote:label,evidence:[{sourceId:current.sourceId,quote:current.text}],reason:'Scripted refusal tests retention of the complete unmet condition and private reason, not classifier quality.'}]};
+    return {checkRef:p.checkRef,factual:factualReview(p,{}),verdict:'reject',issues:[{path:'expressionOptions[0].label',code:'private_disclosure',quote:label,evidence:[{sourceId:current.sourceId,quote:current.text}],reason:'Scripted refusal tests retention of the complete unmet condition and private reason, not classifier quality.'}]};
    }
-   return {checkRef:p.checkRef,verdict:'allow',issues:[]};
+   return {checkRef:p.checkRef,factual:factualReview(p,{}),verdict:'allow',issues:[]};
   }
   if(p.selectedOption){
    const selected=p.expressionOptions.find(option=>option.turnId===p.selectedOption.turnId&&option.index===p.selectedOption.index);

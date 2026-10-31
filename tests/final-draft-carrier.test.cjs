@@ -1,4 +1,5 @@
 'use strict';
+const {factualReview}=require('./fixtures/factual-assessment.cjs');
 function admittedQuotes(quotes,canonicalQuotes,revisions){
  assert.equal(quotes.length,canonicalQuotes.length);
  return quotes.map((quote,index)=>{
@@ -87,7 +88,7 @@ async function integrationFixture(t,{privateOnly=false}={}){
   realChatConsent:{...scope,baseUrl:'http://fixture.invalid/v1',model:'synthetic-final-carrier'}};
  const controller=new Controller({store,settings,read:async command=>command==='bind'?scope:{messages:[]},assistantModel:(configured,context,signal)=>assistModel(configured,context,signal,async(_url,args)=>{
   const request=JSON.parse(args.body),wrapper=JSON.parse(request.messages[1].content),p=wrapper.originalInput||wrapper;calls.push({request,wrapper,p});
-  let content=p.purpose==='fidelity_check'?JSON.stringify({checkRef:p.checkRef,verdict:'allow',issues:[]}):actualContents[2];
+  let content=p.purpose==='fidelity_check'?JSON.stringify({checkRef:p.checkRef,factual:factualReview(p,{}),verdict:'allow',issues:[]}):actualContents[2];
   if(!['draft','fidelity_check'].includes(p.purpose)){
    const sourceId=p.intentAuthority.sourceId,requestDelivery={mode:'editable_message'};
    if(p.lookupHistory.length<2){

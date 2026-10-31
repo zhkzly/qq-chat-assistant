@@ -1,4 +1,5 @@
 'use strict';
+const {factualReview}=require('./fixtures/factual-assessment.cjs');
 const {wireSourceView,canonicalSourceView}=require('./fixtures/source-wire.cjs');
 const test=require('node:test'),assert=require('node:assert/strict');
 const {Controller}=require('../src/controller.cjs');
@@ -32,7 +33,7 @@ async function fixture(t,producer){
 test('literal forget removes secret-bearing delivery state from the next pass and persistent request diagnostics',async t=>{
  const secret='FICTIONAL_FORGET_DELIVERY_SENTINEL_20261030';let targetId,requestText,afterForgetArgs;
  const app=await fixture(t,(p,wrapper,entry,index)=>{
-  if(p.purpose==='fidelity_check')return {checkRef:p.checkRef,verdict:'allow',issues:[]};
+  if(p.purpose==='fidelity_check')return {checkRef:p.checkRef,factual:factualReview(p,{}),verdict:'allow',issues:[]};
   if(index===0)return {operation:'prepare_message',
    actions:[{type:'forget',sourceId:targetId,targetQuote:secret,evidenceQuote:`忘记${secret}`}],answer:{suggestions:[{text:'装好之后打算先放哪些书呀？'}]}};
   afterForgetArgs=structuredClone(app.controller.activeAssist?.args);
@@ -52,7 +53,7 @@ test('literal forget removes secret-bearing delivery state from the next pass an
 test('QQ-triggered same-task resume preserves the editable obligation and original shared budget',async t=>{
  let finishPending,pendingArgs;
  const app=await fixture(t,(p,wrapper,entry,index)=>{
-  if(p.purpose==='fidelity_check')return {checkRef:p.checkRef,verdict:'allow',issues:[]};
+  if(p.purpose==='fidelity_check')return {checkRef:p.checkRef,factual:factualReview(p,{}),verdict:'allow',issues:[]};
   if(p.purpose==='draft')return {kind:'draft',text:'参考表达',suggestions:[{style:'自然',text:'装好之后打算先放哪些书呀？'}]};
   if(wrapper.originalInput)return {operation:'prepare_message',answer:{suggestions:[{text:'装好之后打算先放哪些书呀？'}]}};
   if(index===0)return {operation:'lookup',continuation:'prepare_message',text:'先核对已提供的原话。',lookup:{sourceIds:[p.sources.find(source=>source.type==='qq').id]}};
@@ -79,7 +80,7 @@ test('same-task resume reinterprets an authority revision changed away and back 
  let finishPending;
  const text='帮我给她一条完整能改着发的表达。';
  const app=await fixture(t,(p,wrapper,entry,index)=>{
-  if(p.purpose==='fidelity_check')return {checkRef:p.checkRef,verdict:'allow',issues:[]};
+  if(p.purpose==='fidelity_check')return {checkRef:p.checkRef,factual:factualReview(p,{}),verdict:'allow',issues:[]};
   if(index===0)return {operation:'lookup',continuation:'prepare_message',text:'先取回原话。',lookup:{sourceIds:[p.sources.find(source=>source.type==='qq').id]}};
   if(index===1)return new Promise(resolve=>{finishPending=()=>resolve({operation:'prepare_message',answer:{suggestions:[{text:'装好之后打算先放哪些书呀？'}]}});});
   return {operation:'advise',text:'依据本次重新提供的原话讨论。'};
@@ -103,7 +104,7 @@ test('same-task resume reinterprets an authority revision changed away and back 
 test('QQ resume after applied forget restores only the sanitized request and nontext delivery binding',async t=>{
  const secret='FICTIONAL_FORGET_THEN_RESUME_SENTINEL_20261030';let targetId,finishPostForget,resumeArgs;
  const app=await fixture(t,(p,wrapper,entry,index)=>{
-  if(p.purpose==='fidelity_check')return {checkRef:p.checkRef,verdict:'allow',issues:[]};
+  if(p.purpose==='fidelity_check')return {checkRef:p.checkRef,factual:factualReview(p,{}),verdict:'allow',issues:[]};
   if(p.purpose==='draft')return {kind:'draft',text:'参考表达',suggestions:[{style:'自然',text:'装好了就能慢慢把喜欢的书放进去啦。'}]};
   if(index===0)return {operation:'prepare_message',
    actions:[{type:'forget',sourceId:targetId,targetQuote:secret,evidenceQuote:`忘记${secret}`}],answer:{suggestions:[{text:'装好之后打算先放哪些书呀？'}]}};

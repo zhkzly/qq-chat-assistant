@@ -46,7 +46,7 @@ test('source updates and declared raw chronology are forwarded without expected-
 });
 test('frozen supplemental inventory is read only and remains four cases/eight observations',()=>{
  const dataset=loadMemoryCases();assert.equal(dataset.cases.length,4);assert.equal(dataset.cases.reduce((n,c)=>n+c.steps.length,0),8);
- assert.equal(dataset.datasetHash,'23d874479edf22cebb72161179156c265f6b9d6947bc14910424c17ce9d740a1');
+ assert.equal(dataset.datasetHash,'558be21ed1021bce08c96d061c50d2c865f40027edc6d1eff4272278eb37a5c7');
 });
 test('all eight frozen questions and withdrawal clocks reach the adapter while all reviewer fields stay outside it',async()=>{
  const dataset=loadMemoryCases(),questions=[];

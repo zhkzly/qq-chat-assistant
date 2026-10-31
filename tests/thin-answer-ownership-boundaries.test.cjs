@@ -1,4 +1,5 @@
 'use strict';
+const {factualReview}=require('./fixtures/factual-assessment.cjs');
 // Fictional boundary probes derived from the existing ownership/lifecycle
 // fixtures. Scripted checker decisions test contracts, never model quality.
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
@@ -30,7 +31,12 @@ function checker({human=CONTROL,message='这两片新叶看着挺精神。',admi
  const context=buildFidelityContext(prepared,result,{scope,requestId:manifest.requestId,admittedContext:{payload:{outboundQuotes:admitted,currentHumanControl:{sourceId:app.current.id,authority:'CONTROL_ONLY',text:human}},manifest},requestMeasure:value=>Buffer.byteLength(JSON.stringify(value))});
  return {...app,context,result,prepared};
 }
-const decide=(context,issues=[],extra={})=>parseFidelityResult({checkRef:context.payload.checkRef,verdict:issues.length?'reject':'allow',issues,...extra},context);
+function actualFactReview(p,quote=FACT){
+ const fragment=p.admittedFragments.find(fragment=>fragment.text===quote);assert.ok(fragment,'the scripted supported assertion needs its actual admitted material');
+ const source=p.evidence.find(source=>source.sourceId===fragment.sourceId);assert.ok(source,'the exact original must be in this checker frame');
+ return factualReview(p,{'suggestions[0].text':[{quote,kind:'assertion',support:'supported',evidence:[{sourceId:source.sourceId,quote}]}]});
+}
+const decide=(context,issues=[],extra={})=>parseFidelityResult({checkRef:context.payload.checkRef,factual:factualReview(context.payload,{}),verdict:issues.length?'reject':'allow',issues,...extra},context);
 function primary(message='这两片新叶看着挺精神。',{why,currentFacts,materials,editingReference}={}){
  return {operation:'prepare_message',answer:{suggestions:[{text:message}],...(why?{privateExplanation:why}:{})},...(currentFacts?{currentFacts}:{}),...(materials?{materials}:{}),...(editingReference?{editingReference}:{})};
 }
@@ -52,7 +58,7 @@ async function application(t,producer,{noteText,noteUse='discussion'}={}){
 }
 
 test('pure current control needs no outward material, dead draft plan or additional composer call',async t=>{
- const why='先接住她实际分享的小变化，私下说明到这里即可。',app=await application(t,p=>p.purpose==='fidelity_check'?{checkRef:p.checkRef,verdict:'allow',issues:[]}:primary(undefined,{why})),reply=await app.assist();
+ const why='先接住她实际分享的小变化，私下说明到这里即可。',app=await application(t,p=>p.purpose==='fidelity_check'?{checkRef:p.checkRef,factual:factualReview(p,{}),verdict:'allow',issues:[]}:primary(undefined,{why})),reply=await app.assist();
  assert.equal(reply.kind,'draft');assert.equal(reply.text,'');assert.equal(reply.suggestions[0].text,'这两片新叶看着挺精神。');assert.equal(reply.discussionExplanation.text,why);
  assert.equal(app.calls.length,2);assert.equal(app.calls[1].p.purpose,'fidelity_check');assert.deepEqual(app.calls[1].p.admittedFragments,[]);assert.equal(app.calls.some(call=>call.p.purpose==='draft'),false);
  const schema=app.calls[0].request.tools[0].function.parameters;
@@ -62,14 +68,14 @@ test('pure current control needs no outward material, dead draft plan or additio
 });
 
 test('mixed current facts bind exact genuine spans while full original privacy and factual limits reach the checker',async t=>{
- const human=FACT+'这句可以告诉她。'+PRIVATE+'我没有自己装过书架；只有我之后明确说想一起做，才准备邀请，这次不邀请。',app=await application(t,p=>p.purpose==='fidelity_check'?{checkRef:p.checkRef,verdict:'allow',issues:[]}:primary(FACT,{currentFacts:[FACT],why:'只把本次愿意分享的网页近况写进消息。'})),reply=await app.assist(human),packet=app.calls[1].p;
+ const human=FACT+'这句可以告诉她。'+PRIVATE+'我没有自己装过书架；只有我之后明确说想一起做，才准备邀请，这次不邀请。',app=await application(t,p=>p.purpose==='fidelity_check'?{checkRef:p.checkRef,factual:actualFactReview(p),verdict:'allow',issues:[]}:primary(FACT,{currentFacts:[FACT],why:'只把本次愿意分享的网页近况写进消息。'})),reply=await app.assist(human),packet=app.calls[1].p;
  assert.equal(app.calls.length,2);assert.equal(reply.suggestions[0].text,FACT);assert.deepEqual(packet.admittedFragments.map(item=>item.text),[FACT]);
  const current=packet.evidence.find(item=>item.sourceId===packet.currentHumanControl.sourceId);assert.equal(current.text,human);assert.equal(packet.currentHumanControl.authority,'CONTROL_ONLY');
  assert.equal(packet.admittedFragments.some(item=>item.text.includes(PRIVATE)),false);assert.equal(packet.candidate.suggestions[0].text,FACT);
 });
 
 test('a short current fact remains usable in a supported long current original with its final privacy qualifier intact',async t=>{
- const human=FACT+'这句可以告诉她。'+('PRIVATE_CONTEXT_PADDING '.repeat(200))+PRIVATE,app=await application(t,p=>p.purpose==='fidelity_check'?{checkRef:p.checkRef,verdict:'allow',issues:[]}:primary(FACT,{currentFacts:[FACT]})),reply=await app.assist(human);
+ const human=FACT+'这句可以告诉她。'+('PRIVATE_CONTEXT_PADDING '.repeat(200))+PRIVATE,app=await application(t,p=>p.purpose==='fidelity_check'?{checkRef:p.checkRef,factual:actualFactReview(p),verdict:'allow',issues:[]}:primary(FACT,{currentFacts:[FACT]})),reply=await app.assist(human);
  assert.ok(human.length>4000&&human.length<16000);assert.equal(app.calls.length,2);assert.equal(reply.suggestions[0].text,FACT);
  const packet=app.calls[1].p,original=packet.evidence.find(item=>item.sourceId===packet.currentHumanControl.sourceId);assert.equal(original.text,human);assert.ok(original.text.endsWith(PRIVATE));assert.deepEqual(packet.admittedFragments.map(item=>item.text),[FACT]);
 });
@@ -90,8 +96,8 @@ test('exact current binding does not grant private disclosure, and one whole-can
  const app=await application(t,(p,wrapper)=>{
   if(p.purpose==='fidelity_check'){
    checks++;const original=p.evidence.find(item=>item.sourceId===p.currentHumanControl.sourceId);assert.equal(original.text,human);
-   if(checks===1){assert.deepEqual(p.admittedFragments.map(item=>item.text),[privateReason]);return {checkRef:p.checkRef,verdict:'reject',issues:[{path:'suggestions[0].text',code:'private_disclosure',quote:privateReason,evidence:[{sourceId:original.sourceId,quote:human}],reason:'The exact span is present, but its complete current original explicitly keeps it private.'}]};}
-   assert.deepEqual(p.admittedFragments.map(item=>item.text),[FACT]);return {checkRef:p.checkRef,verdict:'allow',issues:[]};
+   if(checks===1){assert.deepEqual(p.admittedFragments.map(item=>item.text),[privateReason]);return {checkRef:p.checkRef,factual:factualReview(p,{}),verdict:'reject',issues:[{path:'suggestions[0].text',code:'private_disclosure',quote:privateReason,evidence:[{sourceId:original.sourceId,quote:human}],reason:'The exact span is present, but its complete current original explicitly keeps it private.'}]};}
+   assert.deepEqual(p.admittedFragments.map(item=>item.text),[FACT]);return {checkRef:p.checkRef,factual:actualFactReview(p),verdict:'allow',issues:[]};
   }
   return wrapper.originalInput?primary(FACT,{currentFacts:[FACT],why}):primary(privateReason,{currentFacts:[privateReason],why:'This rejected explanation must never be published.'});
  }),reply=await app.assist(human);
@@ -109,14 +115,14 @@ for(const [name,declare,message,human]of [
  const app=await application(t,p=>{
   if(p.purpose!=='fidelity_check')return primary(message,declare?{currentFacts:[message]}:{});
   const original=p.evidence.find(item=>item.sourceId===p.intentAuthority.sourceId);assert.equal(original.text,human);assert.equal(p.candidate.suggestions[0].text,message);
-  return {checkRef:p.checkRef,verdict:'reject',issues:[{path:'suggestions[0].text',code:'private_disclosure',quote:message,evidence:[{sourceId:original.sourceId,quote:human}],reason:'An exact primary span is neither a completeness proof nor permission to disclose against original negation or conditions.'}]};
+  return {checkRef:p.checkRef,factual:factualReview(p,{}),verdict:'reject',issues:[{path:'suggestions[0].text',code:'private_disclosure',quote:message,evidence:[{sourceId:original.sourceId,quote:human}],reason:'An exact primary span is neither a completeness proof nor permission to disclose against original negation or conditions.'}]};
  });
  await assert.rejects(app.assist(human),error=>error.code==='request_delivery_repair_exhausted');assert.equal(app.calls.length,4);assert.equal(app.store.getCompanion(scope).turns.some(item=>item.role==='assistant'),false);
  assert.equal(app.controller.usage.get(scope,'thin-answer-boundaries').requests.filter(item=>item.purpose==='delivery_repair').length,1);
 });
 
 test('only the complete answer owns one visible private explanation and individually revocable message leaves',async t=>{
- const why='PRIVATE_FINAL_OWNER：先接住她分享的花盆近况。',first='这两片新叶看着挺精神。',second='窗边的光线看起来很适合它。',app=await application(t,p=>p.purpose==='fidelity_check'?{checkRef:p.checkRef,verdict:'allow',issues:[]}:{operation:'prepare_message',answer:{privateExplanation:why,suggestions:[{text:first},{text:second}]}}),reply=await app.assist();
+ const why='PRIVATE_FINAL_OWNER：先接住她分享的花盆近况。',first='这两片新叶看着挺精神。',second='窗边的光线看起来很适合它。',app=await application(t,p=>p.purpose==='fidelity_check'?{checkRef:p.checkRef,factual:factualReview(p,{}),verdict:'allow',issues:[]}:{operation:'prepare_message',answer:{privateExplanation:why,suggestions:[{text:first},{text:second}]}}),reply=await app.assist();
  assert.equal(app.calls.length,2);assert.equal(reply.text,'');assert.equal(reply.discussionExplanation.text,why);assert.equal(visibleResponseText(reply),why);assert.equal(projectVisibleTurn(reply).text,why);assert.equal(uiBody(reply),why);
  assert.equal(app.store.experiences.artifact(scope,reply.artifactRef).body,why);assert.deepEqual(projectVisibleTurn(reply).suggestions.map(item=>item.text),[first,second]);
  const rawBefore=JSON.stringify(app.store._getCompanion(scope).turns);app.store.experiences.invalidateArtifacts(scope,[reply.suggestions[0].artifactRef]);
@@ -126,7 +132,7 @@ test('only the complete answer owns one visible private explanation and individu
 });
 
 for(const boundary of ['account','contact','current original source'])test(`a delayed thin candidate checker cannot publish after the ${boundary} changes`,async t=>{
- let release,enter;const entered=new Promise(resolve=>{enter=resolve;}),app=await application(t,p=>p.purpose==='fidelity_check'?new Promise(resolve=>{release=()=>resolve({checkRef:p.checkRef,verdict:'allow',issues:[]});enter();}):primary(FACT,{currentFacts:[FACT]})),pending=app.assist(FACT+'这句可以告诉她。');
+ let release,enter;const entered=new Promise(resolve=>{enter=resolve;}),app=await application(t,p=>p.purpose==='fidelity_check'?new Promise(resolve=>{release=()=>resolve({checkRef:p.checkRef,factual:factualReview(p,{}),verdict:'allow',issues:[]});enter();}):primary(FACT,{currentFacts:[FACT]})),pending=app.assist(FACT+'这句可以告诉她。');
  pending.catch(()=>{});t.after(()=>release?.());await Promise.race([entered,pending.then(()=>{throw Error('The thin answer published before its controlled checker.');})]);
  assert.equal(app.store.getCompanion(scope).turns.some(item=>item.role==='assistant'),false);
  if(boundary==='account')app.controller.updateStatus({phase:'ready',account:{uid:'a-different-authenticated-account',uin:'999001'}});

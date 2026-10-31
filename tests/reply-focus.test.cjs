@@ -1,4 +1,5 @@
 'use strict';
+const {factualReview}=require('./fixtures/factual-assessment.cjs');
 const test=require('node:test');const assert=require('node:assert/strict');
 const fs=require('node:fs');const os=require('node:os');const path=require('node:path');
 const {Store}=require('../src/store.cjs');const {Controller}=require('./fixtures/whole-answer-fidelity.cjs');const {normalize}=require('../src/messages.cjs');
@@ -16,7 +17,7 @@ function app(t,assistantModel,overrides={}) {
 
 test('recent incoming burst is grouped and selected old targets remain in the unified bounded context',async t=>{
  assert.deepEqual(replyFocusFor(records,[]).messageIds,records.slice(-3).map(r=>r.messageId));
- let context;const {controller}=app(t,async(_,input)=>{if(input.payload.purpose==='fidelity_check')return {checkRef:input.payload.checkRef,verdict:'allow',issues:[]};context=input;return {kind:'discussion',text:'合成场景暂不提供新句子。',replyDisposition:'wait'};});
+ let context;const {controller}=app(t,async(_,input)=>{if(input.payload.purpose==='fidelity_check')return {checkRef:input.payload.checkRef,factual:factualReview(input.payload,{}),verdict:'allow',issues:[]};context=input;return {kind:'discussion',text:'合成场景暂不提供新句子。',replyDisposition:'wait'};});
  const ids=[records[0].messageId,records[1].messageId];controller.configure({instruction:'自然一点',replyMessageIds:ids});
  await controller.suggest();assert.equal(context.payload.purpose,'reply');assert.deepEqual(context.payload.replyFocus,ids);
  assert.ok(ids.every(id=>context.payload.sources.some(s=>s.id===`qq:${id}`)));assert.ok(context.manifest.inputBytes<=context.manifest.byteBudget);
@@ -33,7 +34,7 @@ test('changing reply focus discards a pending answer and contact binding clears 
 test('both unified model stages preserve exact selected targets as quoted data without QQ commands',async t=>{
  const inputs=[];const network=async(_,args)=>{
   const body=JSON.parse(args.body),input=JSON.parse(body.messages[1].content);inputs.push(input);
-  return {ok:true,json:async()=>({choices:[{message:{content:JSON.stringify(input.purpose==='fidelity_check'?{checkRef:input.checkRef,verdict:'allow',issues:[]}:{...plan,draftPlan:withCurrentDraftControls(plan.draftPlan,input),answer:{privateExplanation:draft.text,suggestions:draft.suggestions}})}}]})};
+  return {ok:true,json:async()=>({choices:[{message:{content:JSON.stringify(input.purpose==='fidelity_check'?{checkRef:input.checkRef,factual:factualReview(input,{}),verdict:'allow',issues:[]}:{...plan,draftPlan:withCurrentDraftControls(plan.draftPlan,input),answer:{privateExplanation:draft.text,suggestions:draft.suggestions}})}}]})};
  };
  const {store,controller}=app(t,(model,context,signal)=>assistModel(model,context,signal,network));
  const ids=[records[0].messageId];controller.configure({replyMessageIds:ids});const actualCount=store.messages(scope).length;
@@ -62,7 +63,7 @@ function cachedImage(t) {
 }
 
 test('authorized current-scope cached images reach both unified stages; foreign and ignored selections do not',async t=>{
- const file=cachedImage(t),calls=[];const {store,controller}=app(t,async(_,context)=>{calls.push(context);return context.payload.purpose==='fidelity_check'?{checkRef:context.payload.checkRef,verdict:'allow',issues:[]}:{...plan,draftPlan:withCurrentDraftControls(plan.draftPlan,context.payload),answer:{privateExplanation:draft.text,suggestions:draft.suggestions}};});
+ const file=cachedImage(t),calls=[];const {store,controller}=app(t,async(_,context)=>{calls.push(context);return context.payload.purpose==='fidelity_check'?{checkRef:context.payload.checkRef,factual:factualReview(context.payload,{}),verdict:'allow',issues:[]}:{...plan,draftPlan:withCurrentDraftControls(plan.draftPlan,context.payload),answer:{privateExplanation:draft.text,suggestions:draft.suggestions}};});
  const id='72057594037927991',message=normalize(raw(id,false,{elements:[{picElement:{sourcePath:file,fileName:'one.png'}}]}),scope);store.add(scope,[message]);
  controller.settings.visionEnabled=true;controller.settings.realChatConsent.allowImages=true;controller.configure({images:[{messageId:id,index:0}]});
  await controller.suggest();assert.equal(calls.length,2);assert.ok(calls.every(c=>c.images.length===1&&c.images[0].messageId===id&&c.images[0].url.startsWith('data:image/png;base64,')));

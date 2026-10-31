@@ -1,4 +1,5 @@
 'use strict';
+const {factualReview}=require('./fixtures/factual-assessment.cjs');
 // Current producer/controller fixtures with local deterministic model transport.
 const test=require('node:test'),assert=require('node:assert/strict');
 const {Store}=require('../src/store.cjs'),{Controller}=require('./fixtures/whole-answer-fidelity.cjs');
@@ -17,7 +18,7 @@ function fixture(t){
  realChatConsent:{...scope,baseUrl:'http://fixture.invalid/v1',model:'synthetic-generated-projection'}};
  const controller=new Controller({store,settings,read:async()=>{throw Error('No native QQ read');},assistantModel:async(_,input)=>{
   const p=input.payload;calls.push(structuredClone(p));
-  if(p.purpose==='fidelity_check')return {checkRef:p.checkRef,verdict:'allow',issues:[]};
+  if(p.purpose==='fidelity_check')return {checkRef:p.checkRef,factual:factualReview(p,{}),verdict:'allow',issues:[]};
   const selected=/改/.test(p.userRequest.text)?p.editingReferences?.[0]:null;
   return {kind:'discussion',text:'独立的规划说明。',draftPlan:withCurrentDraftControls({quotes:[],intent:'reply',...(selected?{editingReference:{choice:selected.choice}}:{})},p),answer:{privateExplanation:'独立的私下解释。',suggestions:selected?[{style:'自然',text:selected.text.replace('旧句','改句')}]:[{style:'自然',text:`旧句 ${SECRET}`},{style:'另外',text:SIBLING}]}};
  }});controller.scope={...scope};controller.ingest(scope,[raw('59001',false,{elements:[{textElement:{content:'薄荷又长新叶了。'}}]})]);

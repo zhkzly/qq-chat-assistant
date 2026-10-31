@@ -4,8 +4,8 @@ const {parseModelJson}=require('./model-json.cjs');
 const {validationError}=require('./validation-issues.cjs');
 const {sameScopeIfPresent}=require('./context/source-snapshot.cjs');
 const {sourceClosure}=require('./provenance.cjs');
-const {candidateFields,candidatePaths,normalizeCandidatePath}=require('./candidate-field-paths.cjs');
-const VERSION='whole-answer-fidelity-v4';
+const {candidateFields,candidatePaths,candidateScopes,normalizeCandidatePath}=require('./candidate-field-paths.cjs');
+const VERSION='whole-answer-fidelity-v5';
 const marks=new WeakMap(),clone=value=>structuredClone(value);
 const plain=value=>value&&typeof value==='object'&&!Array.isArray(value);
 const hash=value=>createHash('sha256').update(JSON.stringify(value)).digest('hex');
@@ -116,7 +116,7 @@ function buildFidelityContext(prepared,result,info={}){
   ...(prepared.payload.viewerTimeZone?{viewerTimeZone:prepared.payload.viewerTimeZone}:{}),
   ...(prepared.payload.taskContext?.timeContext?{timeContext:clone(prepared.payload.taskContext.timeContext)}:{}),
   ...(prepared.payload.actionReceipts?.length?{actionReceipts:clone(prepared.payload.actionReceipts)}:{}),
-  candidate:freeze(clone(candidate)),candidatePaths:candidatePaths(candidate),evidence,
+  candidate:freeze(clone(candidate)),candidatePaths:candidatePaths(candidate),candidateScopes:candidateScopes(candidate),evidence,
   ...(intentId?{intentAuthority:{sourceId:intentId}}:{}),
   admittedFragments:admitted.map(({sourceId,text})=>({sourceId,text})),
   ...(optionMaterials.some(option=>option.fragments.length)?{optionMaterials:clone(optionMaterials)}:{}),
@@ -161,10 +161,11 @@ function buildFidelityContext(prepared,result,info={}){
   admitted:info.admittedContext?.payload.outboundQuotes,currentHuman:info.admittedContext?.payload.currentHumanControl,selectedDirection:info.admittedContext?.payload.selectedDirectionControl,
   revisions:context?.manifest.sourceRevisions||revisions,artifacts:(context?.manifest||manifest).inputArtifactRefs||[],
   evidenceHash:hash(context?.payload||payload),optionWitness:options.map(option=>({label:option.label,style:option.style,quotes:option.quotes||[]})),authorizedImages:prepared.images||[],images:context?.images||images,sourceWitness:[...sourceMap.values()].map(source=>[source.id,source.revision,source.type,source.role,source.at,source.text,source.delivery,source.evidenceRevisions])});
- const bound=binding(),candidateHash=hash(candidate),fields=new Map(candidateFields(candidate).map(field=>[field.path,field.value])),paths=new Set(payload.candidatePaths);
- const bodyAt=path=>fields.get(path);
- const frame=Object.freeze({candidateHash,bindingHash:bound,paths,sourceIds:new Set(sourceIds),bodyAt,evidenceAt:id=>payload.evidence.find(source=>source.sourceId===id),
-  assert(){if(binding()!==bound||hash(visibleCandidate(result,options))!==candidateHash||hash(payload.candidate)!==candidateHash||hash(payload)!==evidenceHash)throw fail('candidate','fidelity_binding_invalid','The candidate or captured evidence binding changed after checking');}});
+ const bound=binding(),candidateHash=hash(candidate),fields=new Map(candidateFields(candidate).map(field=>[field.path,field.value])),paths=new Set(payload.candidatePaths),frameSourceIds=new Set(sourceIds);
+ const bodyAt=path=>fields.get(path),scopes=new Map(payload.candidateScopes.map(field=>[field.path,field.scope]));
+ const sameSet=(actual,expected)=>actual.size===expected.length&&expected.every(value=>actual.has(value));
+ const frame=Object.freeze({candidateHash,bindingHash:bound,paths,sourceIds:frameSourceIds,bodyAt,scopeAt:path=>scopes.get(path),evidenceAt:id=>payload.evidence.find(source=>source.sourceId===id),
+  assert(){if(!sameSet(paths,payload.candidatePaths)||!sameSet(frameSourceIds,sourceIds)||binding()!==bound||hash(visibleCandidate(result,options))!==candidateHash||hash(payload.candidate)!==candidateHash||hash(payload)!==evidenceHash)throw fail('candidate','fidelity_binding_invalid','The candidate or captured evidence binding changed after checking');}});
  manifest.fidelity={version:VERSION,candidateHash,bindingHash:bound,evidenceHash,status:'pending'};
  context={payload,manifest,images};Object.defineProperty(context,'fidelityFrameSnapshot',{value:frame});
  Object.defineProperty(context,'sourceReferenceRevisions',{value:revisions});
@@ -176,13 +177,22 @@ function parseFidelityResult(value,input){
  const frame=input?.fidelityFrameSnapshot;if(!frame)throw fail('checkRef','fidelity_binding_invalid','A checker result requires its private captured frame');frame.assert();
  if(plain(value)&&marks.has(value)){if(marks.get(value).frame!==frame||marks.get(value).hash!==hash(value))throw fail('checkRef','fidelity_binding_invalid','Checker result belongs to another candidate or was modified');return value;}
  let data=typeof value==='string'?parseModelJson(value):value;
- if(!plain(data)||Object.keys(data).some(key=>!['checkRef','verdict','issues','concerns'].includes(key))||data.checkRef!=='c1'||
+ if(!plain(data)||Object.keys(data).some(key=>!['checkRef','verdict','issues','factual','concerns'].includes(key))||data.checkRef!=='c1'||
   !['allow','reject','uncertain'].includes(data.verdict)||!Array.isArray(data.issues)||data.issues.length>12)
   throw fail('checkRef','fidelity_result_invalid','Return only this checkRef, allow/reject/uncertain and bounded issues; never rewrite or execute');
+ if(!Array.isArray(data.factual))throw fail('factual','factual_assessment_missing','Return a factual assessment for every offered visible candidate path; reported allow and empty issues cannot replace it');
+ // Explanatory prose is not a source capability or a factual decision. Isolate
+ // it before source decoding as well as before core validation; a malformed
+ // optional reason must not smuggle a handle or cancel a grounded finding.
+ const sourceCanonical=input.sourceWireSnapshot?.isCanonical?.(data),factualReasons=new Map();
+ data={...data,factual:data.factual.map((field,index)=>!plain(field)||!Array.isArray(field.statements)?field:{...field,statements:field.statements.map((statement,position)=>{
+  if(!plain(statement)||!Object.hasOwn(statement,'reason'))return statement;
+  factualReasons.set(`${index}:${position}`,statement.reason);const {reason,...core}=statement;return core;
+ })})};
  const softCodes=['current_boundary','pragmatic_ambiguity','style','helpfulness','coverage_gap'];
  const concerns=[],issues=[],unusableAdvisory=[];
  const unusableSoft=new Set();
- if(input.sourceWireSnapshot&&!input.sourceWireSnapshot.isCanonical?.(data)){
+ if(input.sourceWireSnapshot&&!sourceCanonical){
   const wire=input.sourceWireSnapshot,original=data,hard=original.issues.filter(issue=>!softCodes.includes(issue?.code));
   data=wire.decode({...original,issues:hard,concerns:undefined});
   const optionalDecode=(raw,field)=>{
@@ -207,6 +217,47 @@ function parseFidelityResult(value,input){
   return canonical;
  };
  const quoted=(path,quote)=>typeof quote==='string'&&quote.trim()&&quote.length<=1200&&typeof frame.bodyAt(path)==='string'&&frame.bodyAt(path).includes(quote);
+ const factual=[],seenFields=new Set();let statementCount=0,factualUncertain=false,factualReasonBytes=0;
+ let factualBytes;try{factualBytes=Buffer.byteLength(JSON.stringify(data.factual),'utf8');}catch{throw fail('factual','factual_assessment_invalid','Factual assessment must be bounded JSON data');}
+ if(data.factual.length!==input.payload.candidatePaths.length||factualBytes>24000)throw fail('factual','factual_coverage_invalid','Assess every offered candidate path exactly once; keep factual findings compact');
+ for(const [index,raw]of data.factual.entries()){
+  if(!plain(raw)||Object.keys(raw).some(key=>!['path','statements'].includes(key))||!Array.isArray(raw.statements)||raw.statements.length>12)throw fail(`factual[${index}]`,'factual_assessment_invalid','Use one path and a bounded statements array; [] explicitly declares no factual assertion identified in that field');
+  const path=address(raw.path,`factual[${index}].path`);
+  if(seenFields.has(path))throw fail(`factual[${index}].path`,'factual_coverage_invalid','Each offered visible field must be assessed exactly once');seenFields.add(path);
+  const statements=[];
+  for(const [position,value]of raw.statements.entries()){
+   const field=`factual[${index}].statements[${position}]`;
+   if(++statementCount>32||!plain(value)||Object.keys(value).some(key=>!['quote','kind','support','evidence','basis','condition','contextQuote'].includes(key))||
+    !['assertion','intent','opinion','question','private_conditional'].includes(value.kind)||!quoted(path,value.quote))throw fail(field,'factual_statement_invalid','Classify a shortest exact visible statement or necessary factual premise, never a paraphrase or another field');
+   const rawReason=factualReasons.get(`${index}:${position}`);let reason;
+   if(rawReason!==undefined){
+    if(typeof rawReason==='string'&&rawReason.trim()&&rawReason.length<=500&&factualReasonBytes+Buffer.byteLength(rawReason,'utf8')<=6000){reason=rawReason;factualReasonBytes+=Buffer.byteLength(reason,'utf8');}
+    else unusableAdvisory.push({field:`${field}.reason`,code:'invalid_factual_reason',raw:String(JSON.stringify(rawReason)).slice(0,1600)});
+   }
+   const evidence=value.evidence||[];
+   if(!Array.isArray(evidence)||evidence.length>4||evidence.some(ref=>!plain(ref)||Object.keys(ref).some(key=>!['sourceId','quote'].includes(key))||typeof ref.sourceId!=='string'||typeof ref.quote!=='string'||!ref.quote.trim()||ref.quote.length>1200||!frame.sourceIds.has(ref.sourceId)||!frame.evidenceAt(ref.sourceId)?.text.includes(ref.quote)))throw fail(`${field}.evidence`,'factual_evidence_invalid','Factual witnesses must quote only original evidence actually offered in this frame');
+   if(value.kind==='assertion'){
+    if(!['supported','unsupported','unverifiable'].includes(value.support)||value.condition!==undefined||value.contextQuote!==undefined)throw fail(field,'factual_support_invalid','An assertion needs supported, unsupported or unverifiable findings; a private caveat cannot exempt it');
+    if(value.support==='supported'){
+     if(!evidence.length||value.basis!==undefined||evidence.some(ref=>{
+      const source=frame.evidenceAt(ref.sourceId);
+      return !['qq','private','feedback','note'].includes(source.type)||source.role==='assistant'||source.delivery?.status==='partial'||typeof input.manifest?.sourceRevisions?.[ref.sourceId]!=='string'||!input.manifest.sourceRevisions[ref.sourceId]||input.payload.coverage?.unavailableRootSourceIds?.includes(ref.sourceId);
+     }))throw fail(field,'factual_support_unverifiable','Supported assertions require exact full original bodies and captured source revisions; generated candidate text is not support');
+    }else if(value.support==='unsupported'){
+     if(value.basis!=='no_support_in_supplied_evidence')throw fail(`${field}.basis`,'factual_basis_missing','Unsupported assertions require the explicit no-support-in-supplied-evidence basis');
+     issues.push({path,code:'unsupported_fact',quote:value.quote,basis:value.basis,...(evidence.length?{evidence:clone(evidence)}:{}),reason:reason||'This visible factual assertion has no support in the supplied original evidence.'});
+    }else{
+     if(value.basis!==undefined)throw fail(field,'factual_support_invalid','Unverifiable is unresolved support, not an unsupported-fact finding');factualUncertain=true;
+    }
+   }else if(value.kind==='private_conditional'){
+    const condition=value.condition,context=value.contextQuote,body=frame.bodyAt(path);
+    if(frame.scopeAt(path)!=='private'||value.support!==undefined||value.basis!==undefined||value.evidence!==undefined||typeof condition!=='string'||!condition.trim()||condition.length>1200||typeof context!=='string'||!context.trim()||context.length>6000||!body.includes(context)||!context.includes(condition)||!context.includes(value.quote)||condition===value.quote)throw fail(field,'factual_conditional_scope','A hypothetical example requires its complete condition and example together in one private field; it cannot exempt a separate copyable assertion');
+   }else if(['support','evidence','basis','condition','contextQuote'].some(key=>Object.hasOwn(value,key)))throw fail(field,'factual_kind_conflict','Intent, opinion or question cannot carry a conflicting factual-support finding; assess claimed plans, preferences and necessary premises separately as assertions');
+   statements.push({...clone(value),...(reason?{reason}:{})});
+  }
+  factual.push({path,statements});
+ }
+ if(input.payload.candidatePaths.some(path=>!seenFields.has(path)))throw fail('factual','factual_coverage_invalid','A visible candidate field lacks factual assessment');
  const concern=(raw,index,field=`concerns[${index}].path`)=>{
   const item=plain(raw)?{...raw,path:address(raw.path,field)}:raw;
   if(!plain(item)||Object.keys(item).some(key=>!['path','code','quote','sourceIds','evidence','reason'].includes(key))||typeof item.code!=='string'||!item.code.trim()||item.code.length>80||
@@ -240,12 +291,12 @@ function parseFidelityResult(value,input){
  if(Array.isArray(data.concerns))for(const [index,item]of data.concerns.slice(0,12).entries())optionalConcern(item,index);
  else if(data.concerns!==undefined)unusableAdvisory.push({field:'concerns',code:'invalid_advisory_container',raw:JSON.stringify(data.concerns).slice(0,1600)});
  if(Array.isArray(data.concerns)&&data.concerns.length>12)unusableAdvisory.push({field:'concerns',code:'advisory_limit',omittedCount:data.concerns.length-12});
- if(data.verdict==='allow'&&issues.length||data.verdict==='reject'&&!issues.length&&!concerns.length&&!unusableAdvisory.length)throw fail('issues','fidelity_result_invalid','Allow has no blocking defect; rejection needs one, and concerns never block');
- // A malformed optional diagnostic neither vetoes a valid core decision nor
- // supplies the missing proof needed to turn an unsupported rejection into allow.
- const verdict=data.verdict==='reject'&&!issues.length&&concerns.length?'allow':data.verdict==='reject'&&!issues.length?'uncertain':data.verdict;
- if(input.manifest)input.manifest.fidelity={...input.manifest.fidelity,reportedVerdict:data.verdict,...(unusableAdvisory.length?{unusableAdvisory}:{})};
- const result=freeze({checkRef:'c1',verdict,issues,...(concerns.length?{concerns}:{})});marks.set(result,{frame,hash:hash(result)});input.sourceWireSnapshot?.markCanonical(result);return result;
+ // The program owns publication authority. A reported allow cannot override
+ // an unsupported assertion, and optional advisory noise cannot veto the core.
+ const verdict=issues.length?'reject':factualUncertain||data.verdict==='uncertain'?'uncertain':'allow';
+ if(input.manifest)input.manifest.fidelity={...input.manifest.fidelity,reportedVerdict:data.verdict,derivedVerdict:verdict,
+  factual:{fields:clone(factual),assessedPaths:[...seenFields],offeredPaths:[...input.payload.candidatePaths],statementCount,complete:true},...(unusableAdvisory.length?{unusableAdvisory}:{})};
+ const result=freeze({checkRef:'c1',verdict,issues,factual,...(concerns.length?{concerns}:{})});marks.set(result,{frame,hash:hash(result)});input.sourceWireSnapshot?.markCanonical(result);return result;
 }
 function buildFidelityRepairContext(prepared,checkedInput){
  const frame=checkedInput?.fidelityFrameSnapshot;if(!frame)throw fail('evidence','fidelity_binding_invalid','Regeneration requires its captured fidelity frame');frame.assert();

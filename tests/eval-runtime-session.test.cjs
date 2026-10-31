@@ -1,4 +1,5 @@
 'use strict';
+const {factualReview}=require('./fixtures/factual-assessment.cjs');
 const test = require('node:test');
 const {withRequestDelivery}=require('../scripts/synthetic-request-delivery.cjs');
 const assert = require('node:assert/strict');
@@ -47,15 +48,16 @@ test('supplemental idle deadline retains a pending public checkpoint and the fix
  assert.ok(response.companion.turns.some(row=>row.requestId==='after-idle-deadline'&&row.role==='assistant'));
 });
 
-test('scheduled legal legacy item remains an incomplete semantic checkpoint while public view and foreground continue',async t=>{
+test('scheduled legal legacy item receives one bounded rereview and remains an incomplete semantic checkpoint',async t=>{
  const fixture=makeSyntheticTransport();let writes=0;
  const session=await setup(t,{condition:OBSERVATION_CONDITION,settings:{...settings,memoryBatchThreshold:1},transport:async(url,args)=>{
-  const p=input(args);if(p.batchId){writes++;const source=p.sources.find(row=>!row.deleted);return packet({batchId:p.batchId,reviewedAll:true,items:[{kind:'fact',text:source.text,sourceIds:[source.id],topicKeys:[],status:'active',certainty:'stated'}],episodes:[],retire:[]});}return fixture(url,args);
+  const p=input(args);if(p.batchId){writes++;if(p.review.purpose==='semantic_recovery')return packet({batchId:p.batchId,reviewedAll:true,relationshipPatch:{claims:[],events:[],retire:[]},episodes:[]});const source=p.sources.find(row=>!row.deleted);return packet({batchId:p.batchId,reviewedAll:true,items:[{kind:'fact',text:source.text,sourceIds:[source.id],topicKeys:[],status:'active',certainty:'stated'}],episodes:[],retire:[]});}return fixture(url,args);
  }});
  const checkpoint=await session.idleUntil('2026-10-29T12:00:10.000Z',{wallTimeoutMs:1000});
- assert.equal(writes,1);assert.equal(checkpoint.memory_status.pending,0);assert.equal(checkpoint.memory_status.semanticPending,1);assert.equal(checkpoint.product_coverage.semanticPending,0);
+ assert.equal(writes,2);assert.equal(checkpoint.memory_status.pending,0);assert.equal(checkpoint.memory_status.semanticPending,1);assert.equal(checkpoint.memory_status.recoveryReady,0);assert.equal(checkpoint.memory_status.recoveryDeferred,1);assert.deepEqual(checkpoint.memory_status.errors,[]);assert.equal(checkpoint.product_coverage.semanticPending,0);
  assert.equal(checkpoint.status,'incomplete');assert.equal(checkpoint.reason,'partial_semantic_review');
  const view=await session.publicMemoryView();assert.equal(view.memory_status.semanticPending,1);assert.equal(view.as_of,'2026-10-29T12:00:10.000Z');
+ const again=await session.idleUntil('2026-10-29T12:00:20.000Z',{wallTimeoutMs:1000});assert.equal(writes,2);assert.deepEqual(again.memory_status.errors,[]);assert.equal(again.status,'incomplete');assert.equal(again.memory_status.recoveryDeferred,1);
  const response=await session.post('/api/assistant',{text:'原定问题仍应继续，不将旧条目当成已核验。',taskId:'legacy-checkpoint-question'});
  assert.ok(response.companion.turns.some(row=>row.role==='assistant'&&row.requestId==='legacy-checkpoint-question'));
  assert.ok(!session.trace.some(row=>row.component==='product_http'&&row.route==='/api/memory-maintain'));
@@ -119,7 +121,7 @@ test('production HTTP consultation preserves generated replies, actual events an
   const session = await setup(t, { transport: async (_url, args) => {
     const p = input(args);
     const original=p.originalInput||p;
-    if(original.purpose==='fidelity_check')return packet({checkRef:original.checkRef,verdict:'allow',issues:[]});
+    if(original.purpose==='fidelity_check')return packet({checkRef:original.checkRef,factual:factualReview(original,{}),verdict:'allow',issues:[]});
     return packet(original.operationProtocol?{operation:'advise',text:`真实适配器保存的合成回答 ${++sequence}：${original.userRequest.text}`} : withRequestDelivery({kind:'discussion',text:`真实适配器保存的合成回答 ${++sequence}：${original.userRequest.text}`},original));
   } });
   const first = await session.post('/api/assistant', { text: '先接她装书架的事。' });

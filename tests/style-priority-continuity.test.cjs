@@ -1,4 +1,5 @@
 'use strict';
+const {factualReview}=require('./fixtures/factual-assessment.cjs');
 // Synthetic production-pipeline checks. These do not judge conversational quality.
 const test=require('node:test'),assert=require('node:assert/strict');
 const {definitions}=require('../scripts/style-priority-cases.cjs');
@@ -8,7 +9,7 @@ const selected=id=>definitions().filter(item=>item.id===id);
 const stages=(item,stepId,purpose)=>item.stages.filter(stage=>stage.stepId===stepId&&(!purpose||stage.purpose===purpose));
 function responder(payload,definition){
  const step=definition.activeStep;
- if(payload.purpose==='fidelity_check')return {checkRef:payload.checkRef,verdict:'allow',issues:[]};
+ if(payload.purpose==='fidelity_check')return {checkRef:payload.checkRef,factual:factualReview(payload,{}),verdict:'allow',issues:[]};
  const reply={operation:'prepare_message',...(step.id==='invite-now'?{currentFacts:['我周六下午有空']}:{}),answer:{privateExplanation:'Synthetic transport output, not a quality verdict.',suggestions:[{style:'自然',text:step.syntheticWording}]}};
  if(step.id==='save-defaults'){
   const text=step.request.slice(step.request.indexOf('以后'),step.request.indexOf('。'));

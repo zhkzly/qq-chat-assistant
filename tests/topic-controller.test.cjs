@@ -1,4 +1,5 @@
 'use strict';
+const {factualReview}=require('./fixtures/factual-assessment.cjs');
 function admittedQuotes(quotes){
  return quotes.map(quote=>{assert.equal(quote.provenance?.version,1);assert.equal(quote.provenance.source.sourceId,quote.sourceId);return {sourceId:quote.sourceId,text:quote.text};});
 }
@@ -6,7 +7,7 @@ function admittedQuotes(quotes){
 const {withCurrentDraftControls}=require('./fixtures/draft-controls.cjs');
 const test=require('node:test'),assert=require('node:assert/strict');
 const {Store}=require('../src/store.cjs');const {Controller}=require('./fixtures/whole-answer-fidelity.cjs');const {scope,raw}=require('./fixtures/native.cjs');
-function setup(t,model){const store=new Store(':memory:'),fidelityCalls=[];const controller=new Controller({store,assistantModel:async(...args)=>{if(args[1].payload.purpose==='fidelity_check'){fidelityCalls.push(args[1]);return {checkRef:args[1].payload.checkRef,verdict:'allow',issues:[]};}return model(...args);},read:async command=>command==='bind'?scope:{messages:[]},settings:{auto:false,apiKey:'synthetic',model:'synthetic',baseUrl:'http://fixture.invalid',realChatConsent:{accountUid:scope.accountUid,peerUin:scope.peerUin,model:'synthetic',baseUrl:'http://fixture.invalid'}}});controller.updateStatus({phase:'ready',account:{uid:scope.accountUid,uin:scope.accountUin}});t.after(()=>{controller.close();store.close()});return {store,controller,fidelityCalls};}
+function setup(t,model){const store=new Store(':memory:'),fidelityCalls=[];const controller=new Controller({store,assistantModel:async(...args)=>{if(args[1].payload.purpose==='fidelity_check'){fidelityCalls.push(args[1]);return {checkRef:args[1].payload.checkRef,factual:factualReview(args[1].payload,{}),verdict:'allow',issues:[]};}return model(...args);},read:async command=>command==='bind'?scope:{messages:[]},settings:{auto:false,apiKey:'synthetic',model:'synthetic',baseUrl:'http://fixture.invalid',realChatConsent:{accountUid:scope.accountUid,peerUin:scope.peerUin,model:'synthetic',baseUrl:'http://fixture.invalid'}}});controller.updateStatus({phase:'ready',account:{uid:scope.accountUid,uin:scope.accountUin}});t.after(()=>{controller.close();store.close()});return {store,controller,fidelityCalls};}
 const intent=p=>p.intentAuthority.sourceId;
 const start=p=>({operation:'create',objective:'自然了解她的游戏兴趣',direction:'先顺着游戏体验聊',constraints:['暂不直接邀约'],interpretationStatus:'user_stated',purposeSourceIds:[intent(p)],intentQuote:p.sources.find(s=>s.id===intent(p)).text});
 function guide(active){return {objective:{text:'自然了解对方的游戏体验',sourceIds:active.purposeSourceIds},allowedApproach:{text:active.direction,sourceIds:active.purposeSourceIds},avoidances:active.constraints.map(text=>({text,sourceIds:active.purposeSourceIds}))};}

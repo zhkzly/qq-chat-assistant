@@ -1,4 +1,5 @@
 'use strict';
+const {factualReview}=require('./fixtures/factual-assessment.cjs');
 // Fictional raw Controller/Store/transport checks. Generated explanation targets
 // and message leaves stay distinct; no semantic quality or actual send claim.
 const test=require('node:test'),assert=require('node:assert/strict');
@@ -21,7 +22,7 @@ async function application(t,producer,{previous=false}={}){
  const prior=previous?store.appendTurn(scope,{role:'assistant',kind:'draft',origin:'user',requestId:'whole-previous',text:MESSAGE,suggestions:[{style:'自然',text:MESSAGE}],sourceIds:['note:'+note.id]}):null;
  return {store,controller,calls,contexts,note,prior,run:()=>store.getCompanion(scope).runs.at(-1),assist:(text='按这条已选事实准备表达，并解释保留的理由。',taskId='whole-response-life')=>controller.assist({text,taskId,materialIds:[note.id],...(prior?{sourceTurnIds:[prior.id]}:{})})};
 }
-const allow=p=>({checkRef:p.checkRef,verdict:'allow',issues:[]});
+const allow=p=>({checkRef:p.checkRef,factual:factualReview(p,{}),verdict:'allow',issues:[]});
 const complete=p=>p.purpose==='fidelity_check'?allow(p):prepare(p);
 
 test('the final private-explanation artifact and its outward message candidate have separate bodies, kinds and scope/version fences',async t=>{

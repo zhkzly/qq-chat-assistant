@@ -1,4 +1,5 @@
 'use strict';
+const {factualReview}=require('../tests/fixtures/factual-assessment.cjs');
 const {withRequestDelivery,withCurrentStatementAuthority,withPrimaryOperation}=require('./synthetic-request-delivery.cjs');
 // Fictional goal cases exercise the production Controller and model protocol.
 // Synthetic transport demonstrates plumbing only; semantic judgments stay open.
@@ -91,7 +92,7 @@ function seed(store,scope,definition){
  });
 }
 function fakeResult(payload,definition){
- if(payload.purpose==='fidelity_check')return {checkRef:payload.checkRef,verdict:'allow',issues:[]};
+ if(payload.purpose==='fidelity_check')return {checkRef:payload.checkRef,factual:factualReview(payload,{}),verdict:'allow',issues:[]};
  const id=definition.baseId||definition.id,currentId=payload.intentAuthority?.sourceId||payload.userRequest?.sourceId;
  if(payload.purpose==='draft'){
   const text={G1:'小苗今天终于发芽啦，跟你分享一下这个小进展',G3:definition.id==='G3-direct'?'那你现在玩的是哪款游戏呀？':'PVP有时候确实挺容易上头的哈哈',

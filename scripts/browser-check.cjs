@@ -1,4 +1,5 @@
 'use strict';
+const {factualReview}=require('../tests/fixtures/factual-assessment.cjs');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
@@ -23,7 +24,7 @@ async function until(test, label) { for (let i = 0; i < 80; i++) { if (await tes
         senderUid: selected.peerUid, senderUin: selected.peerUin }, { ...raw('72057594037927938', true), peerUid: selected.peerUid, peerUin: selected.peerUin }] };
       return { source: 'synthetic', messages: [] };
     }, model: async () => { throw new Error('The legacy model path must remain unreachable'); },
-    assistantModel: async (_,context) => context.payload.purpose==='fidelity_check' ? {checkRef:context.payload.checkRef,verdict:'allow',issues:[]} : ({ operation:'prepare_message', answer:{ privateExplanation: '先接住她的疲惫，留一点轻松的空间。', suggestions: [
+    assistantModel: async (_,context) => context.payload.purpose==='fidelity_check' ? {checkRef:context.payload.checkRef,factual:factualReview(context.payload,{}),verdict:'allow',issues:[]} : ({ operation:'prepare_message', answer:{ privateExplanation: '先接住她的疲惫，留一点轻松的空间。', suggestions: [
       { style: '自然', text: '辛苦啦，终于能歇会儿了。今晚想怎么放松？' },
       { style: '轻松', text: '今日电量告急😂 先给自己充个电吧' },
       { style: '温柔', text: '辛苦啦，今晚好好休息，不用急着回我。' }] } }) });

@@ -1,4 +1,5 @@
 'use strict';
+const {factualReview}=require('../tests/fixtures/factual-assessment.cjs');
 // Synthetic browser execution only. Neither a real model nor QQ is contacted.
 const fs = require('node:fs');
 const os = require('node:os');
@@ -48,7 +49,7 @@ async function until(predicate, label) {
     assistantModel: async (_, context) => {
       calls.push(structuredClone(context));
       const payload = context.payload;
-      if(payload.purpose==='fidelity_check')return {checkRef:payload.checkRef,verdict:'allow',issues:[]};
+      if(payload.purpose==='fidelity_check')return {checkRef:payload.checkRef,factual:factualReview(payload,{}),verdict:'allow',issues:[]};
       const text=payload.userRequest?.text||'';
       if (text.includes('模拟网络失败')) throw new Error('synthetic-offline');
       if(payload.purpose==='draft_prepare'){

@@ -1,4 +1,5 @@
 'use strict';
+const {factualReview}=require('./fixtures/factual-assessment.cjs');
 // Fictional Controller/HTTP contracts only. Scripted verdicts do not establish
 // natural-language entailment, permission judgment or conversational quality.
 const test=require('node:test'),assert=require('node:assert/strict');
@@ -44,7 +45,7 @@ function noPublication(app){
 }
 
 test('an allowed actual checker result ignores an undecodable optional source without warnings, new authority or extra repair',async t=>{
- const app=await application(t,p=>({checkRef:p.checkRef,verdict:'allow',issues:[{...badAdvisory,code:'current_boundary'}],concerns:[badAdvisory]}));
+ const app=await application(t,p=>({checkRef:p.checkRef,factual:factualReview(p,{'suggestions[0].text':[{quote:MESSAGE,kind:'opinion'}]}),verdict:'allow',issues:[{...badAdvisory,code:'current_boundary'}],concerns:[badAdvisory]}));
  const reply=await app.assist(),ledger=noExtraRequests(app);
  assert.equal(ledger.status,'complete');assert.equal(reply.suggestions[0].text,MESSAGE);
  assert.equal(reply.warning,undefined);assert.equal(reply.concerns,undefined);assert.equal(reply.discussionExplanation,undefined);
@@ -58,7 +59,7 @@ test('an allowed actual checker result ignores an undecodable optional source wi
 });
 
 test('an explicit uncertain actual checker verdict stays uncertain beside valid and invalid optional advice with no regeneration',async t=>{
- const app=await application(t,p=>({checkRef:p.checkRef,verdict:'uncertain',issues:[],concerns:[{path:'suggestions[0].text',code:'style',quote:MESSAGE,reason:'A valid private style observation.'},badAdvisory]}));
+ const app=await application(t,p=>({checkRef:p.checkRef,factual:factualReview(p,{'suggestions[0].text':[{quote:MESSAGE,kind:'opinion'}]}),verdict:'uncertain',issues:[],concerns:[{path:'suggestions[0].text',code:'style',quote:MESSAGE,reason:'A valid private style observation.'},badAdvisory]}));
  await assert.rejects(app.assist(),error=>error.code==='fidelity_coverage_uncertain');
  const ledger=noExtraRequests(app);assert.equal(ledger.status,'failed');assert.equal(ledger.errorCode,'fidelity_coverage_uncertain');noPublication(app);
  const check=app.contexts.at(-1).manifest.fidelity;
@@ -66,11 +67,10 @@ test('an explicit uncertain actual checker verdict stays uncertain beside valid 
  assert.equal(check.unusableAdvisory[0].code,'unknown_source_handle');
 });
 
-test('a rejection supported only by an undecodable optional source cannot approve or consume the shared regeneration slot',async t=>{
- const app=await application(t,p=>({checkRef:p.checkRef,verdict:'reject',issues:[],concerns:[badAdvisory]}));
- await assert.rejects(app.assist(),error=>error.code==='fidelity_coverage_uncertain');
- const ledger=noExtraRequests(app);assert.equal(ledger.status,'failed');noPublication(app);
+test('a reported rejection and malformed optional source cannot override a complete nonassertive factual assessment',async t=>{
+ const app=await application(t,p=>({checkRef:p.checkRef,factual:factualReview(p,{'suggestions[0].text':[{quote:MESSAGE,kind:'opinion'}]}),verdict:'reject',issues:[],concerns:[badAdvisory]}));
+ const reply=await app.assist(),ledger=noExtraRequests(app);assert.equal(ledger.status,'complete');assert.equal(reply.suggestions[0].text,MESSAGE);assert.equal(reply.warning,undefined);
  const check=app.contexts.at(-1).manifest.fidelity;
- assert.equal(check.reportedVerdict,'reject');assert.equal(check.verdict,'uncertain');assert.deepEqual(check.issues,[]);assert.deepEqual(check.concerns,[]);
- assert.equal(check.unusableAdvisory[0].code,'unknown_source_handle');
+ assert.equal(check.reportedVerdict,'reject');assert.equal(check.verdict,'allow');assert.deepEqual(check.issues,[]);assert.deepEqual(check.concerns,[]);
+ assert.equal(check.unusableAdvisory[0].code,'unknown_source_handle');assert.equal(app.store.relationshipView(scope).claims.length,0);assert.equal(app.store.memoryStatus(scope).pendingProposals,0);
 });

@@ -1,4 +1,5 @@
 'use strict';
+const {factualReview}=require('./fixtures/factual-assessment.cjs');
 const test=require('node:test'),assert=require('node:assert/strict');
 const {Controller}=require('../src/controller.cjs'),{Store}=require('../src/store.cjs');
 const {assistModel,prepareAssistantRequest}=require('../src/assistant-model.cjs');
@@ -24,7 +25,7 @@ async function setup(t,producer){
  t.after(()=>{controller.close();store.close();});return {controller,store,calls,contexts,run:()=>store.getCompanion(scope).runs.at(-1)};
 }
 const draft={kind:'draft',text:`今天读完了这本书，顺便记下这个字符串：${literal}。`};
-const answer={suggestions:[{text:draft.text}]},allow=p=>({checkRef:p.checkRef,verdict:'allow',issues:[]});
+const answer={suggestions:[{text:draft.text}]},allow=p=>({checkRef:p.checkRef,factual:factualReview(p,{}),verdict:'allow',issues:[]});
 test('actual foreground wire is compact while controller, stored provenance and quoted literals remain canonical',async t=>{
  const app=await setup(t,p=>p.purpose==='fidelity_check'?allow(p):{operation:'prepare_message',currentFacts:currentFacts(),answer});
  const reply=await app.controller.assist({text:currentText});assert.equal(app.calls.length,2);assert.equal(reply.suggestions[0].text,draft.text);

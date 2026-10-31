@@ -1,4 +1,5 @@
 'use strict';
+const {factualReview}=require('./fixtures/factual-assessment.cjs');
 const {withCurrentStatementAuthority}=require('./fixtures/current-statement-authority.cjs');
 const test=require('node:test'),assert=require('node:assert/strict');
 const {responseEnvelope}=require('../src/model-response-format.cjs');
@@ -95,7 +96,7 @@ test('malformed primary carrier shares one strict repair with the read-only fide
     assert.equal(payload.purpose,'fidelity_check');assert.equal(payload.admittedFragments[0].text,'我住得很近');
     assert.equal(payload.candidate.suggestions[0].text,'不远，我住得挺近的。');
     assert.equal(JSON.stringify(payload.candidate).includes('我住得很近，帮我直接回答她。'),false,'private request remains outside the outward candidate');
-    return response(JSON.stringify({checkRef:payload.checkRef,verdict:'allow',issues:[]}));
+    return response(JSON.stringify({checkRef:payload.checkRef,factual:factualReview(payload,{'suggestions[0].text':[{quote:payload.candidate.suggestions[0].text,kind:'assertion',support:'supported',evidence:[{sourceId:payload.admittedFragments[0].sourceId,quote:payload.admittedFragments[0].text}]}]}),verdict:'allow',issues:[]}));
    }
    const original=payload.originalInput||payload,control=text=>({text,sourceIds:[original.userRequest.sourceId]}),plan={quotes:[{sourceId:original.userRequest.sourceId,text:'我住得很近'}],style:'natural',
     guidance:{objective:control('回答她询问的实际距离'),allowedApproach:control('按已授权事实直接回应'),avoidances:[]}};

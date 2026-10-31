@@ -1,4 +1,5 @@
 'use strict';
+const {factualReview}=require('./fixtures/factual-assessment.cjs');
 // Source/lifecycle checks use scripted transport; they do not rate model quality.
 const test=require('node:test'),assert=require('node:assert/strict');
 const {Store}=require('../src/store.cjs'),{Controller}=require('../src/controller.cjs');
@@ -23,7 +24,7 @@ async function app(t,producer,{partial=false}={}){
 
 test('the single regeneration receives the complete original qualifier first restored only for the checker',async t=>{
  let checks=0;const repaired='我看过朋友装书架，不过那次只是旁观，还没有亲手装过。',a=await app(t,(p,wrapper)=>{
-  if(p.purpose==='fidelity_check'){checks++;assert.ok(p.evidence.some(source=>source.text===FULL));const source=p.evidence.find(source=>source.text===FULL);return checks===1?{checkRef:p.checkRef,verdict:'reject',issues:[{path:'suggestions[0].text',code:'omitted_qualifier',quote:p.candidate.suggestions[0].text,evidence:[{sourceId:source.sourceId,quote:source.text}],reason:'The candidate drops a decisive original qualification.'}]}:{checkRef:p.checkRef,verdict:'allow',issues:[]};}
+  if(p.purpose==='fidelity_check'){checks++;assert.ok(p.evidence.some(source=>source.text===FULL));const source=p.evidence.find(source=>source.text===FULL);return checks===1?{checkRef:p.checkRef,factual:factualReview(p,{}),verdict:'reject',issues:[{path:'suggestions[0].text',code:'omitted_qualifier',quote:p.candidate.suggestions[0].text,evidence:[{sourceId:source.sourceId,quote:source.text}],reason:'The candidate drops a decisive original qualification.'}]}:{checkRef:p.checkRef,factual:factualReview(p,{}),verdict:'allow',issues:[]};}
   const note=p.sources.find(source=>source.type==='note');if(!wrapper.originalInput){assert.equal(body(note),PREFIX);return candidate(p,'我亲手装过书架。');}
   assert.equal(body(note),FULL,'repair must read the actual omitted qualifier, not infer it from a checker reason');return candidate(p,repaired);
  },{partial:true});
@@ -45,7 +46,7 @@ for(const failure of ['transport','http'])test(`a checker ${failure} failure con
 
 for(const allow of [true,false])test(`terminal state and pending understanding proposals ${allow?'commit only after allowance':'do not survive a rejected candidate regeneration'}`,async t=>{
  let checks=0;const marker='我周六下午有空',a=await app(t,(p,wrapper)=>{
-  if(p.purpose==='fidelity_check'){assert.equal(a.store.relationshipView(scope).claims.length,0);assert.equal(a.store.getCompanion(scope).state.items.length,0);checks++;const source=p.evidence.find(source=>source.text===FULL);return !allow&&checks===1?{checkRef:p.checkRef,verdict:'reject',issues:[{path:'text',code:'evidence_mismatch',quote:p.candidate.text,evidence:[{sourceId:source.sourceId,quote:source.text}],reason:'Scripted concrete first-hand claim rejection tests proposal staging.'}]}:{checkRef:p.checkRef,verdict:'allow',issues:[]};}
+  if(p.purpose==='fidelity_check'){assert.equal(a.store.relationshipView(scope).claims.length,0);assert.equal(a.store.getCompanion(scope).state.items.length,0);checks++;const source=p.evidence.find(source=>source.text===FULL);return !allow&&checks===1?{checkRef:p.checkRef,factual:factualReview(p,{}),verdict:'reject',issues:[{path:'text',code:'evidence_mismatch',quote:p.candidate.text,evidence:[{sourceId:source.sourceId,quote:source.text}],reason:'Scripted concrete first-hand claim rejection tests proposal staging.'}]}:{checkRef:p.checkRef,factual:factualReview(p,{}),verdict:'allow',issues:[]};}
   return {operation:'advise',text:!allow&&!wrapper.originalInput?'我昨天亲手装过一个四层书架。':'A complete private explanation.',...(!wrapper.originalInput?{statePatch:{items:[{text:marker,sourceIds:[p.intentAuthority.sourceId]}]},relationshipPatch:{claims:[{text:marker,sourceIds:[p.intentAuthority.sourceId],subject:'self',aspect:'recent_context',assertionKind:'reported',epistemicStatus:'supported'}]}}:{})};
  });
  await a.assist();assert.equal(a.store.relationshipView(scope).claims.length,0,'foreground proposals never become active profile knowledge');assert.equal(a.store.memoryStatus(scope).pendingProposals,allow?1:0);if(allow)assert.equal(a.store.getCompanion(scope).runs.at(-1).relationshipReceipt.queued,true);assert.equal(a.store.getCompanion(scope).state.items.length,allow?1:0);assert.equal(a.store.getCompanion(scope).turns.filter(turn=>turn.role==='assistant').length,1);
@@ -60,5 +61,5 @@ test('checker and regeneration preserve known unread later continuity without in
 test('the actual checker image array is immutable and replacing its pixels invalidates approval',t=>{
  const source={id:'qq:91000000000000403',type:'qq',role:'contact',text:'[图片]',revision:'image-source-original',scope},images=[{messageId:'91000000000000403',index:0,url:'data:image/png;base64,b3JpZ2luYWw='}],prepared={payload:{purpose:'discussion',sources:[source]},manifest:{scope,requestId:'image-binding',sourceIds:[source.id],sourceRevisions:{[source.id]:source.revision}},fullAvailableSources:[source],images},input=buildFidelityContext(prepared,{text:'只依据已送入图片讨论。'},{scope,settings:{assistantRequestBytes:18000}});
  const {prepareAssistantRequest}=require('../src/assistant-model.cjs');assert.equal(prepareAssistantRequest({assistantRequestBytes:18000},input.payload,input.images).requestBytes,prepareAssistantRequest({assistantRequestBytes:18000},input.payload,undefined).requestBytes);
- assert.throws(()=>{input.images[0].url='data:image/png;base64,b3RoZXI=';},TypeError);input.images=[{...images[0],url:'data:image/png;base64,b3RoZXI='}];assert.throws(()=>approvalFor(parseFidelityResult({checkRef:'c1',verdict:'allow',issues:[]},input),input),error=>error.code==='fidelity_binding_invalid');
+ assert.throws(()=>{input.images[0].url='data:image/png;base64,b3RoZXI=';},TypeError);input.images=[{...images[0],url:'data:image/png;base64,b3RoZXI='}];assert.throws(()=>approvalFor(parseFidelityResult({checkRef:'c1',factual:factualReview(input,{}),verdict:'allow',issues:[]},input),input),error=>error.code==='fidelity_binding_invalid');
 });

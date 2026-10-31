@@ -1,4 +1,5 @@
 'use strict';
+const {factualReview}=require('./fixtures/factual-assessment.cjs');
 // Fictional transport/Store integration only; scripted proposals do not prove
 // natural-language entailment, permission judgment or conversational quality.
 const test=require('node:test'),assert=require('node:assert/strict');
@@ -97,7 +98,10 @@ test('continuing consultation reuses only admitted original facts independently 
  t.mock.timers.enable({apis:['Date'],now:Date.parse('2026-10-01T10:00:00Z')});
  const fact='I repaired my reading lamp yesterday.',human=fact+' I want to tell her that; my family appointment is private and must not be shared.';
  let primary=0;const app=await application(t,p=>{
-  if(p.purpose==='fidelity_check')return {checkRef:p.checkRef,verdict:'allow',issues:[]};
+  if(p.purpose==='fidelity_check'){
+   const material=p.admittedFragments[0],source=p.evidence.find(source=>source.sourceId===material.sourceId);assert.ok(source);
+   return {checkRef:p.checkRef,factual:factualReview(p,{'suggestions[0].text':[{quote:p.candidate.suggestions[0].text,kind:'assertion',support:'supported',evidence:[{sourceId:source.sourceId,quote:source.text}]}]}),verdict:'allow',issues:[]};
+  }
   primary++;if(primary===1)return {operation:'prepare_message',currentFacts:[fact],answer:{suggestions:[{text:fact}]}};
   const source=p.sources.find(source=>source.type==='private'&&text(source)===human);assert.ok(source,'the actual original survives the outgoing-candidate lifetime');
   return {operation:'prepare_message',materials:[{materialRef:whole(source),authorityRef:source.authorityChoices.originalUserStatementCandidates[0].authorityRef}],answer:{suggestions:[{text:'The repaired lamp now lights my reading corner.'}],privateExplanation:'This refers back to the real lamp repair; the unrelated family reason stays private.'}};
@@ -110,7 +114,7 @@ test('continuing consultation reuses only admitted original facts independently 
 });
 
 test('known QQ response and one private material question can be delivered together without an invented self event',async t=>{
- const app=await application(t,p=>p.purpose==='fidelity_check'?{checkRef:p.checkRef,verdict:'allow',issues:[]}:{operation:'prepare_message',answer:{suggestions:[{text:'The shelf sounds like a satisfying little project.'}],privateExplanation:'I can respond to the shelf already mentioned. What real recent detail would you like to share about yourself?'}});
+ const app=await application(t,p=>p.purpose==='fidelity_check'?{checkRef:p.checkRef,factual:factualReview(p,{}),verdict:'allow',issues:[]}:{operation:'prepare_message',answer:{suggestions:[{text:'The shelf sounds like a satisfying little project.'}],privateExplanation:'I can respond to the shelf already mentioned. What real recent detail would you like to share about yourself?'}});
  const reply=await app.controller.assist({text:'Respond to her shelf and help me share something real; I have not supplied my own recent detail.',taskId:'partial-help'});
  assert.equal(app.calls.length,2);assert.equal(reply.text,'');assert.equal(reply.suggestions.length,1);assert.match(reply.discussionExplanation.text,/What real recent detail/);assert.deepEqual(app.calls[1].admittedFragments,[]);
 });
@@ -119,7 +123,7 @@ test('an actual valid hard reject with a bad optional source handle still reache
  let checks=0,primaries=0;const invented='I repaired a shelf yesterday.';
  const app=await application(t,p=>{
   if(p.purpose==='fidelity_check'){
-   checks++;return checks===1?{checkRef:p.checkRef,verdict:'reject',issues:[{path:'candidate.suggestions[0].text',code:'unsupported_fact',quote:invented,basis:'no_support_in_supplied_evidence',reason:'Scripted factual rejection.'}],concerns:[{path:'suggestions[0].text',code:'new_optional_diagnostic',reason:'Unusable advisory source coordinate.',sourceIds:['s999']}]}:{checkRef:p.checkRef,verdict:'allow',issues:[],concerns:'malformed optional container'};
+   checks++;return checks===1?{checkRef:p.checkRef,factual:factualReview(p,{'suggestions[0].text':[{quote:invented,kind:'assertion',support:'unsupported',basis:'no_support_in_supplied_evidence'}]}),verdict:'reject',issues:[{path:'candidate.suggestions[0].text',code:'unsupported_fact',quote:invented,basis:'no_support_in_supplied_evidence',reason:'Scripted factual rejection.'}],concerns:[{path:'suggestions[0].text',code:'new_optional_diagnostic',reason:'Unusable advisory source coordinate.',sourceIds:['s999']}]}:{checkRef:p.checkRef,factual:factualReview(p,{}),verdict:'allow',issues:[],concerns:'malformed optional container'};
   }
   primaries++;return {operation:'prepare_message',answer:{suggestions:[{text:primaries===1?invented:'Your shelf sounds like a satisfying project.'}]}};
  });

@@ -38,6 +38,9 @@ const memoryRetirement=object({id:string,sourceIds:strings,status:choice(['resol
 const memoryRecordFields=Object.freeze(Object.fromEntries(Object.entries({items:memoryItem,episodes:episode,retire:memoryRetirement})
  .map(([name,schema])=>[name,Object.freeze(Object.keys(schema.properties))])));
 const deliveryBlocker=object({kind:choice(['missing_fact','missing_authorization']),missing:string,question:{...string,description:'The sole canonical private clarification question.'},explanation:{...string,description:'Optional explicit why-only explanation, at most 1000 characters; do not repeat or paraphrase the question here.'}},['kind','missing','question']);
+const factualStatement=object({quote:string,kind:choice(['assertion','intent','opinion','question','private_conditional']),support:choice(['supported','unsupported','unverifiable']),
+ evidence:{...array(object({sourceId:string,quote:string},['sourceId','quote'])),maxItems:4},basis:choice(['no_support_in_supplied_evidence']),condition:string,contextQuote:string,reason:string},['quote','kind']);
+const factualField=object({path:string,statements:{...array(factualStatement),maxItems:12}},['path','statements']);
 const schemas={
  assistant_result:object({operation:choice(['advise','prepare_message','lookup','clarify']),
  answer:{...object({privateExplanation:string,suggestions:array(object({style:string,text:string},['text']))},['suggestions']),description:'Only prepare_message: COMPLETE outward suggestions and its sole optional privateExplanation. No outer text, planning handoff or later composer.'},materials:{...array(quote),description:'Only actually used historical private facts; currentFacts plus materials total at most 8. Public QQ/control needs no material selector. Source/permission candidates are not new sharing grants.'},
@@ -50,7 +53,7 @@ const schemas={
  blocker:{...deliveryBlocker,description:'Only clarify: specific missing fact/permission question and optional why-only explanation.'},
  methodIds:strings,actions:array(action),stateReview:choice(['no_change']),statePatch,topicPatch,relationshipPatch,experienceProposals:array(experienceProposal),expressionOptions:array(expressionOption)},['operation']),
  draft_result:object({kind:choice(['draft','discussion','question']),text:{...string,description:'For kind=draft, only the complete outward message body, 1..1200 characters; keep private reasoning in privateExplanation. For kind=question, the blocker owns its canonical body.'},privateExplanation:{...string,description:'Optional FINAL private explanation for kind=draft, at most 6000 characters; omitted or blank means absent. Own its factual reasoning together with the outward message; a primary planning comment is not verified truth.'},deliveryBlocker,suggestions:array(object({style:string,text:string},['style','text'])),methodIds:strings,replyDisposition:choice(['wait','clarify','unavailable'])},['kind','text']),
- fidelity_result:object({checkRef:string,verdict:choice(['allow','reject','uncertain']),issues:array(object({path:string,code:choice(['unsupported_fact','private_disclosure','omitted_qualifier','evidence_mismatch','internal_conflict']),quote:string,sourceIds:strings,evidence:array(object({sourceId:string,quote:string},['sourceId','quote'])),basis:choice(['no_support_in_supplied_evidence']),relatedPath:string,relatedQuote:string,reason:string},['path','code','quote','reason'])),concerns:array(object({path:string,code:choice(['current_boundary','pragmatic_ambiguity','style','helpfulness','coverage_gap']),quote:string,sourceIds:strings,evidence:array(object({sourceId:string,quote:string},['sourceId','quote'])),reason:string},['path','code','reason']))},['checkRef','verdict','issues']),
+ fidelity_result:object({checkRef:string,verdict:choice(['allow','reject','uncertain']),factual:array(factualField),issues:array(object({path:string,code:choice(['unsupported_fact','private_disclosure','omitted_qualifier','evidence_mismatch','internal_conflict']),quote:string,sourceIds:strings,evidence:array(object({sourceId:string,quote:string},['sourceId','quote'])),basis:choice(['no_support_in_supplied_evidence']),relatedPath:string,relatedQuote:string,reason:string},['path','code','quote','reason'])),concerns:array(object({path:string,code:choice(['current_boundary','pragmatic_ambiguity','style','helpfulness','coverage_gap']),quote:string,sourceIds:strings,evidence:array(object({sourceId:string,quote:string},['sourceId','quote'])),reason:string},['path','code','reason']))},['checkRef','verdict','factual','issues']),
  discussion_compaction_result:object({summary:string,reviewedTurnIds:strings,quoteRefs:array(quoteRef)},['summary','reviewedTurnIds','quoteRefs']),
  memory_result:object({batchId:string,reviewedAll:boolean,episodes:array(episode),relationshipPatch},['batchId','reviewedAll','episodes','relationshipPatch'])
 };
@@ -65,10 +68,11 @@ function responseEnvelope(settings,purpose,payload) {
  let schema=schemas[name];
  if(name==='assistant_result'){const properties={...schema.properties};delete properties.draftPlan;schema={...schema,properties};}
  if(name==='fidelity_result'&&(payload?.originalInput||payload)?.candidate){
-  const paths=candidatePaths((payload.originalInput||payload).candidate),properties={...schema.properties};
+  const paths=candidatePaths((payload.originalInput||payload).candidate),properties=structuredClone(schema.properties);
   const withPaths=rule=>({...rule,items:{...rule.items,properties:{...rule.items.properties,path:choice([...paths]),
     ...(rule.items.properties.relatedPath?{relatedPath:choice([...paths])}:{})}}});
   properties.issues=withPaths(properties.issues);properties.concerns=withPaths(properties.concerns);
+  properties.factual={...withPaths(properties.factual),minItems:paths.length,maxItems:paths.length};
   properties.concerns={...properties.concerns,items:{...properties.concerns.items,properties:{...properties.concerns.items.properties,code:string}}};
   schema={...schema,properties};
  }
@@ -90,7 +94,7 @@ function responseEnvelope(settings,purpose,payload) {
   if(taskPayload.generationOrigin==='qq_observation')delete properties.actions;
   schema={...schema,properties};
  }
- return {tools:[{type:'function',function:{name,description:name==='assistant_result'?'Select exactly one primary operation and only its active core payload. Optional independently supported proposals are not executed by this inert result tool.':'Return readable kind/text for this phase, with only useful optional data. This function is not executed and performs no external action. Follow source and phase rules.',parameters:schema}}],
+ return {tools:[{type:'function',function:{name,description:name==='assistant_result'?'Select exactly one primary operation and only its active core payload. Optional independently supported proposals are not executed by this inert result tool.':name==='fidelity_result'?'Return mandatory per-field factual assessments for this exact candidate; the program derives publication. This read-only result cannot rewrite, execute actions or grant facts or permission.':'Return readable kind/text for this phase, with only useful optional data. This function is not executed and performs no external action. Follow source and phase rules.',parameters:schema}}],
   tool_choice:{type:'function',function:{name}},parallel_tool_calls:false};
 }
 function normalizeResultPadding(value,name) {

@@ -14,10 +14,11 @@ function candidateFields(candidate={}) {
  return Object.freeze(fields);
 }
 function candidatePaths(candidate){return Object.freeze(candidateFields(candidate).map(field=>field.path));}
+function candidateScopes(candidate){return Object.freeze(candidateFields(candidate).map(({path})=>Object.freeze({path,scope:/^suggestions\[\d+\]\.text$/.test(path)?'copyable':path.endsWith('.style')?'label':'private'})));}
 function normalizeCandidatePath(path,offeredPaths){
  if(typeof path!=='string')return undefined;
  if(offeredPaths.includes(path))return path;
  if(path.startsWith('candidate.')&&offeredPaths.includes(path.slice('candidate.'.length)))return path.slice('candidate.'.length);
  return undefined;
 }
-module.exports={candidateFields,candidatePaths,normalizeCandidatePath};
+module.exports={candidateFields,candidatePaths,candidateScopes,normalizeCandidatePath};

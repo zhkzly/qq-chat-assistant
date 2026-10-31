@@ -1,4 +1,5 @@
 'use strict';
+const {factualReview}=require('../tests/fixtures/factual-assessment.cjs');
 // Versioned adapter for the current QQ Assistant. This is optional integration
 // diagnostics, not the evaluator's quality contract and not desktop evidence.
 const fs = require('node:fs');
@@ -102,7 +103,7 @@ function makeSyntheticTransport() {
     if (typeof content !== 'string') throw new Error('Synthetic replay transport supports text-only requests');
     const wrapper = JSON.parse(content), p = wrapper.originalInput || wrapper;
     let result;
-    if (p.purpose === 'fidelity_check') result = {checkRef:p.checkRef,verdict:'allow',issues:[]};
+    if (p.purpose === 'fidelity_check') result = {checkRef:p.checkRef,factual:factualReview(p,{}),verdict:'allow',issues:[]};
     else if (p.batchId) result = { batchId: p.batchId, reviewedAll: true, relationshipPatch:{claims:[],events:[],retire:[]},episodes:[] };
     else if (p.purpose === 'discussion_compaction') result = { summary: 'Synthetic transport summary; no semantic quality evidence.',
       reviewedTurnIds: p.turns.map(turn => turn.id), quoteRefs: [] };
