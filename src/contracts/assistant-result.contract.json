@@ -1,0 +1,139 @@
+{
+ "contract": "assistant_result",
+ "version": "assistant-result-contract-v2",
+ "description": "Primary operation exchange (advise/prepare_message/lookup/clarify). Bounds for text, answer.suggestions, materials, currentFacts and the auxiliary proposal fields are declared here; primary-operation.cjs, model-response-format.cjs and the OPERATION_OUTPUT protocol text are compiled from this contract.",
+ "operations": [
+  "advise",
+  "prepare_message",
+  "lookup",
+  "clarify"
+ ],
+ "continuation": [
+  "advise",
+  "prepare_message"
+ ],
+ "fields": {
+  "operation": {
+   "type": "enum",
+   "values": [
+    "advise",
+    "prepare_message",
+    "lookup",
+    "clarify"
+   ],
+   "required": true,
+   "code": "primary_operation_invalid",
+   "message": "operation: choose advise, prepare_message, lookup or clarify"
+  },
+  "text": {
+   "type": "string",
+   "maxLength": 6000,
+   "code": "primary_operation_text_invalid",
+   "message": "text: use nonempty private text of at most 6000 characters"
+  },
+  "answer": {
+   "type": "object",
+   "fields": {
+    "suggestions": {
+     "type": "array",
+     "min": 1,
+     "max": 3,
+     "item": {
+      "text": {
+       "type": "string",
+       "maxLength": 1200
+      },
+      "style": {
+       "type": "string",
+       "maxLength": 40,
+       "optional": true
+      }
+     }
+    },
+    "privateExplanation": {
+     "type": "string",
+     "maxLength": 6000,
+     "optional": true
+    }
+   }
+  },
+  "materials": {
+   "type": "array",
+   "max": 8,
+   "combinedWithCurrentFacts": 8,
+   "item": {
+    "materialRef": {
+     "required": true
+    },
+    "authorityRef": {},
+    "factQuote": {},
+    "permissionQuote": {}
+   }
+  },
+  "currentFacts": {
+   "type": "stringArray",
+   "max": 8,
+   "itemMaxLength": 4000,
+   "code": "current_fact_span_invalid"
+  },
+  "editingReference": {
+   "type": "object",
+   "fields": {
+    "choice": {
+     "type": "string",
+     "required": true
+    }
+   }
+  },
+  "lookup": {
+   "type": "contract",
+   "contract": "lookup"
+  },
+  "continuationField": {
+   "type": "enum",
+   "values": [
+    "advise",
+    "prepare_message"
+   ],
+   "code": "primary_operation_continuation_invalid",
+   "message": "continuation: declare advise or prepare_message as the lookup continuation"
+  },
+  "blocker": {
+   "type": "deliveryBlocker"
+  },
+  "methodIds": {
+   "type": "array",
+   "max": 2
+  },
+  "actions": {
+   "type": "array",
+   "max": 8
+  },
+  "stateReview": {
+   "type": "enum",
+   "values": [
+    "no_change"
+   ]
+  },
+  "statePatch": {
+   "type": "object"
+  },
+  "topicPatch": {
+   "type": "object"
+  },
+  "relationshipPatch": {
+   "type": "object"
+  },
+  "experienceProposals": {
+   "type": "array",
+   "max": 2
+  },
+  "expressionOptions": {
+   "type": "array",
+   "max": 3
+  }
+ },
+ "notes": [
+  "advise text and prepare_message answer bounds are contract-owned; the operation payload allowlist is derived from this contract field set."
+ ]
+}

@@ -14,7 +14,7 @@ let visionPending=false;
 let topicActionPending=null;
 let helpingMethods=new Map();
 let draftArtifactRefs=[],draftRevision=0,draftDirty=false,draftSyncBusy=false,draftSyncBlocked=false,draftRetryAt=0,draftEditTimer=null,draftEditPending=false,legacyDraftCandidate=null;
-let feedbackPending=false,feedbackTaskId=null,feedbackRetryReady=false,feedbackSubmittedText=null,feedbackSavedId=null,topicViewKey='',feedbackTargetRef=null,feedbackClientId=null,experienceViewKey='',relationshipViewKey='',guidanceEditVersion=null,experienceReviewTarget=null,experienceReviewClientId=null;
+let feedbackPending=false,feedbackTaskId=null,feedbackRetryReady=false,feedbackSubmittedText=null,feedbackSavedId=null,topicViewKey='',feedbackTargetRef=null,feedbackPresentationId=null,feedbackClientId=null,experienceViewKey='',relationshipViewKey='',guidanceEditVersion=null,experienceReviewTarget=null,experienceReviewClientId=null;
 let workspace='discussion';
 let discussionScroll={top:0,follow:true},qqScroll={top:0,follow:true};
 const workspaceNames=['discussion','history','background'];
@@ -221,7 +221,7 @@ function renderCurrentCandidates(){
   const actions=document.createElement('div');actions.className='suggestion-actions';
   const use=button('采用到草稿',()=>{if(valid())adopt(item.text,advice.turnId||null,refs)});use.dataset.action='adopt';
   const copy=button('复制这条',()=>{if(valid())copyText(item.text,refs)});copy.dataset.action='copy';actions.append(copy,use);row.append(style,actions);card.append(row,paragraph(item.text));
-  card.append(button('反馈或调整',()=>{if(valid())openFeedback({id:advice.turnId,requestId:advice.requestId,text:advice.analysis,artifactRef:advice.artifactRef},item)}));
+  card.append(button('反馈或调整',()=>{if(valid())openFeedback({id:advice.turnId,requestId:advice.requestId,text:advice.analysis,artifactRef:advice.artifactRef,presentationId:advice.presentation?.presentationId},item)}));
   if(index===0)$('suggestions').append(card);else {let alternatives=$('candidate-alternatives');if(!alternatives){alternatives=document.createElement('details');alternatives.id='candidate-alternatives';const title=document.createElement('summary');title.textContent='其他说法';alternatives.append(title);$('suggestions').append(alternatives)}alternatives.append(card)}
  }
 }
@@ -229,7 +229,7 @@ function resetCompanion(){
  locallyWithdrawnCandidate=null;
  visionPending=false;$('vision-context').open=false;
  topicActionPending=null;syncTopicActionButtons();
- feedbackPending=false;feedbackTaskId=null;feedbackRetryReady=false;feedbackSubmittedText=null;feedbackSavedId=null;$('feedback-text').readOnly=false;topicViewKey='';$('topic-direction').hidden=true;$('topic-direction').open=false;feedbackTargetRef=null;feedbackClientId=null;experienceViewKey='';relationshipViewKey='';guidanceEditVersion=null;experienceReviewTarget=null;experienceReviewClientId=null;$('experience-review-form').hidden=true;$('experience-guidance-form').hidden=true;$('relationship-view').replaceChildren();$('experiences-list').replaceChildren();$('experience-guidance').replaceChildren();
+ feedbackPending=false;feedbackTaskId=null;feedbackRetryReady=false;feedbackSubmittedText=null;feedbackSavedId=null;$('feedback-text').readOnly=false;topicViewKey='';$('topic-direction').hidden=true;$('topic-direction').open=false;feedbackTargetRef=null;feedbackPresentationId=null;feedbackClientId=null;experienceViewKey='';relationshipViewKey='';guidanceEditVersion=null;experienceReviewTarget=null;experienceReviewClientId=null;$('experience-review-form').hidden=true;$('experience-guidance-form').hidden=true;$('relationship-view').replaceChildren();$('experiences-list').replaceChildren();$('experience-guidance').replaceChildren();
  nextPurpose='discussion';composerEditVersion++;if(scopeKey){const savedPurpose=sessionStorage.getItem(`assistant-purpose:${scopeKey}`);if(['discussion','draft','review'].includes(savedPurpose))nextPurpose=savedPurpose;}syncAssistantPurpose();
  assistantPending=false;assistantLocalError='';assistantThreadKey='';assistantNotesKey='';assistantStateKey='';goalVersion='';goalDirty=false;draftMaterialIds.clear();assistantContextVersion++;
  $('assistant-tools').open=false;$('goal-editor').open=false;$('note-editor').open=false;actionPanelKey='';memorySearchVersion++;memoryResultsRevision=null;selectedDiscussion=null;memoryRetryPending=false;$('memory-retry-panel').hidden=true;$('memory-query').value='';$('memory-results').replaceChildren();$('memory-search-status').textContent='';$('pending-actions').replaceChildren();$('action-receipts').replaceChildren();
@@ -392,7 +392,7 @@ function renderCompanion(){
  if(!feedbackSavedId&&feedbackSubmittedText!==null)feedbackSavedId=(companion.feedback||[]).find(item=>item.clientEventId===feedbackClientId)?.id||null;
  const feedbackSourceGone=!!feedbackSavedId&&!(companion.feedback||[]).some(item=>item.id===feedbackSavedId);
  const feedbackArtifact=feedbackTargetRef?.kind==='artifact'?(state.experience?.artifactStates||[]).find(item=>sameArtifactRef(item.ref,feedbackTargetRef.artifactRef)):null;
- if(feedbackSourceGone||feedbackArtifact?.availability==='redacted'||$('feedback-request-id').value&&!feedbackArtifact&&!turns.some(turn=>turn.requestId===$('feedback-request-id').value)){$('feedback-form').reset();$('feedback-form').hidden=true;feedbackTargetRef=null;feedbackClientId=null;feedbackTaskId=null;feedbackRetryReady=false;feedbackSubmittedText=null;feedbackSavedId=null;sessionStorage.removeItem(`feedback-target:${scopeKey}`)}
+ if(feedbackSourceGone||feedbackArtifact?.availability==='redacted'||$('feedback-request-id').value&&!feedbackArtifact&&!turns.some(turn=>turn.requestId===$('feedback-request-id').value)){$('feedback-form').reset();$('feedback-form').hidden=true;feedbackTargetRef=null;feedbackPresentationId=null;feedbackClientId=null;feedbackTaskId=null;feedbackRetryReady=false;feedbackSubmittedText=null;feedbackSavedId=null;sessionStorage.removeItem(`feedback-target:${scopeKey}`)}
  if(threadKey!==assistantThreadKey){assistantThreadKey=threadKey;const pane=$('assistant-thread'),scroller=$('conversation-scroll'),atEnd=scroller.scrollHeight-scroller.scrollTop-scroller.clientHeight<60,oldTop=scroller.scrollTop,fragment=document.createDocumentFragment(),expected=scopeKey,epoch=historyEpoch;
   for(const turn of turns){const article=document.createElement('article');article.className=`assistant-turn ${turn.role==='user'?'user':'assistant'}`;article.dataset.turnId=turn.id;
    const head=document.createElement('div');head.className='turn-heading';const who=document.createElement('strong');who.textContent=turn.role==='user'?'我 · 私下讨论':'助手';
@@ -498,9 +498,9 @@ function sourceDescription(sourceId){
 }
 function openFeedback(turn,suggestion=null){
  if(feedbackPending)return;feedbackTaskId=null;feedbackRetryReady=false;feedbackSubmittedText=null;feedbackSavedId=null;
- const target=suggestion||turn;feedbackTargetRef=target.artifactRef?{kind:'artifact',artifactRef:target.artifactRef}:null;feedbackClientId=crypto.randomUUID();
+ const target=suggestion||turn;feedbackTargetRef=target.artifactRef?{kind:'artifact',artifactRef:target.artifactRef}:null;feedbackPresentationId=target.presentationId||turn.presentationId||null;feedbackClientId=crypto.randomUUID();
  $('feedback-request-id').value=turn.requestId||'';$('feedback-text').value='';$('feedback-target-preview').textContent=`这次评价：${(suggestion?target.text||target.body||'这次帮助':assistantVisibleBody(turn)||target.body||'这次帮助').slice(0,220)}`;
- sessionStorage.setItem(`feedback-target:${scopeKey}`,JSON.stringify({targetRef:feedbackTargetRef,requestId:turn.requestId||'',clientEventId:feedbackClientId}));
+ sessionStorage.setItem(`feedback-target:${scopeKey}`,JSON.stringify({targetRef:feedbackTargetRef,requestId:turn.requestId||'',clientEventId:feedbackClientId,presentationId:feedbackPresentationId}));
  for(const submit of $('feedback-form').querySelectorAll('[type=submit]'))submit.disabled=false;$('feedback-reload-notice')?.remove();$('feedback-form').hidden=false;showWorkspace('discussion');$('conversation-scroll').scrollTop=$('conversation-scroll').scrollHeight;$('feedback-text').focus();
 }
 async function experienceAction(path,args){
@@ -604,7 +604,7 @@ function initializeCompanion(){
  };
  $('goal-input').oninput=()=>{goalDirty=true};$('goal-form').onsubmit=async e=>{e.preventDefault();const text=$('goal-input').value,epoch=historyEpoch;const result=await companionAction('/api/goal',{text});if(result&&epoch===historyEpoch&&$('goal-input').value===text){goalDirty=false;$('goal-input').value=result.companion?.goal?.text||''}};
  $('note-cancel').onclick=resetNoteForm;$('note-form').onsubmit=async e=>{e.preventDefault();const values={id:$('note-id').value||undefined,text:$('note-text').value,use:$('note-use').value},epoch=historyEpoch;if(!values.text.trim()){companionError('先写一点想记住的内容。');return}const result=await companionAction('/api/note',values);if(result&&epoch===historyEpoch&&$('note-id').value===(values.id||'')&&$('note-text').value===values.text&&$('note-use').value===values.use)resetNoteForm()};
- $('feedback-text').oninput=()=>{if(feedbackSubmittedText!==null&&$('feedback-text').value!==feedbackSubmittedText){feedbackClientId=crypto.randomUUID();feedbackTaskId=null;feedbackRetryReady=false;feedbackSubmittedText=null;feedbackSavedId=null;sessionStorage.setItem(`feedback-target:${scopeKey}`,JSON.stringify({targetRef:feedbackTargetRef,requestId:$('feedback-request-id').value,clientEventId:feedbackClientId}));}};
+ $('feedback-text').oninput=()=>{if(feedbackSubmittedText!==null&&$('feedback-text').value!==feedbackSubmittedText){feedbackClientId=crypto.randomUUID();feedbackTaskId=null;feedbackRetryReady=false;feedbackSubmittedText=null;feedbackSavedId=null;sessionStorage.setItem(`feedback-target:${scopeKey}`,JSON.stringify({targetRef:feedbackTargetRef,requestId:$('feedback-request-id').value,clientEventId:feedbackClientId,presentationId:feedbackPresentationId}));}};
  $('feedback-cancel').onclick=()=>{if(feedbackPending)return;$('feedback-form').hidden=true;sessionStorage.removeItem(`feedback-target:${scopeKey}`)};
  $('feedback-form').onsubmit=async e=>{
   e.preventDefault();if(feedbackPending)return;const continuing=e.submitter?.id==='feedback-continue';
@@ -612,18 +612,21 @@ function initializeCompanion(){
   const requestId=$('feedback-request-id').value,text=$('feedback-text').value,epoch=historyEpoch;
   if(!text.trim()){companionError('写一点具体感受，方便下次继续讨论。');return;}
   let cached=null;try{cached=JSON.parse(sessionStorage.getItem(`feedback-target:${scopeKey}`))}catch{}
-  const targetRef=feedbackTargetRef||(cached?.requestId===requestId?cached.targetRef:null),clientEventId=feedbackClientId||cached?.clientEventId||crypto.randomUUID();
+  const targetRef=feedbackTargetRef||(cached?.requestId===requestId?cached.targetRef:null),clientEventId=feedbackClientId||cached?.clientEventId||crypto.randomUUID(),presentationId=feedbackPresentationId||(cached?.requestId===requestId?cached.presentationId||null:null);
   if(continuing&&(!feedbackTaskId||feedbackRetryReady))feedbackTaskId=crypto.randomUUID();feedbackRetryReady=false;feedbackSubmittedText=text;
   feedbackClientId=clientEventId;feedbackPending=true;$('feedback-text').readOnly=true;if(continuing){withdrawCurrentCandidate();assistantPending=true;}
-  sessionStorage.setItem(`feedback-target:${scopeKey}`,JSON.stringify({targetRef,requestId,clientEventId,taskId:feedbackTaskId,submittedText:feedbackSubmittedText}));
+  sessionStorage.setItem(`feedback-target:${scopeKey}`,JSON.stringify({targetRef,requestId,clientEventId,presentationId,taskId:feedbackTaskId,submittedText:feedbackSubmittedText}));
   for(const submit of $('feedback-form').querySelectorAll('button'))submit.disabled=true;renderCompanion();
   $('assistant-status').textContent=continuing?'正在结合这条反馈继续商量…':'正在记下这条反馈…';
-  const result=await companionAction(continuing?'/api/feedback-continue':'/api/feedback',{requestId:requestId||undefined,text,targetRef:targetRef||undefined,clientEventId,...(continuing?{taskId:feedbackTaskId}:{})});
+  const result=await companionAction(continuing?'/api/feedback-continue':'/api/feedback',{requestId:requestId||undefined,text,targetRef:targetRef||undefined,presentationId:presentationId||undefined,clientEventId,...(continuing?{taskId:feedbackTaskId}:{})});
   if(epoch!==historyEpoch)return;if(result?.feedbackContinuation?.feedbackId)feedbackSavedId=result.feedbackContinuation.feedbackId;feedbackPending=false;$('feedback-text').readOnly=false;if(continuing)assistantPending=false;
   for(const submit of $('feedback-form').querySelectorAll('button'))submit.disabled=false;renderCompanion();
+  // Server-minted presentation identity: a stale target is never silently
+  // re-bound; the notice offers the current presentation and a retry binds it.
+  if(result?.staleFeedbackTarget){feedbackSubmittedText=null;feedbackPresentationId=result.staleFeedbackTarget.current?.presentationId||feedbackPresentationId;sessionStorage.setItem(`feedback-target:${scopeKey}`,JSON.stringify({targetRef:feedbackTargetRef,requestId,clientEventId,presentationId:feedbackPresentationId}));companionError(result.staleFeedbackTarget.message||'你评价的参考已有新版本；再次提交会评到当前版本。');$('assistant-status').textContent='';renderCompanion();return;}
   const continued=!!result&&!result.assistantError&&result.feedbackContinuation?.status==='complete';
   if(result&&(!continuing||continued)&&$('feedback-request-id').value===requestId&&$('feedback-text').value===text){
-   $('feedback-form').reset();$('feedback-form').hidden=true;feedbackTargetRef=null;feedbackClientId=null;feedbackTaskId=null;feedbackRetryReady=false;feedbackSubmittedText=null;feedbackSavedId=null;sessionStorage.removeItem(`feedback-target:${scopeKey}`);
+   $('feedback-form').reset();$('feedback-form').hidden=true;feedbackTargetRef=null;feedbackPresentationId=null;feedbackClientId=null;feedbackTaskId=null;feedbackRetryReady=false;feedbackSubmittedText=null;feedbackSavedId=null;sessionStorage.removeItem(`feedback-target:${scopeKey}`);
    $('assistant-status').textContent=continuing?'已结合这条反馈继续讨论。':'反馈已关联到具体对象。';
   }else if(continuing&&result){feedbackRetryReady=result.feedbackContinuation?.status==='failed';$('assistant-status').textContent=feedbackRetryReady?'反馈已记下，继续讨论未完成。文字仍保留，可重试。':'反馈已记下，正在继续讨论，请稍候。';if(feedbackRetryReady)companionError(result.feedbackContinuation.error||result.assistantError||'继续讨论未完成，可以重试。');}
  };

@@ -10,6 +10,8 @@ const {modelTopic,relevantTo,currentCandidateAnchor}=require('./catalog.cjs');
 const {requiredQuoteSources,planRecentContext,recentExchange,recentHistoryPolicy,recentHistorySegments}=require('./policy.cjs');
 const {contextBudget,finish,attachSelectionManifest}=require('./budget-manifest.cjs');
 const {selectPlanningContext}=require('./selection.cjs');
+const {selectPlanningContext:compileAdmissionCore,ADMISSION_COMPILER_VERSION}=require('./admission-compiler.cjs');
+const {digestSource}=require('./evidence-digest.cjs');
 const {SourceHandleOwner}=require('../source-handles.cjs');
 const {bindSelectedDirectionControl}=require('./selected-direction-control.cjs');
 const {buildConversationWork,CONVERSATION_WORK_VERSION}=require('../conversation-work.cjs');
@@ -25,7 +27,7 @@ function reconcilePlanningViews(payload){
   const sources=new Map(payload.sources.map(source=>[source.id,source])),available=new Set(sources.keys());
   if(payload.relationshipContext){
     const relationship=payload.relationshipContext;
-    const complete=(ids,revisions={})=>Array.isArray(ids)&&ids.length>0&&ids.every(id=>{const source=sources.get(id);return source&&source.revision===revisions[id]&&!source.segment&&source.delivery?.status!=='partial';});
+    const complete=(ids,revisions={})=>Array.isArray(ids)&&ids.length>0&&ids.every(id=>{const source=sources.get(id);return source&&source.revision===revisions[id]&&!source.segment&&!['partial','digest'].includes(source.delivery?.status);});
     for(const kind of ['claims','events'])relationship[kind]=(relationship[kind]||[]).filter(record=>!record.activityId||complete(record.sourceIds,record.sourceRevisions));
     const events=new Set((relationship.events||[]).map(event=>event.id));
     for(const activity of relationship.activities||[]){
@@ -124,7 +126,21 @@ function buildContext(options) {
   const latestPrivateSource=latestPriorUser&&byId.get(`private:${latestPriorUser.id}`);
   const latestPrivateIsCurrent=latestPrivateSource&&(generationOrigin!=='qq_observation'||inRecentWindow(latestPrivateSource.at)||
     relevantTo(recentExchange([...actualById.values()]).map(m=>m.text).join('\n'),latestPrivateSource));
-  if(latestPrivateIsCurrent&&bytes(latestPrivateSource)<=6000&&!foldedPrivateIds.has(latestPrivateSource.id))selected.set(latestPrivateSource.id,latestPrivateSource);
+  if(latestPrivateIsCurrent&&!foldedPrivateIds.has(latestPrivateSource.id)){
+    if(bytes(latestPrivateSource)<=6000)selected.set(latestPrivateSource.id,latestPrivateSource);
+    else{
+      // M2 digest bridge for the latest private declaration source: too large
+      // for verbatim admission, it still contributes its deterministic digest
+      // when that digest carries declared arrangements (availability or
+      // willingness tied to a near time) with exact lookup handles, instead of
+      // dropping the declaration out of evidence until a model lookup happens
+      // to read the right range. Sources without declared arrangements keep
+      // the whole-source lookup contract; the selection layer replaces this
+      // digest whenever the complete original fits.
+      const digested=digestSource(latestPrivateSource);
+      if(digested?.digest?.declarations?.length)selected.set(latestPrivateSource.id,digested);
+    }
+  }
   const validQQ = records.filter(m => eligibleQQ(m) && sameScope(m,scope) && byId.has(`qq:${m.messageId}`));
   const protectedImageIds=[...new Set([...imageMessageIds,...(images||[]).map(image=>image.messageId)])];
   // Preserve one bounded actual exchange. Source ranges disclose oversized
@@ -162,7 +178,11 @@ function buildContext(options) {
   const groundedTopic = activeTopic?.lifecycle === 'active' && supportedByAvailable(activeTopic, byId, scope) ? activeTopic : null;
   // A grounded current task is a bounded control view, not a raw-source floor.
   // Original task evidence remains addressable and enters through relevance/read admission.
-  const essentialIds = new Set([...selected.keys()].filter(id=>id!==latestPrivateSource?.id||id===current.id||protectedPendingIds.includes(id)||id===intentSource.id));
+  // An explicit read (source lookup or model lookup result) is user intent:
+  // under budget pressure it shrinks to ranges or digests, but is never
+  // silently evicted before the degradation ladder had a chance to keep it.
+  const explicitLookupIdSet=new Set([...(retrievedSources||[]).map(source=>source.id.startsWith('private:')?source.id:`private:${source.id}`),...(sourceLookupIds||[]).map(id=>id.startsWith('private:')?id:`private:${id}`)]);
+  const essentialIds = new Set([...selected.keys()].filter(id=>id!==latestPrivateSource?.id||id===current.id||protectedPendingIds.includes(id)||id===intentSource.id||explicitLookupIdSet.has(id)));
   const recentPlan=planRecentContext(validQQ,{replyMessageIds,imageMessageIds:protectedImageIds,byteBudget});
   const timeSegments=recentHistorySegments(validQQ,historyPolicy),timeCandidateIds=new Set(timeSegments.flat().map(m=>`qq:${m.messageId}`)),timePriorityIds=new Set();
   const recentPrivateIds=new Set(eligibleTurns.filter(t=>t.role==='user'&&t.id!==turn.id&&inRecentWindow(t.createdAt)&&byId.has(`private:${t.id}`)).map(t=>`private:${t.id}`));
@@ -256,12 +276,70 @@ function buildContext(options) {
   if(implicitAnchor)preferredCandidateTurnIds.add(implicitAnchor.turnId);
   const candidates={selected,automaticTurn,eligibleTurns,explicitTurnIds,inRecentWindow,validQQ,foldedPrivateIds,essentialIds,recentPlan,timeSegments,timeCandidateIds,timePriorityIds,recentPrivateIds,reviewing,privateRequest,relevantRecord,queryText,protectedPendingIds,selectedProposal,proposals,intentSource,topicView,compacted,coveredTurnIds,candidatePool,preferredCandidateTurnIds};
   const coreInventory=[...(options.coreMemory||options.store?._memoryRecords?.(scope)||[]),...(memoryResult?.items||[]),...memoryIndex,...(relationshipContext?.claims||[])];
-  const {coreItems,optionalRawLimit,optionalRawIds,optionalRetrieved,recentContextPlan,recentPriorityIds,recentInitialAdditionalBytes,consultationSupport}=selectPlanningContext({options:{...options,asOf,viewerTimeZone},snapshot,candidates,view:{payload,state,methodSelection,restrictions},budget,coreInventory,projectPlanningViews,reconcilePlanningViews,compactPlanningViews});
+  // CC1 admission core (integration switchover): the requirement-driven
+  // compiler chain (request analyzer -> MQA registry -> admission compiler
+  // -> budget authority) owns the never-refuse core of this request — the
+  // current-interaction floor, MQA-mandatory materials (declared
+  // arrangements, contact statements, feedback targets), explicit lookup
+  // reads and their ladder settlement under one Budget Authority. Its
+  // admitted views replace the gathered whole-source seeds for exactly the
+  // governed ids, so a declaration buried in an oversized source reaches
+  // evidence at its material-true tier (B4/B5) before any optional layer
+  // competes for room. Optional layers (discovery, methods, private-
+  // conversation groups, relationship/memory projections) remain owned by
+  // the legacy selection engine below until compiler parity is proven —
+  // the integration boundary recorded in the CC1 delivery report.
+  const admission=compileAdmissionCore({options:{...options,asOf,viewerTimeZone},snapshot,candidates});
+  const admissionEntries=new Map();
+  for(const entry of admission.admission?.plan?.admissions||[]){
+    // Only governed kinds (floor, MQA-mandatory, guaranteed) replace the
+    // gathered seeds: the compiler owns their tier. Background admissions
+    // are advisory here — the legacy engine already gathered better whole
+    // views for the exchange and manages background admission itself.
+    if(entry.kind==='background'||entry.tier==='marker'||!entry.view)continue;
+    admissionEntries.set(entry.id,entry);
+    // A compiler-governed admission is user-intent floor or MQA-mandatory
+    // material: later optional-layer eviction must not silently drop it.
+    essentialIds.add(entry.id);
+    selected.set(entry.id,entry.view);
+  }
+  payload.sources=[...selected.values()];
+  // MQA consumption contract and material outcomes travel with the payload
+  // so the response validator can enforce arrangementHandling (B5). Each
+  // field rides only when it carries content: a generic consultation without
+  // anchors or wants adds no decision information and must not pay a fixed
+  // byte tax for empty MQA scaffolding under tight budgets.
+  const compiledRequest=admission.payload.contextRequest;
+  if(compiledRequest&&(compiledRequest.intentClass!=='generic_consultation'||compiledRequest.anchors?.length||Object.values(compiledRequest.wants||{}).some(Boolean)))payload.contextRequest=compiledRequest;
+  if(admission.payload.materialRequirements?.outcomes?.length)payload.materialRequirements=admission.payload.materialRequirements;
+  if(admission.payload.mandatoryMaterials?.length)payload.mandatoryMaterials=admission.payload.mandatoryMaterials;
+  if(admission.payload.consumptionContract?.fields?.length)payload.consumptionContract=admission.payload.consumptionContract;
+  if(admission.payload.negativeControls?.length)payload.negativeControls=admission.payload.negativeControls;
+  const {coreItems,optionalRawLimit,optionalRawIds,optionalRetrieved,recentContextPlan,recentPriorityIds,recentInitialAdditionalBytes,degradation:selectionDegradation,consultationSupport}=selectPlanningContext({options:{...options,asOf,viewerTimeZone},snapshot,candidates,view:{payload,state,methodSelection,restrictions},budget,coreInventory,projectPlanningViews,reconcilePlanningViews,compactPlanningViews});
+  const degradation=[...admission.degradation,...selectionDegradation];
   const editingReferences=offerEditingReferences({payload,companion,sourceTurnIds,currentCandidateRef:implicitAnchor?currentCandidateRef:undefined,store:options.store,scope});
   if(editingReferences.length){payload.editingReferences=editingReferenceView(editingReferences);if(!fits(payload)){delete payload.editingReferences;if(editingReferences.some(item=>item.selection.startsWith('explicit_')))throw new Error('选定改稿原句超过上下文预算；没有静默截断');}}
   const currentRequest=payload.userRequest,position=payload.taskContext;delete payload.userRequest;delete payload.taskContext;
   payload.taskContext=position;payload.userRequest=currentRequest;
   const context=finish(payload, payload.sources, { scope, requestId, companion, coverage }, all, byteBudget, budget);
+  // Explainable degradation: every applied ladder step stays visible on the
+  // manifest together with the handle that still reaches the complete original.
+  if(degradation.length)context.manifest.degradation=degradation.map(entry=>({...entry}));
+  // CC1 admission receipt: the compiler's plan (governed ids, tiers, material
+  // outcomes) is part of the explainable manifest, not only internal state.
+  context.manifest.admission={version:ADMISSION_COMPILER_VERSION,
+    admissions:[...admissionEntries.values()].map(({id,kind,tier})=>({id,kind,tier})),
+    materialRequirements:admission.payload.materialRequirements};
+  // The latest-private digest bridge is a ladder step applied before
+  // selection; keep it as visible and reviewable as the in-selection tiers.
+  const bridgedDigest=(payload.sources||[]).find(source=>source.id===latestPrivateSource?.id&&source.digest?.declarations);
+  if(bridgedDigest)context.manifest.degradation=[...(context.manifest.degradation||[]),{step:'deterministic_digest',appliedTo:bridgedDigest.id,
+    recoveredBytes:bytes(bridgedDigest),remainingNeed:bytes(byId.get(bridgedDigest.id))-bytes(bridgedDigest),
+    lookupHandle:{sourceId:bridgedDigest.id,revision:bridgedDigest.revision,offset:0}}];
+  if(payload.userRequest?.delivery)context.manifest.userRequestDelivery={version:'source-delivery-v1',
+    status:payload.userRequest.delivery.status,requestSourceId:payload.userRequest.sourceId,
+    deliveredRange:{start:payload.userRequest.delivery.start,end:payload.userRequest.delivery.end,originalCharLength:payload.userRequest.delivery.originalCharLength},
+    lookup:payload.userRequest.delivery.lookup,rule:'当前问题按显式范围交付；未交付部分未知，可按lookup续读，不虚构'};
   const losses=(payload.relationshipContext?.activities||[]).flatMap(activity=>activity.evidenceLosses||[]);
   if(losses.length)context.manifest.inputEvidenceLossRefs=lossReferences(scope,losses);
   // Qualified stored activity summaries can remain navigation without raw

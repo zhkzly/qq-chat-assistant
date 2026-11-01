@@ -1,7 +1,7 @@
 'use strict';
 const { createHash } = require('node:crypto');
 const { redact } = require('./model.cjs');
-const { postModel, modelFailure } = require('./model-http.cjs');
+const { postModel, modelFailure, modelTimeoutSignal } = require('./model-http.cjs');
 const { parseModelJson, readModelOutput } = require('./model-json.cjs');
 const { responseEnvelope } = require('./model-response-format.cjs');
 const { prepareAssistantRequest } = require('./assistant-model.cjs');
@@ -9,6 +9,9 @@ const { sourceClosure } = require('./provenance.cjs');
 const { DISCUSSION_COMPACTION_VERSION, eligibleDiscussionTurns, readableDiscussionTurns, discussionTurnFingerprint, discussionTopicBinding,
   discussionModelBinding, discussionCompactionEvidence } = require('./discussion-compaction-store.cjs');
 
+// Compaction wire contract: top-level field admission and summary/quoteRefs
+// bounds are compiled from src/contracts/discussion-compaction-result.contract.json.
+const compactionContract=require('./wire/compile.cjs').compile('discussion-compaction-result').contract;
 const hash = value => createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const bytes = value => Buffer.byteLength(JSON.stringify(value), 'utf8');
 const scopeMatches = (a, b) => a && b && ['accountUid','accountUin','peerUid','peerUin'].every(key => a[key] === b[key]);
@@ -39,14 +42,14 @@ function quoteText(turn, quote) {
 }
 function parseDiscussionCompaction(value, plan) {
   const parsed = parseModelJson(value);
-  if (Object.keys(parsed).some(key => !['summary','quoteRefs','reviewedTurnIds'].includes(key))) throw new Error('compaction: only summary/quoteRefs/reviewedTurnIds are allowed');
-  if (typeof parsed.summary !== 'string' || !parsed.summary.trim() || Buffer.byteLength(parsed.summary, 'utf8') > 8000) throw new Error('summary: use nonempty private discussion summary of at most 8000 UTF8 bytes');
+  if (Object.keys(parsed).some(key => !compactionContract.topLevelFields.includes(key))) throw new Error('compaction: only summary/quoteRefs/reviewedTurnIds are allowed');
+  if (typeof parsed.summary !== 'string' || !parsed.summary.trim() || Buffer.byteLength(parsed.summary, 'utf8') > compactionContract.summary.maxBytes) throw new Error('summary: use nonempty private discussion summary of at most '+compactionContract.summary.maxBytes+' UTF8 bytes');
   if (!Array.isArray(parsed.reviewedTurnIds) || JSON.stringify(parsed.reviewedTurnIds) !== JSON.stringify(plan.sourceTurnIds)) throw new Error('reviewedTurnIds: copy every delivered original turn ID exactly once in input order');
   const quotes = parsed.quoteRefs || [];
-  if (!Array.isArray(quotes) || quotes.length > 12 || bytes(quotes) > 6000) throw new Error('quoteRefs: use at most12 literal references and at most6000 UTF8 bytes');
+  if (!Array.isArray(quotes) || quotes.length > compactionContract.quoteRefs.max || bytes(quotes) > compactionContract.quoteRefs.maxBytes) throw new Error('quoteRefs: use at most'+compactionContract.quoteRefs.max+' literal references and at most'+compactionContract.quoteRefs.maxBytes+' UTF8 bytes');
   const byId = new Map(plan.turns.map(turn => [turn.id, turn]));
   for (const quote of quotes) {
-    if (!quote || typeof quote !== 'object' || Array.isArray(quote) || Object.keys(quote).some(key => !['turnId','role','field','index','quoteIndex','text','artifactRef','sourceIds'].includes(key))) throw new Error('quoteRefs: invalid reference fields');
+    if (!quote || typeof quote !== 'object' || Array.isArray(quote) || Object.keys(quote).some(key => !compactionContract.quoteRefs.fields.includes(key))) throw new Error('quoteRefs: invalid reference fields');
     const body = quoteText(byId.get(quote.turnId), quote);
     if (typeof quote.text !== 'string' || !quote.text.trim() || typeof body !== 'string' || !body.includes(quote.text)) throw new Error('quoteRefs.text: copy a continuous literal span from the identified original field, never rewrite a candidate');
     if (quote.sourceIds?.some(id => !Object.hasOwn(plan.sourceRevisions, id))) throw new Error('quoteRefs.sourceIds: use original covered source dependencies');
@@ -151,7 +154,7 @@ async function assistDiscussionCompaction(settings, plan, signal, fetchImpl = fe
   if ((!settings.apiKey && !settings.anonymous) || !settings.baseUrl || !settings.model) throw new Error('请先配置模型');
   const url = new URL(`${settings.baseUrl.replace(/\/$/, '')}/chat/completions`);
   if (!['http:','https:'].includes(url.protocol)) throw new Error('模型地址协议无效');
-  const boundedSignal = signal ? AbortSignal.any([signal, AbortSignal.timeout(60000)]) : AbortSignal.timeout(60000);
+  const boundedSignal = signal ? AbortSignal.any([signal, modelTimeoutSignal(settings)]) : modelTimeoutSignal(settings);
   const manifest = { purpose: 'discussion_compaction', identity: plan.identity, sourceTurnIds: plan.sourceTurnIds,
     sourceRevisions: plan.sourceRevisions, turnFingerprints: plan.turnFingerprints, requestByteBudget: plan.requestByteBudget, tokenizerVerified: false };
   const send = async (payload, budget, stageManifest) => {
@@ -163,7 +166,11 @@ async function assistDiscussionCompaction(settings, plan, signal, fetchImpl = fe
     stageManifest.networkAttempts = attempts;
     if (!response.ok) throw await modelFailure(response, '私下讨论压缩失败：');
     const json = await response.json(); budget?.recordUsage(json.usage);
-    const output = readModelOutput(json); stageManifest.outputMetadata = output.metadata; return output.text;
+    const output = readModelOutput(json); stageManifest.outputMetadata = output.metadata;
+    // A length-truncated compaction response is never parsed as complete: it
+    // fails this optional step instead of silently dropping covered turns.
+    if (output.metadata.finishReason === 'length') { const cut = new Error(`私下讨论压缩输出达到长度上限，可能被截断（${output.metadata.contentCharacters} 字符）；原文已保留`); cut.code = 'model_output_truncated'; throw cut; }
+    return output.text;
   };
   const content = await send(plan.payload, settings.requestBudget, manifest);
   try { return { ...parseDiscussionCompaction(content, plan), manifest }; }

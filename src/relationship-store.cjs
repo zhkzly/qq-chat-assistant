@@ -5,6 +5,11 @@ const {normalizeRelationshipPatch}=require('./relationship-schema.cjs');
 const {sourceClosure,assertPreferenceAuthority}=require('./provenance.cjs');
 const {requireOriginals}=require('./original-evidence.cjs');
 const activityEvidence=require('./activity-evidence.cjs');
+const {assertSpeechAttribution,contactSpeech,ownerAuthoredRecord}=require('./speaker-identity.cjs');
+const {applyOverlaysToClaims}=require('./memory/correction-overlay.cjs');
+// Marks a claim downgraded from a model-proposed recurring classification
+// (decision-split write gate B1): the stability decision is program/user-owned.
+const DEGRADED_FROM_RECURRING=Symbol('degraded.from.recurring');
 const PROCESSOR_VERSION='evidence-backed-understanding-2026-10-31.2';
 const hash=value=>createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const typed=r=>r.recordType==='claim'||r.recordType==='relationship_event';
@@ -73,6 +78,16 @@ function repairRelationshipTransitions(store,scope){
   return changed;
 }
 const meaningFields={claim:['text','subject','aspect','assertionKind','epistemicStatus','lifecycle','applicabilityKind','attribution','condition','context','validFrom','validUntil'],relationship_event:['text','activityKey','eventKind','actor','occurredAt','plannedFor']};
+// Deterministic semantic signature, shared by the write path and the D1
+// revision-cutover remap so retired signatures stay comparable after every
+// source revision is re-hashed.
+function semanticSignature(type,semantic,sourceIds,sourceRevisions){
+  return hash({type,...semantic,sourceIds:[...sourceIds].sort(),sourceRevisions:Object.fromEntries(Object.entries(sourceRevisions).sort(([a],[b])=>a.localeCompare(b)))});
+}
+// Applicability kinds that explicitly deny durability. A correction carrying
+// one of them stays inside its declared scope and cannot act as a stable
+// preference, so it is admitted without recurring-intent evidence authority.
+const SCOPED_CORRECTION_APPLICABILITY=new Set(['local','temporary']);
 function prepareRelationshipPatch(store,scope,input,options={}) {
   const patch=normalizeRelationshipPatch(input),raw=new Map(store._rawMemorySources(scope).map(s=>[s.id,s]));
   const allowed=new Set(options.sourceIds||[]),records=store._memoryRecords(scope),existing=records.filter(typed),byId=new Map(existing.map(r=>[r.id,r])),transitionById=new Map(records.filter(record=>typed(record)||record.recordType==='item').map(record=>[record.id,record]));
@@ -135,19 +150,31 @@ function prepareRelationshipPatch(store,scope,input,options={}) {
     }
     let refs=historicalRevision?old.sourceIds:retiring||reaffirm?[...new Set([...old.sourceIds,...value.sourceIds])]:value.sourceIds;
     let closure=sourceClosure(raw,refs);
-    if(!retiring&&type==='claim'&&value.assertionKind==='stated'&&value.subject==='contact'){
-      const direct=closure.filter(s=>s.type==='qq'&&s.role==='contact');
-      if(!direct.length)throw new Error('Contact statements require actual contact messages; use reported for user reports');
-      // A new question may cause retrieval, but it is not a new statement by her.
-      refs=direct.map(s=>s.id);closure=sourceClosure(raw,refs);
+    // Single speech-attribution write gate (target architecture M3): one
+    // implementation in speaker-identity.cjs, consumed by the store write,
+    // the foreground audit and the memory decode path. A stated claim about a
+    // speaker must be proven by that speaker's own words.
+    if(!retiring&&type==='claim'&&value.assertionKind==='stated'){
+      assertSpeechAttribution(value,closure,'relationshipPatch.claims');
+      // Narrow a stated claim to the speaking party's own messages: a new
+      // question may cause retrieval, but it is not a new statement by them.
+      const direct=value.subject==='contact'?closure.filter(s=>contactSpeech(s))
+        :value.subject==='self'?closure.filter(s=>ownerAuthoredRecord(s)):null;
+      if(direct&&direct.length){refs=[...new Set(direct.map(s=>s.id))];closure=sourceClosure(raw,refs);}
     }
     if(!retiring&&type==='claim'&&value.assertionKind==='observed'){
       const observed=closure.filter(s=>s.type==='qq');if(!observed.length)throw new Error('Observed claims require actual QQ evidence; use reported for user reports');
       refs=observed.map(s=>s.id);closure=sourceClosure(raw,refs);
     }
-    if(!retiring&&type==='claim'&&value.subject==='self'&&value.aspect==='stated_preference')assertPreferenceAuthority(raw,refs);
+    // A stated_preference aspect says what the record is about, not how far
+    // it reaches. Only a claim that asserts durable scope (recurring, a
+    // conditional standing rule, or an unspecified duration that may silently
+    // persist) needs stable-preference evidence authority. An explicitly local
+    // or temporary correction is a scoped understanding, never a global
+    // preference rewrite; the read model keeps it out of the durable lanes and
+    // the wording-control consumer ignores non-recurring applicability.
+    if(!retiring&&type==='claim'&&value.subject==='self'&&value.aspect==='stated_preference'&&!SCOPED_CORRECTION_APPLICABILITY.has(value.applicabilityKind))assertPreferenceAuthority(raw,refs);
     if(!retiring&&type==='claim'&&value.applicabilityKind==='recurring')assertPreferenceAuthority(raw,refs);
-    if(type==='claim'&&value.assertionKind==='stated'&&value.subject==='contact'&&!closure.some(s=>s.type==='qq'&&s.role==='contact'))throw new Error('Contact statements require actual contact messages; use reported for user reports');
     const dates=nativeActivity&&!retiring?(reaffirm?[old.firstEvidenceAt,[old.lastEvidenceAt,nativeActivity.statementAt].sort().at(-1)]:[nativeActivity.statementAt]):refs.map(id=>raw.get(id).at).sort();
     if(old&&dates.at(-1)<old.lastEvidenceAt)throw new Error('Older backfill cannot replace newer relationship evidence');
     if(old&&options.reviewedSourceIds){const fresh=value.sourceIds.filter(id=>options.reviewedSourceIds.includes(id));const freshAt=fresh.map(id=>raw.get(id).at).sort().at(-1);const completing=old.reviewComplete===false&&fresh.some(id=>old.sourceIds.includes(id));if(freshAt&&freshAt<old.lastEvidenceAt&&!completing)throw new Error('Older newly reviewed evidence cannot retire or replace a later interpretation');}
@@ -163,11 +190,22 @@ function prepareRelationshipPatch(store,scope,input,options={}) {
     const reviewComplete=originalRoots.every(id=>readCoverage.completeSourceIds.includes(id));
     const sourceRevisions=Object.fromEntries(closure.map(s=>[s.id,s.revision]));
     const body=retiring?{...old,lifecycle:value.lifecycle,...(type==='item'?{status:'superseded'}:{}),sourceIds:refs}: {...semantic,sourceIds:refs,topicKeys:historicalRevision?old.topicKeys||[]:value.topicKeys||[],lifecycle:value.lifecycle||'active'};
-    const signature=hash({type,...semantic,sourceIds:[...refs].sort(),sourceRevisions:Object.fromEntries(Object.entries(sourceRevisions).sort(([a],[b])=>a.localeCompare(b)))});
+    const signature=semanticSignature(type,semantic,refs,sourceRevisions);
     // Retirement changes the record's evidence, but must not erase the identity
     // of the rejected interpretation. Replaying it is an idempotent no-op;
     // genuinely new source revisions produce a different evidence signature.
-    const retired=!id&&!requestedTransition&&[...existing,...checked].find(r=>r.lifecycle!=='active'&&r.retiredSemanticSignatures?.includes(signature));
+    const retiredRecord=()=>[...existing,...checked].find(r=>(r.lifecycle!=='active'||r.suppressedByOverlayId)&&r.retiredSemanticSignatures?.includes(signature));
+    let retired=!id&&!requestedTransition&&retiredRecord();
+    if(!retired&&!id&&!requestedTransition){
+      // D1 cutover compatibility: signatures recorded before the
+      // speaker-fingerprint revision cutover were computed with legacy hashes.
+      // Retry the candidate under the persisted old hashes so pre-cutover
+      // retirements keep their anti-resurrection protection.
+      const legacyRevisions={};let legacy=false;
+      for(const id of refs){const row=store.db.prepare('SELECT from_rev FROM revision_cutover_map WHERE scope_key=? AND source_id=?').get(store.scopeKey(scope),id);if(row){legacyRevisions[id]=row.from_rev;legacy=true;}}
+      if(legacy){const legacySignature=semanticSignature(type,semantic,refs,{...sourceRevisions,...legacyRevisions});
+        retired=[...existing,...checked].find(r=>(r.lifecycle!=='active'||r.suppressedByOverlayId)&&r.retiredSemanticSignatures?.includes(legacySignature));}
+    }
     if(retired)return retired;
     const duplicate=!id&&!requestedTransition&&[...existing,...checked].find(r=>r.semanticSignature===signature);
     const previous=old||duplicate;
@@ -213,9 +251,39 @@ function prepareRelationshipPatch(store,scope,input,options={}) {
     }
     return result;
   };
-  for(const c of patch.claims)checked.push(build(c,'claim'));
-  for(const e of patch.events)checked.push(build(e,'relationship_event'));
-  for(const r of patch.retire) {const old=transitionById.get(r.id);if(!old)throw new Error('Unknown relationship retirement');checked.push(build(r,old.recordType,true));}
+  // Partial commit with quarantine: a misfiled preference claim must not
+  // refuse the valid records proposed beside it. Only callers that opt in via
+  // options.quarantinePreference get per-record quarantine; direct patch
+  // callers keep whole-patch refusal semantics. The quarantinable gate throws
+  // before any transition side effect is pushed, so a quarantined supersede
+  // leaves its declared targets untouched and transition chains stay atomic.
+  const quarantine=options.quarantinePreference;
+  const modelPath=options.preferenceAuthority==='model';
+  const attempt=(record,type,retiring,index)=>{
+    let value=record;
+    // Decision-split write gate (B1): on the model write path a recurring
+    // classification is a proposal, never a committed stability decision. It
+    // degrades to an evidence-bound unspecified claim and the original
+    // proposal is filed as a preference candidate receipt; user attestation
+    // and the program repetition counter are the only recurring upgrade
+    // channels. If the degraded claim still fails preference authority (for
+    // example local-feedback evidence), the candidate receipt alone remains
+    // and no claim row is written.
+    if(modelPath&&quarantine&&type==='claim'&&!retiring&&value.applicabilityKind==='recurring'&&(value.subject==='self'||value.aspect==='stated_preference')){
+      quarantine({field:`claims[${index}]`,code:'preference_candidate',message:'Recurring stability is outside the model write scope; recorded as a preference candidate and degraded to an evidence-bound unspecified claim',
+        proposal:{subject:value.subject,aspect:value.aspect,text:value.text,topicKeys:value.topicKeys||[],sourceIds:value.sourceIds,proposedApplicability:'recurring'}});
+      value={...value,applicabilityKind:'unspecified',[DEGRADED_FROM_RECURRING]:true};
+    }
+    try{checked.push(build(value,type,retiring));}
+    catch(error){
+      if(!quarantine||error.code!=='memory_preference_authority_required')throw error;
+      if(value[DEGRADED_FROM_RECURRING])return;
+      quarantine({field:`${type==='claim'?'claims':type==='relationship_event'?'events':'retire'}[${index}]`,code:error.code,message:error.message});
+    }
+  };
+  patch.claims.forEach((record,index)=>attempt(record,'claim',false,index));
+  patch.events.forEach((record,index)=>attempt(record,'relationship_event',false,index));
+  patch.retire.forEach((record,index)=>{const old=transitionById.get(record.id);if(!old)throw new Error('Unknown relationship retirement');attempt(record,old.recordType,true,index);});
   const unique=new Map();
   for(const record of checked){const prior=unique.get(record.id);if(prior&&prior!==record)throw new Error('Conflicting relationship updates for one record');unique.set(record.id,record);}
   return [...unique.values()];
@@ -244,6 +312,11 @@ function relationshipView(store,scope,{query='',limit=24,asOf}={}) {
   // old acceptance. The caller still budgets the resulting context as a unit.
   const eventClock=event=>event.occurredAt||event.lastEvidenceAt;
   const events=all.filter(r=>r.recordType==='relationship_event'&&(r.activityId||keys.has(r.activityKey))).map(event=>({...activityEvidence.evidenceViewRecord(event),...(!event.activityId?{identityStatus:'legacy_unbound',activityEvidenceStatus:'canonical_api_compatibility_not_native_identity_proof'}:{}),...(event.occurrenceTimeStatus==='legacy_unverified'?{occurredAt:null}:{})})).sort((a,b)=>eventClock(a).localeCompare(eventClock(b))||a.id.localeCompare(b.id));
+  // Scoped correction overlays resolve at read time (M2): a correction wins
+  // inside its scope, evidence currency wins everywhere, and a correction
+  // overtaken by later legitimate re-review is flagged
+  // needs_current_interpretation instead of silently applied.
+  const overlays=store.correctionOverlays?.(scope,{activeOnly:true})||[];
   const claims=selected.filter(r=>r.recordType==='claim').map(r=>({...activityEvidence.evidenceViewRecord(r),applicability:r.lifecycle!=='active'?'inactive':!r.reviewComplete?'needs_review':r.validUntil&&Date.parse(r.validUntil)<now?'expired':r.validFrom&&Date.parse(r.validFrom)>now?'not_yet_valid':r.applicabilityKind==='conditional'?'conditional':r.validUntil?'current':r.applicabilityKind==='recurring'?'recurring':r.applicabilityKind==='local'?'local':r.applicabilityKind==='temporary'?'dated_context':'unspecified'}));
   const gaps=store.db.prepare('SELECT record FROM memory_gaps WHERE scope_key=?').all(store.scopeKey(scope)).map(row=>JSON.parse(row.record));
   const activities=[...keys].map(activityKey=>{
@@ -257,7 +330,8 @@ function relationshipView(store,scope,{query='',limit=24,asOf}={}) {
   const anchored=activityEvidence.publicActivities(all,gaps,raw);activities.push(...anchored.activities);
   const meta=store.db.prepare('SELECT version,processor_version FROM memory_meta WHERE scope_key=?').get(store.scopeKey(scope));
   const pending=store.db.prepare("SELECT count(*) n FROM memory_journal WHERE scope_key=? AND status='pending'").get(store.scopeKey(scope)).n;
-  return {scope:{...scope},version:meta?.version||0,asOf:new Date(now).toISOString(),claims,events,self:claims.filter(r=>r.subject==='self'),contact:claims.filter(r=>r.subject==='contact'),dyad:claims.filter(r=>r.subject==='dyad'),activities,activityUncertainties:anchored.activityUncertainties,
+  const resolvedClaims=overlays.length?applyOverlaysToClaims(claims,overlays,{revisionOf:id=>raw.get(id)?.revision,recordsById:new Map(all.map(r=>[r.id,r]))}):claims;
+  return {scope:{...scope},version:meta?.version||0,asOf:new Date(now).toISOString(),claims:resolvedClaims,events,self:resolvedClaims.filter(r=>r.subject==='self'),contact:resolvedClaims.filter(r=>r.subject==='contact'),dyad:resolvedClaims.filter(r=>r.subject==='dyad'),activities,activityUncertainties:anchored.activityUncertainties,
     coverage:{pending,semanticPending:all.filter(record=>record.reviewComplete===false).length,processorVersion:meta?.processor_version||null,bootstrapPending:meta?.processor_version!==PROCESSOR_VERSION||!!store.db.prepare("SELECT 1 FROM memory_journal WHERE scope_key=? AND status='pending' AND operation='reindex' LIMIT 1").get(store.scopeKey(scope)),history:store.coverage(scope),semanticCertainty:false}};
 }
 function personUnderstanding(store,scope,options={}){
@@ -271,4 +345,4 @@ function personUnderstanding(store,scope,options={}){
   }
   return result;
 }
-module.exports={PROCESSOR_VERSION,prepareRelationshipPatch,writeRelationshipRecords,relationshipView,personUnderstanding,decisionRevisions,decisionEvidence,repairRelationshipTransitions,invalidateRelationshipDecision};
+module.exports={PROCESSOR_VERSION,prepareRelationshipPatch,writeRelationshipRecords,relationshipView,personUnderstanding,decisionRevisions,decisionEvidence,repairRelationshipTransitions,invalidateRelationshipDecision,semanticSignature,meaningFields};

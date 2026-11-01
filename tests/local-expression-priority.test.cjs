@@ -10,13 +10,17 @@ const OLD='以后回复用短句，不用表情，直接一点，语气轻松，
 function fixture(t,{core=false,feedback=false,text='这轮不要用短句，可以加点表情，含蓄一点。邀请她一起听歌。',old=OLD}={}){
  const store=new Store(':memory:');t.after(()=>store.close());
  const declaration=store.appendTurn(scope,{role:'user',kind:'discussion',text:old});
- if(core){const batch=store.memoryBatch(scope);assert.equal(store.applyMemoryBatch(scope,batch,{reviewedSourceIds:batch.reviewedSourceIds,items:[],episodes:[],retire:[],relationshipPatch:{claims:[{subject:'self',aspect:'stated_preference',text:old,sourceIds:[`private:${declaration.id}`],assertionKind:'stated',epistemicStatus:'supported',applicabilityKind:'recurring'}]}}).applied,true);}
+ if(core){const batch=store.memoryBatch(scope);assert.equal(store.applyMemoryBatch(scope,batch,{reviewedSourceIds:batch.reviewedSourceIds,items:[],episodes:[],retire:[],relationshipPatch:{claims:[{subject:'self',aspect:'stated_preference',text:old,sourceIds:[`private:${declaration.id}`],assertionKind:'stated',epistemicStatus:'supported',applicabilityKind:'recurring'}]}}).applied,true);
+   // Structural reason (B1 decision-split): the model's recurring classification
+   // is only a candidate; the user's explicit declaration is attested here,
+   // exactly as the UI confirmation flow would do.
+   const proposals=store.preferenceUpgradeProposals(scope,{status:'pending'});if(proposals.length)assert.equal(store.resolvePreferenceUpgrade(scope,{id:proposals[0].id,decision:'authorize'}).applied,true);}
  else store.saveNote(scope,{kind:'preference',use:'discussion',text:old,evidenceSourceIds:[`private:${declaration.id}`]});
  const asOf=new Date(Date.now()+(core?4*86400000:1000)).toISOString();
  store.add(scope,[normalize(raw('62001',false,{msgTime:String(Math.floor(Date.parse(asOf)/1000)-60),elements:[{elementType:1,textElement:{content:'刚发现这首歌有现场版'}}]}),scope)]);
  let turn,intentSourceId;
  if(feedback){const target=store.appendTurn(scope,{role:'assistant',kind:'discussion',text:'一份虚构参考。',requestId:'local-priority-target',sourceIds:['qq:62001']});
-  const saved=store.addFeedback(scope,{text,targetRef:{kind:'artifact',artifactRef:target.artifactRef},clientEventId:'local-priority-feedback'});intentSourceId=saved.sourceId;
+  const saved=store.addFeedback(scope,{text,targetRef:{kind:'artifact',artifactRef:target.artifactRef},clientEventId:'local-priority-feedback', expectedDigest: store.experiences.artifact(scope, target.artifactRef).bodyDigest});intentSourceId=saved.sourceId;
   turn={id:'priority-feedback-request',role:'user',kind:'discussion',text:'结合选中的反馈继续。',transient:true};
  }else turn=store.appendTurn(scope,{role:'user',kind:'discussion',text});
  const args={scope,store,records:store.messages(scope),availableSources:store.memorySources(scope),companion:store.getCompanion(scope),turn,purpose:'discussion',intentSourceId,

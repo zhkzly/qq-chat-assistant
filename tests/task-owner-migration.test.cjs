@@ -43,7 +43,11 @@ test('baseline-created SQLite migration preserves raw history and canonical task
  const {filename,before,baselineStoreSha256,artifactDir}=baselineDatabase(t);assert.equal(before.baseline,BASELINE);assert.equal(before.scope.taskSemanticsVersion,undefined,'fixture must come from unchanged baseline Store');assert.equal(before.storeSourceSha256,baselineStoreSha256);assert.equal(baselineStoreSha256,'a71f9da170145b3d2c72f7be41c148bc09a7f15b5977e6cfeac26ffed0846b1c');
  let s=new Store(filename);t.after(()=>s.close());const c=s.getCompanion(scope),legacy=s.getCompanion(legacyScope);
  assert.equal(c.consultationTask.active.id,before.scope.topics.activeId);assert.equal(c.consultationTask.active.lifecycle,'active','task age alone cannot pause an explicit task');
- assert.deepEqual(c.turns,before.scope.turns);assert.deepEqual(c.notes,before.scope.notes);assert.deepEqual(c.goal,before.scope.goal);assert.deepEqual(s.messages(scope),before.messages);assert.deepEqual(s.memorySources(scope),before.sources);
+ assert.deepEqual(c.turns,before.scope.turns);assert.deepEqual(c.notes,before.scope.notes);assert.deepEqual(c.goal,before.scope.goal);assert.deepEqual(s.messages(scope),before.messages);
+  // Structural reason (D1 speaker-fingerprint cutover): bodies/ids/times
+  // survive; revisions are re-hashed consistently with the live projection.
+  assert.deepEqual(s.memorySources(scope).map(({revision,...rest})=>rest),before.sources.map(({revision,...rest})=>rest));
+  assert.ok(s.memorySources(scope).every(source=>source.revision===s.observationLog.observationById(scope,source.id).revision));
  assert.equal(s.messages(scope)[0].messageId,'72057594037927939');assert.equal(typeof s.messages(scope)[0].messageId,'string');
  assert.equal(before.scope.turns[0].id,before.fixtureIds.intentTurnId);assert.ok(c.consultationTask.active.purposeSourceIds.includes(`private:${before.fixtureIds.intentTurnId}`),'feedback must not replace the task original private grounding');
  assert.deepEqual(new Set(c.notes.map(note=>note.use)),new Set(['discussion','draft','disabled']));
@@ -51,8 +55,25 @@ test('baseline-created SQLite migration preserves raw history and canonical task
  assert.equal(recalled.recalled,true);assert.equal(recalled.timestamp,978343201000);assert.equal(recalled.text,'[已撤回]');assert.equal(withdrawnQQ.recalled,false);assert.equal(withdrawnQQ.timestamp,978343203000);
  assert.deepEqual(s.ignoredSources(scope),before.ignoredSources);assert.ok(before.ignoredSources.includes(`qq:${before.fixtureIds.withdrawnId}`));assert.equal(s.memorySources(scope).some(source=>[`qq:${before.fixtureIds.recalledId}`,`qq:${before.fixtureIds.withdrawnId}`].includes(source.id)),false);
  const artifacts=before.artifactRefs.map(reference=>s.experiences.artifact(scope,reference)),feedback=s.experiences.listFeedback(scope),hydratedFeedback=s.experiences.hydrateFeedback(scope,before.fixtureIds.feedbackId);
- assert.deepEqual(artifacts,before.artifacts);assert.deepEqual(feedback,before.feedback);assert.deepEqual(c.feedback,before.scope.feedback);assert.deepEqual(hydratedFeedback,before.hydratedFeedback);
- assert.equal(artifacts.length,2);for(const artifact of artifacts){assert.equal(artifact.availability,'active');assert.equal(artifact.ref.version,1);assert.ok(artifact.body);assert.equal(artifact.createdAt,'2001-01-01T10:00:00.000Z');assert.equal(artifact.sourceRefs.length,3);assert.ok(artifact.sourceRefs.every(reference=>before.sources.some(source=>source.id===reference.sourceId&&source.revision===reference.revision)));}
+  // Structural reason (D1 speaker-fingerprint cutover): embedded source
+  // references keep their structure; their revision VALUES are remapped to the
+  // new hashes, so compare with revision strings normalized away and assert
+  // the remap against the live projection below.
+  const stripRefRevisions=value=>{
+    if(Array.isArray(value))return value.map(stripRefRevisions);
+    if(!value||typeof value!=='object')return value;
+    const out={};
+    for(const [key,child]of Object.entries(value)){
+      if(key==='revision'&&typeof child==='string')continue;
+      if(/Revisions$/.test(key)&&child&&typeof child==='object'&&!Array.isArray(child))continue;
+      out[key]=stripRefRevisions(child);
+    }
+    return out;
+  };
+  assert.deepEqual(stripRefRevisions(artifacts),stripRefRevisions(before.artifacts));assert.deepEqual(stripRefRevisions(feedback),stripRefRevisions(before.feedback));assert.deepEqual(c.feedback,before.scope.feedback);assert.deepEqual(stripRefRevisions(hydratedFeedback),stripRefRevisions(before.hydratedFeedback));
+  const upgradedRevisions=new Map(s.memorySources(scope).map(source=>[source.id,source.revision]));
+  for(const artifact of artifacts)for(const reference of artifact.sourceRefs||[])assert.equal(reference.revision,upgradedRevisions.get(reference.sourceId),'artifact refs follow the cutover');
+ assert.equal(artifacts.length,2);for(const artifact of artifacts){assert.equal(artifact.availability,'active');assert.equal(artifact.ref.version,1);assert.ok(artifact.body);assert.equal(artifact.createdAt,'2001-01-01T10:00:00.000Z');assert.equal(artifact.sourceRefs.length,3);assert.ok(artifact.sourceRefs.every(reference=>s.memorySources(scope).some(source=>source.id===reference.sourceId&&source.revision===reference.revision)),'refs follow the fingerprinted cutover');}
  assert.equal(feedback.length,1);assert.equal(feedback[0].revision,1);assert.equal(feedback[0].text,'Fictional feedback: keep this exhibition wording brief.');assert.deepEqual(feedback[0].targetRef,{kind:'artifact',artifactRef:before.artifactRefs[1]});assert.equal(hydratedFeedback.target.body,artifacts[1].body);
  assert.equal(c.state.focus,'');assert.deepEqual(c.state.openThreads,[]);assert.deepEqual(c.state.unknowns,[]);assert.equal(c.state.items[0].text,'Dated exhibition sharing');assert.equal(c.state.items[0].observedAt,'2001-01-01T10:00:00.000Z');assert.equal(c.state.items[0].evidenceStatus,'legacy_needs_review');
  assert.equal(c.state.legacyTaskReviews[0].focus,before.scope.state.focus);assert.equal(c.state.legacyTaskReviews[0].status,'needs_review');

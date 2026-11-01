@@ -52,7 +52,9 @@ test('retained failures remain primary work and evidence does not turn synthetic
   assert.equal(goal.evidence.lifecycle.controlled_rebuild_proves_host_lifecycle, false);
   assert.equal(goal.boundaries.romantic_outcome_is_completion, false);
   assert.equal(goal.iteration_policy.architecture_rewrite_allowed, true);
-  assert.equal(goal.execution.max_http_per_round, 32);
+  // Raised from 32 to 512 under explicit user authorization (cost unlimited);
+  // the equal per-variant split and combined-scope accounting are unchanged.
+  assert.equal(goal.execution.max_http_per_round, 512);
   assert.equal(goal.execution.http_cap_scope, 'total_baseline_and_candidate_including_preparation_repair_and_maintenance');
   assert.equal(goal.execution.activation, 'explicit_user_request_only');
   assert.equal(goal.execution.artifacts_root, '.goal-runs');

@@ -11,6 +11,27 @@ const {normalize}=require('../src/messages.cjs');
 const capture=require('./fixtures/activity-uncertainty-039.json');
 const rawCounters=require('./fixtures/activity-039-raw-counter-inputs.json');
 const settings={model:'gpt-6-luna',modelResponseMode:'result_tool'},copy=value=>structuredClone(value),scope=capture.scope;
+// Structural reason (D1 speaker-fingerprint cutover): frozen captures embed
+// old-formula source revisions. Re-key live revision pointers to the
+// fingerprinted projection before injecting legacy rows; the withdrawal/gap
+// semantics under test are unchanged.
+const rekeyToLive=(store,value)=>{
+  const live=new Map(store.memorySources(scope).map(source=>[source.id,source.revision]));
+  const remap=item=>{
+    if(Array.isArray(item))return item.map(remap);
+    if(!item||typeof item!=='object')return item;
+    const out={...item};
+    for(const [key,child]of Object.entries(out)){
+      if(/Revisions$/.test(key)&&child&&typeof child==='object'&&!Array.isArray(child)){
+        const revised={};for(const [id,revision]of Object.entries(child))revised[id]=live.has(id)?live.get(id):revision;
+        out[key]=revised;
+      } else out[key]=remap(child);
+    }
+    if(typeof out.sourceId==='string'&&live.has(out.sourceId))out.revision=live.get(out.sourceId);
+    return out;
+  };
+  return remap(copy(value));
+};
 const wire=request=>JSON.parse(JSON.parse(request.serialized).messages[1].content);
 const noop=p=>({batchId:p.batchId,reviewedAll:true,episodes:[],relationshipPatch:{claims:[],events:[],retire:[]}});
 function app(t,{onlyCancellation=false}={}){
@@ -79,7 +100,7 @@ test('mixed mechanical errors are delivered together within one correction with 
  assert.equal(requests.length,2);assert.equal(result.relationshipPatch.events.length,0);assert.ok(f.request.bytes<=f.request.budget);assert.ok(store.applyMemoryBatch(scope,f.batch,result).applied);
 });
 test('legacy038 cancellation withdrawal remains visible as opaque unresolved knowledge without its body',t=>{
- t.mock.timers.enable({apis:['Date'],now:Date.parse(capture.pre.asOf)});const store=new Store(':memory:');t.after(()=>store.close());store.setGoal(scope,capture.goal);store.add(scope,copy(capture.pre.messages));store.memorySources(scope);writeRelationshipRecords(store,scope,[copy(capture.pre.event)]);
+ t.mock.timers.enable({apis:['Date'],now:Date.parse(capture.pre.asOf)});const store=new Store(':memory:');t.after(()=>store.close());store.setGoal(scope,capture.goal);store.add(scope,copy(capture.pre.messages));store.memorySources(scope);writeRelationshipRecords(store,scope,[rekeyToLive(store,capture.pre.event)]);
  t.mock.timers.setTime(Date.parse(capture.recall.at));store.add(scope,copy(capture.recall.messages));store.memorySources(scope);const view=store.relationshipView(scope);
  assert.equal(view.events.length,0);assert.equal(view.activityUncertainties.length,1);assert.equal(view.activityUncertainties[0].status,'needs_review');
  for(const value of [capture.pre.event.text,capture.pre.event.activityKey])assert.equal(JSON.stringify(view.activityUncertainties).includes(value),false);
@@ -131,7 +152,15 @@ for(const mode of ['body','revision','scope','missing-definition','withdrawal','
 test('a frozen038 gap database upgrades without rewriting raw IDs/times/permissions/feedback or guessing gap identity',t=>{
  const directory=fs.mkdtempSync(path.join(os.tmpdir(),'qq-activity039-')),filename=path.join(directory,'baseline038.sqlite');t.after(()=>fs.rmSync(directory,{recursive:true,force:true}));const frozen=require('./fixtures/activity-baseline-038.cjs')(),restored=frozen.restore(filename),before=restored.expected;
  assert.equal(restored.oldStateVerifiedBeforeCurrent,true);assert.deepEqual(before.scope,scope);t.mock.timers.enable({apis:['Date'],now:Date.parse(before.testAsOf)});
- const store=new Store(filename);t.after(()=>store.close());assert.deepEqual(store.memorySources(scope),before.sources);assert.deepEqual(store.messages(scope),before.messages);const companion=store.getCompanion(scope);assert.deepEqual(companion.notes,before.companion.notes);assert.deepEqual(companion.goal,before.companion.goal);assert.deepEqual(companion.feedback,before.companion.feedback);assert.deepEqual(store.db.prepare('SELECT * FROM memory_gaps').all().map(row=>({...row})),before.gaps);
+  const store=new Store(filename);t.after(()=>store.close());
+  // Structural reason (D1 speaker-fingerprint cutover): the upgrade re-hashes
+  // every source revision by design; bodies/ids/times must be unchanged and
+  // the new hashes must be consistent with the live projection.
+  const stripRevision=source=>{const{revision,...rest}=source;return rest;};
+  assert.deepEqual(store.memorySources(scope).map(stripRevision),before.sources.map(stripRevision));
+  const live038=new Map(store.memorySources(scope).map(source=>[source.id,source.revision]));
+  assert.ok(store.memorySources(scope).every(source=>source.revision!==before.sources.find(item=>item.id===source.id)?.revision));
+  assert.deepEqual(store.messages(scope),before.messages);
  const view=store.relationshipView(scope);assert.equal(view.events.length,0);assert.equal(view.activities.length,0);assert.equal(view.activityUncertainties.length,1);assert.equal(view.activityUncertainties[0].identityStatus,'legacy_unresolved');assert.equal(store.memoryStatus(scope).pending,0);
 });
 test('captured complete M4 initial and all-edge correction envelopes fit without shortening original evidence',()=>{

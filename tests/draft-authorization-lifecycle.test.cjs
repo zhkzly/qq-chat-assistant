@@ -37,7 +37,7 @@ test('separate permission evidence is an artifact dependency and its deletion pu
  assert.equal(JSON.stringify(draft.payload).includes('愿意告诉她'),false);
  const artifact=store.experiences.artifact(scope,reply.suggestions[0].artifactRef);
  assert.ok(artifact.sourceRefs.some(ref=>ref.sourceId===id&&ref.revision===draft.manifest.sourceRevisions[id]));
- const feedback=store.addFeedback(scope,{targetRef:{kind:'artifact',artifactRef:reply.suggestions[0].artifactRef},text:'这句需要自然一点'});
+ const feedback=store.addFeedback(scope,{targetRef:{kind:'artifact',artifactRef:reply.suggestions[0].artifactRef},text:'这句需要自然一点', expectedDigest: store.experiences.artifact(scope, reply.suggestions[0].artifactRef).bodyDigest});
  store.forgetSource(scope,id);
  assert.equal(store.experiences.artifact(scope,reply.suggestions[0].artifactRef).availability,'redacted');
  assert.equal(store.experiences.hydrateFeedback(scope,feedback.id),null);

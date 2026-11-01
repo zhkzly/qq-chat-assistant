@@ -1,0 +1,73 @@
+{
+ "contract": "draft_result",
+ "version": "draft-result-contract-v2",
+ "description": "Restricted draft exchange. Suggestion text/style bounds, privateExplanation bound, blocker shape and replyDisposition choices declared once.",
+ "kinds": [
+  "draft",
+  "discussion",
+  "question"
+ ],
+ "fields": {
+  "kind": {
+   "type": "enum",
+   "values": [
+    "draft",
+    "discussion",
+    "question"
+   ],
+   "required": true
+  },
+  "text": {
+   "type": "string",
+   "maxLength": 1200,
+   "whenKind": "draft",
+   "code": "draft_text_invalid",
+   "message": "draft text: one complete editable outward expression of at most 1200 characters"
+  },
+  "privateExplanation": {
+   "type": "string",
+   "maxLength": 6000,
+   "optional": true
+  },
+  "suggestions": {
+   "type": "array",
+   "min": 1,
+   "max": 3,
+   "item": {
+    "style": {
+     "type": "string",
+     "maxLength": 40
+    },
+    "text": {
+     "type": "string",
+     "maxLength": 1200,
+     "required": true
+    }
+   }
+  },
+  "deliveryBlocker": {
+   "type": "deliveryBlocker"
+  },
+  "methodIds": {
+   "type": "array",
+   "max": 1
+  },
+  "replyDisposition": {
+   "type": "enum",
+   "values": [
+    "wait",
+    "clarify",
+    "unavailable"
+   ],
+   "code": "reply_disposition_invalid"
+  }
+ },
+ "deliveryBlocker": {
+  "kinds": [
+   "missing_fact",
+   "missing_authorization"
+  ],
+  "fieldMaxLength": 1000,
+  "explanationMaxLength": 1000
+ }
+}

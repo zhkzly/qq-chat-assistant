@@ -177,7 +177,9 @@ test('semantic revisions cannot use an old target summary or new source alone as
 
 test('local feedback cannot become a recurring preference through canonical or derived-note evidence',t=>{
  const store=app(t);store.saveRun(scope,{id:'local-feedback-run'});
- const feedback=store.addFeedback(scope,{requestId:'local-feedback-run',text:'For this answer, be shorter.',kind:'local'}),id='private:feedback-'+feedback.id;
+ // F1: bind the retained answer artifact explicitly with its digest
+ const evaluatedAnswer=store.appendTurn(scope,{role:'assistant',kind:'discussion',text:'The evaluated answer.',requestId:'local-feedback-run'});
+ const feedback=store.addFeedback(scope,{targetRef:{kind:'artifact',artifactRef:evaluatedAnswer.artifactRef},expectedDigest:store.experiences.artifact(scope,evaluatedAnswer.artifactRef).bodyDigest,text:'For this answer, be shorter.',kind:'local'}),id='private:feedback-'+feedback.id;
  const note=store.saveNote(scope,{text:'A copy of this answer-specific feedback.',use:'discussion',evidenceSourceIds:[id]});
  for(const sourceId of [id,'note:'+note.id]){
   const result=store.applyRelationshipPatch(scope,{claims:[claim(sourceId,{subject:'self',aspect:'stated_preference',text:'The user always wants shorter replies.',assertionKind:'stated',applicabilityKind:'recurring'})]},grounded(store,[sourceId]));
@@ -201,10 +203,20 @@ test('person understanding is rebuilt after correction, withdrawal and source de
  accepted(store,{claims:[claim(id,{text:'The contact reports a current work project.',applicabilityKind:'temporary'})]},[id]);
  const old=store.relationshipView(scope).claims[0];assert.ok(personRows(store.personUnderstanding(scope)).some(row=>row.id===old.id));
  const corrected=store.correctRelationshipClaim(scope,{id:old.id,expectedVersion:old.version,operation:'correct',text:'The project belongs to her colleague, not the contact.'});assert.equal(corrected.applied,true,JSON.stringify(corrected));
- let rows=personRows(store.personUnderstanding(scope));assert.equal(rows.some(row=>row.id===old.id),false);assert.ok(rows.some(row=>row.id===corrected.claimId));
+ // Structural reason (M2 overlay corrections): the corrected understanding
+ // keeps the same record identity; the overlay replaces the rendered text and
+ // person understanding is rebuilt from the corrected projection.
+ assert.equal(corrected.claimId,old.id);
+ let rows=personRows(store.personUnderstanding(scope));
+ const correctedRow=rows.find(row=>row.id===old.id);
+ assert.ok(correctedRow,'the corrected record stays in understanding');
+ assert.equal(correctedRow.text,'The project belongs to her colleague, not the contact.');
+ assert.equal(correctedRow.originalText,'The contact reports a current work project.');
+ assert.equal(correctedRow.correctedByOverlay.overlayId,corrected.overlayId);
  const replacement=store.relationshipView(scope).claims.find(row=>row.id===corrected.claimId);
  assert.equal(store.correctRelationshipClaim(scope,{id:replacement.id,expectedVersion:replacement.version,operation:'withdraw'}).applied,true);
- rows=personRows(store.personUnderstanding(scope));assert.equal(rows.some(row=>row.id===replacement.id),false);
+ rows=personRows(store.personUnderstanding(scope));assert.equal(rows.some(row=>row.id===replacement.id),false,'a suppressed understanding leaves the active projection');
+ assert.equal(store.relationshipView(scope).claims.find(row=>row.id===replacement.id).lifecycle,'withdrawn');
  store.forgetSource(scope,id);assert.equal(personRows(store.personUnderstanding(scope)).some(row=>row.sourceIds?.includes(id)),false);
  assert.equal(personRows(store.personUnderstanding({...scope,peerUid:'another-contact',peerUin:'another-uin'})).length,0);
 });

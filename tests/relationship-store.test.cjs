@@ -73,13 +73,26 @@ test('background relationship patches commit with review progress and source rem
 
 test('canonical feedback and its derived note cannot launder a local complaint into stable preference',t=>{
   const s=new Store(':memory:');t.after(()=>s.close());s.saveRun(scope,{id:'request'});
-  const f=s.addFeedback(scope,{requestId:'request',text:'这句太正式',kind:'local'});
+  // F1: bind feedback explicitly to the retained answer artifact
+  const evaluated=s.appendTurn(scope,{role:'assistant',kind:'discussion',text:'先前那句建议',requestId:'request'});
+  const f=s.addFeedback(scope,{targetRef:{kind:'artifact',artifactRef:evaluated.artifactRef},expectedDigest:s.experiences.artifact(scope,evaluated.artifactRef).bodyDigest,text:'这句太正式',kind:'local'});
   s.appendTurn(scope,{role:'user',kind:'feedback',text:'对助手建议的反馈：这句太正式',requestId:'request'});
   const sources=s.memorySources(scope);assert.equal(sources.filter(x=>x.text.includes('这句太正式')).length,1);
   const n=s.saveNote(scope,{text:'这次正式语气不合适',use:'discussion',evidenceSourceIds:[`private:feedback-${f.id}`]});
   const b=s.memoryBatch(scope);
   const result=s.applyMemoryBatch(scope,b,complete(b,{items:[{kind:'preference',text:'以后永远不用正式表达',sourceIds:[`note:${n.id}`],explicitPreference:true}]}));
-  assert.equal(result.applied,false);
+  // Structural reason (B1 decision-split): preference classification is outside
+  // the model write scope. The batch commits (the journal advances), but the
+  // preference proposal is a quarantined candidate, never a stable record; the
+  // user-attestation channel still refuses the feedback-backed upgrade.
+  assert.equal(result.applied,true,JSON.stringify(result));
+  assert.ok(result.receipt.quarantinedRecords?.some(entry=>entry.code==='preference_candidate'),'the preference proposal is filed as a candidate receipt');
+  assert.ok(!s.searchMemory(scope,'正式表达').items.some(item=>item.kind==='preference'),'no preference memory record is committed');
+  const proposals=s.preferenceUpgradeProposals(scope,{status:'pending'});
+  assert.ok(proposals.length===1,'a pending upgrade proposal surfaces to the user');
+  const upgrade=s.resolvePreferenceUpgrade(scope,{id:proposals[0].id,decision:'authorize'});
+  assert.equal(upgrade.applied,false,'feedback-backed evidence still cannot authorize a durable preference');
+  assert.equal(s.relationshipView(scope).claims.filter(c=>c.applicabilityKind==='recurring').length,0);
 });
 
 test('legacy reviewed sources become eligible once for typed bootstrap without changing source revisions',t=>{
@@ -101,7 +114,7 @@ test('partial evidence never yields a current supported profile and source recal
 test('ordinary correction keeps a stale evaluation target but forget purges its body and dependent feedback',t=>{
   const s=new Store(':memory:');t.after(()=>s.close());const u=user(s,'合成私人素材：周六一起看电影');const sourceId=`private:${u.id}`;
   const answer=s.appendTurn(scope,{role:'assistant',kind:'discussion',text:'可以接着讨论周六看电影',requestId:'old-answer',sourceIds:[sourceId]});
-  const f=s.addFeedback(scope,{targetRef:{kind:'artifact',artifactRef:answer.artifactRef},text:'这句话没考虑时间'});
+  const f=s.addFeedback(scope,{targetRef:{kind:'artifact',artifactRef:answer.artifactRef},text:'这句话没考虑时间', expectedDigest: s.experiences.artifact(scope, answer.artifactRef).bodyDigest});
   s.updateTurn(scope,u.id,'更正：周日才有空');
   assert.equal(s.experiences.artifact(scope,answer.artifactRef).availability,'stale');
   assert.ok(s.experiences.hydrateFeedback(scope,f.id).target);
@@ -121,8 +134,19 @@ test('user corrects a derived understanding with a user report while original QQ
   assert.equal(s.getCompanion(scope).turns.length,count);
   const result=s.correctRelationshipClaim(scope,{id:old.id,expectedVersion:old.version,operation:'correct',text:'我刚才理解错了，她是在忙工作'});
   assert.equal(result.applied,true,JSON.stringify(result));
-  const view=s.relationshipView(scope);assert.equal(view.claims.find(c=>c.id===old.id).lifecycle,'withdrawn');
-  const replacement=view.claims.find(c=>c.id===result.claimId);assert.equal(replacement.assertionKind,'reported');assert.ok(replacement.sourceIds.every(id=>id.startsWith('private:')));
+  // Structural reason (M2 overlay corrections): a correction no longer rewrites
+  // or replaces the claim. The stored record keeps its identity, version,
+  // evidence and original wording; an additive overlay corrects the view.
+  assert.equal(result.claimId,old.id,'the corrected understanding keeps its record identity');
+  const stored=s._memoryRecords(scope).find(r=>r.id===old.id);
+  assert.equal(stored.version,old.version,'a correction never bumps the stored record');
+  assert.equal(stored.text,'她忙于考试','the stored wording is not rewritten');
+  const view=s.relationshipView(scope),corrected=view.claims.find(c=>c.id===old.id);
+  assert.equal(corrected.text,'我刚才理解错了，她是在忙工作','the view renders the corrected text');
+  assert.equal(corrected.originalText,'她忙于考试','the original wording stays retrievable');
+  assert.ok(corrected.correctedByOverlay,'the correction provenance is visible');
+  assert.equal(corrected.lifecycle,'active');
+  assert.ok(s.correctionOverlays(scope,{activeOnly:true}).some(o=>o.targetRecordId===old.id));
   assert.equal(s.messages(scope)[0].text,m.text);assert.equal(s.getCompanion(scope).goal.text,'希望建立双方愿意的恋爱关系');
 });
 
@@ -178,7 +202,9 @@ test('structural migration is atomic and future schema versions are rejected wit
   db.exec("CREATE TABLE schema_migrations(version INTEGER PRIMARY KEY,applied_at TEXT NOT NULL,description TEXT NOT NULL); CREATE TRIGGER migration_failure BEFORE INSERT ON schema_migrations BEGIN SELECT RAISE(ABORT,'synthetic migration failure'); END;");db.close();
   assert.throws(()=>new Store(filename),/synthetic migration failure/);db=new DatabaseSync(filename);
   assert.equal(db.prepare("SELECT name FROM sqlite_master WHERE name='memory_records'").get(),undefined);assert.equal(db.prepare('PRAGMA user_version').get().user_version,0);db.exec('DROP TRIGGER migration_failure');db.close();
-  let s=new Store(filename);assert.equal(s.db.prepare('PRAGMA user_version').get().user_version,2);s.close();
+  // Structural reason: schema 3 adds the observation log, speaker-fingerprinted
+  // revisions and M2 quarantine/overlay/upgrade storage (D1).
+  let s=new Store(filename);assert.equal(s.db.prepare('PRAGMA user_version').get().user_version,3);s.close();
   const future=path.join(dir,'future.db');db=new DatabaseSync(future);db.exec('PRAGMA user_version=99');db.close();
   assert.throws(()=>new Store(future),/newer|unsupported/i);db=new DatabaseSync(future);assert.equal(db.prepare("SELECT count(*) n FROM sqlite_master WHERE type='table'").get().n,0);db.close();
 });
@@ -203,7 +229,9 @@ test('rereading a contact statement with a new user question and changed tags do
 
 test('forgetting a possible canonical target removes an ambiguous legacy plaintext mirror',t=>{
   const s=new Store(':memory:');t.after(()=>s.close());s.saveRun(scope,{id:'ambiguous-request'});
-  const a=s.addFeedback(scope,{requestId:'ambiguous-request',text:'同样的局部意见'});s.addFeedback(scope,{requestId:'ambiguous-request',text:'同样的局部意见'});
+  // F1: bind both feedback records explicitly to the retained answer artifact
+  const evaluated=s.appendTurn(scope,{role:'assistant',kind:'discussion',text:'先前那句建议',requestId:'ambiguous-request'});
+  const a=s.addFeedback(scope,{targetRef:{kind:'artifact',artifactRef:evaluated.artifactRef},expectedDigest:s.experiences.artifact(scope,evaluated.artifactRef).bodyDigest,text:'同样的局部意见'});s.addFeedback(scope,{targetRef:{kind:'artifact',artifactRef:evaluated.artifactRef},expectedDigest:s.experiences.artifact(scope,evaluated.artifactRef).bodyDigest,text:'同样的局部意见'});
   const r=s.getCompanion(scope);r.turns.push({id:'ambiguous-mirror',role:'user',kind:'feedback',text:'对助手建议的反馈：同样的局部意见',requestId:'ambiguous-request',createdAt:new Date().toISOString()});
   s.db.prepare('UPDATE companion SET record=? WHERE scope_key=?').run(JSON.stringify(r),s.scopeKey(scope));s.memorySources(scope);
   s.forgetSource(scope,a.sourceId);
@@ -214,7 +242,9 @@ test('forgetting a possible canonical target removes an ambiguous legacy plainte
 
 test('state CAS persists canonical feedback references without creating a semantic revision on read',t=>{
   const s=new Store(':memory:');t.after(()=>s.close());s.saveRun(scope,{id:'feedback-state'});
-  s.addFeedback(scope,{requestId:'feedback-state',text:'这次语气太正式'});
+  // F1: bind feedback explicitly to the retained answer artifact
+  const evaluated=s.appendTurn(scope,{role:'assistant',kind:'discussion',text:'先前那句建议',requestId:'feedback-state'});
+  s.addFeedback(scope,{targetRef:{kind:'artifact',artifactRef:evaluated.artifactRef},expectedDigest:s.experiences.artifact(scope,evaluated.artifactRef).bodyDigest,text:'这次语气太正式'});
   const before=s.getCompanion(scope),ids=s.memorySources(scope).map(source=>source.id);
   const state=s.applyState(scope,{},{baseRevision:before.revision,baseStateVersion:before.state.version,sourceIds:ids,coverage:{complete:true,sourceIds:ids}});
   assert.equal(state.applied,true);assert.equal(s.getCompanion(scope).revision,before.revision);

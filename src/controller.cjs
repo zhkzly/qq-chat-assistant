@@ -10,6 +10,7 @@ const {focusSourceOffset}=require('./memory-search.cjs');
 const { randomUUID, createHash } = require('node:crypto');
 const {TaskLedger}=require('./request-budget.cjs');
 const {maintenanceDecision}=require('./memory-scheduler.cjs');
+const {envelope:userTextEnvelope}=require('./wire/user-text-envelope.cjs');
 const fingerprint=value=>createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const FORGOTTEN_REQUEST='所选来源已从助手参考中移除。仅使用仍可用的信息继续本次帮助，不复述已移除内容。';
 const {SourceHandleOwner}=require('./source-handles.cjs');
@@ -38,12 +39,26 @@ const { maintainMemory: runMemoryMaintenance } = require('./memory-engine.cjs');
 const { applyUserActions, confirmUserAction, undoUserAction } = require('./assistant-actions.cjs');
 const { methodFor } = require('./help-methods.cjs');
 const {CandidateSession}=require('./candidate-session.cjs');
+const {PresentationCandidateSession}=require('./feedback/presentation-candidate-session.cjs');
+const {PresentationLedger,canonicalScopeKey}=require('./feedback/presentation-ledger.cjs');
+const {createGatedStore}=require('./memory/write-gate.cjs');
 class Controller extends EventEmitter {
   constructor({ store, read, settings, model = generate, assistantModel = assistModel, memoryModel = null, compactionModel = assistDiscussionCompaction,
     now = Date.now, viewerTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone }) {
     super(); Object.assign(this, { store, read, settings, model, assistantModel, memoryModel, compactionModel, now, viewerTimeZone });
-    this.candidateSession=new CandidateSession({now:()=>this.candidateNow(),sourceValidity:candidate=>!candidate.artifactRef||
-      this.store.experiences.artifactStates(candidate.scope,[candidate.artifactRef,...(candidate.suggestions||[]).map(item=>item.artifactRef)]).every(item=>item.availability==='active')});
+    // F1 feedback binding: every published display mints server-owned
+    // presentation identities through the SAME ledger the store's
+    // FeedbackBindingStore resolves feedback from. Stores assembled with a
+    // plain ExperienceStore (older fixtures) keep working with a local ledger.
+    const presentationLedger=this.store?.experiences?.presentationLedger||new PresentationLedger({scopeKey:canonicalScopeKey});
+    this.candidateSession=new PresentationCandidateSession({
+      session:new CandidateSession({now:()=>this.candidateNow(),sourceValidity:candidate=>!candidate.artifactRef||
+        this.store.experiences.artifactStates(candidate.scope,[candidate.artifactRef,...(candidate.suggestions||[]).map(item=>item.artifactRef)]).every(item=>item.availability==='active')}),
+      ledger:presentationLedger});
+    // MW1 write gate: memory maintenance runs through a gated view of the
+    // store so every applyMemoryBatch passes the decision-split gate while
+    // every other operation reaches the real store unchanged.
+    this.memoryGateStore=this.store?createGatedStore(this.store):null;
     this.status = { phase: 'waiting_qq', account: null };
     this.selectedImages=[];this.replyMessageIds=[];this.visionCache=null;this.features={qqDraftFill:false};
     this.scope = null; this.epoch = 0; this.revision = 0; this.advice = null;
@@ -114,7 +129,7 @@ class Controller extends EventEmitter {
       discussionCompaction:this.scope&&sameScope(this.discussionCompaction?.scope,this.scope)?this.discussionCompaction:null,
       requestUsage:this.scope?this.usage.recent(this.scope,8):[],maintenanceSchedule:this.scope?this.memorySchedule():null,
       activeModelProfileId: this.settings.activeModelProfileId, replyFocus: replyFocusFor(messages, this.replyMessageIds),
-      instruction: this.instruction, auto: this.auto, autoImages:this.autoImages,imageContext:this.visionStatus(),automaticImageConsent:this.hasImageConsent({automatic:true}), model: this.settings.model, modelReady: this.modelReady, modelConsent:this.hasModelConsent(), modelBaseUrl:this.settings.baseUrl || '',imageSelection:this.selectedImages,modelVisionEnabled:!!this.settings.visionEnabled,imageConsent:this.hasImageConsent(),qqDraftFillAvailable:!!this.features.qqDraftFill };
+      instruction: this.instruction, instructionTruncated: this.instructionTruncated === true, auto: this.auto, autoImages:this.autoImages,imageContext:this.visionStatus(),automaticImageConsent:this.hasImageConsent({automatic:true}), model: this.settings.model, modelReady: this.modelReady, modelConsent:this.hasModelConsent(), modelBaseUrl:this.settings.baseUrl || '',imageSelection:this.selectedImages,modelVisionEnabled:!!this.settings.visionEnabled,imageConsent:this.hasImageConsent(),qqDraftFillAvailable:!!this.features.qqDraftFill };
   }
   async bind(uin) {
     this.invalidateAssistant();
@@ -170,6 +185,9 @@ class Controller extends EventEmitter {
       if (epoch !== this.epoch || !sameScope(scope, this.scope)) return;
       this.ingest(scope, result.messages);
       const messages = result.messages.map(m => normalize(m, scope)).filter(Boolean).sort(compare);
+      // B10: reconcile the delivered visible window against stored
+      // observations so locally deleted QQ messages get monotonic tombstones.
+      this.store.reconcileVisibleMessages(scope, messages);
       const cached = this.store.messages(scope);
       this.store.setCoverage(scope, { status: messages.length ? 'partial' : cached.length ? 'cached_only' : 'empty',
         pages: 1, cursor: messages[0]?.messageId || null, oldestAt: cached[0]?.timestamp || null,
@@ -225,8 +243,27 @@ class Controller extends EventEmitter {
         this.replyMessageIds = nextIds; this.abort?.abort(); this.advice = null; clearTimeout(this.timer);
       }
     }
-    if (typeof instruction === 'string' && instruction.slice(0,2000)!==this.instruction) { this.invalidateAssistant(); this.instruction = instruction.slice(0, 2000); this.abort?.abort(); this.advice = null; }
-    if(typeof instruction==='string')this.settings.instruction = this.instruction;
+    // B7 no-silent-loss envelope: the standing instruction is stored whole
+    // and delivered bounded with an explicit truncation marker; the state
+    // exposes instructionTruncated so the UI can warn instead of discovering
+    // an invisible 2000-character clamp later. Re-submitting the identical
+    // delivered text stays idempotent (no invalidation), as before.
+    if (typeof instruction === 'string') {
+      const roundTrip = this.instructionTruncated === true && instruction === this.instruction;
+      const wrapped = userTextEnvelope(instruction, { limit: 2000 });
+      if (wrapped.mode !== 'rejected') {
+        const delivered = roundTrip ? instruction : wrapped.delivered;
+        if (delivered !== this.instruction) {
+          this.invalidateAssistant();
+          this.instructionSource = roundTrip ? this.instructionSource : instruction;
+          this.instruction = delivered;
+          this.instructionTruncated = roundTrip || wrapped.mode === 'truncated';
+          this.settings.instruction = this.instruction;
+          if (!roundTrip) this.settings.instructionFull = instruction;
+          this.abort?.abort(); this.advice = null;
+        }
+      }
+    }
     if(Array.isArray(images)) {
       const selected=images.slice(0,3).filter(i=>typeof i.messageId==='string'&&/^\d+$/.test(i.messageId)&&Number.isInteger(i.index));
       if(JSON.stringify(selected)!==JSON.stringify(this.selectedImages)){this.invalidateAssistant();this.selectedImages=selected;this.abort?.abort();this.advice=null;}
@@ -302,8 +339,37 @@ class Controller extends EventEmitter {
   deleteTurn(id) { const scope=this.requireScope(),result = this.store.deleteTurn(scope, id);this.usage.redactInputs(scope); this.changedContext(); return result; }
   addFeedback(args) {
     const scope = this.requireScope();
-    const feedback = this.store.addFeedback(scope, args);
+    const feedback = this.store.addFeedback(scope, this.completeFeedbackTarget(scope, args));
+    // A stale/unknown presentation notice is a re-bind prompt, not a saved
+    // record: surface it without invalidating the current assistant state.
+    if (feedback?.staleFeedbackTarget) return feedback;
     this.changedContext(); return feedback;
+  }
+  // F1 server-side completion for explicitly selected feedback targets: a
+  // bare artifact reference (history turns rendered from the current store)
+  // or a typed requestId is resolved HERE into an explicit artifact reference
+  // pinned by its expected digest, so the binding store's strict contract
+  // (presentationId, or artifactRef+expectedDigest) is satisfied without
+  // restoring the silent requestId-only resolution B8 removed. Resolution
+  // failure propagates the store's honest contract error.
+  completeFeedbackTarget(scope, args) {
+    if (args.presentationId !== undefined || args.expectedDigest !== undefined) return args;
+    const artifactDigest = reference => {
+      try { return this.store.experiences.artifact(scope, reference)?.bodyDigest; } catch { return undefined; }
+    };
+    if (args.targetRef?.kind === 'artifact' && args.targetRef.artifactRef) {
+      const expectedDigest = artifactDigest(args.targetRef.artifactRef);
+      return expectedDigest ? { ...args, expectedDigest } : args;
+    }
+    if (!args.targetRef && typeof args.requestId === 'string' && args.requestId) {
+      const turns = this.store.getCompanion(scope).turns.filter(turn => turn.role === 'assistant' && turn.requestId === args.requestId);
+      const target = turns.at(-1);
+      if (target?.artifactRef) {
+        const expectedDigest = artifactDigest(target.artifactRef);
+        if (expectedDigest) return { ...args, targetRef: { kind: 'artifact', artifactRef: target.artifactRef }, expectedDigest };
+      }
+    }
+    return args;
   }
   async continueFeedback(args) {
     const scope={...this.requireScope()};
@@ -316,7 +382,8 @@ class Controller extends EventEmitter {
     const run=async()=>{
       const oldTask=this.usage.db.prepare('SELECT scope_key FROM assistant_tasks WHERE id=?').get(args.taskId);
       if(oldTask&&oldTask.scope_key!==this.store.scopeKey(scope))throw new Error('继续请求不属于当前会话');
-      const feedback=this.store.addFeedback(scope,args);
+      const feedback=this.store.addFeedback(scope,this.completeFeedbackTarget(scope,args));
+      if(feedback?.staleFeedbackTarget)return {...this.snapshot(),staleFeedbackTarget:feedback.staleFeedbackTarget};
       if(!this.store.memorySources(scope).some(source=>source.id===feedback.sourceId))throw new Error('这条反馈的来源已删除，请基于当前内容重新反馈');
       const reference=this.store.getCompanion(scope).turns.find(turn=>turn.kind==='feedback_ref'&&turn.feedbackId===feedback.id);
       if(!reference)throw new Error('反馈已保存，但缺少可继续参考的对象');
@@ -412,7 +479,7 @@ class Controller extends EventEmitter {
     this.memoryBusy=true;this.changed();
     const active=()=>this.memoryAbort===abort&&!abort.signal.aborted&&this.epoch===epoch&&sameScope(scope,this.scope)&&this.hasModelConsent()&&this.settings.baseUrl===settings.baseUrl&&this.settings.model===settings.model;
     try {
-      const result=await runMemoryMaintenance({store:this.store,scope,settings,model:this.memoryModel,signal:abort.signal,maxBatches,
+      const result=await runMemoryMaintenance({store:this.memoryGateStore||this.store,scope,settings,model:this.memoryModel,signal:abort.signal,maxBatches,
         shouldContinue:active,onProgress:()=>{if(active())this.changed();}});
       if(result.batches){this.memoryFailures=0;this.memoryRetryAfter=0;}
       if(['error','rejected','blocked'].includes(result.status)){this.memoryFailures++;this.memoryRetryAfter=Date.now()+Math.min(300000,60000*this.memoryFailures);}
@@ -492,7 +559,16 @@ class Controller extends EventEmitter {
         const index=this.store.searchMemory(scope,query,{limit:8});
         const explicitFeedbackIds=sourceTurnIds.map(id=>companion.turns.find(t=>t.id===id)?.feedbackId).filter(Boolean);
         const experienceContext=this.store.experiences?.context(scope,{query,limit:4});
-        if(experienceContext&&explicitFeedbackIds.length){const chosen=explicitFeedbackIds.map(id=>this.store.experiences.hydrateFeedback(scope,id)).filter(Boolean);experienceContext.evaluationTargets=[...new Map([...chosen,...experienceContext.evaluationTargets].map(target=>[target.feedback.id,target])).values()].slice(0,4);}
+        let feedbackTargets=[];
+        if(explicitFeedbackIds.length){const chosen=explicitFeedbackIds.map(id=>this.store.experiences.hydrateFeedback(scope,id)).filter(Boolean);
+          if(experienceContext)experienceContext.evaluationTargets=[...new Map([...chosen,...experienceContext.evaluationTargets].map(target=>[target.feedback.id,target])).values()].slice(0,4);
+          // CC1 integration requirement: the compiler's feedback_target
+          // mandatory material is fed from presentation-resolved feedback —
+          // targets saved through the F1 binding store carry the minted
+          // presentation identity of the displayed artifact they bind.
+          feedbackTargets=chosen.map(item=>({sourceId:item.feedback.sourceId,feedbackId:item.feedback.id,
+            ...(item.feedback.presentationId?{presentationId:item.feedback.presentationId}:{})}));
+        }
         const topicContext=this.store.topicView?.(scope);
         const discoveryRecords=this.store.knowledgeDirectory?.(scope)||[...(memoryResult.items||[]),...(memoryResult.episodes||[])];
         const liveIds=new Set(availableSources.map(source=>source.id));
@@ -509,7 +585,7 @@ class Controller extends EventEmitter {
           memoryIndex:[...index.items,...index.episodes],memoryDiscovery,retrievedSources,methodLookupIds,sourceTurnIds,selectedOption,currentCandidateRef,candidateAlternative:candidateAlternative===true&&invocation.origin==='user',replyMessageIds:[...this.replyMessageIds],imageMessageIds:liveImages.map(image=>image.messageId),
           actionReceipts:receipts,lookupHistory,reviewRange,
           relationshipContext:this.store.relationshipView?.(scope,{query,limit:16}),
-          experienceContext,allowExperienceProposals:purpose==='review'||explicitFeedbackIds.length>0,topicContext,intentSourceId,
+          experienceContext,feedbackTargets,allowExperienceProposals:purpose==='review'||explicitFeedbackIds.length>0,topicContext,intentSourceId,
           generationOrigin:feedbackIntentId?'user_feedback':transient?'qq_observation':'private_discussion',responsePreference,
           discussionCompaction:activeCompaction,sourceLookupIds,retrievedDiscussion,requestDeliveryObligation,lookupExhausted:lookups>=2,store:this.store,promptVersion:PROMPT_VERSION };
       };
@@ -538,14 +614,24 @@ class Controller extends EventEmitter {
         }
         // Reserve room for at least one subsequent assistance call and, for
         // explicit expression/reply, its restricted final drafting call.
+        // Compaction is an optional quality ladder step, never a feasibility
+        // gate: without request headroom (or when the compaction call itself
+        // fails), the answer proceeds on the degraded deterministic context.
         const needed=purpose==='draft'||purpose==='reply'?3:2;
-        if(budget.snapshot().remaining<needed){const error=new Error('本次剩余调用预算不足以整理历史并完成帮助；原始输入已保留。请重新提交，已有有效整理可以复用。');error.code='compaction_budget_insufficient';throw error;}
+        const proceedWithoutCompaction=detail=>{
+          this.discussionCompaction={scope,phase:'skipped',coveredTurns:plan.sourceTurnIds.length,detail};this.changed();
+          if(capacityError)throw capacityError;
+          if(activeCompaction){this.discussionCompaction={scope,phase:'reused',coveredTurns:activeCompaction.sourceTurnIds.length};this.changed();}
+          return attachImages(input);
+        };
+        if(budget.snapshot().remaining<needed)return proceedWithoutCompaction('request_budget_reserved_for_answer');
         compactionAttempted=true;
         this.discussionCompaction={scope,phase:'compacting',coveredTurns:plan.sourceTurnIds.length,bytesBefore:plan.inputBytes};this.changed();
         const configured={...settings,requestBudget:budget.forStage('discussion_compaction')};
         let compressed;
         try{compressed=await this.compactionModel(configured,plan,abort.signal);}catch(error){
-          this.discussionCompaction={scope,phase:'failed',coveredTurns:plan.sourceTurnIds.length};this.changed();throw error;
+          if(!current())return null;
+          return proceedWithoutCompaction('compaction_call_failed');
         }
         if(!current())return null;
         const manifest=compressed.manifest||{purpose:'discussion_compaction',promptVersion:PROMPT_VERSION};
@@ -555,11 +641,16 @@ class Controller extends EventEmitter {
           turnFingerprints:plan.turnFingerprints,sourceRevisions:plan.sourceRevisions,coverage:plan.coverage,requestId};
         delete record.currentTurnId;
         const receipt=this.store.saveDiscussionCompaction(scope,record,{...identity,baseRevision,currentTurnId:turn.id,transient:!!turn.transient});
-        if(!receipt.applied){const error=new Error(`讨论整理未采用：${receipt.detail||receipt.reason}；原始输入仍在。`);error.code='discussion_compaction_rejected';throw error;}
+        if(!receipt.applied)return proceedWithoutCompaction(`discussion_compaction_rejected:${receipt.detail||receipt.reason}`);
         activeCompaction=receipt.record;
         this.discussionCompaction={scope,phase:'applied',coveredTurns:activeCompaction.sourceTurnIds.length,bytesBefore:plan.inputBytes,
           bytesAfter:Buffer.byteLength(JSON.stringify({summary:activeCompaction.summary,quoteRefs:activeCompaction.quoteRefs}),'utf8')};this.changed();
-        input=buildContext({...assemblyOptions(),discussionCompaction:activeCompaction});
+        try{input=buildContext({...assemblyOptions(),discussionCompaction:activeCompaction});}
+        catch(error){
+          // Even a post-compaction assembly failure must not block the answer:
+          // keep the already feasible pre-compaction context instead.
+          if(!/超过.*预算|超出.*预算/.test(error.message))throw error;
+        }
         return attachImages(input);
       };
       const assertArtifactInputs=(input)=>{
@@ -706,19 +797,34 @@ class Controller extends EventEmitter {
           }
           const found=result.lookup.query?this.store.searchMemory(scope,result.lookup.query,{limit:24,before:result.lookup.before,after:result.lookup.after,types:result.lookup.types}):{sources:[],coverage:{retrieval:'exact-private-discussion-ids',complete:false}};
           const liveSources=new Map(this.store.memorySources(scope).map(source=>[source.id,source]));
-          const exactIds=[...new Set([...(result.lookup.sourceIds||[]),...requestedTurns.filter(id=>liveSources.has(`private:${id}`)).map(id=>`private:${id}`)])];
+          // B9 batched continuation reads: one lookup round trip may request
+          // several bounded ranges (wire contract reads form). Reads of the
+          // same source merge into one envelope entry so downstream consumers
+          // keep their one-entry-per-source expectation.
+          const readList=result.lookup.reads?.length
+            ?result.lookup.reads
+            :[{sourceIds:result.lookup.sourceIds||[],offset:result.lookup.offset||0,maxChars:result.lookup.maxChars||4000}];
+          const readRanges=new Map();
+          for(const read of readList)for(const id of read.sourceIds||[]){
+            const range=readRanges.get(id)||{offset:read.offset||0,end:(read.offset||0)+(read.maxChars||4000)};
+            range.offset=Math.min(range.offset,read.offset||0);
+            range.end=Math.max(range.end,(read.offset||0)+(read.maxChars||4000));
+            readRanges.set(id,range);
+          }
+          const exactIds=[...new Set([...readRanges.keys(),...requestedTurns.filter(id=>liveSources.has(`private:${id}`)).map(id=>`private:${id}`)])];
           const direct=exactIds.map(id=>{
             const original=liveSources.get(id);
             if(!original||original.deleted||original.excluded||original.use==='disabled')throw new Error('要读取的来源已变化或不在当前会话中，请重新核对。');
-            const projected=boundedSourceView({...original,text:redact(original.text)},{offset:result.lookup.offset||0,maxChars:result.lookup.maxChars||4000,maxBytes:Number(settings.assistantContextBytes)||48000});
+            const range=readRanges.get(id),requested=range?{offset:range.offset,maxChars:Math.max(1,range.end-range.offset)}:{offset:0,maxChars:4000};
+            const projected=boundedSourceView({...original,text:redact(original.text)},{offset:requested.offset,maxChars:requested.maxChars,maxBytes:Number(settings.assistantContextBytes)||48000});
             if(!projected)throw new Error('来源片段超出本次可读范围，请选择有效位置。');
-            return {...projected,requestedRange:{offset:result.lookup.offset||0,maxChars:result.lookup.maxChars||4000}};
+            return {...projected,requestedRange:requested,...(result.lookup.reads?.length?{requestedReads:result.lookup.reads.length}:{})};
           });
           const queryReads=found.sources.map(source=>({...source,focusOffset:focusSourceOffset(redact(source.text),result.lookup.query)}));
           retrievedSources=[...new Map([...retrievedSources,...queryReads,...direct].map(source=>[source.id,source])).values()];
           if(result.lookup.methodIds?.length)methodLookupIds=[...result.lookup.methodIds];
           if(result.lookup.discover)discoveryRequested=true;
-          lookupHistory.push({query:result.lookup.query,found:found.sources.length+direct.length,discussionTurns:requestedTurns.length,sourceIds:direct.map(source=>source.id),...(direct.length?{requestedRange:{offset:result.lookup.offset||0,maxChars:result.lookup.maxChars||4000}}:{}),methodIds:result.lookup.methodIds||[],coverage:found.coverage,delivery:'check_sourceDelivery_not_found_count'});if(result.lookup.query)query=result.lookup.query;
+          lookupHistory.push({query:result.lookup.query,found:found.sources.length+direct.length,discussionTurns:requestedTurns.length,sourceIds:direct.map(source=>source.id),...(result.lookup.reads?.length?{batchedReads:result.lookup.reads.length}:direct.length?{requestedRange:{offset:result.lookup.offset||0,maxChars:result.lookup.maxChars||4000}}:{}),methodIds:result.lookup.methodIds||[],coverage:found.coverage,delivery:'check_sourceDelivery_not_found_count'});if(result.lookup.query)query=result.lookup.query;
           reviewRange={before:result.lookup.before,after:result.lookup.after,types:result.lookup.types};lookups++;continue;
         }
         break;

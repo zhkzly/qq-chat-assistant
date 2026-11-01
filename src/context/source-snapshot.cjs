@@ -1,5 +1,6 @@
 'use strict';
 const {redact}=require('../model.cjs');
+const {accountOwnerSpeech}=require('../speaker-identity.cjs');
 const {qqSourceMetadata,sameScope}=require('../messages.cjs');
 const {sourceRevision}=require('../store.cjs');
 const {digest}=require('./shared.cjs');
@@ -66,7 +67,12 @@ function sourceSnapshot({scope,records,companion,availableSources,turn}){
   const all = (availableSources || sourcesFor(records, companion)).filter(source => !source.deleted && !source.excluded && source.use !== 'disabled' && sameScopeIfPresent(source, scope))
     .filter(source => source.type !== 'qq' || actualById.has(source.id)).map(source => {
       const actual = source.type === 'qq' && actualById.get(source.id);
-      return { ...source, text: redact(source.text), ...(actual ? { direction: actual.direction, speaker: actual.direction === 'outgoing' ? '我' : '对方',...qqSourceMetadata(actual) } : {}) };
+      // Wire-only identity annotation: the account owner speaks in private
+      // consultation turns and canonical feedback just as in outgoing QQ.
+      // Added after revision hashing, so stored evidence revisions and IDs
+      // stay stable across this projection change (see speaker-identity.cjs).
+      const ownerAnnotation = source.speaker === undefined && accountOwnerSpeech(source) ? { speaker: '我' } : {};
+      return { ...source, text: redact(source.text), ...ownerAnnotation, ...(actual ? { direction: actual.direction, speaker: actual.direction === 'outgoing' ? '我' : '对方',...qqSourceMetadata(actual) } : {}) };
     });
   const actualOrder=new Map(records.map((m,i)=>[`qq:${m.messageId}`,i]));
   const privateOrder=new Map(),feedbackById=new Map((companion.feedback||[]).map(item=>[item.id,item]));

@@ -21,7 +21,8 @@ function materializeBaseline(directory,revision){
  return directory;
 }
 function directory(t){const dir=fs.mkdtempSync(path.join(os.tmpdir(),'qq-goal-round-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));return dir;}
-function prepare(t){const dir=directory(t),out=path.join(dir,'round');return {dir,out,round:prepareRound({root:ROOT,id:'source-fix',stage:'delivery_provenance',cases:['coverage-observed-output-feedback'],hypothesis:'PRIVATE_HYPOTHESIS_SENTINEL',out})};}
+// Explicit cap keeps these tests hermetic against contract-default changes.
+function prepare(t){const dir=directory(t),out=path.join(dir,'round');return {dir,out,round:prepareRound({root:ROOT,id:'source-fix',stage:'delivery_provenance',cases:['coverage-observed-output-feedback'],hypothesis:'PRIVATE_HYPOTHESIS_SENTINEL',maxHttp:32,out})};}
 test('round preparation freezes actual contracts, cases, standards and role bindings without running models',t=>{
  const {round}=prepare(t);assert.equal(round.status,'prepared');assert.equal(round.max_http,32);assert.ok(round.case_plans['coverage-observed-output-feedback']);assert.ok(round.case_ids.length>1);assert.equal(round.variants.baseline,null);assert.equal(round.variants.candidate,null);assert.match(round.rubric_hash,/^[a-f0-9]{64}$/);assert.match(round.roles_hash,/^[a-f0-9]{64}$/);
 });
@@ -89,7 +90,7 @@ test('a usable self-report cannot hide a missing requested output',async t=>{
  attachReplay(c.out,{variant:'baseline',replay:path.join(c.dir,'baseline')});attachReplay(c.out,{variant:'candidate',replay:path.join(c.dir,'candidate')});c.packet=buildPacket(c.out,{out:path.join(c.dir,'packet')});c.bundle=JSON.parse(fs.readFileSync(path.join(c.dir,'packet/bundle.json')));c.mapping=JSON.parse(fs.readFileSync(path.join(c.out,'packet-map.json')));const review=path.join(c.dir,'review.json');fs.writeFileSync(review,JSON.stringify(reviewFixture(c)));recordReview(c.out,{file:review});assert.ok(checkRound(c.out).reasons.some(x=>x.includes('requested answer missing')));
 });
 test('per-round guard subset and equal arm caps are frozen before runs',async t=>{
- const dir=directory(t),out=path.join(dir,'round'),r=prepareRound({root:ROOT,id:'focused',stage:'delivery_provenance',cases:['coverage-observed-output-feedback'],guardrails:['conv-share-own-material-missing'],hypothesis:'A frozen focused experiment',out});assert.deepEqual(r.guardrail_cases,['conv-share-own-material-missing']);assert.equal(r.per_variant_http,16);
+ const dir=directory(t),out=path.join(dir,'round'),r=prepareRound({root:ROOT,id:'focused',stage:'delivery_provenance',cases:['coverage-observed-output-feedback'],guardrails:['conv-share-own-material-missing'],hypothesis:'A frozen focused experiment',maxHttp:32,out});assert.deepEqual(r.guardrail_cases,['conv-share-own-material-missing']);assert.equal(r.per_variant_http,16);
 });
 test('actual reviewer may cite the bound reply ID, but another output ID is rejected',async t=>{
  const c=await compared(t),review=reviewFixture(c),file=path.join(c.dir,'review.json');

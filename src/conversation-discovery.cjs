@@ -35,7 +35,11 @@ function discoverConversationEvidence({sources=[],records=[],query='',goal='',as
   if(source.kind==='feedback_continue'||source.kind==='user_control')continue;
   if(mode==='anchored'&&!overlap(source.text))continue;
   const age=Math.max(0,(now-Date.parse(source.at||source.createdAt||asOf))/86400000);
-  const sourceSpeaker=source.type==='qq'?(source.direction==='incoming'?'contact':'self'):source.role==='user'?'private_user':'undetermined';
+  // Speaker identity is derived, never defaulted: a QQ source without a
+   // usable direction stays undetermined instead of silently becoming self.
+   const sourceSpeaker=source.type==='qq'
+     ?(source.direction==='incoming'?'contact':source.direction==='outgoing'?'self':'undetermined')
+     :source.role==='user'?'private_user':'undetermined';
   candidates.push({id:`raw:${source.id}`,sourceIds:[source.id],subject:'undetermined',sourceSpeaker,kind:'raw_source',aspect:source.type,at:source.at||source.createdAt,
     score:overlap(source.text)*8+Math.max(0,4-Math.log2(age+1))+(source.type==='note'&&source.use==='draft'?3:0),text:short(redact(source.text).slice(focusSourceOffset(redact(source.text),query))),
     temporalStatus:'source_time_not_current_state',authority:'raw_preview_navigation_not_disclosure_permission'});

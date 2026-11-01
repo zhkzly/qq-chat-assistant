@@ -71,7 +71,8 @@ function buildFidelityContext(prepared,result,info={}){
   if(expected!==source.revision||!live||live.revision!==source.revision)continue;
   if(revisions[source.id]!==undefined&&source.revision!==revisions[source.id])continue;
   const prior=sourceMap.get(source.id);
-  const body=!prior||prior.delivery?.status==='partial'&&source.delivery?.status!=='partial'?source:prior;
+  const rangedView=value=>['partial','digest'].includes(value?.delivery?.status);
+ const body=!prior||rangedView(prior)&&!rangedView(source)?source:prior;
   sourceMap.set(source.id,withContinuity(body,source));revisions[source.id]=source.revision;
  }
  // The checker may inspect the captured complete original underlying an
@@ -240,7 +241,7 @@ function parseLegacyFidelityResult(value,input){
  const originalWitness=(ref,field,full=false)=>{
   const source=plain(ref)&&frame.evidenceAt(ref.sourceId);
   if(!plain(ref)||Object.keys(ref).some(key=>!['sourceId','quote'].includes(key))||typeof ref.sourceId!=='string'||!frame.sourceIds.has(ref.sourceId)||typeof ref.quote!=='string'||!ref.quote.trim()||ref.quote.length>1200||!source?.text.includes(ref.quote))throw fail(field,'factual_evidence_invalid','Quote only original bodies actually offered in this frame');
-  if(full&&(!['qq','private','feedback','note'].includes(source.type)||source.role==='assistant'||source.delivery?.status==='partial'||!input.manifest?.sourceRevisions?.[ref.sourceId]||input.payload.coverage?.unavailableRootSourceIds?.includes(ref.sourceId)))throw fail(field,'factual_support_unverifiable','A factual witness needs the complete original body and captured source revision');
+  if(full&&(!['qq','private','feedback','note'].includes(source.type)||source.role==='assistant'||['partial','digest'].includes(source.delivery?.status)||!input.manifest?.sourceRevisions?.[ref.sourceId]||input.payload.coverage?.unavailableRootSourceIds?.includes(ref.sourceId)))throw fail(field,'factual_support_unverifiable','A factual witness needs the complete original body and captured source revision');
   return source;
  };
  const reference=(raw,field)=>{if(!plain(raw)||Object.keys(raw).some(key=>!['path','quote'].includes(key)))throw fail(field,'factual_reference_invalid','Use an exact candidate path and quote');const path=address(raw.path,`${field}.path`);if(!quoted(path,raw.quote))throw fail(field,'factual_reference_invalid','The referenced statement is not in this candidate');return {path,quote:raw.quote};};
@@ -488,7 +489,7 @@ function buildFidelityRepairContext(prepared,checkedInput){
   // Restore only original bodies the checker actually received at this exact
   // version. A reason string, summary or omitted remainder is not evidence.
   if(!original(source)||source.revision!==revision||source.text!==evidence.text||!sameScopeIfPresent(source,retry.manifest.scope))continue;
-  if(!sources.has(source.id)||sources.get(source.id).text!==source.text||sources.get(source.id).delivery?.status==='partial'){
+  if(!sources.has(source.id)||sources.get(source.id).text!==source.text||['partial','digest'].includes(sources.get(source.id).delivery?.status)){
    sources.set(source.id,{...clone(source),...continuity(evidence)});restored.push(source.id);
   }
   retry.manifest.sourceRevisions[source.id]=revision;

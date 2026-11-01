@@ -1,6 +1,6 @@
 'use strict';
 const { methodFor } = require('./help-methods.cjs');
-const { postModel, modelFailure } = require('./model-http.cjs');
+const { postModel, modelFailure, modelTimeoutSignal } = require('./model-http.cjs');
 const { normalizeRelationshipPatch, SUBJECTS, ASSERTIONS, EPISTEMIC, LIFECYCLES, EVENT_KINDS, ASPECTS } = require('./relationship-schema.cjs');
 const { normalizeTopicPatch, TOPIC_PROTOCOL } = require('./topic-schema.cjs');
 const { sourceClosure, isLocalFeedback } = require('./provenance.cjs');
@@ -17,6 +17,8 @@ const {readPreparedExplanation,rememberPreparedResponse}=require('./prepared-res
 const {projectComposerEvidence}=require('./context/composer-evidence.cjs');
 const {parseFidelityResult}=require('./whole-answer-fidelity.cjs');
 const {parseRequestDelivery,parseDeliveryBlocker,normalizeBlockerQuestion,blockerRenderingWitness,validateTerminalDelivery,editable}=require('./request-delivery.cjs');
+const {assertSpeechAttribution,SPEAKER_IDENTITY_RULE}=require('./speaker-identity.cjs');
+const {runLookup,lookupRepairLines}=require('./wire/lookup.cjs');
 function relationshipProtocol({activityEvidence=false}={}) {
  const eventProtocol=activityEvidence?`events: {id?,expectedVersion?,activityKey,eventKind,actor,text,sourceIds,topicKeys?,transition?,activity,evidence}. eventKind=${EVENT_KINDS.join('|')}; actor=self|contact|both|unknown. activityKey is display wording, never entity identity. The memory activity/evidence protocol selects a persisted program identity or explicit original-anchored NEW, plus original world-statement and time witnesses. Do not return outer occurredAt; evidence.time owns occurrence meaning, and plannedFor is separate. A source withdrawal or a question is not a new world event; no-change is valid. User reports remain attributed rather than invented actual QQ actions.`:`events: {id?,expectedVersion?,activityKey,eventKind,actor,text,occurredAt?,sourceIds,topicKeys?}. eventKind=${EVENT_KINDS.join('|')}; actor=self|contact|both|unknown. activityKey is a short, stable label for the same activity (up to 120 characters), not a relationship stage; use a new label for a genuinely new activity. Distinguish invitation, acceptance, reschedule, cancellation and occurred. A copied draft is none of these actual actions. User-reported activities stay reported; do not invent actual QQ messages.`;
  return `relationshipPatch is optional and contains only claims (at most 24), events (at most 12), and retire (at most 24), each an array. An empty patch is {"claims":[],"events":[],"retire":[]}.
@@ -197,7 +199,7 @@ function requireDraftControlGuidance(guidance, payload) {
   if(typeof policy.intentSourceId!=='string'||!ids.includes(policy.intentSourceId))missing.push('draftPlan.guidance.sourceIds');
   if(missing.length)throw new Error(`${missing.join(', ')}: current drafting controls require a source-bound objective and approach, an explicit avoidances evaluation (use [] when none applies), and at least one guidance sourceIds reference to current intent ${policy.intentSourceId}; do not restore only old controls or copy private rationale into outbound text`);
 }
-function parseAssistantStrict(value, purpose, input,issues,{auxiliaryOnly=false,wholeAnswer}={}) {
+function parseAssistantStrict(value, purpose, input,issues,{auxiliaryOnly=false,wholeAnswer,wireDiagnostics}={}) {
   if (typeof value === 'string') value = parseModelJson(value);
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('助手返回格式不正确');
   // A final draft body is already outward wording; suggestions is only its
@@ -301,9 +303,12 @@ function parseAssistantStrict(value, purpose, input,issues,{auxiliaryOnly=false,
           if (record.sourceIds.some(id => !sources.has(id))) throw new Error(`${path}.sourceIds: 只能引用本次 sources 的原始来源ID`);
           if (kind === 'claims' && record.assertionKind === 'observed' && !record.sourceIds.some(id => sourceMap.get(id).type === 'qq'))
             throw new Error(`${path}.assertionKind: observed需要实际QQ证据；用户描述的事件改用reported`);
-          if (kind === 'claims' && record.subject === 'contact' && record.assertionKind === 'stated' && !record.sourceIds.some(id => {
-            const source = sourceMap.get(id); return source.type === 'qq' && (source.direction === 'incoming' || source.role === 'contact' || source.speaker === '对方');
-          })) throw new Error(`${path}.assertionKind: 对方明确陈述需要实际来信；用户转述改用reported，猜测改用inferred`);
+          // Unified speech-attribution gate (single implementation in
+          // speaker-identity.cjs): a stated claim about the contact needs her
+          // actual incoming message; a stated claim about the user needs the
+          // account owner own words. Replaces the two divergent inline checks.
+          if (kind === 'claims' && record.assertionKind === 'stated')
+            assertSpeechAttribution(record, record.sourceIds.map(id => sourceMap.get(id)), path);
           if (record.id && (!prior.has(record.id) || record.expectedVersion !== prior.get(record.id).version))
             throw new Error(`${path}.id/expectedVersion: 必须对应本次 relationshipContext 中的对象与版本；新记录省略这两个字段`);
         }
@@ -320,31 +325,17 @@ function parseAssistantStrict(value, purpose, input,issues,{auxiliaryOnly=false,
       ...(editingReference?{editingReference,editingReferenceBinding:editingReferenceBinding(input)}:{})};
   }
   if (purpose !== 'draft' && value.lookup) {
-    const q = value.lookup;
-    const handles=new Set();
-    const collect=node=>{
-      if(!node||typeof node!=='object')return;
-      if(Array.isArray(node)){node.forEach(collect);return;}
-      for(const [key,item]of Object.entries(node)){
-        if(['sourceId','id'].includes(key)&&typeof item==='string'&&/^(qq|private|note|feedback):/.test(item))handles.add(item);
-        if(key==='sourceIds'&&Array.isArray(item))for(const id of item)if(typeof id==='string')handles.add(id);
-        if(item&&typeof item==='object')collect(item);
-      }
-    };
-    collect(payload);
-    if(q.sourceIds!==undefined&&(!Array.isArray(q.sourceIds)||!q.sourceIds.length||q.sourceIds.length>8||q.sourceIds.some(id=>typeof id!=='string'||!handles.has(id))))throw new Error('lookup.sourceIds: use 1..8 delivered source handles');
-    for(const [key,maximum]of [['offset',10000000],['maxChars',8000]])if(q[key]!==undefined&&(!Number.isSafeInteger(q[key])||q[key]<(key==='offset'?0:1)||q[key]>maximum))throw new Error(`lookup.${key}: invalid bounded source range`);
-    if((q.offset!==undefined||q.maxChars!==undefined)&&!q.sourceIds?.length&&!q.discussionTurnIds?.length)throw new Error('lookup ranges require explicit sourceIds or discussionTurnIds');
-    if(q.methodIds!==undefined&&(!Array.isArray(q.methodIds)||!q.methodIds.length||q.methodIds.length>2||q.methodIds.some(id=>!methodFor(id)||payload?.methodSelection?.candidates&&!payload.methodSelection.candidates.includes(id))))throw new Error('lookup.methodIds: use up to two available method IDs');
-    if(q.discover!==undefined&&typeof q.discover!=='boolean')throw new Error('lookup.discover: use a boolean');
-    const allowedTurns = new Set([...(payload?.discussionCompaction?.sourceTurnIds || []), ...(payload?.discussionCompaction?.coveredTurnIds || []),
-      ...(payload?.discussionCompaction?.lookupTurnIds || []), ...(payload?.pendingPrivateReview?.lookupTurnIds || []), ...(payload?.deferredDiscussion?.turnIds||[]), ...(payload?.discussionReadCoverage?.requestedTurnIds||[]), ...(payload?.privateCandidates || []).map(item => item.turnId), ...(payload?.retrievedDiscussion || []).map(item => item.id)]);
-    if (q.discussionTurnIds !== undefined && (!Array.isArray(q.discussionTurnIds) || !q.discussionTurnIds.length || q.discussionTurnIds.length > 8 ||
-      q.discussionTurnIds.some(id => typeof id !== 'string' || !allowedTurns.has(id)))) throw new Error('lookup.discussionTurnIds: use 1..8 delivered private discussion IDs');
-    if ((!q.discussionTurnIds?.length&&!q.sourceIds?.length&&!q.methodIds?.length&&!q.discover && (typeof q.query !== 'string' || !q.query.trim())) || q.query !== undefined && (typeof q.query !== 'string' || q.query.length > 2000)) throw new Error('历史检索需有明确查询、已提供的讨论／来源／方法ID，或请求发现谈资');
-    for (const key of ['before','after']) if (q[key] !== undefined && !Number.isFinite(Date.parse(q[key]))) throw new Error('历史检索时间不正确');
-    if (q.types && (!Array.isArray(q.types) || q.types.some(t => !['qq','private','note','feedback'].includes(t)))) throw new Error('历史检索类型不正确');
-    return { ...extras, ...readableStep, lookup: { query: q.query || '', before: q.before, after: q.after, types: q.types, ...(q.discussionTurnIds ? { discussionTurnIds: [...new Set(q.discussionTurnIds)] } : {}),...(q.sourceIds?{sourceIds:[...new Set(q.sourceIds)]}:{}),...(q.sourceIds?.length||q.discussionTurnIds?.length?{offset:q.offset||0,maxChars:q.maxChars||4000}:{}),...(q.methodIds?{methodIds:[...new Set(q.methodIds)]}:{}),...(q.discover?{discover:true}:{}) }, ...(reportedMethods ? { methodIds: reportedMethods } : {}) };
+    // Wire contract single source of truth: field bounds, deterministic
+    // range-target completion, program defaults, handle-domain membership,
+    // batch continuation reads and the canonical output shape are compiled
+    // from src/contracts/lookup.contract.json. The prompt protocol line
+    // (help-behavior.cjs) and the primary-operation allowlist derive from the
+    // same contract, so protocol text and validation can no longer drift
+    // apart, and every parse-time completion is a saved model call (B9).
+    const wire={};
+    const lookup=runLookup(value.lookup,payload,{diagnostics:wire});
+    if(wire.lookupCompletions?.length&&wireDiagnostics)wireDiagnostics.lookupCompletions=wire.lookupCompletions;
+    return { ...extras, ...readableStep, lookup, ...(reportedMethods ? { methodIds: reportedMethods } : {}) };
   }
   if (purpose !== 'draft' && value.draftPlan) {
     const plan = value.draftPlan;
@@ -469,7 +460,7 @@ function parseAssistant(value, purpose, input, diagnostics) {
   // parsed again under the surviving real controls. Removing a bad topic must
   // never waive the old topic's guidance or a material/permission requirement.
   if (!bestEffort || !data || typeof data !== 'object' || Array.isArray(data))
-    {const checked=issues.check('$','assistant_result_invalid',()=>parseAssistantStrict(data,purpose,input,issues,{wholeAnswer}));issues.throwIfAny();return attach(checked.value);}
+    {const checked=issues.check('$','assistant_result_invalid',()=>parseAssistantStrict(data,purpose,input,issues,{wholeAnswer,wireDiagnostics:diagnostics}));issues.throwIfAny();return attach(checked.value);}
   const base = Object.fromEntries(Object.entries(data).filter(([key]) => !fields.includes(key)));
   const optional={},errors=[...wireAuxiliaryErrors];
   for (const field of fields) if (data[field] !== undefined) {
@@ -488,7 +479,7 @@ function parseAssistant(value, purpose, input, diagnostics) {
     if(input?.manifest)input.manifest.auxiliaryErrors=[...new Map([...(input.manifest.auxiliaryErrors||[]),...errors].map(error=>[JSON.stringify(error),error])).values()];
   }
   coreData={...base,...optional};
-  const checkedCore=issues.check('$','assistant_result_invalid',()=>parseAssistantStrict(coreData,purpose,input,issues,{wholeAnswer}));issues.throwIfAny();
+  const checkedCore=issues.check('$','assistant_result_invalid',()=>parseAssistantStrict(coreData,purpose,input,issues,{wholeAnswer,wireDiagnostics:diagnostics}));issues.throwIfAny();
   return attach(checkedCore.value);
   } catch(error) {
     if(declaredMessage)error.requestDelivery=declaredMessage;
@@ -551,7 +542,7 @@ async function assistModel(settings, context, signal, fetchImpl = fetch) {
   Object.defineProperty(context,'sourceHandleOwner',{value:settings.sourceHandleOwner,writable:true,configurable:true});
   const url = new URL(`${settings.baseUrl.replace(/\/$/, '')}/chat/completions`);
   if (!['http:', 'https:'].includes(url.protocol)) throw new Error('模型地址协议无效');
-  const timeout = AbortSignal.timeout(60000);
+  const timeout = modelTimeoutSignal(settings);
   const boundedSignal = signal ? AbortSignal.any([signal, timeout]) : timeout;
   const wireOptionsFor=input=>({sourceRevisions:input.sourceReferenceRevisions||input.manifest?.sourceRevisions});
   const originalPayload=context.mediaContext?{...context.payload,mediaContext:context.mediaContext}:context.payload;
@@ -577,15 +568,25 @@ async function assistModel(settings, context, signal, fetchImpl = fetch) {
   if(context.payload.purpose==='fidelity_check'&&context.manifest)context.manifest.fidelityOutput={raw:responseContent,sha256:require('node:crypto').createHash('sha256').update(String(responseContent)).digest('hex'),metadata:output.metadata};
   settings.requestBudget?.recordUsage(json.usage);
   if (typeof responseContent !== 'string') throw new Error('助手模型未返回文字');
+  // A length-truncated main response is never accepted as-is: it flows into
+  // the bounded repair path instead of being parsed as a complete result.
+  const mainTruncated = output.metadata.finishReason === 'length';
   const parsed = (content, trace = context.manifest?.methodTrace, input = context) => {
     const diagnostics = {};
     const result = parseAssistant(content, (input.payload||input).purpose, input, diagnostics);
+    // Parse-time wire completions are budget savings (B9): record which
+    // identifiers/defaults the program derived so a model call was not spent.
+    if (diagnostics.lookupCompletions?.length && context.manifest)
+      context.manifest.wireCompletions = [...(context.manifest.wireCompletions||[]), ...diagnostics.lookupCompletions];
     if (diagnostics.auxiliaryErrors?.length && context.manifest) context.manifest.auxiliaryErrors = diagnostics.auxiliaryErrors;
     if(diagnostics.blockerRendering&&context.manifest)context.manifest.blockerRendering=blockerRenderingWitness(diagnostics.blockerRendering);
     if (trace) trace.reported = result.methodIds || null;
     return result;
   };
-  try { return parsed(responseContent); }
+  try {
+    if (mainTruncated) { const cut = new Error('模型输出达到长度上限，可能被截断；未直接采用'); cut.code = 'model_output_truncated'; throw cut; }
+    return parsed(responseContent);
+  }
   catch(error) {
     const checkerRepair=context.payload.purpose==='fidelity_check';
     if(checkerRepair){
@@ -601,7 +602,7 @@ async function assistModel(settings, context, signal, fetchImpl = fetch) {
     // Spend the existing repair slot on fresh help rather than asking it to
     // repair optional bookkeeping; preparation still needs a verified plan.
     let planningCarrierRepair=false;
-    if(['discussion','review','reply'].includes(context.payload.purpose)){
+    if(['discussion','review','reply'].includes(context.payload.purpose)&&!mainTruncated){
       try{planningCarrierRepair=Object.hasOwn(parseModelJson(responseContent),'draftPlan');}catch{ /* No recoverable planning envelope was present. */ }
     }
     const terminalRepair=editable(context.payload.requestDeliveryObligation);

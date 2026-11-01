@@ -63,7 +63,7 @@ function resolveDraftMaterial(payload,plan,{restrictions=payload.privateRestrict
    const permission=permissionCheck.value,referent=referentCheck.value;
    if(permissionCheck.ok){
     issues.check(`${path}.authorization.permission`,'draft_material_permission_role_invalid',()=>{if(!originalUser(permission))throw validationError(`${path}.authorization.permission`,'draft_material_permission_role_invalid','draftPlan.quotes.authorization.referent: 披露依据必须指向这一素材片段，不能将其他材料的许可转移过来');});
-    issues.check(`${path}.authorization.permission`,'draft_material_permission_partial',()=>{if(permission.delivery?.status==='partial')throw validationError(`${path}.authorization.permission`,'draft_material_permission_partial','披露依据只是部分原文；请先取回完整许可语境，或由用户明确本次分享范围');});
+    issues.check(`${path}.authorization.permission`,'draft_material_permission_partial',()=>{if(['partial','digest'].includes(permission.delivery?.status))throw validationError(`${path}.authorization.permission`,'draft_material_permission_partial','披露依据只是部分原文；请先取回完整许可语境，或由用户明确本次分享范围');});
     issues.check(`${path}.authorization.permission`,'draft_material_permission_historical',()=>{if(permission.id!==intentSourceId&&permission.historicalOnly)throw validationError(`${path}.authorization.permission`,'draft_material_permission_historical','披露依据的后续私下来源未完整提供；请检索核对后续限制或由用户明确本次分享范围');});
    }
    if(referentCheck.ok)issues.check(`${path}.authorization.referent`,'draft_material_referent_mismatch',()=>{if(referent.id!==source.id||!auth.referent.text.includes(q.text))throw validationError(`${path}.authorization.referent`,'draft_material_referent_mismatch','draftPlan.quotes.authorization.referent: 披露依据必须指向这一素材片段，不能将其他材料的许可转移过来');});

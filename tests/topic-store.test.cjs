@@ -124,7 +124,8 @@ test('one active plus three retained and explicit resume preserve lifecycle and 
 test('generated, foreign, copied feedback, oversized and unauthorized fields are rejected atomically', t=>{
   const store=setup(t),turn=user(store,'I want to show romantic interest through our exhibition topic.');
   const assistant=store.appendTurn(scope,{role:'assistant',kind:'discussion',text:'Invented direction',requestId:'assistant-only'});
-  const feedback=store.addFeedback(scope,{requestId:'assistant-only',text:'Too subtle',kind:'local'});
+  // F1: requestId-only resolution removed; bind the retained artifact with its digest
+  const feedback=store.addFeedback(scope,{targetRef:{kind:'artifact',artifactRef:assistant.artifactRef},expectedDigest:store.experiences.artifact(scope,assistant.artifactRef).bodyDigest,text:'Too subtle',kind:'local'});
   const note=store.saveNote(scope,{text:'Copied feedback',use:'discussion',evidenceSourceIds:[`private:feedback-${feedback.id}`]});
   const patch={operation:'create',objective:'Romantic purpose',purposeSourceIds:[`private:${turn.id}`],intentQuote:turn.text};
   for(const changed of [{purposeSourceIds:[`private:${assistant.id}`]},{purposeSourceIds:[`note:${note.id}`]},{objective:'x'.repeat(801)},{constraints:Array(9).fill('x')},{send:true},{lifecycle:'active'}]){
@@ -139,8 +140,8 @@ test('generated, foreign, copied feedback, oversized and unauthorized fields are
 
 test('canonical local feedback can explicitly correct direction without becoming a preference or duplicate factual turn', t=>{
   const store=setup(t),turn=user(store,'I want to show romantic interest through our exhibition topic.');create(store,turn);
-  store.appendTurn(scope,{role:'assistant',kind:'discussion',text:'Try a subtle invitation.',requestId:'previous-advice'});
-  const feedback=store.addFeedback(scope,{requestId:'previous-advice',text:'I want to be direct for this invitation.',kind:'local'});
+  const previousAdvice=store.appendTurn(scope,{role:'assistant',kind:'discussion',text:'Try a subtle invitation.',requestId:'previous-advice'});
+  const feedback=store.addFeedback(scope,{targetRef:{kind:'artifact',artifactRef:previousAdvice.artifactRef},expectedDigest:store.experiences.artifact(scope,previousAdvice.artifactRef).bodyDigest,text:'I want to be direct for this invitation.',kind:'local'});
   const neutral=store.appendTurn(scope,{role:'user',kind:'feedback_continue',text:'Continue discussing this feedback.',requestId:'feedback-continuation'}),currentSourceId=`private:feedback-${feedback.id}`;
   const patch={operation:'update',topicId:store.topicView(scope).active.id,direction:'Use a direct invitation this time',purposeSourceIds:[currentSourceId],intentQuote:'direct for this invitation',interpretationStatus:'user_stated'};
   const opts=options(store,neutral,{currentSourceId,currentFeedbackId:feedback.id,canonicalActorId:currentSourceId,origin:'user_feedback'});
@@ -219,8 +220,10 @@ test('two connections cannot overwrite an already committed topic or revised sou
   const recorded=first.getCompanion(scope);
   assert.throws(()=>first.add(scope,[{...message,text:'Uncommitted change'},{...message,messageId:'invalid-draft',kind:'draft'}]),/provenance/);
   assert.deepEqual(first.getCompanion(scope),recorded);assert.deepEqual(first.topicView(scope),topic);
-  assert.equal(first.db.prepare('PRAGMA user_version').get().user_version,2);
-  assert.equal(second.db.prepare('PRAGMA user_version').get().user_version,2);
+  // Structural reason (D1): schema 3 adds the observation log, fingerprinted
+  // revisions and M2 quarantine/overlay/upgrade storage.
+  assert.equal(first.db.prepare('PRAGMA user_version').get().user_version,3);
+  assert.equal(second.db.prepare('PRAGMA user_version').get().user_version,3);
 });
 
 test('a source-grounded private task phase and unknowns do not require inventing QQ observations', t=>{
@@ -275,8 +278,8 @@ test('a new explicit output request can refresh the private task phase without r
 
 test('canonical feedback and its note copies control a task but cannot establish external progress', t=>{
   const store=setup(t),initial=user(store,'Discuss this invitation.');create(store,initial);
-  store.appendTurn(scope,{role:'assistant',kind:'discussion',text:'An invitation draft.',requestId:'feedback-evaluated'});
-  const feedback=store.addFeedback(scope,{requestId:'feedback-evaluated',text:'Use a lighter direction for this draft.'});
+  const evaluated=store.appendTurn(scope,{role:'assistant',kind:'discussion',text:'An invitation draft.',requestId:'feedback-evaluated'});
+  const feedback=store.addFeedback(scope,{targetRef:{kind:'artifact',artifactRef:evaluated.artifactRef},expectedDigest:store.experiences.artifact(scope,evaluated.artifactRef).bodyDigest,text:'Use a lighter direction for this draft.'});
   const note=store.saveNote(scope,{text:'Copied local feedback',use:'discussion',evidenceSourceIds:[feedback.sourceId]});
   const current=user(store,'Review the observed progress.');
   for(const id of [feedback.sourceId,`note:${note.id}`])assert.equal(store.applyTopicPatch(scope,{operation:'update',topicId:store.topicView(scope).active.id,progress:['She accepted the invitation'],observationSourceIds:[id]},options(store,current)).applied,false);

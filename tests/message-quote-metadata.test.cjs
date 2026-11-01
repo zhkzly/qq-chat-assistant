@@ -102,7 +102,11 @@ test('ordering/author enrichment keeps legacy source revisions, derived memory a
   store.add(scope, [legacyMessage]);
   const oldSource = { id: `qq:${targetId}`, type: 'qq', text: message.text, at: new Date(message.timestamp).toISOString(),
     role: 'user', direction: 'outgoing', use: 'discussion', messageId: targetId };
-  const oldRevision = createHash('sha256').update(JSON.stringify(oldSource)).digest('hex');
+  // Structural reason (D1 speaker-fingerprint cutover): revisions are computed
+  // by the observation log's fingerprinted revisionOf; sender-id enrichment
+  // without a role change must still keep the revision stable.
+  const { revisionOf } = require('../src/memory/observation-log.cjs');
+  const oldRevision = revisionOf(oldSource);
   const beforeSource = store.memorySources(scope)[0];
   assert.equal(beforeSource.revision, oldRevision);
   const batch = store.memoryBatch(scope);

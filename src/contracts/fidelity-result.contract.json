@@ -1,0 +1,77 @@
+{
+ "contract": "fidelity_result",
+ "version": "fidelity-result-contract-v2",
+ "description": "Read-only fidelity checker exchange, both protocols (full proposition census and sparse-defects-v1). Path enums are payload-injected from candidatePaths.",
+ "protocols": [
+  "full",
+  "sparse-defects-v1"
+ ],
+ "fields": {
+  "checkRef": {
+   "type": "enum",
+   "values": [
+    "c1"
+   ],
+   "required": true
+  },
+  "auditProtocol": {
+   "type": "enum",
+   "values": [
+    "sparse-defects-v1"
+   ]
+  },
+  "verdict": {
+   "type": "enum",
+   "values": [
+    "allow",
+    "reject",
+    "uncertain"
+   ],
+   "optional": true
+  },
+  "factual": {
+   "type": "array",
+   "max": 32,
+   "item": {
+    "path": {
+     "payloadEnum": "candidatePaths"
+    },
+    "statements": {
+     "type": "array",
+     "max": 12
+    }
+   }
+  },
+  "issues": {
+   "type": "array",
+   "item": {
+    "path": {
+     "payloadEnum": "candidatePaths"
+    },
+    "code": {
+     "full": [
+      "private_disclosure"
+     ],
+     "sparse": [
+      "unsupported_fact",
+      "evidence_mismatch",
+      "omitted_qualifier",
+      "internal_conflict",
+      "private_disclosure"
+     ]
+    }
+   }
+  },
+  "concerns": {
+   "type": "array",
+   "item": {
+    "path": {
+     "payloadEnum": "candidatePaths"
+    },
+    "code": {
+     "type": "string"
+    }
+   }
+  }
+ }
+}

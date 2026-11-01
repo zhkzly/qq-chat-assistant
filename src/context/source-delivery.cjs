@@ -26,6 +26,10 @@ function boundedSource(source,{maxBytes=6000,start=0,maxChars=Infinity}={}){
  }
  return best?.text?best:null;
 }
+// A ranged or digested view never counts as the delivered complete original:
+// grounding, authority offers and continuity must all require completeBody.
+const rangedDelivery = source => ['partial','digest'].includes(source?.delivery?.status);
+const completeBody = source => !!source && !rangedDelivery(source);
 function deliveredQuote(source,text){
  if(!source||typeof text!=='string'||!text||!String(source.text||'').includes(text))return null;
  const range=deliveryRange(source),local=source.text.indexOf(text);
@@ -52,4 +56,4 @@ function sourceDeliveryManifest(all,sources,explicitRequests=[]){
   omittedSourceCount:all.filter(source=>!delivered.has(source.id)).length,explicitLookups,sources:sources.map(source=>entry(source.id))};
 }
 const boundedSourceView=(source,{offset=0,...options}={})=>boundedSource(source,{...options,start:offset});
-module.exports={DELIVERY_VERSION,deliveryRange,boundedSource,boundedSourceView,deliveredQuote,sourceDeliveryManifest};
+module.exports={DELIVERY_VERSION,deliveryRange,boundedSource,boundedSourceView,deliveredQuote,sourceDeliveryManifest,rangedDelivery,completeBody};

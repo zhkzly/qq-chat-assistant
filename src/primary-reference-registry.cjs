@@ -171,7 +171,7 @@ class PrimaryReferenceOwner{
     if(selected.quotes?.some(quote=>quote.sourceId===source.id&&quote.revision===source.revision&&quote.text===fragment.text))
      authority({kind:'PROGRAM_SOURCE_AUTHORITY',targetSourceId:source.id,targetRevision:source.revision,start:material.start,end:material.end,materialRef:material.materialRef});
    }
-   if(available&&originalUser(source)&&source.delivery?.status!=='partial'&&!(source.historicalOnly&&source.id!==intentId)){
+   if(available&&originalUser(source)&&!['partial','digest'].includes(source.delivery?.status)&&!(source.historicalOnly&&source.id!==intentId)){
     if(foreground)authority({kind:'ORIGINALUSERSTATEMENTCANDIDATE',sourceId:source.id,revision:source.revision,wholeOriginal:true});
     else for(const material of choices.values())authority({kind:'ORIGINALUSERSTATEMENTCANDIDATE',materialRef:material.materialRef,sourceId:source.id,revision:source.revision,start:material.start,end:material.end});
    }
@@ -181,7 +181,7 @@ class PrimaryReferenceOwner{
   }).filter(Boolean);
   if(foreground)for(const field of ['recentHumanContext','priorHumanDirections'])if(Array.isArray(input.taskContext?.[field]))input.taskContext[field]=input.taskContext[field].flatMap(reference=>{
     const delivered=sourceById.get(reference.sourceId);
-    return delivered?.available&&originalUser(delivered.source)&&delivered.source.delivery?.status!=='partial'?[{...reference,text:delivered.text}]:[];
+    return delivered?.available&&originalUser(delivered.source)&&!['partial','digest'].includes(delivered.source.delivery?.status)?[{...reference,text:delivered.text}]:[];
    });
   input.primaryReferenceProtocol={version:VERSION};
   freeze(projected);
@@ -217,6 +217,20 @@ class PrimaryReferenceOwner{
     const source=sourceById.get(material.sourceId);
     if(!source?.available||!sameScope(source.source,this.#scope)||source.source.deleted||source.source.excluded||source.source.use==='disabled'||source.source.type!=='qq'||source.source.revision!==material.revision)return undefined;
     return [...offeredAuthorities.values()].find(authority=>authority.kind==='PROGRAM_SOURCE_AUTHORITY'&&authority.targetSourceId===material.sourceId&&authority.targetRevision===material.revision&&authority.start===undefined)?.authorityRef;
+   },
+   // Offered ORIGINALUSERSTATEMENTCANDIDATE authorities applicable to one
+   // exact material choice (whole-original candidates bound to the same
+   // source, or the candidate bound to this exact materialRef). Powers the
+   // deterministic authorityRef completion and copy-ready repair quoting.
+   authorityCandidates:(materialRef,material)=>{
+    requireCommit();const bound=material&&materialBindings.get(material);
+    if(!bound||bound.snapshot!==snapshot)return [];
+    return [...offeredAuthorities.values()].filter(authority=>authority.kind==='ORIGINALUSERSTATEMENTCANDIDATE'&&
+     (authority.materialRef===materialRef||authority.wholeOriginal&&authority.sourceId===material.sourceId&&authority.revision===material.revision));
+   },
+   singleAuthority:(materialRef,material)=>{
+    const refs=[...new Set(snapshot.authorityCandidates(materialRef,material).map(authority=>authority.authorityRef))];
+    return refs.length===1?refs[0]:undefined;
    },
    authority:(ref,material,path='authorityRef',permissionQuote)=>{
     requireCommit();const found=typeof ref==='string'&&offeredAuthorities.get(ref),bound=material&&materialBindings.get(material);

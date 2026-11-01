@@ -106,10 +106,17 @@ test('a repaired first compaction cannot buy an unbounded second goal epoch beyo
   const originalAssistant=store.appendTurn(scope,{role:'assistant',kind:'discussion',text:'重复的讨论解释。'.repeat(550),sourceIds:[`private:${originalUser.id}`]});
   controller.live({scope,messages:[raw('90071992547409931001',false,{elements:[{textElement:{content:'虚构的游戏近况。'.repeat(560)}}]}),
     raw('90071992547409931002',true,{elements:[{textElement:{content:'虚构的近期回应。'.repeat(560)}}]})]});
-  await assert.rejects(controller.assist({text:command,taskId:'goal-after-repaired-compaction'}),error=>error.code==='compaction_budget_insufficient'&&/原始输入已保留/.test(error.message));
-  const task=controller.usage.get(scope,'goal-after-repaired-compaction');assert.equal(task.status,'failed');assert.equal(task.attempts,3);assert.equal(task.remaining,1);
-  assert.equal(calls.length,3);assert.equal(compactionHttp,2,'the second HTTP call is the one bounded repair, not a second plan');
+  // Compaction is now an optional ladder step: with one attempt left after the
+  // repaired first epoch, the second epoch is skipped (budget reserved for the
+  // answer) instead of failing the request. The task still stays bounded by
+  // its declared cap and the answer itself completes within it.
+  const answer=await controller.assist({text:command,taskId:'goal-after-repaired-compaction'});
+  assert.equal(answer.text,'Update the requested goal.');
+  const task=controller.usage.get(scope,'goal-after-repaired-compaction');assert.equal(task.status,'complete');assert.equal(task.attempts,4);assert.equal(task.remaining,0);
+  assert.equal(calls.length,4);assert.equal(compactionHttp,2,'the second HTTP call is the one bounded repair, not a second plan');
+  assert.equal(controller.discussionCompaction.phase,'skipped');
+  assert.equal(controller.discussionCompaction.detail,'request_budget_reserved_for_answer');
   const companion=store.getCompanion(scope);assert.equal(companion.goal.text,'NEW_ROMANTIC_GOAL');assert.equal(companion.turns.find(turn=>turn.id===originalAssistant.id).text,originalAssistant.text);
-  assert.equal(companion.turns.filter(turn=>turn.role==='assistant').length,1,'only the original discussion remains');
+  assert.equal(companion.turns.filter(turn=>turn.role==='assistant').length,2,'the original discussion plus the delivered answer remain');
   assert.equal(store.db.prepare('SELECT count(*) n FROM discussion_compactions').get().n,0,'the old goal checkpoint remains invalid');
 });

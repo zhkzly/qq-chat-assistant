@@ -103,8 +103,14 @@ function createServer({ controller, token, uiDir, saveSettings, fillDraft, inspe
         case '/api/note': controller.saveNote({ id: args.id, text: args.text, use: args.use }); break;
         case '/api/note-delete': controller.deleteNote(args.id); break;
         case '/api/turn-delete': controller.deleteTurn(args.id); break;
-        case '/api/feedback': controller.addFeedback({ requestId: args.requestId, text: args.text, targetRef:args.targetRef,clientEventId:args.clientEventId }); break;
-        case '/api/feedback-continue': return json(response,200,await controller.continueFeedback({requestId:args.requestId,text:args.text,targetRef:args.targetRef,clientEventId:args.clientEventId,taskId:args.taskId}));
+        case '/api/feedback': {
+          // F1: the UI echoes the server-minted presentationId of the displayed
+          // candidate; a stale/unknown presentation returns the structured
+          // re-bind notice instead of silently binding an old version.
+          const feedback=controller.addFeedback({ requestId: args.requestId, text: args.text, targetRef:args.targetRef,presentationId:args.presentationId,expectedDigest:args.expectedDigest,clientEventId:args.clientEventId });
+          return json(response,200,{...snapshot(),...(feedback?.staleFeedbackTarget?{staleFeedbackTarget:feedback.staleFeedbackTarget}:{})});
+        }
+        case '/api/feedback-continue': return json(response,200,await controller.continueFeedback({requestId:args.requestId,text:args.text,targetRef:args.targetRef,presentationId:args.presentationId,expectedDigest:args.expectedDigest,clientEventId:args.clientEventId,taskId:args.taskId}));
         case '/api/confirm-action': controller.confirmAction(args.id,args.decision); break;
         case '/api/undo-action': controller.undoAction(args.id); break;
         case '/api/memory-search': return json(response,200,{scope:controller.scope,...controller.searchMemory(args.query||'',{limit:24,before:args.before,after:args.after,types:args.types})});
@@ -182,6 +188,8 @@ function run() {
   const controller = new Controller({ store, read, settings, memoryModel: consolidateMemory });
   let refreshHeld=process.env.CHAT_ASSISTANT_REFRESH_HOLD==='1'&&!!process.send,desiredVisible=false;
   controller.usage.recoverInterrupted();
+  // B11: mirror the ledger's crash marking onto companion run records.
+  store.markInterruptedRuns();
   if(process.send)controller.setVisible(false);
   process.on('message', message => {
     if (message.type === 'reply') { const task = pending.get(message.id); if (!task) return;
