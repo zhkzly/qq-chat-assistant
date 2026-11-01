@@ -9,6 +9,9 @@ const { sourceClosure } = require('./provenance.cjs');
 const { DISCUSSION_COMPACTION_VERSION, eligibleDiscussionTurns, readableDiscussionTurns, discussionTurnFingerprint, discussionTopicBinding,
   discussionModelBinding, discussionCompactionEvidence } = require('./discussion-compaction-store.cjs');
 
+// Compaction wire contract: top-level field admission and summary/quoteRefs
+// bounds are compiled from src/contracts/discussion-compaction-result.contract.json.
+const compactionContract=require('./wire/compile.cjs').compile('discussion-compaction-result').contract;
 const hash = value => createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const bytes = value => Buffer.byteLength(JSON.stringify(value), 'utf8');
 const scopeMatches = (a, b) => a && b && ['accountUid','accountUin','peerUid','peerUin'].every(key => a[key] === b[key]);
@@ -39,14 +42,14 @@ function quoteText(turn, quote) {
 }
 function parseDiscussionCompaction(value, plan) {
   const parsed = parseModelJson(value);
-  if (Object.keys(parsed).some(key => !['summary','quoteRefs','reviewedTurnIds'].includes(key))) throw new Error('compaction: only summary/quoteRefs/reviewedTurnIds are allowed');
-  if (typeof parsed.summary !== 'string' || !parsed.summary.trim() || Buffer.byteLength(parsed.summary, 'utf8') > 8000) throw new Error('summary: use nonempty private discussion summary of at most 8000 UTF8 bytes');
+  if (Object.keys(parsed).some(key => !compactionContract.topLevelFields.includes(key))) throw new Error('compaction: only summary/quoteRefs/reviewedTurnIds are allowed');
+  if (typeof parsed.summary !== 'string' || !parsed.summary.trim() || Buffer.byteLength(parsed.summary, 'utf8') > compactionContract.summary.maxBytes) throw new Error('summary: use nonempty private discussion summary of at most '+compactionContract.summary.maxBytes+' UTF8 bytes');
   if (!Array.isArray(parsed.reviewedTurnIds) || JSON.stringify(parsed.reviewedTurnIds) !== JSON.stringify(plan.sourceTurnIds)) throw new Error('reviewedTurnIds: copy every delivered original turn ID exactly once in input order');
   const quotes = parsed.quoteRefs || [];
-  if (!Array.isArray(quotes) || quotes.length > 12 || bytes(quotes) > 6000) throw new Error('quoteRefs: use at most12 literal references and at most6000 UTF8 bytes');
+  if (!Array.isArray(quotes) || quotes.length > compactionContract.quoteRefs.max || bytes(quotes) > compactionContract.quoteRefs.maxBytes) throw new Error('quoteRefs: use at most'+compactionContract.quoteRefs.max+' literal references and at most'+compactionContract.quoteRefs.maxBytes+' UTF8 bytes');
   const byId = new Map(plan.turns.map(turn => [turn.id, turn]));
   for (const quote of quotes) {
-    if (!quote || typeof quote !== 'object' || Array.isArray(quote) || Object.keys(quote).some(key => !['turnId','role','field','index','quoteIndex','text','artifactRef','sourceIds'].includes(key))) throw new Error('quoteRefs: invalid reference fields');
+    if (!quote || typeof quote !== 'object' || Array.isArray(quote) || Object.keys(quote).some(key => !compactionContract.quoteRefs.fields.includes(key))) throw new Error('quoteRefs: invalid reference fields');
     const body = quoteText(byId.get(quote.turnId), quote);
     if (typeof quote.text !== 'string' || !quote.text.trim() || typeof body !== 'string' || !body.includes(quote.text)) throw new Error('quoteRefs.text: copy a continuous literal span from the identified original field, never rewrite a candidate');
     if (quote.sourceIds?.some(id => !Object.hasOwn(plan.sourceRevisions, id))) throw new Error('quoteRefs.sourceIds: use original covered source dependencies');

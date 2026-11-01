@@ -1,0 +1,7 @@
+{
+ "lookupProtocolLine": "found非已读，sourceDelivery标交付状态，原文交付才引用。lookup:{sourceIds:[已示ID],offset:UTF16,maxChars:1..8000}或{reads:[{sourceIds:[单ID],offset,maxChars}]≤4}一次取多段；范围读可不填ID，程序补全。lookup:{methodIds:[目录ID]≤2}取卡；lookup:{discover:true}浏览目录。历史lookup:{query?,discussionTurnIds?,before?,after?,types?}，query≤2000，时间ISO，types:qq/private/note/feedback；discussionTurnIds≤8个已示ID。最多2次补查。memoryIndex/目录仅导航；discussionCompaction/privateCandidates/retrievedDiscussion/feedbackTargets可错且可能助手生成，非事实/许可，旧用户原话须取回sources。",
+ "memoryProtocolShape": "Return only {batchId,reviewedAll,relationshipPatch,episodes}. Copy batchId and set reviewedAll:true only after considering all current sources/segments including tombstones; otherwise false commits nothing. No-change: {\"batchId\":\"COPY_INPUT\",\"reviewedAll\":true,\"relationshipPatch\":{\"claims\":[],\"events\":[],\"retire\":[]},\"episodes\":[]}.",
+ "compactionSummaryBound": "8000",
+ "assistantOperations": "advise|prepare_message|lookup|clarify",
+ "version": "wire-golden-v1"
+}

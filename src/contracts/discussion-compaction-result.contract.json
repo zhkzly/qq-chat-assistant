@@ -1,0 +1,37 @@
+{
+ "contract": "discussion_compaction_result",
+ "version": "compaction-result-contract-v2",
+ "description": "Discussion compaction exchange. summary bound, quoteRefs cardinality/bytes and reference field admission declared once; parseDiscussionCompaction and the COMPACTION_SYSTEM shape line are compiled from this contract.",
+ "topLevelFields": [
+  "summary",
+  "quoteRefs",
+  "reviewedTurnIds"
+ ],
+ "summary": {
+  "maxBytes": 8000
+ },
+ "quoteRefs": {
+  "max": 12,
+  "maxBytes": 6000,
+  "fields": [
+   "turnId",
+   "role",
+   "field",
+   "index",
+   "quoteIndex",
+   "text",
+   "artifactRef",
+   "sourceIds"
+  ],
+  "roles": [
+   "user",
+   "assistant"
+  ],
+  "referenceFields": [
+   "text",
+   "discussionExplanation",
+   "suggestions",
+   "expressionOptions"
+  ]
+ }
+}

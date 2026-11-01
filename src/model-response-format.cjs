@@ -2,6 +2,11 @@
 const {TOPIC_PROTOCOL}=require('./topic-schema.cjs');
 const {SUBJECTS,ASSERTIONS,EPISTEMIC,LIFECYCLES,EVENT_KINDS,ASPECTS,APPLICABILITY,ATTRIBUTION,TRANSITIONS}=require('./relationship-schema.cjs');
 const {auxiliaryReview}=require('./help-behavior.cjs');
+// The lookup tool-schema fragment is compiled from the same wire contract as
+// the deep validator and the protocol line (src/contracts/lookup.contract.json),
+// so the provider schema cannot drift from validation.
+const {compile}=require('./wire/compile.cjs');
+const lookupSchemaShape=compile('lookup').schema();
 const {candidatePaths}=require('./candidate-field-paths.cjs');
 const string={type:'string'},integer={type:'integer'},boolean={type:'boolean'};
 const array=items=>({type:'array',items}),strings=array(string),choice=values=>({type:'string',enum:values});
@@ -65,7 +70,7 @@ const schemas={
  currentFacts:{...strings,description:'Only actually used private facts, including task dates/items or personal events: exact spans from this current complete human statement, not control/reasons. currentFacts plus materials total at most 8. Binding is NOT blanket sharing permission; interpret full negation, quotations and conditions.'},
  editingReference:object({choice:string},['choice']),
  draftPlan:{...draftPlan,description:'Only prepare_message: material choices and proposed controls; no clarification.'},
- lookup:object({query:string,discussionTurnIds:strings,sourceIds:strings,offset:integer,maxChars:integer,methodIds:strings,discover:boolean,before:string,after:string,types:array(choice(['qq','private','note','feedback']))}),
+ lookup:{...lookupSchemaShape,description:'Continuation reads and retrieval. Range reads may omit target IDs when exactly one delivered range covers them; batch reads fetch several ranges in one round trip.'},
  continuation:{...choice(['advise','prepare_message']),description:'Only lookup: workflow to continue after reading.'},
  blocker:{...deliveryBlocker,description:'Only clarify: specific missing fact/permission question and optional why-only explanation.'},
  methodIds:strings,actions:array(action),stateReview:choice(['no_change']),statePatch,topicPatch,relationshipPatch,experienceProposals:array(experienceProposal),expressionOptions:array(expressionOption)},['operation']),

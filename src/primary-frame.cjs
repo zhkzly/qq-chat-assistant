@@ -28,8 +28,19 @@ function compilePrimaryFrame(raw,snapshot,payload){
    throw validationError(path,'primary_material_reference_shape',`${path}: choose only materialRef and authorityRef from this request; do not copy source text or legacy authorization fields`);
   if(typeof item.materialRef!=='string'||!item.materialRef)throw validationError(`${path}.materialRef`,'primary_material_reference_missing',`${path}.materialRef: choose a delivered material reference`);
   const material=snapshot.material(item.materialRef,`${path}.materialRef`,item.factQuote);
+  // B9 executable repair: authorityRef selection for private material is a
+  // semantic judgment (an ORIGINALUSERSTATEMENTCANDIDATE is not a grant), so
+  // it is never auto-completed; but the failure must be repairable in ONE
+  // round by copying, so the error quotes every applicable offered
+  // authorityRef for this exact material instead of a generic complaint.
   const authorityRef=Object.hasOwn(item,'authorityRef')?item.authorityRef:snapshot.publicAuthority(material,`${path}.authorityRef`);
-  if(typeof authorityRef!=='string'||!authorityRef)throw validationError(`${path}.authorityRef`,'primary_authority_reference_missing',`${path}.authorityRef: private material requires an applicable offered authority; only exact public QQ material may omit it`);
+  if(typeof authorityRef!=='string'||!authorityRef){
+   const candidates=snapshot.authorityCandidates(item.materialRef,material).map(authority=>authority.authorityRef);
+   const error=validationError(`${path}.authorityRef`,'primary_authority_reference_missing',
+    `${path}.authorityRef: private material requires an applicable offered authority; only exact public QQ material may omit it${candidates.length?`; 可照抄authorityRef: ${[...new Set(candidates)].join('、')}`:''}`);
+   error.handles=[...new Set(candidates)];
+   throw error;
+  }
   const authorization=snapshot.authority(authorityRef,material,`${path}.authorityRef`,item.permissionQuote);
   return {sourceId:material.sourceId,text:material.text,...(authorization?{authorization}:{})};
  };

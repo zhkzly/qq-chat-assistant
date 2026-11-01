@@ -1,0 +1,75 @@
+{
+ "contract": "memory_result",
+ "version": "memory-result-contract-v2",
+ "description": "Memory batch exchange. Top-level field admission, record field sets, alias handle domains, repairable error codes and allowedShape strings are declared here; memory-engine decode, the memory_result tool schema and the MEMORY_SYSTEM shape lines are compiled from this contract.",
+ "topLevelFields": [
+  "batchId",
+  "reviewedAll",
+  "items",
+  "episodes",
+  "retire",
+  "relationshipPatch"
+ ],
+ "recordFields": {
+  "items": [
+   "id",
+   "kind",
+   "text",
+   "sourceIds",
+   "topicKeys",
+   "status",
+   "certainty",
+   "explicitPreference"
+  ],
+  "episodes": [
+   "id",
+   "text",
+   "sourceIds",
+   "topicKeys"
+  ],
+  "retire": [
+   "id",
+   "sourceIds",
+   "status"
+  ]
+ },
+ "citations": {
+  "max": 64,
+  "domain": "sourceAliases",
+  "code": "invalid_memory_citations",
+  "message": "Memory citations must be an array of at most 64 supplied source aliases"
+ },
+ "unknownAlias": {
+  "code": "unknown_memory_source_alias",
+  "message": "Memory response cited an unknown source alias",
+  "allowedShape": "Only source aliases delivered in originalInput"
+ },
+ "aliasDomains": [
+  "sources",
+  "contextOriginals",
+  "priorRecords",
+  "sequences",
+  "unavailableMessages",
+  "authors"
+ ],
+ "repairableCodes": [
+  "invalid_memory_json",
+  "memory_output_truncated",
+  "memory_batch_identity_mismatch",
+  "incomplete_review_receipt",
+  "invalid_memory_wire_fields",
+  "invalid_memory_citations",
+  "unknown_memory_source_alias",
+  "invalid_memory_wire_record",
+  "unsupported_memory_record_fields",
+  "unknown_memory_record_alias",
+  "wrong_memory_record_type",
+  "memory_preference_attestation_required",
+  "invalid_memory_relationship_patch",
+  "memory_navigation_target_required",
+  "memory_navigation_creation_invalid",
+  "memory_navigation_target_read_only",
+  "invalid_activity_event"
+ ],
+ "protocolShape": "Return only {batchId,reviewedAll,relationshipPatch,episodes}. Copy batchId and set reviewedAll:true only after considering all current sources/segments including tombstones; otherwise false commits nothing. No-change: {\"batchId\":\"COPY_INPUT\",\"reviewedAll\":true,\"relationshipPatch\":{\"claims\":[],\"events\":[],\"retire\":[]},\"episodes\":[]}."
+}
