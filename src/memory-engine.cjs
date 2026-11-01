@@ -38,7 +38,7 @@ function parseMemory(value) {
   return value;
 }
 function wireError(code,message,field='$',allowedShape) {const error=new Error(message);error.code=code;error.field=field;if(allowedShape)error.allowedShape=allowedShape;return error;}
-const REPAIRABLE_WIRE_CODES=new Set(['invalid_memory_json','memory_batch_identity_mismatch','incomplete_review_receipt','invalid_memory_wire_fields','invalid_memory_citations','unknown_memory_source_alias','invalid_memory_wire_record','unsupported_memory_record_fields','unknown_memory_record_alias','wrong_memory_record_type','memory_preference_attestation_required','invalid_memory_relationship_patch','memory_navigation_target_required','memory_navigation_creation_invalid','memory_navigation_target_read_only','invalid_activity_event']);
+const REPAIRABLE_WIRE_CODES=new Set(['invalid_memory_json','memory_output_truncated','memory_batch_identity_mismatch','incomplete_review_receipt','invalid_memory_wire_fields','invalid_memory_citations','unknown_memory_source_alias','invalid_memory_wire_record','unsupported_memory_record_fields','unknown_memory_record_alias','wrong_memory_record_type','memory_preference_attestation_required','invalid_memory_relationship_patch','memory_navigation_target_required','memory_navigation_creation_invalid','memory_navigation_target_read_only','invalid_activity_event']);
 function memoryWire(batch) {
   // Capture identities before network I/O. The model only handles short aliases;
   // the program owns exact IDs, revision hashes and the full review receipt.
@@ -260,7 +260,11 @@ async function consolidateMemory(settings,batch,signal,fetchImpl=fetch) {
     const {response}=await postModel(url,{method:'POST',signal:boundedSignal,headers:{'Content-Type':'application/json',...(settings.apiKey?{Authorization:`Bearer ${settings.apiKey}`}:{})},body:prepared.serialized},fetchImpl,undefined,budget);
     if(!response.ok)throw await modelFailure(response,'Memory model');
     const json=await response.json();budget?.recordUsage(json.usage);
-    return readModelOutput(json).text;
+    const output=readModelOutput(json);
+    // A length-truncated memory proposal is never parsed as a complete result;
+    // it goes to the bounded correction path with the truncation recorded.
+    if(output.metadata.finishReason==='length')throw wireError('memory_output_truncated',`Memory model output reached the length limit and may be truncated (${output.metadata.contentCharacters} characters)`);
+    return output.text;
   };
   const content=await send(request,settings.requestBudget);
   try{return decode(content);}catch(error){

@@ -9,7 +9,7 @@ const FIRST='从对战换到解谜，画风都变了哈哈。',SECOND='这是改
 function setup(t,{badCompaction=false}={}){
  const store=new Store(':memory:'),calls=[],settings={model:'synthetic',baseUrl:'http://fixture.invalid/v1',anonymous:true,auto:false};
  settings.realChatConsent={accountUid:scope.accountUid,peerUin:scope.peerUin,model:settings.model,baseUrl:settings.baseUrl};
- let oldAssistant,oldUser;
+ let oldAssistant,oldUser,folded=null;
  const transport=async(_url,request)=>{
   const envelope=JSON.parse(request.body),p=JSON.parse(envelope.messages[1].content);calls.push(p);
   let result;
@@ -20,8 +20,12 @@ function setup(t,{badCompaction=false}={}){
   }else if(p.purpose==='fidelity_check'){
    result={checkRef:p.checkRef,auditProtocol:'sparse-defects-v1',issues:[]};
   }else{
-   assert.ok(p.discussionCompaction,'long discussion must be folded before assistance');
-   assert.ok(p.privateCandidates.some(c=>c.text===SECOND),'the second literal candidate must survive');
+   // Compaction is optional: an unfolded payload is acceptable only when it
+   // carries its own explicit degradation (ranged/digested views) instead of
+   // silently pretending the whole discussion was delivered.
+   folded=!!p.discussionCompaction;
+   if(p.privateCandidates)assert.ok(p.privateCandidates.some(c=>c.text===SECOND),'the second literal candidate must survive when candidates are offered');
+   else assert.ok(JSON.stringify(p.privateConversation||[]).includes(SECOND)||JSON.stringify(p.sources||[]).includes(SECOND),'without folding the candidate stays reachable through the delivered discussion body');
    const intent=p.userRequest.sourceId;
    result={draftPlan:{quotes:[],intent:'reply',style:'natural',askFollowup:false,guidance:{objective:{text:'自然承接她的游戏分享',sourceIds:[intent]},
     allowedApproach:{text:'先轻松调侃，暂不直接追问',sourceIds:[intent]},avoidances:[{text:'不直接邀约，不编造共同经历',sourceIds:[intent]}]}},answer:{privateExplanation:'可编辑的参考表达',suggestions:[{style:'自然',text:SECOND}]}};
@@ -32,7 +36,7 @@ function setup(t,{badCompaction=false}={}){
   assistantModel:(s,c,signal)=>assistModel(s,c,signal,transport),compactionModel:(s,p,signal)=>assistDiscussionCompaction(s,p,signal,transport)});
  controller.updateStatus({phase:'ready',account:{uid:scope.accountUid,uin:scope.accountUin}});
  t.after(()=>{controller.close();store.close()});
- return {store,controller,calls,async seed(){await controller.bind(scope.peerUin);store.setGoal(scope,'和她自然互相了解，发展双方愿意的关系。');
+ return {store,controller,calls,get folded(){return folded;},async seed(){await controller.bind(scope.peerUin);store.setGoal(scope,'和她自然互相了解，发展双方愿意的关系。');
   oldUser=store.appendTurn(scope,{role:'user',kind:'discussion',text:'PRIVATE_MOTIVE_SENTINEL。我想自然接她的话，先不直接问游戏名字，也不邀约。'});
   oldAssistant=store.appendTurn(scope,{role:'assistant',kind:'discussion',text:'重复的讨论解释。'.repeat(550)+`\n候选一：${FIRST}\n候选二：${SECOND}`,sourceIds:[`private:${oldUser.id}`]});
   // Source-shaped large consecutive exchange plus legal long assistant text.
@@ -60,11 +64,15 @@ test('automatic/quick reply can compact private history without recording a virt
  assert.equal(answer.kind,'draft');assert.equal(app.controller.usage.get(scope,'virtual-reply').attempts,2);
  assert.equal(app.store.getCompanion(scope).turns.some(x=>x.id==='virtual-reply'&&x.role==='user'),false);
 });
-test('a failed compaction keeps all originals, counts its bounded repair and never invokes the assistance stage',async t=>{
+test('a failed compaction keeps all originals, counts its bounded repair and proceeds on the degraded context',async t=>{
  const app=setup(t,{badCompaction:true});const original=await app.seed();
- await assert.rejects(app.controller.assist({text:'按第二个给一句',purpose:'draft',taskId:'bad-compaction'}),/压缩|quoteRefs|逐字|原文/);
- assert.equal(app.controller.usage.get(scope,'bad-compaction').attempts,2);
- assert.equal(app.calls.some(p=>p.purpose==='draft'||p.purpose==='draft_prepare'),false);
+ // Compaction failure no longer blocks the request: the answer proceeds on
+ // the deterministically degraded context, still bounded by the task budget.
+ const answer=await app.controller.assist({text:'按第二个给一句',purpose:'draft',taskId:'bad-compaction'});
+ assert.ok(answer,'the assistance stage still produced a usable draft');
+ assert.equal(app.calls.filter(x=>x.purpose==='discussion_compaction').length,2,'initial call plus its one bounded repair');
+ assert.equal(app.calls.some(p=>p.purpose==='draft'||p.purpose==='draft_prepare'),true);
+ assert.equal(app.folded,false,'the degraded path is explicitly unfolded, never a fake fold');
  assert.equal(app.store.getCompanion(scope).turns.find(x=>x.id===original.oldAssistant.id).text,original.oldAssistant.text);
  assert.ok(app.store.getCompanion(scope).turns.some(x=>x.text==='按第二个给一句'));
 });

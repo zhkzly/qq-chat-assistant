@@ -9,7 +9,7 @@ function objectValue(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw jsonError('响应必须是 JSON 对象');
   return value;
 }
-function parseModelJson(value) {
+function parseModelJson(value, { truncated = false } = {}) {
   if (typeof value !== 'string') return objectValue(value);
   const original = value.replace(/^\uFEFF/, '').trim();
   if (!original) throw jsonError('模型返回了空文字');
@@ -22,6 +22,9 @@ function parseModelJson(value) {
   }
   const fences = [...original.matchAll(/```(?:json)?\s*\n([\s\S]*?)\n```/gi)];
   if (fences.length > 1) throw jsonError('响应含多个 JSON 候选，不能猜测采用哪一个');
+  // A length-truncated response must never be rescued into a complete leading
+  // object while its tail was silently cut: accept only a full-document parse.
+  if (truncated) throw jsonError('输出因长度上限被截断，不能按局部完整对象采用');
   const candidates = [];
   for (let start = 0; start < original.length; start++) {
     if (original[start] !== '{') continue;

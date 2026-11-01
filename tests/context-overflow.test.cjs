@@ -61,11 +61,19 @@ test('current canonical and explicitly selected feedback targets retain the exac
   }
 });
 
-test('a protected full feedback target that cannot fit fails explicitly instead of becoming a missing target', t => {
+test('a protected full feedback target that cannot fit degrades to an explicit missing marker, never silently', t => {
   const { targets, args } = fixture(t, { latestText: '最新完整私下回复。'.repeat(80), byteBudget: 7000 });
   assert.doesNotThrow(() => buildContext(args));
-  assert.throws(() => buildContext({ ...args, intentSourceId: targets[0].feedback.sourceId,
-    experienceContext: { scope, cases: [], adaptations: [], evaluationTargets: [targets[0]] } }), /反馈.*(?:预算|完整).*未被截断|完整.*反馈.*预算/);
+  // The budget ladder no longer dead-ends on a required feedback target: the
+  // answer proceeds with an explicit missing marker and reason, and the
+  // degradation stays recorded and reviewable on the manifest.
+  const degraded = buildContext({ ...args, intentSourceId: targets[0].feedback.sourceId,
+    experienceContext: { scope, cases: [], adaptations: [], evaluationTargets: [targets[0]] } });
+  const marked = (degraded.payload.feedbackTargets || []).find(item => item.feedback.id === targets[0].feedback.id);
+  assert.ok(marked, 'the feedback entry itself is still delivered');
+  assert.equal(marked.missing, true);
+  assert.ok(typeof marked.reason === 'string' && marked.reason.includes('未能放入本次上下文'));
+  assert.ok(degraded.manifest.degradation?.some(entry => entry.step === 'feedback_target_missing_marker' && entry.appliedTo === targets[0].feedback.sourceId));
 });
 
 test('topic wire projection removes repeated hashes while source CAS and field bindings remain exact', t => {

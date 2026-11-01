@@ -538,14 +538,24 @@ class Controller extends EventEmitter {
         }
         // Reserve room for at least one subsequent assistance call and, for
         // explicit expression/reply, its restricted final drafting call.
+        // Compaction is an optional quality ladder step, never a feasibility
+        // gate: without request headroom (or when the compaction call itself
+        // fails), the answer proceeds on the degraded deterministic context.
         const needed=purpose==='draft'||purpose==='reply'?3:2;
-        if(budget.snapshot().remaining<needed){const error=new Error('本次剩余调用预算不足以整理历史并完成帮助；原始输入已保留。请重新提交，已有有效整理可以复用。');error.code='compaction_budget_insufficient';throw error;}
+        const proceedWithoutCompaction=detail=>{
+          this.discussionCompaction={scope,phase:'skipped',coveredTurns:plan.sourceTurnIds.length,detail};this.changed();
+          if(capacityError)throw capacityError;
+          if(activeCompaction){this.discussionCompaction={scope,phase:'reused',coveredTurns:activeCompaction.sourceTurnIds.length};this.changed();}
+          return attachImages(input);
+        };
+        if(budget.snapshot().remaining<needed)return proceedWithoutCompaction('request_budget_reserved_for_answer');
         compactionAttempted=true;
         this.discussionCompaction={scope,phase:'compacting',coveredTurns:plan.sourceTurnIds.length,bytesBefore:plan.inputBytes};this.changed();
         const configured={...settings,requestBudget:budget.forStage('discussion_compaction')};
         let compressed;
         try{compressed=await this.compactionModel(configured,plan,abort.signal);}catch(error){
-          this.discussionCompaction={scope,phase:'failed',coveredTurns:plan.sourceTurnIds.length};this.changed();throw error;
+          if(!current())return null;
+          return proceedWithoutCompaction('compaction_call_failed');
         }
         if(!current())return null;
         const manifest=compressed.manifest||{purpose:'discussion_compaction',promptVersion:PROMPT_VERSION};
@@ -555,11 +565,16 @@ class Controller extends EventEmitter {
           turnFingerprints:plan.turnFingerprints,sourceRevisions:plan.sourceRevisions,coverage:plan.coverage,requestId};
         delete record.currentTurnId;
         const receipt=this.store.saveDiscussionCompaction(scope,record,{...identity,baseRevision,currentTurnId:turn.id,transient:!!turn.transient});
-        if(!receipt.applied){const error=new Error(`讨论整理未采用：${receipt.detail||receipt.reason}；原始输入仍在。`);error.code='discussion_compaction_rejected';throw error;}
+        if(!receipt.applied)return proceedWithoutCompaction(`discussion_compaction_rejected:${receipt.detail||receipt.reason}`);
         activeCompaction=receipt.record;
         this.discussionCompaction={scope,phase:'applied',coveredTurns:activeCompaction.sourceTurnIds.length,bytesBefore:plan.inputBytes,
           bytesAfter:Buffer.byteLength(JSON.stringify({summary:activeCompaction.summary,quoteRefs:activeCompaction.quoteRefs}),'utf8')};this.changed();
-        input=buildContext({...assemblyOptions(),discussionCompaction:activeCompaction});
+        try{input=buildContext({...assemblyOptions(),discussionCompaction:activeCompaction});}
+        catch(error){
+          // Even a post-compaction assembly failure must not block the answer:
+          // keep the already feasible pre-compaction context instead.
+          if(!/超过.*预算|超出.*预算/.test(error.message))throw error;
+        }
         return attachImages(input);
       };
       const assertArtifactInputs=(input)=>{

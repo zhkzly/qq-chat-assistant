@@ -83,10 +83,20 @@ test('oversized QQ evidence has marked source ranges while the current request r
   assert.equal(source.delivery.end-source.delivery.start,source.text.length);
   assert.ok(source.delivery.end<=source.delivery.originalCharLength);
  }
- // Source ranges never permit a silent slice of the authoritative user input.
+ // Source ranges never permit a silent slice of the authoritative user input:
+ // an oversized request now degrades to an explicitly marked range carrying
+ // its continuation handle; the delivered text stays an exact span of the
+ // original and both views agree, with the degradation on the manifest.
  args.turn=store.appendTurn(scope,{role:'user',kind:'discussion',text:args.turn.text.repeat(400)});
  args.companion=store.getCompanion(scope);
- assert.throws(()=>buildContext(args),/预算.*没有静默截断/);
+ const oversized=buildContext(args),requestSource=oversized.payload.sources.find(source=>source.id===oversized.payload.userRequest.sourceId);
+ assert.equal(requestSource.delivery?.status,'partial');
+ assert.equal(oversized.payload.userRequest.text,requestSource.text);
+ assert.equal(requestSource.text,args.turn.text.slice(requestSource.delivery.start,requestSource.delivery.end));
+ assert.ok(requestSource.delivery.end<requestSource.delivery.originalCharLength,'the undelivered remainder must stay explicit');
+ assert.equal(requestSource.delivery.lookup?.sourceId,requestSource.id);
+ assert.ok(oversized.manifest.degradation?.some(entry=>entry.step==='ranged_excerpt'&&entry.appliedTo===requestSource.id));
+ assert.ok(oversized.manifest.userRequestDelivery?.status==='partial');
 });
 test('automatic controller entry uses the configured envelope and persists the exact repaired evidence',async t=>{
  const {Controller}=require('./fixtures/assistant-protocol.cjs'),{store,args}=fixture(t,{assistantRequestBytes:32000}),calls=[];

@@ -171,7 +171,7 @@ class PrimaryReferenceOwner{
     if(selected.quotes?.some(quote=>quote.sourceId===source.id&&quote.revision===source.revision&&quote.text===fragment.text))
      authority({kind:'PROGRAM_SOURCE_AUTHORITY',targetSourceId:source.id,targetRevision:source.revision,start:material.start,end:material.end,materialRef:material.materialRef});
    }
-   if(available&&originalUser(source)&&source.delivery?.status!=='partial'&&!(source.historicalOnly&&source.id!==intentId)){
+   if(available&&originalUser(source)&&!['partial','digest'].includes(source.delivery?.status)&&!(source.historicalOnly&&source.id!==intentId)){
     if(foreground)authority({kind:'ORIGINALUSERSTATEMENTCANDIDATE',sourceId:source.id,revision:source.revision,wholeOriginal:true});
     else for(const material of choices.values())authority({kind:'ORIGINALUSERSTATEMENTCANDIDATE',materialRef:material.materialRef,sourceId:source.id,revision:source.revision,start:material.start,end:material.end});
    }
@@ -181,7 +181,7 @@ class PrimaryReferenceOwner{
   }).filter(Boolean);
   if(foreground)for(const field of ['recentHumanContext','priorHumanDirections'])if(Array.isArray(input.taskContext?.[field]))input.taskContext[field]=input.taskContext[field].flatMap(reference=>{
     const delivered=sourceById.get(reference.sourceId);
-    return delivered?.available&&originalUser(delivered.source)&&delivered.source.delivery?.status!=='partial'?[{...reference,text:delivered.text}]:[];
+    return delivered?.available&&originalUser(delivered.source)&&!['partial','digest'].includes(delivered.source.delivery?.status)?[{...reference,text:delivered.text}]:[];
    });
   input.primaryReferenceProtocol={version:VERSION};
   freeze(projected);
