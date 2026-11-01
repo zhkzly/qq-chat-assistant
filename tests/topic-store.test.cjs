@@ -219,8 +219,10 @@ test('two connections cannot overwrite an already committed topic or revised sou
   const recorded=first.getCompanion(scope);
   assert.throws(()=>first.add(scope,[{...message,text:'Uncommitted change'},{...message,messageId:'invalid-draft',kind:'draft'}]),/provenance/);
   assert.deepEqual(first.getCompanion(scope),recorded);assert.deepEqual(first.topicView(scope),topic);
-  assert.equal(first.db.prepare('PRAGMA user_version').get().user_version,2);
-  assert.equal(second.db.prepare('PRAGMA user_version').get().user_version,2);
+  // Structural reason (D1): schema 3 adds the observation log, fingerprinted
+  // revisions and M2 quarantine/overlay/upgrade storage.
+  assert.equal(first.db.prepare('PRAGMA user_version').get().user_version,3);
+  assert.equal(second.db.prepare('PRAGMA user_version').get().user_version,3);
 });
 
 test('a source-grounded private task phase and unknowns do not require inventing QQ observations', t=>{

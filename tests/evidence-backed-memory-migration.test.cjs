@@ -23,13 +23,27 @@ test('opening a real frozen old Store preserves string QQ IDs, source revisions,
  assert.deepEqual(after.messages,before.messages);
  assert.ok(after.messages.every(message=>typeof message.messageId==='string'));
  assert.equal(after.messages.find(message=>message.messageId===fixture.ids.recalledId).recalled,true);
- assert.deepEqual(after.sources,before.sources,'structural migration must not rewrite original bodies or source revisions');
- assert.deepEqual(after.companion.notes,before.companion.notes);
+ // Speaker-fingerprinted revision cutover (design 6.1 phase 4, D1): the
+ // upgrade deliberately re-hashes every source revision so a sender-role
+ // correction invalidates derived memory. Bodies, ids, times and disclosure
+ // must survive unchanged; revisions must be remapped CONSISTENTLY (each
+ // stored revision equals the fingerprinted hash of that source content, and
+ // every live revision pointer - journal, dependencies, records, notes -
+ // moved together), never left half-migrated.
+ const stripRevision=source=>{const{revision,evidenceRevisions,...rest}=source;return rest;};
+ assert.deepEqual(after.sources.map(stripRevision),before.sources.map(stripRevision),'structural migration must not rewrite original bodies');
+ assert.ok(after.sources.every(source=>source.revision!==before.sources.find(item=>item.id===source.id)?.revision),'every revision is re-hashed by the fingerprint cutover');
+ const upgradedLive=new Map(store.memorySources(scope).map(source=>[source.id,source.revision]));
+ assert.ok(after.sources.every(source=>upgradedLive.get(source.id)===source.revision),'stored revisions match the live fingerprinted projection');
+ for(const source of after.sources)for(const [id,revision] of Object.entries(source.evidenceRevisions||{}))assert.equal(upgradedLive.get(id),revision,'embedded note lineage revisions are remapped to the live hash');
+ const stripNoteRevisions=note=>{const{evidenceRevisions,...rest}=note;return rest;};
+ assert.deepEqual(after.companion.notes.map(stripNoteRevisions),before.companion.notes.map(stripNoteRevisions));
+ for(const note of after.companion.notes)for(const [id,revision] of Object.entries(note.evidenceRevisions||{}))assert.equal(upgradedLive.get(id),revision,'note evidence revisions are remapped to the live hash');
  assert.deepEqual(after.companion.goal,before.companion.goal);
  assert.equal(after.sources.some(source=>source.id==='qq:'+fixture.ids.forgottenId),false);
  assert.equal(after.sources.find(source=>source.id==='private:legacy-corrected-source').text,'A fictional source after correction.');
  const oldById=new Map(before.view.claims.map(row=>[row.id,row]));
- for(const row of after.view.claims){const old=oldById.get(row.id);if(old){assert.equal(row.lifecycle,old.lifecycle);assert.ok(row.version>=old.version);assert.deepEqual(row.sourceRevisions,old.sourceRevisions);}}
+ for(const row of after.view.claims){const old=oldById.get(row.id);if(old){assert.equal(row.lifecycle,old.lifecycle);assert.ok(row.version>=old.version);for(const [id,revision] of Object.entries(row.sourceRevisions||{}))assert.equal(upgradedLive.get(id),revision,'view evidence revisions follow the fingerprinted cutover');}}
  for(const id of [fixture.ids.oldClaimId,fixture.ids.interestId])assert.equal(after.view.claims.find(row=>row.id===id)?.lifecycle,'withdrawn');
  assert.equal(after.view.claims.find(row=>row.id===fixture.ids.correctedClaimId)?.lifecycle,'active');
  for(const row of before.records)assert.ok(after.records.some(current=>current.id===row.id),'retain useful old summaries for historical navigation');
@@ -40,13 +54,19 @@ test('opening a real frozen old Store preserves string QQ IDs, source revisions,
 
 test('legacy derived knowledge stays historical until original semantic reverification without invented fields',t=>{
  const fixture=database(t),store=new Store(fixture.filename);t.after(()=>store.close());
+ const liveRevisions=new Map(store.memorySources(scope).map(source=>[source.id,source.revision]));
  const receipt=store.ensureKnowledgeMigration(scope);assert.ok(receipt);
  const oldRows=new Map(fixture.before.records.map(row=>[row.id,JSON.parse(row.record)]));
  const after=tableRows(store.db,'memory_records').map(row=>JSON.parse(row.record));
  for(const [id,old] of oldRows){
   const current=after.find(row=>row.id===id);assert.ok(current,'keep the historical old record');
   assert.equal(current.semanticReview?.status,'legacy_unreviewed');assert.equal(current.reviewComplete,false);
-  assert.equal(current.text,old.text);assert.deepEqual(current.sourceRevisions,old.sourceRevisions);
+  assert.equal(current.text,old.text);
+   // Structural reason (D1 fingerprint cutover): record evidence pointers are
+   // remapped to the new hashes instead of staying byte-equal to the baseline;
+   // the assertion is consistency with the live projection, not stasis.
+   assert.deepEqual(Object.keys(current.sourceRevisions||{}),Object.keys(old.sourceRevisions||{}));
+   for(const [id,revision] of Object.entries(current.sourceRevisions||{}))assert.equal(liveRevisions.get(id),revision,'record evidence revisions follow the fingerprinted cutover');
   for(const field of ['condition','validFrom','validUntil','occurredAt'])if(old[field]===undefined)assert.ok(current[field]===undefined||current[field]===null,`do not invent ${field} from an old summary`);
  }
  const person=store.personUnderstanding(scope);

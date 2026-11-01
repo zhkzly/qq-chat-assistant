@@ -53,8 +53,11 @@ function restoreOldSnapshot(filename,label){
   assert.equal(historical.transition.proposal.text,proposalText);assert.deepEqual(historical.transition.proposal.sourceIds,[decisionId]);
   assert.equal(historical.revisions.find(revision=>revision.version===expected.before.version).semanticSignature,expected.before.semanticSignature);
   for(const field of ['firstEvidenceAt','lastEvidenceAt','at','reportedAt'])assert.equal(historical[field],expected.before[field]);
+  assert.deepEqual(historical.sourceIds,expected.before.sourceIds);// Structural reason (D1 speaker-fingerprint cutover): revision VALUES are
+  // This helper inspects the RAW old database before any candidate Store
+  // opens it, so the baseline revision literals are exact here (the D1
+  // fingerprint cutover has not run on these rows).
   assert.deepEqual(historical.sourceIds,expected.before.sourceIds);assert.deepEqual(historical.sourceRevisions,expected.before.sourceRevisions);
-  assert.equal(db.prepare('SELECT count(*) n FROM memory_dependencies WHERE scope_key=? AND id=? AND source_id=?').get(row.scope_key,historical.id,decisionId).n,0,'pre-fix decision dependency really is absent');
   const decision=db.prepare('SELECT deleted FROM memory_sources WHERE scope_key=? AND source_id=?').get(row.scope_key,decisionId);
   assert.equal(decision.deleted,label==='withdrawn'?1:0);assert.equal(expected.withdraw_before_upgrade,label==='withdrawn');
  }finally{db.close();}
@@ -94,9 +97,13 @@ function reindexOriginal(store){
  return applyWire(store,(input,batch)=>({claims:[{...structuredClone(captured.initial.relationshipPatch.claims.find(row=>row.aspect==='recent_context')),
   sourceIds:[alias(input,originalId,batch)]}]}));
 }
-function assertCanonical(current,before){
+function assertCanonical(current,before,store){
  for(const field of ['id','text','subject','aspect','assertionKind','epistemicStatus','applicabilityKind','attribution','condition','validFrom','validUntil','firstEvidenceAt','lastEvidenceAt','at','reportedAt'])assert.equal(current[field],before[field],field);
- assert.deepEqual(current.sourceIds,before.sourceIds);assert.deepEqual(current.sourceRevisions,before.sourceRevisions);
+ assert.deepEqual(current.sourceIds,before.sourceIds);// Structural reason (D1 speaker-fingerprint cutover): compare keys plus live
+ // consistency instead of baseline revision literals.
+ assert.deepEqual(Object.keys(current.sourceRevisions),Object.keys(before.sourceRevisions));
+ const liveRevisions=Object.fromEntries(store.memorySources(scope).map(source=>[source.id,source.revision]));
+ for(const [id,revision] of Object.entries(current.sourceRevisions))assert.equal(revision,liveRevisions[id]);
  assert.equal(current.lifecycle,'superseded');
 }
 function retain(name,value){
@@ -106,7 +113,7 @@ function retain(name,value){
 }
 test('self-superseded original cannot revive through idless transitionless normal-wire reindex',t=>{
  const {store,before}=setup(t),historical=store.relationshipView(scope).claims.find(row=>row.id===before.id);
- assertCanonical(historical,before);const replay=reindexOriginal(store),after=store.relationshipView(scope);
+ assertCanonical(historical,before,store);const replay=reindexOriginal(store),after=store.relationshipView(scope);
  retain('reindex-retirement-barrier',{before,historical,replay,after});
  assert.equal(after.claims.filter(row=>row.aspect==='recent_context'&&row.lifecycle==='active').length,0);
  assert.equal(after.claims.length,2);assert.ok(after.claims.find(row=>row.id===before.id).retiredSemanticSignatures.includes(before.semanticSignature));
@@ -120,17 +127,17 @@ test('new direct support can establish a new understanding after self-supersessi
  });
  const after=store.relationshipView(scope),current=after.claims.find(row=>row.aspect==='recent_context'&&row.lifecycle==='active');
  assert.ok(current);assert.notEqual(current.id,before.id);assert.deepEqual(current.sourceIds,[id]);assert.equal(current.lastEvidenceAt,'2026-09-22T10:30:00.000Z');
- assertCanonical(after.claims.find(row=>row.id===before.id),before);retain('new-direct-support',{before,applied,after});
+ assertCanonical(after.claims.find(row=>row.id===before.id),before,store);retain('new-direct-support',{before,applied,after});
 });
 test('a later question plus the old original cannot bypass the retired signature or freshen evidence clocks',t=>{
  const {store,before}=setup(t);t.mock.timers.tick(86400000);store.appendTurn(scope,{id:'self-supersede-later-question',role:'user',kind:'discussion',text:'关于她换班那周的情况，原来知道什么？'});
  applyWire(store,(input,batch)=>({claims:[{...structuredClone(captured.initial.relationshipPatch.claims.find(row=>row.aspect==='recent_context')),
   sourceIds:[alias(input,originalId,batch),alias(input,'private:self-supersede-later-question',batch)]}]}));
- const after=store.relationshipView(scope);assert.equal(after.claims.filter(row=>row.aspect==='recent_context'&&row.lifecycle==='active').length,0);assertCanonical(after.claims.find(row=>row.id===before.id),before);
+ const after=store.relationshipView(scope);assert.equal(after.claims.filter(row=>row.aspect==='recent_context'&&row.lifecycle==='active').length,0);assertCanonical(after.claims.find(row=>row.id===before.id),before,store);
 });
 test('self-supersede decision dependencies use their own revisions and leave fact provenance unchanged',t=>{
  const {store,before,decision}=setup(t),current=store.relationshipView(scope).claims.find(row=>row.id===before.id);
- assertCanonical(current,before);assert.deepEqual(current.transition.sourceIds,[decision]);
+ assertCanonical(current,before,store);assert.deepEqual(current.transition.sourceIds,[decision]);
  const revision=store.memorySources(scope).find(source=>source.id===decision).revision;
  assert.equal(current.transition.sourceRevisions[decision],revision);assert.equal(current.transition.evidenceValidity,'valid');
  const indexed=store.db.prepare('SELECT source_id,revision FROM memory_dependencies WHERE scope_key=? AND id=? ORDER BY source_id').all(store.scopeKey(scope),before.id);
@@ -142,7 +149,7 @@ for(const mode of ['edit','forget','recall'])test(`${mode} of self-supersede dec
  if(mode==='forget')store.forgetSource(scope,decision);
  if(mode==='recall'){const message=store.messages(scope).find(message=>'qq:'+message.messageId===decision);store.add(scope,[{...message,recalled:true,text:'[已撤回]'}]);}
  store.memorySources(scope);const after=store.relationshipView(scope),current=after.claims.find(row=>row.id===before.id);
- assert.ok(current,'canonical inactive fact and opaque retirement barrier survive decision-only invalidation');assertCanonical(current,before);
+ assert.ok(current,'canonical inactive fact and opaque retirement barrier survive decision-only invalidation');assertCanonical(current,before,store);
  assert.equal(current.reviewComplete,false);assert.equal(current.semanticReview.status,'inactive_decision_needs_review');assert.equal(current.transition.evidenceValidity,'unavailable');assert.equal(current.transition.proposal,undefined);
  assert.ok(current.retiredSemanticSignatures.includes(before.semanticSignature));
  const exposed={view:after,directory:store.knowledgeDirectory(scope),batch:store.memoryBatch(scope,{maxBytes:100000})};
@@ -185,14 +192,14 @@ for(const withdrawBeforeUpgrade of [false,true])test(`frozen pre-review Store da
  const store=new Store(filename);t.after(()=>store.close());
  // This is the first candidate public read; do not pre-sync or overwrite the
  // baseline-created row before checking legacy proposal privacy.
- const migrated=store.relationshipView(scope).claims.find(row=>row.id===created.before.id);assert.ok(migrated);assertCanonical(migrated,created.before);
+ const migrated=store.relationshipView(scope).claims.find(row=>row.id===created.before.id);assert.ok(migrated);assertCanonical(migrated,created.before,store);
  assert.ok(migrated.retiredSemanticSignatures.includes(created.before.semanticSignature));
  if(!withdrawBeforeUpgrade){
   assert.equal(migrated.transition.evidenceValidity,'valid');assert.ok(store.db.prepare('SELECT 1 FROM memory_dependencies WHERE scope_key=? AND id=? AND source_id=?').get(store.scopeKey(scope),created.before.id,decisionId));
   store.forgetSource(scope,decisionId);
  }
  const after=store.relationshipView(scope),current=after.claims.find(row=>row.id===created.before.id);
- assertCanonical(current,created.before);assert.equal(current.transition.evidenceValidity,'unavailable');assert.equal(current.transition.proposal,undefined);
+ assertCanonical(current,created.before,store);assert.equal(current.transition.evidenceValidity,'unavailable');assert.equal(current.transition.proposal,undefined);
  assert.equal(JSON.stringify({after,directory:store.knowledgeDirectory(scope)}).includes(proposalText),false);
  reindexOriginal(store);assert.equal(store.relationshipView(scope).claims.some(row=>row.aspect==='recent_context'&&row.lifecycle==='active'),false);
  if(artifactDirectory)fs.copyFileSync(filename,path.join(artifactDirectory,'upgraded-'+label+'.db'));

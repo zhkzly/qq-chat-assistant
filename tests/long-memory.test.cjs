@@ -65,8 +65,17 @@ test('forgetting observed QQ persists exclusion across reimport without changing
 test('memory cannot update user goals, grant material permission, promote local feedback or revive later cancelled plan from backfill',t=>{
   const s=new Store(':memory:');t.after(()=>s.close());s.setGoal(scope,'逐渐了解');s.saveRun(scope,{id:'r'});s.addFeedback(scope,{requestId:'r',text:'这次太长了'});
   let b=s.memoryBatch(scope);assert.equal(s.applyMemoryBatch(scope,b,receipt(b,{goal:'hack'})).applied,false);
-  assert.equal(s.applyMemoryBatch(scope,b,receipt(b,{items:[{kind:'preference',text:'永远喜欢短回复',sourceIds:b.sources.map(x=>x.id),explicitPreference:true}]})).applied,false);
-  assert.equal(s.applyMemoryBatch(scope,b,receipt(b)).applied,true);assert.equal(s.getCompanion(scope).goal.text,'逐渐了解');
+  // Structural reason (B1 decision-split): a preference proposal is a
+  // committing any preference record.
+  const preferenceResult=s.applyMemoryBatch(scope,b,receipt(b,{items:[{kind:'preference',text:'永远喜欢短回复',sourceIds:b.sources.map(x=>x.id),explicitPreference:true}]}));
+  assert.equal(preferenceResult.applied,true);
+  assert.ok(preferenceResult.receipt.quarantinedRecords?.some(entry=>entry.code==='preference_candidate'));
+  assert.ok(!s.searchMemory(scope,'短回复').items.some(item=>item.kind==='preference'),'no preference record is committed');
+  // Structural reason (B1): the candidate-committed batch consumed the review;
+  // a replay of the same batch is correctly refused as already reviewed.
+  assert.equal(s.applyMemoryBatch(scope,b,receipt(b)).applied,false);
+  assert.equal(s.memoryStatus(scope).pending,0);
+  assert.equal(s.getCompanion(scope).goal.text,'逐渐了解');
   const now=normalize(raw('72057594037927999',false,{msgTime:'1791926000',elements:[{textElement:{content:'周六看展取消了'}}]}),scope);s.add(scope,[now]);b=s.memoryBatch(scope);
   assert.equal(s.applyMemoryBatch(scope,b,receipt(b,{items:[{kind:'commitment',text:now.text,sourceIds:[`qq:${now.messageId}`],topicKeys:['周六看展'],status:'cancelled'}]})).applied,true);
   const old=normalize(raw('72057594037927997',false,{msgTime:'1791726000',elements:[{textElement:{content:'周六一起看展'}}]}),scope);s.add(scope,[old]);b=s.memoryBatch(scope);

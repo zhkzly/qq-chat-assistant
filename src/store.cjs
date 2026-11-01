@@ -13,17 +13,21 @@ const activityEvidence=require('./activity-evidence.cjs');
 const hash = value => createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const { DatabaseSync } = require('node:sqlite');
 const {publicRecord}=require('./media.cjs');
+const { ObservationLog, migrateObservations, revisionOf } = require('./memory/observation-log.cjs');
+const { normalizeOverlay, applyOverlaysToClaims } = require('./memory/correction-overlay.cjs');
 const { compare, sameScope, qqSourceMetadata } = require('./messages.cjs');
 function messageEvidence(message) {
-  const { sequence, senderUid, ...evidence } = message;
+  // The change detector and the speaker-fingerprinted source revision must
+  // strip the same sender fields: enrichment with a late scoped id is not a
+  // correction and must not desync the two identities (problem-backlog #6).
+  const { sequence, senderUid, senderUin, ...evidence } = message;
   return JSON.stringify(evidence);
 }
 function sourceRevision(source) {
-  if(source.type!=='qq')return hash(source);
-  // Ordering and redundant scoped author identity can enrich legacy sources
-  // without discarding their derived memory. A reply edge remains evidence.
-  const {sequence,senderUid,senderUin,...evidence}=source;
-  return hash(evidence);
+  // Speaker-fingerprinted revision owned by the observation log (M1): a
+  // correction of WHO spoke invalidates derived memory; ordering and
+  // redundant scoped sender ids still do not.
+  return revisionOf(source);
 }
 const scopeFields = ['accountUid', 'accountUin', 'peerUid', 'peerUin'];
 function scopeKey(scope) {
@@ -89,7 +93,7 @@ class Store {
     try {
       this.db.exec('PRAGMA foreign_keys=ON; PRAGMA secure_delete=ON; BEGIN IMMEDIATE');
       const schemaVersion=this.db.prepare('PRAGMA user_version').get().user_version;
-      if(schemaVersion>2)throw new Error(`Unsupported newer store schema version: ${schemaVersion}`);
+      if(schemaVersion>3)throw new Error(`Unsupported newer store schema version: ${'$'}{schemaVersion}`);
       this.db.exec(`CREATE TABLE IF NOT EXISTS messages(
       account_uid TEXT NOT NULL, peer_uid TEXT NOT NULL, message_id TEXT NOT NULL, record TEXT NOT NULL,
       PRIMARY KEY(account_uid,peer_uid,message_id));
@@ -107,16 +111,30 @@ class Store {
       CREATE TABLE IF NOT EXISTS memory_meta(scope_key TEXT PRIMARY KEY,version INTEGER NOT NULL DEFAULT 0,error TEXT);
       CREATE TABLE IF NOT EXISTS memory_migrations(scope_key TEXT NOT NULL,version INTEGER NOT NULL,record TEXT NOT NULL,PRIMARY KEY(scope_key,version));
       CREATE TABLE IF NOT EXISTS memory_gaps(scope_key TEXT NOT NULL,id TEXT NOT NULL,record TEXT NOT NULL,PRIMARY KEY(scope_key,id));
-      CREATE TABLE IF NOT EXISTS memory_pending_proposals(scope_key TEXT NOT NULL,id TEXT NOT NULL,record TEXT NOT NULL,PRIMARY KEY(scope_key,id));`);
+      CREATE TABLE IF NOT EXISTS memory_pending_proposals(scope_key TEXT NOT NULL,id TEXT NOT NULL,record TEXT NOT NULL,PRIMARY KEY(scope_key,id));
+      CREATE TABLE IF NOT EXISTS memory_quarantine(scope_key TEXT NOT NULL,id TEXT NOT NULL,status TEXT NOT NULL DEFAULT 'candidate',record TEXT NOT NULL,PRIMARY KEY(scope_key,id));
+      CREATE INDEX IF NOT EXISTS memory_quarantine_status ON memory_quarantine(scope_key,status);
+      CREATE TABLE IF NOT EXISTS preference_upgrade_proposals(scope_key TEXT NOT NULL,id TEXT NOT NULL,record TEXT NOT NULL,PRIMARY KEY(scope_key,id));
+      CREATE TABLE IF NOT EXISTS correction_overlays(scope_key TEXT NOT NULL,id TEXT NOT NULL,record TEXT NOT NULL,PRIMARY KEY(scope_key,id));
+      CREATE TABLE IF NOT EXISTS revision_cutover_map(scope_key TEXT NOT NULL,source_id TEXT NOT NULL,from_rev TEXT NOT NULL,to_rev TEXT NOT NULL,PRIMARY KEY(scope_key,source_id));
+      CREATE TABLE IF NOT EXISTS message_deletions(scope_key TEXT NOT NULL,message_id TEXT NOT NULL,reason TEXT NOT NULL,at TEXT NOT NULL,PRIMARY KEY(scope_key,message_id));`);
     if(!this.db.prepare('PRAGMA table_info(memory_journal)').all().some(c=>c.name==='cursor'))this.db.exec('ALTER TABLE memory_journal ADD COLUMN cursor INTEGER NOT NULL DEFAULT 0');
     if(!this.db.prepare('PRAGMA table_info(memory_journal)').all().some(c=>c.name==='queued_at')){this.db.exec('ALTER TABLE memory_journal ADD COLUMN queued_at TEXT');this.db.prepare('UPDATE memory_journal SET queued_at=? WHERE queued_at IS NULL').run(new Date().toISOString());}
     if(!this.db.prepare('PRAGMA table_info(memory_meta)').all().some(c=>c.name==='processor_version'))this.db.exec('ALTER TABLE memory_meta ADD COLUMN processor_version TEXT');
     this.experiences = new ExperienceStore(this, {scopeKey});
     this.discussionCompactions = new DiscussionCompactionStore(this);
+    this.observationLog = new ObservationLog(this.db, {scopeKey});
     this.db.exec('CREATE TABLE IF NOT EXISTS schema_migrations(version INTEGER PRIMARY KEY,applied_at TEXT NOT NULL,description TEXT NOT NULL)');
     this.db.prepare('INSERT OR IGNORE INTO schema_migrations VALUES(?,?,?)').run(1,new Date().toISOString(),'Relationship and experience storage; semantic bootstrap is tracked separately');
     this.db.prepare('INSERT OR IGNORE INTO schema_migrations VALUES(?,?,?)').run(2,new Date().toISOString(),'Evidence-backed knowledge metadata; structural conversion is not semantic review');
-    this.db.exec('PRAGMA user_version=2; COMMIT');
+    // Upgrade to schema 3: append-only observation log (M1), first-class
+    // quarantine/preference-upgrade/overlay storage (M2), speaker-fingerprinted
+    // source revisions. Existing rows are remapped deterministically inside
+    // the same transaction; the observation log backfills lazily from the
+    // ingest stores on first use (migrateObservations).
+    if(schemaVersion<3&&this.db.prepare('SELECT 1 FROM memory_sources LIMIT 1').get())this._remapSpeakerFingerprintedRevisions();
+    this.db.prepare('INSERT OR IGNORE INTO schema_migrations VALUES(?,?,?)').run(3,new Date().toISOString(),'Observation log as identity authority; speaker-fingerprinted revisions; quarantine, overlay and preference-upgrade storage');
+    this.db.exec('PRAGMA user_version=3; COMMIT');
     } catch(error) {if(this.db.isTransaction)this.db.exec('ROLLBACK');this.db.close();throw error;}
     this.insert = this.db.prepare(`INSERT INTO messages VALUES(?,?,?,?)
       ON CONFLICT(account_uid,peer_uid,message_id) DO UPDATE SET record=excluded.record`);
@@ -205,7 +223,9 @@ class Store {
     this.db.prepare('DELETE FROM discussion_compactions WHERE scope_key=?').run(scopeKey(scope));
   }
   _normalizeFeedbackReferences(scope,record) {
-    const canonical=new Map(this.experiences.sourceRows(scope).map(source=>[source.id,{...source,revision:hash(source)}]));
+    // Use the speaker-fingerprinted revision authority: a private inline hash
+    // here would desync canonical feedback mappings from the live projection.
+    const canonical=new Map(this.experiences.sourceRows(scope).map(source=>[source.id,{...source,revision:sourceRevision(source)}]));
     const mappings=[];
     for(const turn of record.turns.filter(t=>['feedback','feedback_ref'].includes(t.kind))){
       const from=`private:${turn.id}`,to=this.experiences.canonicalSource(scope,from),source=canonical.get(to);
@@ -534,6 +554,13 @@ class Store {
     });}catch(error){return {applied:false,reason:'invalid_topic_patch',detail:error.message};}
   }
   correctRelationshipClaim(scope, {id,expectedVersion,text,operation}={}) {
+    // Corrections are scoped overlays, never record rewrites (M2): the target
+    // claim keeps its identity, version, evidence and wording; the overlay
+    // carries the correction bound to the user's correction observation.
+    // Views apply active overlays at read time (correct -> corrected text
+    // with the original preserved; withdraw -> suppressed with the semantic
+    // signature retired so the same understanding cannot be recreated from
+    // the same evidence).
     try{return this._atomic(()=>{
       identifier(id,'claim id');if(!['correct','withdraw'].includes(operation))throw new Error('Unknown claim correction operation');
       if(operation==='correct')textValue(text,'claim correction text',1000);
@@ -543,12 +570,122 @@ class Store {
       const live=new Map(this._rawMemorySources(scope).map(s=>[s.id,s]));
       if(Object.entries(old.sourceRevisions).some(([sid,rev])=>live.get(sid)?.revision!==rev))return {applied:false,reason:'claim_source_unavailable'};
       const turn=this.appendTurn(scope,{role:'user',kind:'claim_correction',text:operation==='correct'?text:'用户要求停用一条助手理解。'}),sourceId=`private:${turn.id}`;
-      const patch={retire:[{id,expectedVersion,sourceIds:[sourceId],lifecycle:'withdrawn'}],claims:operation==='correct'?[{subject:old.subject,aspect:old.aspect,text:`用户说明：${text}`,assertionKind:'reported',epistemicStatus:'supported',sourceIds:[sourceId],topicKeys:old.topicKeys||[]}]:[]};
-      const sources=this._rawMemorySources(scope),deliveredSources=sources.map(source=>({...source,scope:{...scope}}));
-      const checked=prepareRelationshipPatch(this,scope,patch,{sourceIds:sources.map(s=>s.id),deliveredSources,explicitUserCorrection:true});
-      writeRelationshipRecords(this,scope,checked);this.db.prepare('UPDATE memory_meta SET version=version+1 WHERE scope_key=?').run(scopeKey(scope));
-      return {applied:true,sourceId,claimId:checked.find(r=>r.id!==id)?.id||null,revision:this._getCompanion(scope).revision};
+      // The correction observation was appended after `live` was captured:
+      // re-derive so the overlay binds to the live revision of its own source.
+      const source=this._rawMemorySources(scope).find(s=>s.id===sourceId);
+      const overlay=this.applyCorrectionOverlay(scope,{targetRecordId:id,targetVersion:old.version,targetKind:'claim',operation:operation==='correct'?'annotate':'suppress',...(operation==='correct'?{content:text}:{}),sourceIds:[sourceId],sourceRevisions:{[sourceId]:source.revision},scope:{kind:'record'},origin:'user_correction'});
+      if(operation==='withdraw'){
+        // Suppression bookkeeping only: the record body stays untouched; the
+        // suppression pointer and the retired signature make views render it
+        // withdrawn and block recreation from the same evidence.
+        const suppressed={...old,suppressedByOverlayId:overlay.id,retiredSemanticSignatures:[...new Set([...(old.retiredSemanticSignatures||[]),old.semanticSignature].filter(Boolean))],version:old.version+1,updatedAt:new Date().toISOString()};
+        this.db.prepare('UPDATE memory_records SET record=? WHERE scope_key=? AND id=?').run(JSON.stringify(suppressed),scopeKey(scope),old.id);
+      }
+      this.db.prepare('UPDATE memory_meta SET version=version+1 WHERE scope_key=?').run(scopeKey(scope));
+      return {applied:true,sourceId,overlayId:overlay.id,claimId:id,revision:this._getCompanion(scope).revision};
     });}catch(error){return {applied:false,reason:'invalid_claim_correction',detail:error.message};}
+  }
+  applyCorrectionOverlay(scope, value) {
+    // Validated additive overlay write (M2 storage). The overlay must bind to
+    // a live record and live observation revisions; the observation-log fold
+    // gives the correction utterance itself a frozen speaker identity.
+    return this._atomic(()=>{
+      const overlay=normalizeOverlay(value);
+      const live=new Map(this._rawMemorySources(scope).map(s=>[s.id,s]));
+      if(!this._memoryRecords(scope).some(r=>r.id===overlay.targetRecordId))throw new Error('Correction overlay target unavailable');
+      if(overlay.sourceIds.some(id=>!live.has(id)||live.get(id).revision!==overlay.sourceRevisions[id]))throw new Error('Correction overlay evidence unavailable or stale');
+      this.db.prepare('INSERT INTO correction_overlays VALUES(?,?,?)').run(scopeKey(scope),overlay.id,JSON.stringify(overlay));
+      this.db.prepare('UPDATE memory_meta SET version=version+1 WHERE scope_key=?').run(scopeKey(scope));
+      return overlay;
+    });
+  }
+  correctionOverlays(scope,{activeOnly=false}={}) {
+    const overlays=this.db.prepare('SELECT record FROM correction_overlays WHERE scope_key=? ORDER BY rowid').all(scopeKey(scope)).map(row=>JSON.parse(row.record));
+    return activeOnly?overlays.filter(overlay=>overlay.status==='active'):overlays;
+  }
+  retireCorrectionOverlay(scope,id) {
+    return this._atomic(()=>{
+      const row=this.db.prepare('SELECT record FROM correction_overlays WHERE scope_key=? AND id=?').get(scopeKey(scope),identifier(id,'overlay id'));
+      if(!row)return false;
+      const overlay={...JSON.parse(row.record),status:'retired',retiredAt:new Date().toISOString()};
+      this.db.prepare('UPDATE correction_overlays SET record=? WHERE scope_key=? AND id=?').run(JSON.stringify(overlay),scopeKey(scope),id);
+      this.db.prepare('UPDATE memory_meta SET version=version+1 WHERE scope_key=?').run(scopeKey(scope));
+      return true;
+    });
+  }
+  quarantinedProposals(scope,{status}={}) {
+    const rows=this.db.prepare(status?'SELECT record FROM memory_quarantine WHERE scope_key=? AND status=? ORDER BY rowid':'SELECT record FROM memory_quarantine WHERE scope_key=? ORDER BY rowid').all(...(status?[scopeKey(scope),status]:[scopeKey(scope)]));
+    return rows.map(row=>JSON.parse(row.record));
+  }
+  dismissQuarantinedProposal(scope,id) {
+    return this._atomic(()=>{
+      const row=this.db.prepare('SELECT record FROM memory_quarantine WHERE scope_key=? AND id=?').get(scopeKey(scope),identifier(id,'quarantine id'));
+      if(!row)return false;
+      const record={...JSON.parse(row.record),status:'dismissed',dismissedAt:new Date().toISOString()};
+      this.db.prepare('UPDATE memory_quarantine SET status=?,record=? WHERE scope_key=? AND id=?').run('dismissed',JSON.stringify(record),scopeKey(scope),id);
+      return true;
+    });
+  }
+  // Program repetition counter (design §2.2): preference candidates with the
+  // same subject/aspect/normalized text, counted across distinct evidence and
+  // distinct batches, surface a pending upgrade proposal. Single-occurrence
+  // candidates are also pending (one explicit declaration can be authorized
+  // immediately); the counter only decides prominence, never auto-applies.
+  _refreshPreferenceUpgradeProposals(scope) {
+    const key=scopeKey(scope);
+    const candidates=this.quarantinedProposals(scope,{status:'candidate'}).filter(entry=>entry.code==='preference_candidate'&&entry.proposal);
+    const groups=new Map();
+    for(const entry of candidates){
+      const proposal=entry.proposal,normalized=String(proposal.text||'').trim().toLowerCase().replace(/\s+/g,'');
+      const groupKey=hash({subject:proposal.subject,aspect:proposal.aspect,text:normalized});
+      if(!groups.has(groupKey))groups.set(groupKey,{groupKey,subject:proposal.subject,aspect:proposal.aspect,text:proposal.text,occurrences:[]});
+      groups.get(groupKey).occurrences.push({quarantineId:entry.id,batchId:entry.batchId,at:entry.at,sourceIds:proposal.sourceIds||[]});
+    }
+    for(const group of groups.values()){
+      const existing=this.db.prepare('SELECT record FROM preference_upgrade_proposals WHERE scope_key=? AND id=?').get(key,group.groupKey);
+      const prior=existing&&JSON.parse(existing.record);
+      if(prior&&prior.status!=='pending'){prior.occurrences=group.occurrences;this.db.prepare('UPDATE preference_upgrade_proposals SET record=? WHERE scope_key=? AND id=?').run(JSON.stringify(prior),key,group.groupKey);continue;}
+      const evidenceSourceIds=[...new Set(group.occurrences.flatMap(occurrence=>occurrence.sourceIds))];
+      const distinctBatches=new Set(group.occurrences.map(occurrence=>occurrence.batchId)).size;
+      const proposal={id:group.groupKey,status:'pending',subject:group.subject,aspect:group.aspect,text:group.text,occurrences:group.occurrences,evidenceSourceIds,
+        repetition:{count:group.occurrences.length,distinctBatches,eligibleForProgramWidening:group.occurrences.length>=3&&distinctBatches>=2},createdAt:prior?.createdAt||new Date().toISOString()};
+      this.db.prepare('INSERT OR REPLACE INTO preference_upgrade_proposals VALUES(?,?,?)').run(key,group.groupKey,JSON.stringify(proposal));
+    }
+    return groups.size;
+  }
+  preferenceUpgradeProposals(scope,{status}={}) {
+    this._refreshPreferenceUpgradeProposals(scope);
+    const rows=this.db.prepare('SELECT record FROM preference_upgrade_proposals WHERE scope_key=? ORDER BY rowid').all(scopeKey(scope)).map(row=>JSON.parse(row.record));
+    return status?rows.filter(proposal=>proposal.status===status):rows;
+  }
+  // The only recurring-upgrade channel besides the user's own preference
+  // notes: explicit user confirmation of a candidate. The authorized claim is
+  // written through the normal foreground gate (authority + speech
+  // attribution checks), with the decision recorded on the proposal.
+  resolvePreferenceUpgrade(scope,{id,decision}={}) {
+    try{return this._atomic(()=>{
+      const row=this.db.prepare('SELECT record FROM preference_upgrade_proposals WHERE scope_key=? AND id=?').get(scopeKey(scope),identifier(id,'preference proposal id'));
+      if(!row)return {applied:false,reason:'proposal_unavailable'};
+      const proposal=JSON.parse(row.record);
+      if(proposal.status!=='pending')return {applied:false,reason:'already_resolved'};
+      if(decision==='dismiss'){
+        const dismissed={...proposal,status:'dismissed',decidedAt:new Date().toISOString()};
+        this.db.prepare('UPDATE preference_upgrade_proposals SET record=? WHERE scope_key=? AND id=?').run(JSON.stringify(dismissed),scopeKey(scope),id);
+        return {applied:true,status:'dismissed'};
+      }
+      if(decision!=='authorize')return {applied:false,reason:'unknown_decision'};
+      const sources=this._rawMemorySources(scope),live=new Map(sources.map(s=>[s.id,s]));
+      const sourceIds=[...new Set(proposal.evidenceSourceIds)].filter(id=>live.has(id));
+      if(!sourceIds.length)return {applied:false,reason:'proposal_evidence_unavailable'};
+      const claim={subject:proposal.subject||'self',aspect:proposal.aspect||'stated_preference',text:proposal.text,assertionKind:'stated',epistemicStatus:'supported',applicabilityKind:'recurring',sourceIds,topicKeys:[]};
+      const checked=prepareRelationshipPatch(this,scope,{claims:[claim],events:[],retire:[]},{sourceIds:sources.map(s=>s.id),sourceRevisions:Object.fromEntries(sources.map(s=>[s.id,s.revision])),deliveredSources:sources.map(source=>({...source,scope:{...scope}})),preferenceAuthority:'user'});
+      const changed=writeRelationshipRecords(this,scope,checked);
+      const authorized={...proposal,status:'authorized',decidedAt:new Date().toISOString(),authorizedClaimId:checked[0]?.id||null};
+      this.db.prepare('UPDATE preference_upgrade_proposals SET record=? WHERE scope_key=? AND id=?').run(JSON.stringify(authorized),scopeKey(scope),id);
+      this.db.prepare('UPDATE memory_meta SET version=version+1 WHERE scope_key=?').run(scopeKey(scope));
+      for(const entry of proposal.occurrences||[])this.dismissQuarantinedProposal(scope,entry.quarantineId);
+      return {applied:true,status:'authorized',claimId:authorized.authorizedClaimId,changes:changed};
+    });}catch(error){return {applied:false,reason:'invalid_preference_upgrade',detail:error.message};}
   }
 
   applyRelationshipPatch(scope, patch, options={}) {
@@ -675,16 +812,111 @@ class Store {
     if(record.state.legacyTaskReviews)record.state.legacyTaskReviews=record.state.legacyTaskReviews.filter(review=>(review.sourceIds||[]).every(id=>live.has(id)&&(!review.sourceRevisions||review.sourceRevisions[id]===live.get(id).revision)));
     if(record.topics.items.length&&pruneTopics(record,sources))this._invalidateTaskDerived(scope);
   }
-  _rawMemorySources(scope, record=this._getCompanion(scope)) {
+  // Ingest-store derivation of the observation set (the sourcesFor shape).
+  // Pure read: defines WHAT the observations are, from the mutable stores.
+  _deriveSources(scope, record=this._getCompanion(scope)) {
     record={...emptyCompanion(),...record};
     const excluded=new Set(this.db.prepare('SELECT source_id FROM memory_exclusions WHERE scope_key=?').all(scopeKey(scope)).map(r=>r.source_id));
+    // Monotonic local-deletion tombstones (B10): a QQ message deleted on the
+    // user's side never re-enters the observation set.
+    const locallyDeleted=new Set(this.db.prepare('SELECT message_id FROM message_deletions WHERE scope_key=?').all(scopeKey(scope)).map(r=>r.message_id));
     const sources=[
-      ...this.messages(scope).filter(m=>!m.recalled).map(m=>({id:`qq:${m.messageId}`,type:'qq',text:m.text,at:new Date(m.timestamp).toISOString(),role:m.direction==='outgoing'?'user':'contact',direction:m.direction,use:'discussion',messageId:m.messageId,...qqSourceMetadata(m)})),
+      ...this.messages(scope).filter(m=>!m.recalled&&!locallyDeleted.has(m.messageId)).map(m=>({id:`qq:${m.messageId}`,type:'qq',text:m.text,at:new Date(m.timestamp).toISOString(),role:m.direction==='outgoing'?'user':'contact',direction:m.direction,use:'discussion',messageId:m.messageId,...qqSourceMetadata(m)})),
       ...record.turns.filter(t=>t.role==='user'&&!t.memoryExcluded&&!['feedback','feedback_ref'].includes(t.kind)).map(t=>({id:`private:${t.id}`,type:'private',text:t.text,at:t.createdAt,role:'user',use:'discussion',kind:t.kind,version:t.version||1})),
       ...record.notes.filter(n=>n.use!=='disabled').map(n=>({id:`note:${n.id}`,type:'note',text:n.text,at:n.updatedAt,use:n.use,kind:n.kind||'material',version:n.version,...(n.evidenceSourceIds?{evidenceSourceIds:n.evidenceSourceIds}:{}),...(n.evidenceRevisions?{evidenceRevisions:n.evidenceRevisions}:{})})),
       ...this.experiences.sourceRows(scope)
     ].filter(s=>!excluded.has(s.id));
     return sources.map(s=>({...s,revision:sourceRevision(s)}));
+  }
+  // The observation log is the single identity authority: every read first
+  // reconciles the log against the ingest derivation (append-only events),
+  // then returns the projected observations with speaker/heldBy frozen at
+  // first sight. Consumers stop re-deriving identity from mutable fields.
+  _rawMemorySources(scope, record=this._getCompanion(scope)) {
+    const derived=this._deriveSources(scope,record);
+    const recalledMessages=this.messages(scope).filter(m=>m.recalled);
+    const recalled=new Set(recalledMessages.map(m=>`qq:${m.messageId}`));
+    const excluded=new Set(this.db.prepare('SELECT source_id FROM memory_exclusions WHERE scope_key=?').all(scopeKey(scope)).map(r=>r.source_id));
+    const knownTombstones=[
+      ...recalledMessages.map(m=>({observationId:`qq:${m.messageId}`,kind:'recalled',...(m.recalledAt?{recalledAt:new Date(m.recalledAt).toISOString()}:{})})),
+      ...[...excluded].filter(id=>!recalled.has(id)).map(id=>({observationId:id,kind:'excluded',reason:'user_excluded'})),
+    ];
+    this.observationLog.reconcile(scope,derived,{isRecalled:id=>recalled.has(id),knownTombstones});
+    // The returned sources keep the exact legacy sourcesFor shape: log-internal
+    // metadata (speaker/heldBy/observedAt/lastEventAt/bodyDigest) stays in the
+    // observation log, the identity authority, so persisted derived rows never
+    // churn on view metadata. Consumers that need frozen identity read the log.
+    const order=new Map(derived.map((source,index)=>[source.id,index]));
+    return this.observationLog.liveObservations(scope)
+      .map(({speaker,heldBy,observedAt,lastEventAt,bodyDigest,identityChanges,deleted,...source})=>source)
+      .sort((a,b)=>(order.get(a.id)??Number.MAX_SAFE_INTEGER)-(order.get(b.id)??Number.MAX_SAFE_INTEGER));
+  }
+  // Deterministic one-time remap when the speaker-fingerprinted revision
+  // formula replaces the legacy sender-stripped hash (schema 3 upgrade).
+  // Live revision pointers move to the new hash; historical receipts stay as
+  // records of what was reviewed. Rows referencing an unknown old revision
+  // are left for the existing staleness machinery instead of silent repair.
+  _remapSpeakerFingerprintedRevisions() {
+    const revisions=new Map();
+    for(const row of this.db.prepare('SELECT scope_key,source_id,revision,record FROM memory_sources').all()){
+      const record=JSON.parse(row.record),{revision,...source}=record,next=sourceRevision(source);
+      if(next===row.revision)continue;
+      revisions.set(row.scope_key+'\u0000'+row.source_id,{from:row.revision,to:next});
+      this.db.prepare('UPDATE memory_sources SET revision=?,record=? WHERE scope_key=? AND source_id=?').run(next,JSON.stringify({...source,revision:next}),row.scope_key,row.source_id);
+      this.db.prepare('UPDATE memory_journal SET revision=? WHERE scope_key=? AND source_id=? AND revision=? AND status=\'pending\'').run(next,row.scope_key,row.source_id,row.revision);
+      this.db.prepare('UPDATE memory_dependencies SET revision=? WHERE scope_key=? AND source_id=? AND revision=?').run(next,row.scope_key,row.source_id,row.revision);
+    }
+    // D1 cutover: persist the old->new revision hash map so later semantic
+    // checks can retry pre-cutover signature comparisons (retirement
+    // anti-resurrection) under the legacy hashes.
+    const mapRow=this.db.prepare('INSERT OR REPLACE INTO revision_cutover_map VALUES(?,?,?,?)');
+    for(const [key,mapped]of revisions){const [scopeKeyPart,sourceId]=key.split('\u0000');mapRow.run(scopeKeyPart,sourceId,mapped.from,mapped.to);}
+    // shapes are recognized generically: a *Revisions map (source id ->
+    // revision) and a {sourceId, revision} reference object. Only exact
+    // old-hash matches are replaced, so the pass is idempotent and unknown
+    // revisions are left to the existing staleness machinery, never silently
+    // rewritten.
+    const remap=(value,key)=>{
+      const map=id=>revisions.get(key+'\u0000'+id);
+      const walk=item=>{
+        if(Array.isArray(item))return item.map(walk);
+        if(!plain(item))return item;
+        const copy={...item};
+        for(const [field,child]of Object.entries(copy)){
+          if(/Revisions$/.test(field)&&plain(child)){
+            const revised={};
+            for(const [id,revision]of Object.entries(child)){
+              const mapped=map(id);
+              revised[id]=mapped&&mapped.from===revision?mapped.to:revision;
+            }
+            copy[field]=revised;
+          } else copy[field]=walk(child);
+        }
+        if(typeof copy.sourceId==='string'&&typeof copy.revision==='string'){
+          const mapped=map(copy.sourceId);
+          if(mapped&&mapped.from===copy.revision)copy.revision=mapped.to;
+        }
+        return copy;
+      };
+      return walk(value);
+    };
+    const tables={
+      memory_records:'WHERE scope_key=? AND id=?',
+      memory_gaps:'WHERE scope_key=? AND id=?',
+      discussion_compactions:'WHERE scope_key=? AND id=?',
+      experience_objects:'WHERE scope_key=? AND kind=? AND id=?',
+      companion:'WHERE scope_key=?',
+    };
+    const rowArgs=(table,row)=>table==='experience_objects'?[row.scope_key,row.kind,row.id]:table==='companion'?[row.scope_key]:[row.scope_key,row.id];
+    for(const [table,where] of Object.entries(tables)){
+      if(!this.db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name=?").get(table))continue;
+      for(const row of this.db.prepare('SELECT * FROM '+table).all()){
+        const updated=remap(JSON.parse(row.record),row.scope_key);
+        if(JSON.stringify(updated)===row.record)continue;
+        this.db.prepare('UPDATE '+table+' SET record=? '+where).run(JSON.stringify(updated),...rowArgs(table,row));
+      }
+    }
+    return revisions.size;
   }
   _syncMemory(scope, record=this._getCompanion(scope)) {
     // A source invalidation can redact feedback about an affected artifact, which
@@ -836,7 +1068,8 @@ class Store {
     const latest=this.db.prepare('SELECT record FROM memory_receipts WHERE scope_key=? ORDER BY rowid DESC LIMIT 1').get(key);
     const review=this._semanticReviewState(scope),semanticPending=review.pending.length;
     const pendingProposals=this.db.prepare('SELECT count(*) n FROM memory_pending_proposals WHERE scope_key=?').get(key).n;
-    return {pending:counts.pending||0,processed:counts.reviewed||0,superseded:counts.superseded||0,semanticPending,pendingProposals,recoveryReady:review.ready.length,recoveryDeferred:review.deferred.length,recoveryReasons:[...new Set(review.deferred.map(target=>target.reason))],version:meta?.version||0,counts:{sources:sourceCount,items:records.find(x=>x.kind==='item')?.n||0,episodes:records.find(x=>x.kind==='episode')?.n||0,claims:records.find(x=>x.kind==='claim')?.n||0,events:records.find(x=>x.kind==='relationship_event')?.n||0},errors:meta?.error?[JSON.parse(meta.error)]:[],lastReview:latest?JSON.parse(latest.record):null};
+    const quarantinedCandidates=this.db.prepare("SELECT count(*) n FROM memory_quarantine WHERE scope_key=? AND status='candidate'").get(key).n,pendingUpgrades=this.db.prepare("SELECT count(*) n FROM preference_upgrade_proposals WHERE scope_key=? AND json_extract(record,'$.status')='pending'").get(key).n;
+    return {pending:counts.pending||0,processed:counts.reviewed||0,preferenceCandidates:quarantinedCandidates,pendingPreferenceUpgrades:pendingUpgrades,superseded:counts.superseded||0,semanticPending,pendingProposals,recoveryReady:review.ready.length,recoveryDeferred:review.deferred.length,recoveryReasons:[...new Set(review.deferred.map(target=>target.reason))],version:meta?.version||0,counts:{sources:sourceCount,items:records.find(x=>x.kind==='item')?.n||0,episodes:records.find(x=>x.kind==='episode')?.n||0,claims:records.find(x=>x.kind==='claim')?.n||0,events:records.find(x=>x.kind==='relationship_event')?.n||0},errors:meta?.error?[JSON.parse(meta.error)]:[],lastReview:latest?JSON.parse(latest.record):null};
   }
   _memoryRecords(scope) {
     return this.db.prepare('SELECT kind,record FROM memory_records WHERE scope_key=?').all(scopeKey(scope)).map(r=>({...JSON.parse(r.record),recordType:r.kind}));
@@ -1019,7 +1252,7 @@ class Store {
       for(const source of batch.sources)if(!source.deleted&&raw.get(source.id)?.revision!==source.revision)return reject('stale_source');
       const checked=[];const statuses=['active','resolved','cancelled','superseded'];
       const build=(value,type,{retiring=false}={})=>{
-        const keys=['id','kind','text','sourceIds','topicKeys','status','certainty','explicitPreference'];
+        const keys=['id','kind','text','sourceIds','topicKeys','status','certainty'];
         if(!plain(value)||Object.keys(value).some(k=>!keys.includes(k)))throw new Error('Unauthorized memory fields');
         const sourceIds=sourceList(value.sourceIds);
         if(!sourceIds.length||sourceIds.length>64||sourceIds.some(sid=>!allowed.has(sid)||!raw.has(sid)))throw new Error('Unavailable or undelivered memory evidence');
@@ -1049,15 +1282,28 @@ class Store {
         if(retiring){for(const field of ['firstEvidenceAt','lastEvidenceAt','at','reportedAt'])if(older[field]!==undefined)result[field]=older[field];result.retirement={sourceIds:value.sourceIds,reviewedAt:result.semanticReview.reviewedAt};}
         return result;
       };
-      // Preference classification is a semantic judgment, not a protocol
-      // violation: one misfiled preference is quarantined with a per-record
-      // receipt while the valid records in the same batch still commit, so the
-      // review journal keeps advancing and the user request round stays
-      // reachable. Every other validation failure rejects the whole batch.
+      // Decision-split write gate (B1): preference classification is outside
+      // the model's write scope entirely. A proposed preference item never
+      // commits and never fails the batch; it is filed as a first-class
+      // preference_candidate receipt (visible to the user and to the program
+      // repetition counter) while the valid records in the same batch commit
+      // and the journal always advances. Other validation failures still
+      // reject the whole batch as today.
       const quarantined=[],PREFERENCE_GATE_CODES=new Set(['memory_preference_attestation_required','memory_preference_authority_required']);
+      const candidateQuarantine=(field,proposal,proposedApplicability,message)=>{
+        const sourceIds=sourceList(proposal.sourceIds||[]).filter(sid=>raw.has(sid));
+        quarantined.push({field,code:'preference_candidate',message,
+          proposal:{kind:proposal.kind,subject:proposal.subject,aspect:proposal.aspect,text:proposal.text,topicKeys:proposal.topicKeys||[],sourceIds,
+            ...(proposedApplicability?{proposedApplicability}:{})},
+          evidenceSourceIds:sourceIds,evidenceRevisions:Object.fromEntries(sourceIds.map(sid=>[sid,raw.get(sid).revision]))});
+      };
       for(const [field,type] of [['items','item'],['episodes','episode']]) {
         if(result[field]!==undefined&&(!Array.isArray(result[field])||result[field].length>(type==='item'?24:6)))throw new Error(`Invalid ${field} count`);
         (result[field]||[]).forEach((item,index)=>{
+          if(type==='item'&&item?.kind==='preference'){
+            candidateQuarantine(`${field}[${index}]`,item,undefined,'Preference classification is program/user-owned; the proposal is retained as a candidate pending user attestation or program-detected repetition');
+            return;
+          }
           try{checked.push(build(item,type));}
           catch(error){
             if(!PREFERENCE_GATE_CODES.has(error.code))throw error;
@@ -1071,13 +1317,13 @@ class Store {
         const old=previous.get(retirement.id);if(!['item','episode'].includes(old.recordType))throw new Error('Typed records require relationshipPatch retirement');checked.push(build({id:old.id,kind:old.kind,text:old.text,sourceIds:[...new Set([...old.sourceIds,...sourceList(retirement.sourceIds)])],topicKeys:old.topicKeys,status:retirement.status,certainty:old.certainty},old.recordType,{retiring:true}));
       }
       if(new Set(checked.map(c=>c.id)).size!==checked.length)throw new Error('Duplicate memory update');
-      const relationships=result.relationshipPatch?prepareRelationshipPatch(this,scope,result.relationshipPatch,{sourceIds:[...allowed],sourceRevisions:Object.fromEntries([...raw].map(([id,s])=>[id,s.revision])),previousIds:new Set(previous.keys()),readOnlyIds:new Set([...previous.values()].filter(item=>item.evidenceOffer?.authority==='read_only').map(item=>item.id)),reviewedSourceIds:batch.reviewedSourceIds,journalSourceIds:batch.events.map(event=>event.id),deliveredSources:actualDelivery,activityContext:batch.activityContext,quarantinePreference:entry=>quarantined.push(entry)}):[];
+      const relationships=result.relationshipPatch?prepareRelationshipPatch(this,scope,result.relationshipPatch,{sourceIds:[...allowed],sourceRevisions:Object.fromEntries([...raw].map(([id,s])=>[id,s.revision])),previousIds:new Set(previous.keys()),readOnlyIds:new Set([...previous.values()].filter(item=>item.evidenceOffer?.authority==='read_only').map(item=>item.id)),reviewedSourceIds:batch.reviewedSourceIds,journalSourceIds:batch.events.map(event=>event.id),deliveredSources:actualDelivery,activityContext:batch.activityContext,preferenceAuthority:'model',quarantinePreference:entry=>quarantined.push(entry)}):[];
       if(relationships.some(record=>checked.some(legacy=>legacy.id===record.id)))throw new Error('One memory record cannot receive competing legacy and typed transition writes');
-      // A result whose only proposals were unauthorized preferences still
-      // refuses the batch: an invalid promotion alone must not consume the
-      // review journal, and the sources stay reviewable for a corrected result.
-      const proposedCount=(result.items?.length||0)+(result.episodes?.length||0)+(result.retire?.length||0)+(result.relationshipPatch?.claims?.length||0)+(result.relationshipPatch?.events?.length||0)+(result.relationshipPatch?.retire?.length||0);
-      if(quarantined.length&&!checked.length&&!relationships.length&&proposedCount>0)throw new Error(quarantined[0].message);
+      // A batch whose remaining proposals are all preference candidates still
+      // commits: candidates are receipts, not failures, and the review journal
+      // always advances past sources whose only proposals were classified
+      // outside the model's write scope (the memory_preference_attestation
+      // failure class disappears from the write path).
       for(const item of checked) {
         this.db.prepare('INSERT INTO memory_records VALUES(?,?,?,?) ON CONFLICT(scope_key,id) DO UPDATE SET kind=excluded.kind,record=excluded.record').run(key,item.id,item.recordType,JSON.stringify(item));
         this.db.prepare('DELETE FROM memory_dependencies WHERE scope_key=? AND id=?').run(key,item.id);
@@ -1098,9 +1344,15 @@ class Store {
         const length=raw.get(event.id)?.text.length||0;
         this.db.prepare("UPDATE memory_journal SET status=?,cursor=? WHERE seq=? AND scope_key=? AND status='pending'").run(event.end>=length?'reviewed':'pending',event.end,event.seq,key);
       }
-      const receipt={batchId:id,kind:batch.kind||'source_journal',reviewedSourceIds:batch.reviewedSourceIds,sourceRevisions:Object.fromEntries((batch.kind==='semantic_recovery'?actualDelivery:batch.events).map(e=>[e.id,e.revision])),seqFrom:batch.events[0]?.seq??null,seqTo:batch.events.at(-1)?.seq??null,segments:batch.events.map(e=>({sourceId:e.id,offset:e.offset,end:e.end})),...(batch.kind==='semantic_recovery'?{recoveryAttempts}:{}),originalCoverage:coverageFor(raw,actualDelivery,scope,{requiredSourceIds:actualDelivery.map(source=>source.id)}),reviewedAt:new Date().toISOString(),...(quarantined.length?{quarantinedRecords:quarantined}:{}),outcome:checked.length||relationshipChanges?'updated':batch.kind==='semantic_recovery'?'semantic_review_unfinished':'reviewed_no_change',updates:checked.length+relationshipChanges};
+      // Quarantine receipts are first-class rows (M2 storage): they back the
+      // preference-candidate ledger, the program repetition counter and the
+      // user-facing upgrade proposals. The batch receipt keeps references.
+      const quarantineRecords=quarantined.map(entry=>({id:randomUUID(),batchId:id,at:new Date().toISOString(),status:entry.code==='preference_candidate'?'candidate':'rejected',...entry}));
+      for(const entry of quarantineRecords)this.db.prepare('INSERT OR REPLACE INTO memory_quarantine VALUES(?,?,?,?)').run(key,entry.id,entry.status,JSON.stringify(entry));
+      const receipt={batchId:id,kind:batch.kind||'source_journal',reviewedSourceIds:batch.reviewedSourceIds,sourceRevisions:Object.fromEntries((batch.kind==='semantic_recovery'?actualDelivery:batch.events).map(e=>[e.id,e.revision])),seqFrom:batch.events[0]?.seq??null,seqTo:batch.events.at(-1)?.seq??null,segments:batch.events.map(e=>({sourceId:e.id,offset:e.offset,end:e.end})),...(batch.kind==='semantic_recovery'?{recoveryAttempts}:{}),originalCoverage:coverageFor(raw,actualDelivery,scope,{requiredSourceIds:actualDelivery.map(source=>source.id)}),reviewedAt:new Date().toISOString(),...(quarantineRecords.length?{quarantinedRecords:quarantineRecords.map(entry=>({id:entry.id,field:entry.field,code:entry.code}))}:{}),outcome:checked.length||relationshipChanges||quarantineRecords.length?'updated':batch.kind==='semantic_recovery'?'semantic_review_unfinished':'reviewed_no_change',updates:checked.length+relationshipChanges};
       this.db.prepare('INSERT INTO memory_receipts VALUES(?,?,?)').run(key,id,JSON.stringify(receipt));
       this.db.prepare('UPDATE memory_meta SET version=version+1,error=NULL WHERE scope_key=?').run(key);
+      this._refreshPreferenceUpgradeProposals(scope);
       return {applied:true,receipt};
     });}catch(error){return reject('invalid_memory_result',error.message);}
   }
@@ -1110,6 +1362,43 @@ class Store {
       if(!turn)return false;if(turn.text===text)return turn;
       turn.text=text;turn.version=(turn.version||1)+1;turn.updatedAt=new Date().toISOString();changedSource(record,true);this._writeCompanion(scope,record);return turn;
     });
+  }
+  // B10 deletion reconciliation: compare the QQ messages a refresh actually
+  // delivered (the visible window) with the stored, non-recalled messages of
+  // the same scope. A stored message that is missing INSIDE the delivered
+  // window was deleted on the user's side: it gets a monotonic tombstone
+  // (reason 'locally_deleted') plus an observation-log excluded event, and
+  // every derived view stops seeing it. Messages outside the window are
+  // untouched: pagination never implies deletion. Tombstones are monotonic:
+  // a stale later copy of a deleted message cannot resurrect it.
+  reconcileVisibleMessages(scope, visible) {
+    if(!Array.isArray(visible)||!visible.length)return {tombstoned:[]};
+    scopeKey(scope);
+    return this._atomic(()=>{
+      const key=scopeKey(scope);
+      const deleted=new Set(this.db.prepare('SELECT message_id FROM message_deletions WHERE scope_key=?').all(key).map(r=>r.message_id));
+      const stored=this.messages(scope).filter(m=>!m.recalled&&!deleted.has(m.messageId));
+      const visibleIds=new Set(visible.map(m=>m.messageId));
+      const earliest=visible.reduce((min,m)=>compare(m,min)<0?m:min,visible[0]);
+      const latest=visible.reduce((max,m)=>compare(m,max)>0?m:max,visible[0]);
+      const within=m=>compare(m,earliest)>=0&&compare(m,latest)<=0;
+      const tombstoned=[];
+      for(const message of stored){
+        if(visibleIds.has(message.messageId)||!within(message))continue;
+        this.db.prepare('INSERT OR IGNORE INTO message_deletions VALUES(?,?,?,?)').run(key,message.messageId,'locally_deleted',new Date().toISOString());
+        this.observationLog.excluded(scope,{observationId:'qq:'+message.messageId,reason:'locally_deleted'});
+        tombstoned.push('qq:'+message.messageId);
+      }
+      if(tombstoned.length){
+        const record=this._getCompanion(scope);
+        changedSource(record,true);
+        this._writeCompanion(scope,record);
+      }
+      return {tombstoned};
+    });
+  }
+  locallyDeletedMessageIds(scope) {
+    return new Set(this.db.prepare('SELECT message_id FROM message_deletions WHERE scope_key=?').all(scopeKey(scope)).map(r=>r.message_id));
   }
   ignoredSources(scope) {return this.db.prepare('SELECT source_id FROM memory_exclusions WHERE scope_key=?').all(scopeKey(scope)).map(r=>r.source_id);}
   _forgetEvidenceLosses(scope,id) {

@@ -10,7 +10,30 @@ const wire=request=>JSON.parse(JSON.parse(request.serialized).messages[1].conten
 function frame(t,store,text,at,id){t.mock.timers.setTime(Date.parse(at));store.appendTurn(scope,{id,role:'user',kind:'discussion',text});const batch=store.memoryBatch(scope),request=prepareMemoryRequest(settings,batch),p=wire(request),source=p.sources.find(source=>source.text===text);return {batch,request,p,source};}
 function initial(t,{legacy=false}={}){
  t.mock.timers.enable({apis:['Date'],now:Date.parse(capture.pre.asOf)});const store=new Store(':memory:');t.after(()=>store.close());store.add(scope,copy(capture.pre.messages));
- if(legacy){store.memorySources(scope);writeRelationshipRecords(store,scope,[copy(capture.pre.event)]);}
+  if(legacy){
+    // Structural reason (D1 speaker-fingerprint cutover): the frozen capture
+    // embeds old-formula source revisions. Re-key its live revision pointers
+    // to the fingerprinted projection before writing the legacy row; the
+    // gap/opaque-uncertainty semantics under test are unchanged.
+    store.memorySources(scope);
+    const live=new Map(store.memorySources(scope).map(source=>[source.id,source.revision]));
+    const event=copy(capture.pre.event);
+    const remap=value=>{
+      if(Array.isArray(value))return value.map(remap);
+      if(!value||typeof value!=='object')return value;
+      const out={...value};
+      for(const [key,child]of Object.entries(out)){
+        if(/Revisions$/.test(key)&&child&&typeof child==='object'&&!Array.isArray(child)){
+          const revised={};
+          for(const [id,revision]of Object.entries(child))revised[id]=live.has(id)?live.get(id):revision;
+          out[key]=revised;
+        } else out[key]=remap(child);
+      }
+      if(typeof out.sourceId==='string'&&live.has(out.sourceId))out.revision=live.get(out.sourceId);
+      return out;
+    };
+    writeRelationshipRecords(store,scope,[remap(event)]);
+  }
  else{const b=store.memoryBatch(scope),r=prepareMemoryRequest(settings,b),p=wire(r),[invite,,cancel]=p.sources,e={activity:{ref:'NEW',definition:{sourceId:invite.id,quote:invite.text}},activityKey:'exhibit',eventKind:'cancellation',actor:'contact',text:cancel.text,sourceIds:[cancel.id],evidence:{statement:{sourceId:cancel.id,quote:cancel.text},time:{basis:'qq_statement'}}};assert.equal(store.applyMemoryBatch(scope,b,r.decode({...noop(p),relationshipPatch:{events:[e]}})).applied,true);}
  t.mock.timers.setTime(Date.parse(capture.recall.at));store.add(scope,capture.recall.messages.map(message=>({...copy(message),recalledAt:Date.now()})));store.memorySources(scope);return store;
 }

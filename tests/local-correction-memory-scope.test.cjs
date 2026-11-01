@@ -34,25 +34,46 @@ function fixture(t,{withFeedback=true}={}){
 const stableClaim=declarationId=>({subject:'self',aspect:'stated_preference',text:STABLE_TEXT,assertionKind:'stated',epistemicStatus:'supported',applicabilityKind:'recurring',sourceIds:[declarationId]});
 const localClaim=feedbackId=>({subject:'self',aspect:'stated_preference',text:LOCAL_TEXT,assertionKind:'stated',epistemicStatus:'supported',applicabilityKind:'local',sourceIds:[feedbackId]});
 
-test('a locally scoped correction claim is admitted next to an attested stable preference',t=>{
+test('a locally scoped correction claim is admitted next to a user-attested stable preference',t=>{
   const {store,declarationId,feedbackId}=fixture(t);
   const batch=store.memoryBatch(scope);
   assert.ok(batch,'the fixture sources must form a memory batch');
   assert.ok(batch.sources.some(source=>source.id===feedbackId),'the local correction feedback must be a reviewable source');
   const result=store.applyMemoryBatch(scope,batch,complete(batch,{relationshipPatch:{claims:[stableClaim(declarationId),localClaim(feedbackId)],events:[],retire:[]}}));
   assert.equal(result.applied,true,JSON.stringify(result));
-  const claims=store.relationshipView(scope).claims;
-  const stable=claims.find(record=>record.applicabilityKind==='recurring'),local=claims.find(record=>record.applicabilityKind==='local');
-  assert.ok(stable,'the attested stable preference is persisted');
+  // Structural reason (B1 decision-split): the model's recurring classification
+  // is a candidate, never a committed stability decision. The claim is stored
+  // with non-durable applicability and the durable lane opens only after the
+  // user confirms the surfaced upgrade proposal.
+  let claims=store.relationshipView(scope).claims;
+  const degraded=claims.find(record=>record.sourceIds.includes(declarationId));
+  assert.ok(degraded,'the declaration-backed claim is persisted');
+  assert.equal(degraded.applicabilityKind,'unspecified','the model cannot commit a recurring classification');
+  const local=claims.find(record=>record.applicabilityKind==='local');
   assert.ok(local,'the locally scoped correction is persisted');
-  assert.deepEqual(stable.sourceIds,[declarationId]);
   assert.deepEqual(local.sourceIds,[feedbackId]);
+  assert.ok(result.receipt.quarantinedRecords?.some(entry=>entry.code==='preference_candidate'),'the recurring proposal is filed as a candidate');
+  const proposals=store.preferenceUpgradeProposals(scope,{status:'pending'});
+  assert.equal(proposals.length,1,'one pending upgrade proposal surfaces');
+  assert.equal(proposals[0].evidenceSourceIds.includes(declarationId),true);
+  const upgrade=store.resolvePreferenceUpgrade(scope,{id:proposals[0].id,decision:'authorize'});
+  assert.equal(upgrade.applied,true,JSON.stringify(upgrade));
+  claims=store.relationshipView(scope).claims;
+  const stable=claims.find(record=>record.id===upgrade.claimId);
+  assert.ok(stable,'the user-attested stable preference is persisted');
+  assert.equal(stable.applicabilityKind,'recurring');
+  assert.ok(stable.sourceIds.includes(declarationId));
 });
 
 test('a local correction does not rewrite, retire or share identity with the attested stable preference',t=>{
   const {store,declarationId}=fixture(t,{withFeedback:false});
   let batch=store.memoryBatch(scope);
   assert.equal(store.applyMemoryBatch(scope,batch,complete(batch,{relationshipPatch:{claims:[stableClaim(declarationId)],events:[],retire:[]}})).applied,true);
+  // Structural reason (B1): the durable lane requires user attestation; the
+  // model proposal degraded to an unspecified claim plus a pending proposal.
+  const proposals=store.preferenceUpgradeProposals(scope,{status:'pending'});
+  assert.equal(proposals.length,1);
+  assert.equal(store.resolvePreferenceUpgrade(scope,{id:proposals[0].id,decision:'authorize'}).applied,true);
   const stableBefore=store.relationshipView(scope).claims.find(record=>record.applicabilityKind==='recurring');
   assert.ok(stableBefore);
   const answer=store.appendTurn(scope,{id:'assistant-answer-late',role:'assistant',kind:'discussion',text:'又一份过于正式的参考表达。',requestId:'local-correction-run-2'});
@@ -86,19 +107,25 @@ test('one misclassified stable preference is quarantined without refusing the re
     relationshipPatch:{claims:[{...localClaim(feedbackId),applicabilityKind:'recurring'}],events:[],retire:[]}
   }));
   assert.equal(result.applied,true,JSON.stringify(result));
-  assert.ok(result.receipt.quarantinedRecords?.some(record=>record.code==='memory_preference_authority_required'),'the refused promotion is recorded, not silently ignored');
+  assert.ok(result.receipt.quarantinedRecords?.some(record=>record.code==='preference_candidate'),'the refused promotion is recorded as a candidate receipt, not silently ignored');
   const claims=store.relationshipView(scope).claims;
   assert.ok(!claims.some(record=>record.sourceIds.includes(feedbackId)),'the feedback-backed recurring promotion is not stored');
   assert.ok(store.searchMemory(scope,'读书笔记').items.some(item=>item.kind==='fact'),'the valid fact from the same batch survives');
 });
 
-test('a batch whose only proposal is an unauthorized preference is still refused as a whole',t=>{
+test('a batch whose only proposal is a preference candidate commits it as a receipt and advances the journal',t=>{
   const {store,feedbackId}=fixture(t);
   const batch=store.memoryBatch(scope);
   const result=store.applyMemoryBatch(scope,batch,complete(batch,{items:[{kind:'preference',text:'永远喜欢短回复',sourceIds:[feedbackId],explicitPreference:true}]}));
-  assert.equal(result.applied,false,'an invalid promotion alone must not consume the review journal');
-  const again=store.memoryBatch(scope);
-  assert.equal(store.applyMemoryBatch(scope,again,complete(again)).applied,true,'the sources stay reviewable');
+  // Structural reason (B1 decision-split write gate): preference classification
+  // is program/user-owned, so a preference proposal is a receipt, not a batch
+  // failure. The journal must always advance — the coverage-long-private-
+  // consultation jam cannot recur through this path.
+  assert.equal(result.applied,true,'a candidate alone still commits the review');
+  assert.ok(result.receipt.quarantinedRecords?.some(record=>record.code==='preference_candidate'));
+  assert.ok(store.quarantinedProposals(scope,{status:'candidate'}).some(entry=>entry.proposal?.text==='永远喜欢短回复'));
+  assert.equal(store.memoryStatus(scope).pending,0,'the sources are fully reviewed');
+  assert.ok(!store.searchMemory(scope,'短回复').items.some(item=>item.kind==='preference'),'no preference record was committed');
 });
 
 test('memory maintenance completes past a misclassified preference so the request round stays reachable',async t=>{
@@ -136,7 +163,12 @@ test('memory maintenance admits a correctly scoped local correction alongside a 
   const status=await maintainMemory({store,scope,settings,model,maxBatches:4});
   assert.notEqual(status.status,'rejected',JSON.stringify(status));
   assert.notEqual(status.status,'error',JSON.stringify(status));
+  // Structural reason (B1): maintenance files the declaration claim as a
+  // non-durable candidate; the user confirms the surfaced proposal here.
+  const proposals=store.preferenceUpgradeProposals(scope,{status:'pending'});
+  assert.equal(proposals.length,1,'the stable-preference candidate surfaces for attestation');
+  assert.equal(store.resolvePreferenceUpgrade(scope,{id:proposals[0].id,decision:'authorize'}).applied,true);
   const claims=store.relationshipView(scope).claims;
-  assert.ok(claims.some(record=>record.applicabilityKind==='recurring'&&record.sourceIds.includes(declarationId)),'the stable preference persisted');
+  assert.ok(claims.some(record=>record.applicabilityKind==='recurring'&&record.sourceIds.includes(declarationId)),'the attested stable preference persisted');
   assert.ok(claims.some(record=>record.applicabilityKind==='local'&&record.sourceIds.includes(feedbackId)),'the local correction persisted with local scope');
 });

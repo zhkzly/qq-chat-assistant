@@ -170,6 +170,9 @@ class Controller extends EventEmitter {
       if (epoch !== this.epoch || !sameScope(scope, this.scope)) return;
       this.ingest(scope, result.messages);
       const messages = result.messages.map(m => normalize(m, scope)).filter(Boolean).sort(compare);
+      // B10: reconcile the delivered visible window against stored
+      // observations so locally deleted QQ messages get monotonic tombstones.
+      this.store.reconcileVisibleMessages(scope, messages);
       const cached = this.store.messages(scope);
       this.store.setCoverage(scope, { status: messages.length ? 'partial' : cached.length ? 'cached_only' : 'empty',
         pages: 1, cursor: messages[0]?.messageId || null, oldestAt: cached[0]?.timestamp || null,
