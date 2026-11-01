@@ -235,3 +235,52 @@ test('an ambiguous ranged lookup without IDs still fails, naming the copy-ready 
     'discussion', input, {});
   assert.deepEqual(resolved.lookup.sourceIds, ['private:cand-b']);
 });
+
+// ---- CC1 requirement-driven compiler path (design §4.3 CC1 acceptance) ----
+// The greenfield admission compiler must give every oversized scenario above
+// a deliverable plan plus an explainable manifest, throwing only under the
+// minimal envelope. Same self-built fixture shapes, compiler seam: no legacy
+// selection wiring involved.
+const { compileContext } = require('../src/context/admission-compiler.cjs');
+const { BudgetAuthority } = require('../src/context/budget-authority.cjs');
+const { sourceSnapshot } = require('../src/context/source-snapshot.cjs');
+
+test('CC1: every oversized scenario yields a compiler plan + manifest at each budget', t => {
+  const scenarios = [
+    ['oversized pasted request', { requestText: handNote(24, '当前请求') + '\n她问到这些了，帮我回一下。', notes: [] }],
+    ['oversized archived intent note', { requestText: '帮我回一下。', notes: [handNote(60, '意图来源')] }],
+    ['oversized background evidence', { requestText: '她问到这些了，帮我回一下。', notes: [handNote(20, '摘要来源')] }],
+    ['mid-band 8.5KB request', { requestText: '我想商量这件事：' + '这是本次私下请求的正文。'.repeat(320), notes: [] }]
+  ];
+  for (const [name, { requestText, notes }] of scenarios) {
+    const store = new Store(':memory:');
+    t.after(() => store.close());
+    store.setGoal(scope, '和她自然交流，分享自己的真实近况。');
+    for (const note of notes) store.appendTurn(scope, { role: 'user', kind: 'discussion', text: note });
+    const turn = store.appendTurn(scope, { role: 'user', kind: 'discussion', text: requestText });
+    const snapshot = sourceSnapshot({ scope, records: store.messages(scope), companion: store.getCompanion(scope), turn });
+    const intentSource = notes.length ? snapshot.all.find(source => source.text === notes[0]) : null;
+    for (const byteBudget of [48000, 16000, 9000]) {
+      const authority = new BudgetAuthority({ purpose: 'answer_context', payloadByteBudget: byteBudget,
+        requestByteBudget: 256000, measureRequest: () => 0 });
+      const result = compileContext({ asOf: turn.createdAt, purpose: 'discussion', request: { text: snapshot.current.text },
+        current: snapshot.current, intentSource, candidateSources: snapshot.all.filter(source => source.id !== snapshot.current.id), budget: authority });
+      assert.equal(result.plan.deliverable, true, `${name} @${byteBudget}: plan delivers`);
+      assert.ok(authority.fits(result.payload), `${name} @${byteBudget}: payload fits`);
+      assert.equal(result.manifest.version, 'budget-authority-v1', `${name} @${byteBudget}: manifest present`);
+      const tier = result.admissions.find(admission => admission.id === snapshot.current.id).tier;
+      assert.ok(['verbatim', 'ranged'].includes(tier), `${name} @${byteBudget}: floor never below a marked range (got ${tier})`);
+    }
+  }
+});
+
+test('CC1: the compiler path fails honestly only under the minimal envelope', t => {
+  const store = new Store(':memory:');
+  t.after(() => store.close());
+  const turn = store.appendTurn(scope, { role: 'user', kind: 'discussion', text: handNote(10, '超预算请求') });
+  const snapshot = sourceSnapshot({ scope, records: [], companion: store.getCompanion(scope), turn });
+  const authority = new BudgetAuthority({ purpose: 'answer_context', payloadByteBudget: 400,
+    requestByteBudget: 256000, measureRequest: () => 0 });
+  assert.throws(() => compileContext({ asOf: turn.createdAt, purpose: 'discussion', request: { text: snapshot.current.text },
+    current: snapshot.current, candidateSources: [], budget: authority }), /预算.*没有静默截断|预算/);
+});
