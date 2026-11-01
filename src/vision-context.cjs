@@ -53,7 +53,7 @@ function selectVisionContext({records=[],availableSources=[],selectedImages=[],r
    omitted.push({sourceId:`qq:${record.messageId}`,index,reason:'cache_unavailable'});continue;
   }
   images.push({url:`data:${image.type};base64,${image.data.toString('base64')}`,messageId:record.messageId,index,bytes:image.data.length,
-   speaker:record.direction==='outgoing'?'me':'contact',at:record.timestamp});
+   speaker:record.direction==='outgoing'?'我':'对方',at:record.timestamp});
  }
  images.sort((a,b)=>compare(byId.get(a.messageId),byId.get(b.messageId))||a.index-b.index);
  return {mode,images,omitted};

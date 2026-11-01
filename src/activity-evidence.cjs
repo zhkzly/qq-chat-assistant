@@ -3,6 +3,7 @@
 // original-span match nor a model's world-statement choice proves entailment.
 const {randomUUID,createHash}=require('node:crypto');
 const {ValidationIssues}=require('./validation-issues.cjs');
+const {assertSpeechActClock}=require('./speaker-identity.cjs');
 const {redact}=require('./model.cjs');
 const PROTOCOL='activity-original-evidence-v1';
 const LOSS_RULE='evidenceLosses use a separate loss: namespace, never source handles, citations, sharing permission or new event evidence. They describe prior derived understanding, not current facts: only a statement dependency identifies what the unavailable original previously served as evidence for; definition/time/support loss does not establish the original message meaning. Original author and prior event actor are distinct; a native recall does not identify its operator. invalidatedOriginal.sourceTime is only previousRevision\'s saved original timestamp, not world occurrence. status:unknown means no original time; never substitute affectedWorldAt (affected prior world/state time), knowledgeChangedAt (evidence loss) or plannedFor (planned activity time). Missing/omitted loss details stay unknown. Historical gaps do not negate separately supported newer world or current-state reports.';
@@ -161,6 +162,12 @@ function decodeEvent(record,field,{sourceIds,delivered,activityAliases}){
   const legal='Legal minimal form: {basis:"qq_statement"}; optional echoes never choose the canonical clock.';
   if(statement){
    check(`${field}.evidence.time.basis`,()=>{if(statement.source.type!=='qq'||!speechActs.has(record.eventKind))throw fail(`${field}.evidence.time.basis`,`expected an actual QQ speech act; actual source type ${statement.source.type}, eventKind ${record.eventKind}. Use explicit original time evidence or unknown for private reports/questions and physical occurrences.`);});
+   // Speech-act speaker entailment (M3): a QQ statement clock can only back
+   // a speech act by the party who actually sent that message.
+   check(`${field}.evidence.time.basis`,()=>assertSpeechActClock({actor:record.actor,eventKind:record.eventKind,isSpeechAct:kind=>speechActs.has(kind)},statement.source,`${field}.evidence.time.basis`));
+   // Speech-act speaker entailment (M3): a QQ statement clock can only back
+   // a speech act by the party who actually sent that message.
+   check(`${field}.evidence.time.basis`,()=>assertSpeechActClock({actor:record.actor,eventKind:record.eventKind,isSpeechAct:kind=>speechActs.has(kind)},statement.source,field));
    if(Object.hasOwn(time,'at'))check(`${field}.evidence.time.at`,()=>{if(typeof time.at!=='string'||!Number.isFinite(Date.parse(time.at))||new Date(time.at).toISOString()!==statement.source.at)throw fail(`${field}.evidence.time.at`,`expected actual QQ statement time ${statement.source.at}; actual ${echoActual(time.at)}. ${legal}`);});
    if(Object.hasOwn(time,'sourceId'))check(`${field}.evidence.time.sourceId`,()=>{if(time.sourceId!==evidence.statement.sourceId)throw fail(`${field}.evidence.time.sourceId`,`expected bound statement source ${evidence.statement.sourceId}; actual ${echoActual(time.sourceId)}. ${legal}`);});
    if(Object.hasOwn(time,'quote'))check(`${field}.evidence.time.quote`,()=>{try{witness({sourceId:evidence.statement.sourceId,quote:time.quote},`${field}.evidence.time.quote`);}catch{throw fail(`${field}.evidence.time.quote`,`expected one exact original quote span from bound QQ statement source ${evidence.statement.sourceId}; actual ${echoActual(time.quote)}. ${legal}`);}});

@@ -20,7 +20,7 @@ test('off never reads, while explicit manual selection overrides automatic and d
  assert.deepEqual(selectVisionContext({...options,automatic:false}),{mode:'off',images:[],omitted:[]});assert.equal(read.calls.length,0);
  const selection={messageId:records[0].messageId,index:1},result=selectVisionContext({...options,automatic:true,selectedImages:[selection,selection]});
  assert.equal(result.mode,'manual');assert.equal(result.images.length,1);assert.equal(result.images[0].messageId,selection.messageId);
- assert.equal(result.images[0].speaker,'me');assert.equal(result.images[0].at,records[0].timestamp);assert.equal(read.calls.length,1);
+ assert.equal(result.images[0].speaker,'我');assert.equal(result.images[0].at,records[0].timestamp);assert.equal(read.calls.length,1);
  assert.match(result.images[0].url,/^data:image\/png;base64,/);assert.equal(result.images[0].bytes,Buffer.byteLength('synthetic bytes, no image pixels'));
  assert.deepEqual(result.omitted,[]);assert.equal(JSON.stringify(records),before);
 });
@@ -28,7 +28,7 @@ test('automatic takes the newest three images from the fixed latest twenty recor
  const records=Array.from({length:25},(_,index)=>picture(String(910000000000000000n+BigInt(index)),NOW-(25-index)*1000,index%2===0)),read=reader();
  const result=selectVisionContext({records:records.slice().reverse(),availableSources:sources(records),automatic:true,now:NOW,...read});
  assert.equal(result.mode,'automatic');assert.deepEqual(result.images.map(image=>image.messageId),records.slice(-3).map(record=>record.messageId));
- assert.equal(read.calls.length,3);assert.deepEqual(result.images.map(image=>image.speaker),['me','contact','me']);
+ assert.equal(read.calls.length,3);assert.deepEqual(result.images.map(image=>image.speaker),['我','对方','我']);
  const latestText=Array.from({length:20},(_,index)=>normalize(raw(String(920000000000000000n+BigInt(index)),false,{msgTime:String(NOW/1000+index),elements:[{textElement:{content:'Synthetic text only'}}]}),scope));
  const outside=reader();const fixed=selectVisionContext({records:[records[0],...latestText],availableSources:sources([records[0],...latestText]),automatic:true,now:NOW+20000,...outside});
  assert.equal(fixed.images.length,0);assert.equal(outside.calls.length,0,'no image history walk beyond the twenty-record window');
