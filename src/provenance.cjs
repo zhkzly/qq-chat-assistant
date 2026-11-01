@@ -18,6 +18,13 @@ function sourceClosure(sources, ids) {
 }
 function isLocalFeedback(source) {return source.type==='feedback'&&source.kind!=='recurring_authorized'||source.kind==='feedback'||source.kind==='feedback_ref';}
 function assertPreferenceAuthority(sources,ids) {
-  if(sourceClosure(sources,ids).some(isLocalFeedback))throw new Error('Stable preferences require explicit recurring intent, not local feedback or its copies');
+  if(sourceClosure(sources,ids).some(isLocalFeedback)) {
+    // Scope (how far a correction reaches) and stability (recurring intent)
+    // are separate judgments. This audit guards durable-preference authority
+    // only; a caller that represents the same statement with an explicitly
+    // local or temporary scope does not claim durability and skips this gate.
+    const error=new Error('Stable preferences require explicit recurring intent, not local feedback or its copies');
+    error.code='memory_preference_authority_required';throw error;
+  }
 }
 module.exports={sourceClosure,isLocalFeedback,assertPreferenceAuthority};

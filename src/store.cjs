@@ -1028,7 +1028,10 @@ class Store {
         if(!retiring&&!value.id&&!sourceIds.some(sid=>batch.reviewedSourceIds.includes(sid)))throw new Error('A new memory needs evidence from this reviewed batch');
         const kind=type==='episode'?'episode':value.kind;
         if(type==='item'&&!['fact','preference','commitment','uncertainty'].includes(kind))throw new Error('Invalid memory kind');
-        if(!retiring&&kind==='preference'){if(value.explicitPreference!==true)throw new Error('Stable preferences require explicit recurring intent, not local feedback');assertPreferenceAuthority(raw,sourceIds);}
+        if(!retiring&&kind==='preference'){
+          if(value.explicitPreference!==true){const error=new Error('Stable preferences require explicit recurring intent, not local feedback');error.code='memory_preference_attestation_required';throw error;}
+          assertPreferenceAuthority(raw,sourceIds);
+        }
         const topicKeys=value.topicKeys||[];
         if(!Array.isArray(topicKeys)||topicKeys.length>8||topicKeys.some(t=>typeof t!=='string'||!t.trim()||t.length>80))throw new Error('Invalid memory topic keys');
         const sourceRevisions=Object.fromEntries(sourceIds.map(sid=>[sid,raw.get(sid).revision]));
@@ -1046,9 +1049,21 @@ class Store {
         if(retiring){for(const field of ['firstEvidenceAt','lastEvidenceAt','at','reportedAt'])if(older[field]!==undefined)result[field]=older[field];result.retirement={sourceIds:value.sourceIds,reviewedAt:result.semanticReview.reviewedAt};}
         return result;
       };
+      // Preference classification is a semantic judgment, not a protocol
+      // violation: one misfiled preference is quarantined with a per-record
+      // receipt while the valid records in the same batch still commit, so the
+      // review journal keeps advancing and the user request round stays
+      // reachable. Every other validation failure rejects the whole batch.
+      const quarantined=[],PREFERENCE_GATE_CODES=new Set(['memory_preference_attestation_required','memory_preference_authority_required']);
       for(const [field,type] of [['items','item'],['episodes','episode']]) {
         if(result[field]!==undefined&&(!Array.isArray(result[field])||result[field].length>(type==='item'?24:6)))throw new Error(`Invalid ${field} count`);
-        for(const item of result[field]||[])checked.push(build(item,type));
+        (result[field]||[]).forEach((item,index)=>{
+          try{checked.push(build(item,type));}
+          catch(error){
+            if(!PREFERENCE_GATE_CODES.has(error.code))throw error;
+            quarantined.push({field:`${field}[${index}]`,code:error.code,message:error.message});
+          }
+        });
       }
       if(result.retire!==undefined&&(!Array.isArray(result.retire)||result.retire.length>24))throw new Error('Invalid retire count');
       for(const retirement of result.retire||[]) {
@@ -1056,8 +1071,13 @@ class Store {
         const old=previous.get(retirement.id);if(!['item','episode'].includes(old.recordType))throw new Error('Typed records require relationshipPatch retirement');checked.push(build({id:old.id,kind:old.kind,text:old.text,sourceIds:[...new Set([...old.sourceIds,...sourceList(retirement.sourceIds)])],topicKeys:old.topicKeys,status:retirement.status,certainty:old.certainty},old.recordType,{retiring:true}));
       }
       if(new Set(checked.map(c=>c.id)).size!==checked.length)throw new Error('Duplicate memory update');
-      const relationships=result.relationshipPatch?prepareRelationshipPatch(this,scope,result.relationshipPatch,{sourceIds:[...allowed],sourceRevisions:Object.fromEntries([...raw].map(([id,s])=>[id,s.revision])),previousIds:new Set(previous.keys()),readOnlyIds:new Set([...previous.values()].filter(item=>item.evidenceOffer?.authority==='read_only').map(item=>item.id)),reviewedSourceIds:batch.reviewedSourceIds,journalSourceIds:batch.events.map(event=>event.id),deliveredSources:actualDelivery,activityContext:batch.activityContext}):[];
+      const relationships=result.relationshipPatch?prepareRelationshipPatch(this,scope,result.relationshipPatch,{sourceIds:[...allowed],sourceRevisions:Object.fromEntries([...raw].map(([id,s])=>[id,s.revision])),previousIds:new Set(previous.keys()),readOnlyIds:new Set([...previous.values()].filter(item=>item.evidenceOffer?.authority==='read_only').map(item=>item.id)),reviewedSourceIds:batch.reviewedSourceIds,journalSourceIds:batch.events.map(event=>event.id),deliveredSources:actualDelivery,activityContext:batch.activityContext,quarantinePreference:entry=>quarantined.push(entry)}):[];
       if(relationships.some(record=>checked.some(legacy=>legacy.id===record.id)))throw new Error('One memory record cannot receive competing legacy and typed transition writes');
+      // A result whose only proposals were unauthorized preferences still
+      // refuses the batch: an invalid promotion alone must not consume the
+      // review journal, and the sources stay reviewable for a corrected result.
+      const proposedCount=(result.items?.length||0)+(result.episodes?.length||0)+(result.retire?.length||0)+(result.relationshipPatch?.claims?.length||0)+(result.relationshipPatch?.events?.length||0)+(result.relationshipPatch?.retire?.length||0);
+      if(quarantined.length&&!checked.length&&!relationships.length&&proposedCount>0)throw new Error(quarantined[0].message);
       for(const item of checked) {
         this.db.prepare('INSERT INTO memory_records VALUES(?,?,?,?) ON CONFLICT(scope_key,id) DO UPDATE SET kind=excluded.kind,record=excluded.record').run(key,item.id,item.recordType,JSON.stringify(item));
         this.db.prepare('DELETE FROM memory_dependencies WHERE scope_key=? AND id=?').run(key,item.id);
@@ -1078,7 +1098,7 @@ class Store {
         const length=raw.get(event.id)?.text.length||0;
         this.db.prepare("UPDATE memory_journal SET status=?,cursor=? WHERE seq=? AND scope_key=? AND status='pending'").run(event.end>=length?'reviewed':'pending',event.end,event.seq,key);
       }
-      const receipt={batchId:id,kind:batch.kind||'source_journal',reviewedSourceIds:batch.reviewedSourceIds,sourceRevisions:Object.fromEntries((batch.kind==='semantic_recovery'?actualDelivery:batch.events).map(e=>[e.id,e.revision])),seqFrom:batch.events[0]?.seq??null,seqTo:batch.events.at(-1)?.seq??null,segments:batch.events.map(e=>({sourceId:e.id,offset:e.offset,end:e.end})),...(batch.kind==='semantic_recovery'?{recoveryAttempts}:{}),originalCoverage:coverageFor(raw,actualDelivery,scope,{requiredSourceIds:actualDelivery.map(source=>source.id)}),reviewedAt:new Date().toISOString(),outcome:checked.length||relationshipChanges?'updated':batch.kind==='semantic_recovery'?'semantic_review_unfinished':'reviewed_no_change',updates:checked.length+relationshipChanges};
+      const receipt={batchId:id,kind:batch.kind||'source_journal',reviewedSourceIds:batch.reviewedSourceIds,sourceRevisions:Object.fromEntries((batch.kind==='semantic_recovery'?actualDelivery:batch.events).map(e=>[e.id,e.revision])),seqFrom:batch.events[0]?.seq??null,seqTo:batch.events.at(-1)?.seq??null,segments:batch.events.map(e=>({sourceId:e.id,offset:e.offset,end:e.end})),...(batch.kind==='semantic_recovery'?{recoveryAttempts}:{}),originalCoverage:coverageFor(raw,actualDelivery,scope,{requiredSourceIds:actualDelivery.map(source=>source.id)}),reviewedAt:new Date().toISOString(),...(quarantined.length?{quarantinedRecords:quarantined}:{}),outcome:checked.length||relationshipChanges?'updated':batch.kind==='semantic_recovery'?'semantic_review_unfinished':'reviewed_no_change',updates:checked.length+relationshipChanges};
       this.db.prepare('INSERT INTO memory_receipts VALUES(?,?,?)').run(key,id,JSON.stringify(receipt));
       this.db.prepare('UPDATE memory_meta SET version=version+1,error=NULL WHERE scope_key=?').run(key);
       return {applied:true,receipt};

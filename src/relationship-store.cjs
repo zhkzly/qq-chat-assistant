@@ -73,6 +73,10 @@ function repairRelationshipTransitions(store,scope){
   return changed;
 }
 const meaningFields={claim:['text','subject','aspect','assertionKind','epistemicStatus','lifecycle','applicabilityKind','attribution','condition','context','validFrom','validUntil'],relationship_event:['text','activityKey','eventKind','actor','occurredAt','plannedFor']};
+// Applicability kinds that explicitly deny durability. A correction carrying
+// one of them stays inside its declared scope and cannot act as a stable
+// preference, so it is admitted without recurring-intent evidence authority.
+const SCOPED_CORRECTION_APPLICABILITY=new Set(['local','temporary']);
 function prepareRelationshipPatch(store,scope,input,options={}) {
   const patch=normalizeRelationshipPatch(input),raw=new Map(store._rawMemorySources(scope).map(s=>[s.id,s]));
   const allowed=new Set(options.sourceIds||[]),records=store._memoryRecords(scope),existing=records.filter(typed),byId=new Map(existing.map(r=>[r.id,r])),transitionById=new Map(records.filter(record=>typed(record)||record.recordType==='item').map(record=>[record.id,record]));
@@ -145,7 +149,14 @@ function prepareRelationshipPatch(store,scope,input,options={}) {
       const observed=closure.filter(s=>s.type==='qq');if(!observed.length)throw new Error('Observed claims require actual QQ evidence; use reported for user reports');
       refs=observed.map(s=>s.id);closure=sourceClosure(raw,refs);
     }
-    if(!retiring&&type==='claim'&&value.subject==='self'&&value.aspect==='stated_preference')assertPreferenceAuthority(raw,refs);
+    // A stated_preference aspect says what the record is about, not how far
+    // it reaches. Only a claim that asserts durable scope (recurring, a
+    // conditional standing rule, or an unspecified duration that may silently
+    // persist) needs stable-preference evidence authority. An explicitly local
+    // or temporary correction is a scoped understanding, never a global
+    // preference rewrite; the read model keeps it out of the durable lanes and
+    // the wording-control consumer ignores non-recurring applicability.
+    if(!retiring&&type==='claim'&&value.subject==='self'&&value.aspect==='stated_preference'&&!SCOPED_CORRECTION_APPLICABILITY.has(value.applicabilityKind))assertPreferenceAuthority(raw,refs);
     if(!retiring&&type==='claim'&&value.applicabilityKind==='recurring')assertPreferenceAuthority(raw,refs);
     if(type==='claim'&&value.assertionKind==='stated'&&value.subject==='contact'&&!closure.some(s=>s.type==='qq'&&s.role==='contact'))throw new Error('Contact statements require actual contact messages; use reported for user reports');
     const dates=nativeActivity&&!retiring?(reaffirm?[old.firstEvidenceAt,[old.lastEvidenceAt,nativeActivity.statementAt].sort().at(-1)]:[nativeActivity.statementAt]):refs.map(id=>raw.get(id).at).sort();
@@ -213,9 +224,23 @@ function prepareRelationshipPatch(store,scope,input,options={}) {
     }
     return result;
   };
-  for(const c of patch.claims)checked.push(build(c,'claim'));
-  for(const e of patch.events)checked.push(build(e,'relationship_event'));
-  for(const r of patch.retire) {const old=transitionById.get(r.id);if(!old)throw new Error('Unknown relationship retirement');checked.push(build(r,old.recordType,true));}
+  // Partial commit with quarantine: a misfiled preference claim must not
+  // refuse the valid records proposed beside it. Only callers that opt in via
+  // options.quarantinePreference get per-record quarantine; direct patch
+  // callers keep whole-patch refusal semantics. The quarantinable gate throws
+  // before any transition side effect is pushed, so a quarantined supersede
+  // leaves its declared targets untouched and transition chains stay atomic.
+  const quarantine=options.quarantinePreference;
+  const attempt=(record,type,retiring,index)=>{
+    try{checked.push(build(record,type,retiring));}
+    catch(error){
+      if(!quarantine||error.code!=='memory_preference_authority_required')throw error;
+      quarantine({field:`${type==='claim'?'claims':type==='relationship_event'?'events':'retire'}[${index}]`,code:error.code,message:error.message});
+    }
+  };
+  patch.claims.forEach((record,index)=>attempt(record,'claim',false,index));
+  patch.events.forEach((record,index)=>attempt(record,'relationship_event',false,index));
+  patch.retire.forEach((record,index)=>{const old=transitionById.get(record.id);if(!old)throw new Error('Unknown relationship retirement');attempt(record,old.recordType,true,index);});
   const unique=new Map();
   for(const record of checked){const prior=unique.get(record.id);if(prior&&prior!==record)throw new Error('Conflicting relationship updates for one record');unique.set(record.id,record);}
   return [...unique.values()];
