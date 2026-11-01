@@ -706,11 +706,14 @@ class Store {
   _syncMemoryPass(scope, record) {
     let changed=0;
     const key=scopeKey(scope),live=this._rawMemorySources(scope,record),byId=new Map(live.map(s=>[s.id,s]));
-    const old=this.db.prepare('SELECT * FROM memory_sources WHERE scope_key=?').all(key),oldIds=new Set(old.map(s=>s.source_id));
+    const old=this.db.prepare('SELECT * FROM memory_sources WHERE scope_key=?').all(key),oldIds=new Set(old.map(s=>s.source_id)),oldById=new Map(old.map(row=>[row.source_id,JSON.parse(row.record)]));
     this.db.prepare('INSERT OR IGNORE INTO memory_meta(scope_key) VALUES(?)').run(key);
     repairRelationshipTransitions(this,scope);
     const write=(source,operation,mode=operation==='remove'?'forget':'correct')=>{
       changed++;
+      const previous=oldById.get(source.id),recalled=source.type==='qq'&&this.messages(scope).find(message=>`qq:${message.messageId}`===source.id&&message.recalled);
+      const excluded=!!this.db.prepare('SELECT 1 FROM memory_exclusions WHERE scope_key=? AND source_id=?').get(key,source.id),nativeRecall=!!recalled&&!excluded;
+      if(mode==='forget'&&!nativeRecall)this._forgetEvidenceLosses(scope,source.id);
       if(oldIds.has(source.id))this.experiences.invalidateSources(scope,[source.id],{mode});
       this.experiences.pruneSemanticReview(scope,record,{sourceIds:[source.id]});
       // The journal stores identities only. Removed/revised text cannot survive
@@ -731,9 +734,9 @@ class Store {
         // A withdrawn milestone leaves an uncertainty barrier, never its body.
         // Otherwise removing a cancellation could resurrect an older acceptance.
         if(prior?.recordType==='relationship_event'||prior?.currentActivityState&&prior.activityId){
-          const recalled=source.id.startsWith('qq:')&&this.messages(scope).find(message=>`qq:${message.messageId}`===source.id&&message.recalled),stamp=recalled?.recalledAt;
+          const stamp=nativeRecall&&recalled.recalledAt;
           const exact=Number.isSafeInteger(stamp)&&stamp>=recalled.timestamp&&stamp<=Date.now();
-          const gap=activityEvidence.makeGap(prior,{changedAt:exact?new Date(stamp).toISOString():new Date().toISOString(),basis:exact?'native_recall_time':'detected_source_change',legacyDigest:hash(prior.activityKey||prior.activityId)});
+          const gap=activityEvidence.makeGap(prior,{changedAt:exact?new Date(stamp).toISOString():new Date().toISOString(),basis:exact?'native_recall_time':'detected_source_change',legacyDigest:hash(prior.activityKey||prior.activityId),invalidatedOriginal:previous,operation:nativeRecall?'native_recall':'source_revision',retainInterpretation:nativeRecall||operation==='upsert'&&mode!=='forget'});
           this.db.prepare('INSERT OR REPLACE INTO memory_gaps VALUES(?,?,?)').run(key,id,JSON.stringify(gap));
         }
         this.db.prepare('DELETE FROM memory_records WHERE scope_key=? AND id=?').run(key,id);this.db.prepare('DELETE FROM memory_dependencies WHERE scope_key=? AND id=?').run(key,id);
@@ -880,6 +883,7 @@ class Store {
       const event={seq:row.seq,id:row.source_id,revision:row.revision,operation:row.operation,offset};
       core.sources.push(source);core.events.push(event);core.reviewedSourceIds.push(source.id);
       if(offset)source.text=original.text.slice(offset);
+      while(bytes()>size&&activityEvidence.trimContextLoss(core.activityContext)){ /* Preserve originals before optional loss detail. */ }
       if(bytes()>size) {
         if(core.sources.length>1){core.sources.pop();core.events.pop();core.reviewedSourceIds.pop();break;}
         // The one oversized source is reviewed in durable contiguous text
@@ -976,6 +980,7 @@ class Store {
       }
       const previousSources=core.sources,previousIds=core.reviewedSourceIds;
       core.sources=[...new Map([...core.sources,...roots].map(source=>[source.id,source])).values()];core.reviewedSourceIds=core.sources.map(source=>source.id);core.priorMemory[field].push(target.record);core.recoveryTargets.push(offered);
+      while(bytes()>size&&activityEvidence.trimContextLoss(core.activityContext)){ /* Historical detail never displaces required rereads. */ }
       if(bytes()>size){core.sources=previousSources;core.reviewedSourceIds=previousIds;core.priorMemory[field].pop();core.recoveryTargets.pop();}
     }
     if(deferred)this.db.prepare('UPDATE memory_meta SET version=version+1 WHERE scope_key=?').run(key);
@@ -1087,8 +1092,22 @@ class Store {
     });
   }
   ignoredSources(scope) {return this.db.prepare('SELECT source_id FROM memory_exclusions WHERE scope_key=?').all(scopeKey(scope)).map(r=>r.source_id);}
+  _forgetEvidenceLosses(scope,id) {
+    const key=scopeKey(scope),removed=[];
+    for(const row of this.db.prepare('SELECT id,record FROM memory_gaps WHERE scope_key=?').all(key)){
+      const gap=JSON.parse(row.record);if(!gap.evidenceLoss||!(gap.lossDependencyIds||[gap.evidenceLoss.invalidatedOriginal.canonicalId]).includes(id))continue;
+      removed.push(gap.evidenceLoss.lossRef);delete gap.evidenceLoss;delete gap.lossDependencyIds;
+      this.db.prepare('UPDATE memory_gaps SET record=? WHERE scope_key=? AND id=?').run(JSON.stringify(gap),key,row.id);
+    }
+    if(removed.length){this.experiences.invalidateEvidenceLosses(scope,removed,{mode:'forget'});this.db.prepare('UPDATE memory_meta SET version=version+1,error=NULL WHERE scope_key=?').run(key);}
+    return removed.length;
+  }
   forgetSource(scope,id) {
     sourceList([id]);
+    const historical=this.db.prepare('SELECT record FROM memory_gaps WHERE scope_key=?').all(scopeKey(scope)).some(row=>{const gap=JSON.parse(row.record);return gap.evidenceLoss&&(gap.lossDependencyIds||[gap.evidenceLoss.invalidatedOriginal.canonicalId]).includes(id);});
+    // A recalled original is already unreadable, but its separately retained
+    // historical interpretation must still honor an explicit forget request.
+    if(historical&&!this._rawMemorySources(scope).some(source=>source.id===id))return this._atomic(()=>{this._forgetEvidenceLosses(scope,id);if(id.startsWith('qq:'))this.db.prepare('INSERT OR IGNORE INTO memory_exclusions VALUES(?,?)').run(scopeKey(scope),id);const record=this._getCompanion(scope);changedSource(record,true);this._writeCompanion(scope,record);return true;});
     if(id.startsWith('note:'))return this.deleteNote(scope,id.slice(5));
     if(id.startsWith('private:feedback-')) {
       return this._atomic(()=>{const record=this._getCompanion(scope);if(!record.feedback.some(f=>`private:feedback-${f.id}`===id))return false;this.experiences.invalidateSources(scope,[id],{mode:'forget'});record.turns=record.turns.filter(t=>!(t.feedbackId&&`private:feedback-${t.feedbackId}`===id)&&this.experiences.canonicalSource(scope,`private:${t.id}`)!==id);changedSource(record,true);this._writeCompanion(scope,record);return true;});

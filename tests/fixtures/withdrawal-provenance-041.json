@@ -1,0 +1,1458 @@
+{
+  "provenance": {
+    "kind": "Complete fictional actual040 captured input and proposal; unchanged raw evidence",
+    "run": ".goal-runs/memory-v4-observation-04-candidate040-live/mu-late-report-cancellation-and-withdrawal.run.json",
+    "runSha256": "c42a9f49e283a6b46c561d7551d1c0d64bf97ff9878910b2d6cc81288567be32",
+    "transportSha256": "ce62483f8d4a7b6f532c6d1aedc373514f4e5713a71fcf051051182b744b8d11",
+    "batchPointer": "/steps/0/diagnostics/trace/44/args/1",
+    "proposalPointer": "/requests/1/response_body/choices/0/message/tool_calls/0/function/arguments",
+    "priorPointer": "/steps/1/diagnostics/snapshot/relationship/events/2",
+    "recallPointer": "/steps/2/diagnostics/trace/197/raw",
+    "primaryPointer": "/requests/9/request/messages/1/content",
+    "backendHash": "6a0201f4d76ce6bc9aa2a952c2ef0d432b3a35f66f308d880faeaf87582b2aa1"
+  },
+  "scope": {
+    "accountUid": "eval_replay_owner",
+    "accountUin": "1111111111",
+    "peerUid": "eval_replay_contact",
+    "peerUin": "3333333333"
+  },
+  "goal": "和这位朋友保持联系，商量一起看展的安排。",
+  "preMessages": [
+    {
+      "accountUid": "eval_replay_owner",
+      "accountUin": "1111111111",
+      "peerUid": "eval_replay_contact",
+      "peerUin": "3333333333",
+      "messageId": "72057594049927937001",
+      "sequence": "1",
+      "timestamp": 1790848800000,
+      "direction": "outgoing",
+      "senderUid": "eval_replay_owner",
+      "senderUin": "1111111111",
+      "text": "10月10日一起去看看那个展吗？",
+      "media": [],
+      "recalled": false,
+      "kind": "actual",
+      "source": "desktop-qq-native"
+    },
+    {
+      "accountUid": "eval_replay_owner",
+      "accountUin": "1111111111",
+      "peerUid": "eval_replay_contact",
+      "peerUin": "3333333333",
+      "messageId": "72057594049927937002",
+      "sequence": "2",
+      "timestamp": 1790848860000,
+      "direction": "incoming",
+      "senderUid": "eval_replay_contact",
+      "senderUin": "3333333333",
+      "text": "好呀，可以。",
+      "media": [],
+      "recalled": false,
+      "kind": "actual",
+      "source": "desktop-qq-native"
+    },
+    {
+      "accountUid": "eval_replay_owner",
+      "accountUin": "1111111111",
+      "peerUid": "eval_replay_contact",
+      "peerUin": "3333333333",
+      "messageId": "72057594049927937003",
+      "sequence": "3",
+      "timestamp": 1791025200000,
+      "direction": "incoming",
+      "senderUid": "eval_replay_contact",
+      "senderUin": "3333333333",
+      "text": "10号这次先不去了，周末临时有别的安排。",
+      "media": [],
+      "recalled": false,
+      "kind": "actual",
+      "source": "desktop-qq-native"
+    }
+  ],
+  "batch": {
+    "id": "16a0432f98affb6c30111865a40f751a06ec7fbca1f1ec08a8030c7a3f180784",
+    "scopeKey": "[\"eval_replay_owner\",\"1111111111\",\"eval_replay_contact\",\"3333333333\"]",
+    "baseRevision": 2,
+    "baseMemoryVersion": 3,
+    "baseState": {
+      "version": 1,
+      "focus": ""
+    },
+    "sources": [
+      {
+        "id": "qq:72057594049927937001",
+        "type": "qq",
+        "text": "10月10日一起去看看那个展吗？",
+        "at": "2026-10-01T10:00:00.000Z",
+        "role": "user",
+        "direction": "outgoing",
+        "use": "discussion",
+        "messageId": "72057594049927937001",
+        "sequence": "1",
+        "senderUid": "eval_replay_owner",
+        "senderUin": "1111111111",
+        "revision": "0e223520ae13608c3a21dd24a1b33b606b4b28cb05593befe8825e5d72c68aae",
+        "scope": {
+          "accountUid": "eval_replay_owner",
+          "accountUin": "1111111111",
+          "peerUid": "eval_replay_contact",
+          "peerUin": "3333333333"
+        }
+      },
+      {
+        "id": "qq:72057594049927937002",
+        "type": "qq",
+        "text": "好呀，可以。",
+        "at": "2026-10-01T10:01:00.000Z",
+        "role": "contact",
+        "direction": "incoming",
+        "use": "discussion",
+        "messageId": "72057594049927937002",
+        "sequence": "2",
+        "senderUid": "eval_replay_contact",
+        "senderUin": "3333333333",
+        "revision": "37fa9ea7a676c3f387ef83c3f698720c606b5fbbb215e951818e26c6ab1b35c2",
+        "scope": {
+          "accountUid": "eval_replay_owner",
+          "accountUin": "1111111111",
+          "peerUid": "eval_replay_contact",
+          "peerUin": "3333333333"
+        }
+      },
+      {
+        "id": "qq:72057594049927937003",
+        "type": "qq",
+        "text": "10号这次先不去了，周末临时有别的安排。",
+        "at": "2026-10-03T11:00:00.000Z",
+        "role": "contact",
+        "direction": "incoming",
+        "use": "discussion",
+        "messageId": "72057594049927937003",
+        "sequence": "3",
+        "senderUid": "eval_replay_contact",
+        "senderUin": "3333333333",
+        "revision": "a7738c9937039b74bc99ea30658a8436650f196715e036c0a0a87f7c1712b40e",
+        "scope": {
+          "accountUid": "eval_replay_owner",
+          "accountUin": "1111111111",
+          "peerUid": "eval_replay_contact",
+          "peerUin": "3333333333"
+        }
+      }
+    ],
+    "events": [
+      {
+        "seq": 1,
+        "id": "qq:72057594049927937001",
+        "revision": "0e223520ae13608c3a21dd24a1b33b606b4b28cb05593befe8825e5d72c68aae",
+        "operation": "upsert",
+        "offset": 0,
+        "end": 16
+      },
+      {
+        "seq": 2,
+        "id": "qq:72057594049927937002",
+        "revision": "37fa9ea7a676c3f387ef83c3f698720c606b5fbbb215e951818e26c6ab1b35c2",
+        "operation": "upsert",
+        "offset": 0,
+        "end": 6
+      },
+      {
+        "seq": 3,
+        "id": "qq:72057594049927937003",
+        "revision": "a7738c9937039b74bc99ea30658a8436650f196715e036c0a0a87f7c1712b40e",
+        "operation": "upsert",
+        "offset": 0,
+        "end": 20
+      }
+    ],
+    "priorMemory": {
+      "items": [],
+      "episodes": [],
+      "claims": [],
+      "events": []
+    },
+    "contextSources": [],
+    "reviewedSourceIds": [
+      "qq:72057594049927937001",
+      "qq:72057594049927937002",
+      "qq:72057594049927937003"
+    ],
+    "evidenceCoverage": {
+      "version": "original-evidence-v1",
+      "rule": "journal_progress_is_not_semantic_review"
+    },
+    "maxBytes": 24000,
+    "inputBytes": 2438
+  },
+  "proposal": {
+    "batchId": "ba7184bdd65fac61f",
+    "reviewedAll": true,
+    "relationshipPatch": {
+      "claims": [],
+      "events": [
+        {
+          "activityKey": "展览",
+          "eventKind": "invitation",
+          "actor": "self",
+          "text": "用户邀请联系人10月10日一起去看展。",
+          "sourceIds": [
+            "s1"
+          ],
+          "activity": {
+            "ref": "NEW",
+            "definition": {
+              "sourceId": "s1",
+              "quote": "10月10日一起去看看那个展吗？"
+            }
+          },
+          "evidence": {
+            "statement": {
+              "sourceId": "s1",
+              "quote": "10月10日一起去看看那个展吗？"
+            },
+            "time": {
+              "basis": "qq_statement"
+            },
+            "plannedFor": {
+              "at": "2026-10-10",
+              "sourceId": "s1",
+              "quote": "10月10日"
+            }
+          }
+        },
+        {
+          "activityKey": "展览",
+          "eventKind": "acceptance",
+          "actor": "contact",
+          "text": "联系人答应用户10月10日一起去看展。",
+          "sourceIds": [
+            "s1",
+            "s2"
+          ],
+          "activity": {
+            "ref": "NEW",
+            "definition": {
+              "sourceId": "s1",
+              "quote": "10月10日一起去看看那个展吗？"
+            }
+          },
+          "evidence": {
+            "statement": {
+              "sourceId": "s2",
+              "quote": "好呀，可以。"
+            },
+            "time": {
+              "basis": "qq_statement"
+            },
+            "plannedFor": {
+              "at": "2026-10-10",
+              "sourceId": "s1",
+              "quote": "10月10日"
+            }
+          }
+        },
+        {
+          "activityKey": "展览",
+          "eventKind": "cancellation",
+          "actor": "contact",
+          "text": "联系人表示10月10日这次先不去看展，称周末临时有别的安排。",
+          "sourceIds": [
+            "s3"
+          ],
+          "activity": {
+            "ref": "NEW",
+            "definition": {
+              "sourceId": "s1",
+              "quote": "10月10日一起去看看那个展吗？"
+            }
+          },
+          "evidence": {
+            "statement": {
+              "sourceId": "s3",
+              "quote": "10号这次先不去了，周末临时有别的安排。"
+            },
+            "time": {
+              "basis": "qq_statement"
+            },
+            "plannedFor": {
+              "at": "2026-10-10",
+              "sourceId": "s3",
+              "quote": "10号这次"
+            }
+          }
+        }
+      ],
+      "retire": []
+    },
+    "episodes": []
+  },
+  "priorRecord": {
+    "text": "联系人表示10月10日这次先不去看展，称周末临时有别的安排。",
+    "sourceIds": [
+      "qq:72057594049927937003",
+      "qq:72057594049927937001"
+    ],
+    "activityKey": "展览",
+    "eventKind": "cancellation",
+    "actor": "contact",
+    "activityId": "activity:7c41ab45-2782-47c0-9c7c-6abd56393476",
+    "activityDefinition": {
+      "sourceId": "qq:72057594049927937001",
+      "revision": "0e223520ae13608c3a21dd24a1b33b606b4b28cb05593befe8825e5d72c68aae",
+      "start": 0,
+      "end": 16
+    },
+    "statementEvidence": {
+      "sourceId": "qq:72057594049927937003",
+      "revision": "a7738c9937039b74bc99ea30658a8436650f196715e036c0a0a87f7c1712b40e",
+      "start": 0,
+      "end": 20
+    },
+    "timeEvidence": {
+      "basis": "qq_statement",
+      "at": "2026-10-03T11:00:00.000Z",
+      "evidence": {
+        "sourceId": "qq:72057594049927937003",
+        "revision": "a7738c9937039b74bc99ea30658a8436650f196715e036c0a0a87f7c1712b40e",
+        "start": 0,
+        "end": 20
+      }
+    },
+    "plannedFor": "2026-10-10T00:00:00.000Z",
+    "plannedEvidence": {
+      "sourceId": "qq:72057594049927937003",
+      "revision": "a7738c9937039b74bc99ea30658a8436650f196715e036c0a0a87f7c1712b40e",
+      "start": 0,
+      "end": 5
+    },
+    "activityProvisional": false,
+    "occurredAt": "2026-10-03T11:00:00.000Z",
+    "topicKeys": [],
+    "lifecycle": "active",
+    "id": "10bc5ad3-f106-4d07-a0e4-831df66d7b0a",
+    "kind": "relationship_event",
+    "recordType": "relationship_event",
+    "version": 1,
+    "sourceRevisions": {
+      "qq:72057594049927937003": "a7738c9937039b74bc99ea30658a8436650f196715e036c0a0a87f7c1712b40e",
+      "qq:72057594049927937001": "0e223520ae13608c3a21dd24a1b33b606b4b28cb05593befe8825e5d72c68aae"
+    },
+    "reviewComplete": true,
+    "evidenceValidity": "valid",
+    "semanticSignature": "53de1d07648ad1eda896fde88ab931ead12bf447c5b608e56c5efc25a9f38549",
+    "firstEvidenceAt": "2026-10-03T11:00:00.000Z",
+    "lastEvidenceAt": "2026-10-03T11:00:00.000Z",
+    "at": "2026-10-03T11:00:00.000Z",
+    "reportedAt": "2026-10-03T11:00:00.000Z",
+    "reviewedAt": "2026-10-03T11:11:00.000Z",
+    "semanticReview": {
+      "status": "evidence_reviewed",
+      "reviewedAt": "2026-10-03T11:11:00.000Z",
+      "coverage": {
+        "version": "original-evidence-v1",
+        "scope": {
+          "accountUid": "eval_replay_owner",
+          "accountUin": "1111111111",
+          "peerUid": "eval_replay_contact",
+          "peerUin": "3333333333"
+        },
+        "sourceRevisions": {
+          "qq:72057594049927937001": "0e223520ae13608c3a21dd24a1b33b606b4b28cb05593befe8825e5d72c68aae",
+          "qq:72057594049927937002": "37fa9ea7a676c3f387ef83c3f698720c606b5fbbb215e951818e26c6ab1b35c2",
+          "qq:72057594049927937003": "a7738c9937039b74bc99ea30658a8436650f196715e036c0a0a87f7c1712b40e"
+        },
+        "reads": [
+          {
+            "sourceId": "qq:72057594049927937001",
+            "revision": "0e223520ae13608c3a21dd24a1b33b606b4b28cb05593befe8825e5d72c68aae",
+            "start": 0,
+            "end": 16,
+            "total": 16,
+            "complete": true,
+            "bodyHash": "cf86d2cf0c0364bc959639e30cbca5b176b54da0ad8da0e428567e6613ac295d"
+          },
+          {
+            "sourceId": "qq:72057594049927937002",
+            "revision": "37fa9ea7a676c3f387ef83c3f698720c606b5fbbb215e951818e26c6ab1b35c2",
+            "start": 0,
+            "end": 6,
+            "total": 6,
+            "complete": true,
+            "bodyHash": "9a47ad63c30d43a7d1aeede142fde6783ce77d314b15955b3cc5674ccb0b4fc1"
+          },
+          {
+            "sourceId": "qq:72057594049927937003",
+            "revision": "a7738c9937039b74bc99ea30658a8436650f196715e036c0a0a87f7c1712b40e",
+            "start": 0,
+            "end": 20,
+            "total": 20,
+            "complete": true,
+            "bodyHash": "bdf3a78786f5666de9d2366ec9253671682b255bfb70ec3d3f22a890234c39f3"
+          }
+        ],
+        "completeSourceIds": [
+          "qq:72057594049927937001",
+          "qq:72057594049927937002",
+          "qq:72057594049927937003"
+        ],
+        "requiredSourceIds": [
+          "qq:72057594049927937003",
+          "qq:72057594049927937001"
+        ],
+        "missingSourceIds": [],
+        "partialSourceIds": [],
+        "complete": true
+      }
+    },
+    "knowledgeSchemaVersion": 2,
+    "createdAt": "2026-10-03T11:11:00.000Z",
+    "updatedAt": "2026-10-03T11:11:00.000Z",
+    "occurrenceTimeStatus": "known",
+    "origin": "qq_observation"
+  },
+  "recallRaw": {
+    "chatType": 1,
+    "peerUid": "eval_replay_contact",
+    "peerUin": "3333333333",
+    "senderUid": "eval_replay_contact",
+    "senderUin": "3333333333",
+    "msgId": "72057594049927937003",
+    "msgSeq": "3",
+    "msgTime": "1791025200",
+    "sendStatus": 2,
+    "recallTime": "1791284400",
+    "elements": [
+      {
+        "elementType": 1,
+        "textElement": {
+          "content": "10号这次先不去了，周末临时有别的安排。"
+        }
+      }
+    ]
+  },
+  "baselinePrimaryInput": {
+    "promptVersion": "goal-context-2026-10-31.13",
+    "purpose": "discussion",
+    "method": "围绕用户当前目的和本轮实际请求选择帮助，可理解、接续、真实分享、比较行动或组织表达。意思明确就直接帮助，只问会改变建议的必要问题。允许暂缓或不用助手，不强制每次制定目的。",
+    "methodCards": [],
+    "methodCatalog": [
+      {
+        "id": "clarify",
+        "version": "goal-methods-2026-10-30.2",
+        "name": "理清这次想表达什么",
+        "applicability": "用户说不清困惑、想表达的意思，或明确希望先讨论。"
+      },
+      {
+        "id": "choose_next_step",
+        "version": "goal-methods-2026-10-30.2",
+        "name": "比较下一步",
+        "applicability": "想联系但不知道聊什么、何时继续，或有多个可行方向。"
+      },
+      {
+        "id": "respond",
+        "version": "goal-methods-2026-10-30.2",
+        "name": "理解并回应她的话",
+        "applicability": "有实际来信，需要理解、回应分享或接续她提出的话题。"
+      },
+      {
+        "id": "compose",
+        "version": "goal-methods-2026-10-30.2",
+        "name": "组织参考表达",
+        "applicability": "用户明确要草稿、改写，或采用已讨论且明确可分享的内容。"
+      },
+      {
+        "id": "review",
+        "version": "goal-methods-2026-10-30.2",
+        "name": "找回与回顾",
+        "applicability": "问以前说过什么、约定进展，或希望回顾一段时间的互动。"
+      },
+      {
+        "id": "shared_activity",
+        "version": "goal-methods-2026-10-30.2",
+        "name": "考虑一起做点什么",
+        "applicability": "用户想邀约、讨论共同兴趣或寻找文字聊天之外的共同活动。"
+      },
+      {
+        "id": "correction",
+        "version": "goal-methods-2026-10-30.2",
+        "name": "纠正理解与用法",
+        "applicability": "用户纠正事实、分享范围、目标、建议风格，或要求记住/更改/忘记。"
+      },
+      {
+        "id": "express_interest",
+        "version": "goal-methods-2026-10-30.2",
+        "name": "表达好感与关系意图",
+        "applicability": "用户想表达喜欢、明确邀请含义，或希望讨论怎样从友好交流走向恋爱认识。"
+      }
+    ],
+    "methodSelection": {
+      "version": "goal-methods-2026-10-30.2",
+      "selection": "candidates",
+      "candidates": [
+        "clarify",
+        "choose_next_step",
+        "respond",
+        "compose",
+        "review",
+        "shared_activity",
+        "correction",
+        "express_interest"
+      ],
+      "maxApplied": 2,
+      "operationalInstructionsLocation": "methodCards",
+      "selectionRule": "以当前用户目的和本次意思选择零至两个方法；目录不是必走步骤，也不表示对方的心理。完整卡按需用lookup.methodIds读取，已有足够依据可以直接帮助，不必多查或先提问。",
+      "feedbackRule": "局部反馈只用于对应情境，稳定偏好须有用户明确依据。方法及论文只是有适用范围的参考，不保证交流或关系结果。"
+    },
+    "asOf": "2026-10-06T11:18:00.000Z",
+    "viewerTimeZone": "Asia/Shanghai",
+    "goal": "和这位朋友保持联系，商量一起看展的安排。",
+    "intentAuthority": {
+      "sourceId": "s1"
+    },
+    "draftMaterialPolicy": {
+      "version": 1
+    },
+    "generationOrigin": "private_discussion",
+    "currentObservationSourceId": null,
+    "topicContext": {
+      "version": 0,
+      "activeId": null,
+      "active": null,
+      "retained": [],
+      "authority": "private_direction_not_outbound_authorization"
+    },
+    "workingState": {
+      "version": 2,
+      "items": [],
+      "possiblyStale": true,
+      "ownership": "evidence_only_task_controls_in_topicContext",
+      "authority": "previous_summary_needs_review"
+    },
+    "coverage": {
+      "status": "accessible_end",
+      "pages": 1,
+      "cursor": "72057594049927937001",
+      "oldestAt": 1790848800000,
+      "checkedAt": "2026-10-03T11:01:00.000Z",
+      "source": "fictional-native-boundary-replay"
+    },
+    "selectedMaterialIds": [],
+    "allowedMaterialIds": [],
+    "expressionOptions": [],
+    "selectedOption": null,
+    "actionReceipts": [],
+    "privateRestrictions": [],
+    "preferences": [],
+    "experienceProposalPolicy": {
+      "enabled": false,
+      "maxItems": 2,
+      "feedbackSourceIds": [],
+      "caseIds": []
+    },
+    "replyFocus": [],
+    "lookupHistory": [],
+    "reviewRange": null,
+    "retrievedMemory": {
+      "items": [],
+      "episodes": [],
+      "coverage": {
+        "complete": false,
+        "sourceCount": 6,
+        "retrievedCount": 6,
+        "pending": 1,
+        "processed": 7,
+        "history": {
+          "status": "accessible_end",
+          "pages": 1,
+          "cursor": "72057594049927937001",
+          "oldestAt": 1790848800000,
+          "checkedAt": "2026-10-03T11:01:00.000Z",
+          "source": "fictional-native-boundary-replay"
+        },
+        "retrieval": "lexical-han-bigram-bm25",
+        "semanticCertainty": false
+      }
+    },
+    "memoryIndex": [],
+    "sources": [
+      {
+        "id": "s2",
+        "type": "qq",
+        "at": "2026-10-01T10:00:00.000Z",
+        "role": "user",
+        "direction": "outgoing",
+        "use": "discussion",
+        "messageId": "72057594049927937001",
+        "sequence": "1",
+        "senderUid": "eval_replay_owner",
+        "senderUin": "1111111111",
+        "speaker": "我",
+        "text": "10月10日一起去看看那个展吗？"
+      },
+      {
+        "id": "s3",
+        "type": "qq",
+        "at": "2026-10-01T10:01:00.000Z",
+        "role": "contact",
+        "direction": "incoming",
+        "use": "discussion",
+        "messageId": "72057594049927937002",
+        "sequence": "2",
+        "senderUid": "eval_replay_contact",
+        "senderUin": "3333333333",
+        "speaker": "对方",
+        "text": "好呀，可以。"
+      },
+      {
+        "id": "s4",
+        "type": "private",
+        "at": "2026-10-03T11:18:00.000Z",
+        "role": "user",
+        "use": "discussion",
+        "kind": "discussion",
+        "segments": [
+          {
+            "materialRef": "m1",
+            "parts": [
+              [
+                "b1",
+                "我们"
+              ],
+              [
+                "b2",
+                "这次"
+              ],
+              [
+                "b3",
+                "看"
+              ],
+              [
+                "b4",
+                "展"
+              ],
+              [
+                "b5",
+                "现在"
+              ],
+              [
+                "b6",
+                "是"
+              ],
+              [
+                "b7",
+                "什么"
+              ],
+              [
+                "b8",
+                "状态"
+              ],
+              [
+                "b9",
+                "？"
+              ]
+            ],
+            "endBoundary": "b10"
+          }
+        ],
+        "materialChoices": [],
+        "refinementCoverage": {
+          "status": "complete",
+          "maxParts": 32
+        },
+        "authorityChoices": {
+          "originalUserStatementCandidates": [
+            {
+              "authorityRef": "a1"
+            }
+          ],
+          "candidateMeaning": "ORIGINALUSERSTATEMENTCANDIDATE_NOT_GRANT"
+        }
+      },
+      {
+        "id": "s5",
+        "type": "private",
+        "at": "2026-10-05T11:00:00.000Z",
+        "role": "user",
+        "use": "discussion",
+        "kind": "discussion",
+        "segments": [
+          {
+            "materialRef": "m2",
+            "parts": [
+              [
+                "b11",
+                "补充"
+              ],
+              [
+                "b12",
+                "一下"
+              ],
+              [
+                "b13",
+                "："
+              ]
+            ]
+          },
+          {
+            "materialRef": "m3",
+            "parts": [
+              [
+                "b14",
+                "她"
+              ],
+              [
+                "b15",
+                "10"
+              ],
+              [
+                "b16",
+                "月"
+              ],
+              [
+                "b17",
+                "1"
+              ],
+              [
+                "b18",
+                "日"
+              ],
+              [
+                "b19",
+                "曾经"
+              ],
+              [
+                "b20",
+                "答应"
+              ],
+              [
+                "b21",
+                "过"
+              ],
+              [
+                "b22",
+                "10"
+              ],
+              [
+                "b23",
+                "月"
+              ],
+              [
+                "b24",
+                "10"
+              ],
+              [
+                "b25",
+                "日"
+              ],
+              [
+                "b26",
+                "去"
+              ],
+              [
+                "b27",
+                "看"
+              ],
+              [
+                "b28",
+                "展"
+              ],
+              [
+                "b29",
+                "。"
+              ]
+            ],
+            "endBoundary": "b30"
+          }
+        ],
+        "materialChoices": [
+          {
+            "materialRef": "m4",
+            "from": "m2",
+            "to": "m3"
+          }
+        ],
+        "refinementCoverage": {
+          "status": "complete",
+          "maxParts": 32
+        },
+        "authorityChoices": {
+          "originalUserStatementCandidates": [
+            {
+              "authorityRef": "a2"
+            }
+          ],
+          "candidateMeaning": "ORIGINALUSERSTATEMENTCANDIDATE_NOT_GRANT"
+        }
+      },
+      {
+        "id": "s6",
+        "type": "private",
+        "at": "2026-10-05T11:18:00.000Z",
+        "role": "user",
+        "use": "discussion",
+        "kind": "discussion",
+        "segments": [
+          {
+            "materialRef": "m5",
+            "parts": [
+              [
+                "b31",
+                "补充"
+              ],
+              [
+                "b32",
+                "后"
+              ],
+              [
+                "b33",
+                "，"
+              ]
+            ]
+          },
+          {
+            "materialRef": "m6",
+            "parts": [
+              [
+                "b34",
+                "现在"
+              ],
+              [
+                "b35",
+                "的"
+              ],
+              [
+                "b36",
+                "安排"
+              ],
+              [
+                "b37",
+                "应"
+              ],
+              [
+                "b38",
+                "怎么"
+              ],
+              [
+                "b39",
+                "理解"
+              ],
+              [
+                "b40",
+                "？"
+              ]
+            ],
+            "endBoundary": "b41"
+          }
+        ],
+        "materialChoices": [
+          {
+            "materialRef": "m7",
+            "from": "m5",
+            "to": "m6"
+          }
+        ],
+        "refinementCoverage": {
+          "status": "complete",
+          "maxParts": 32
+        },
+        "authorityChoices": {
+          "originalUserStatementCandidates": [
+            {
+              "authorityRef": "a3"
+            }
+          ],
+          "candidateMeaning": "ORIGINALUSERSTATEMENTCANDIDATE_NOT_GRANT"
+        }
+      }
+    ],
+    "privateConversation": [
+      {
+        "id": "896e7339-cb6e-424a-9dbc-d36d742c89a5",
+        "role": "user",
+        "kind": "discussion",
+        "sourceId": "s4",
+        "sourceTextLocation": "sources",
+        "at": "2026-10-03T11:18:00.000Z",
+        "requestId": "replay-request-1"
+      },
+      {
+        "id": "003776a2-3a43-423c-915e-c17bb68bfc95",
+        "role": "user",
+        "kind": "discussion",
+        "sourceId": "s5",
+        "sourceTextLocation": "sources",
+        "at": "2026-10-05T11:00:00.000Z",
+        "requestId": "replay-request-2"
+      },
+      {
+        "id": "7467bc56-8e75-451e-b3be-084b40a332b9",
+        "role": "user",
+        "kind": "discussion",
+        "sourceId": "s6",
+        "sourceTextLocation": "sources",
+        "at": "2026-10-05T11:18:00.000Z",
+        "requestId": "replay-request-3"
+      }
+    ],
+    "evidenceRule": "historicalOnly=true 的消息仅为历史提及，后续可能有未读的更改，不可据此断言当前约定有效。possiblyStale 的状态只作需要核查的上次理解，新原话与用户纠正优先。",
+    "contextPolicy": {
+      "recentHours": 72,
+      "since": "2026-10-03T11:18:00.000Z"
+    },
+    "deferredContext": {
+      "lookupAvailable": true,
+      "qqSourceCount": 0,
+      "privateTurnCount": 0,
+      "relationshipClaimCount": 0
+    },
+    "omittedStateEntries": 0,
+    "imageContext": {
+      "version": 1,
+      "mode": "none",
+      "attached": [],
+      "omitted": []
+    },
+    "memoryDiscovery": {
+      "version": "conversation-discovery-2026-10-30.1",
+      "directory": [
+        {
+          "id": "raw:private:b49ffddf-78d8-4273-b682-69c1c80fc5fd",
+          "kind": "raw_source",
+          "subject": "undetermined",
+          "sourceSpeaker": "private_user",
+          "aspect": "private",
+          "at": "2026-10-06T11:18:00.000Z",
+          "temporalStatus": "source_time_not_current_state",
+          "omittedSupportCount": 0,
+          "requiresOriginalRead": true,
+          "sourceRefs": [
+            {
+              "sourceId": "s1",
+              "revision": "54427eedfc8e7d9ce6882838580b4e3ed32e786189099e5765ee019454c64f49"
+            }
+          ],
+          "sourceIds": [
+            "s1"
+          ],
+          "authority": "navigation_only_needs_source_lookup",
+          "textFromSource": "s1"
+        },
+        {
+          "id": "raw:private:003776a2-3a43-423c-915e-c17bb68bfc95",
+          "kind": "raw_source",
+          "subject": "undetermined",
+          "sourceSpeaker": "private_user",
+          "aspect": "private",
+          "at": "2026-10-05T11:00:00.000Z",
+          "temporalStatus": "source_time_not_current_state",
+          "omittedSupportCount": 0,
+          "requiresOriginalRead": true,
+          "sourceRefs": [
+            {
+              "sourceId": "s5",
+              "revision": "a4772b9e997736c939eab68ef03679a70127a3ce5b3b5911ad914525e6e07bf4"
+            }
+          ],
+          "sourceIds": [
+            "s5"
+          ],
+          "authority": "navigation_only_needs_source_lookup",
+          "textFromSource": "s5"
+        },
+        {
+          "id": "b8fddfba-b17d-4b87-b5fe-9e2ffe5d08c2",
+          "kind": "relationship_event",
+          "subject": "unknown",
+          "aspect": "relationship_event",
+          "text": "联系人答应用户10月10日一起去看展。",
+          "at": "2026-10-01T10:01:00.000Z",
+          "temporalStatus": "date_and_continuation_need_review",
+          "epistemicStatus": "unspecified",
+          "assertionKind": "unspecified",
+          "lifecycle": "active",
+          "activityKey": "展览",
+          "omittedSupportCount": 0,
+          "requiresOriginalRead": true,
+          "sourceRefs": [
+            {
+              "sourceId": "s2",
+              "revision": "0e223520ae13608c3a21dd24a1b33b606b4b28cb05593befe8825e5d72c68aae"
+            },
+            {
+              "sourceId": "s3",
+              "revision": "37fa9ea7a676c3f387ef83c3f698720c606b5fbbb215e951818e26c6ab1b35c2"
+            }
+          ],
+          "sourceIds": [
+            "s2",
+            "s3"
+          ],
+          "authority": "navigation_only_needs_source_lookup"
+        },
+        {
+          "id": "a968b3d1-1e58-4a80-ac9d-1bcc80456d28",
+          "kind": "relationship_event",
+          "subject": "unknown",
+          "aspect": "relationship_event",
+          "text": "用户邀请联系人10月10日一起去看展。",
+          "at": "2026-10-01T10:00:00.000Z",
+          "temporalStatus": "date_and_continuation_need_review",
+          "epistemicStatus": "unspecified",
+          "assertionKind": "unspecified",
+          "lifecycle": "active",
+          "activityKey": "展览",
+          "omittedSupportCount": 0,
+          "requiresOriginalRead": true,
+          "sourceRefs": [
+            {
+              "sourceId": "s2",
+              "revision": "0e223520ae13608c3a21dd24a1b33b606b4b28cb05593befe8825e5d72c68aae"
+            }
+          ],
+          "sourceIds": [
+            "s2"
+          ],
+          "authority": "navigation_only_needs_source_lookup"
+        },
+        {
+          "id": "raw:private:7467bc56-8e75-451e-b3be-084b40a332b9",
+          "kind": "raw_source",
+          "subject": "undetermined",
+          "sourceSpeaker": "private_user",
+          "aspect": "private",
+          "at": "2026-10-05T11:18:00.000Z",
+          "temporalStatus": "source_time_not_current_state",
+          "omittedSupportCount": 0,
+          "requiresOriginalRead": true,
+          "sourceRefs": [
+            {
+              "sourceId": "s6",
+              "revision": "a51b0b2c5e2da114a98eefd9dab503f6e14fc726d264466bcaddbf104f2c1580"
+            }
+          ],
+          "sourceIds": [
+            "s6"
+          ],
+          "authority": "navigation_only_needs_source_lookup",
+          "textFromSource": "s6"
+        }
+      ],
+      "authority": "fallible_navigation_requires_original_lookup",
+      "rule": "目录用于发现可核对的旧事、自述和共同背景；先核对原文、后续变化和已表达内容，不能把预览当当前事实、未聊过证明或分享授权。",
+      "omittedEntryCount": 1,
+      "candidateSourceCount": 6,
+      "delivery": [
+        {
+          "sourceId": "s5",
+          "status": "delivered"
+        },
+        {
+          "sourceId": "s4",
+          "status": "delivered"
+        },
+        {
+          "sourceId": "s1",
+          "status": "delivered"
+        },
+        {
+          "sourceId": "s2",
+          "status": "delivered"
+        },
+        {
+          "sourceId": "s3",
+          "status": "delivered"
+        },
+        {
+          "sourceId": "s6",
+          "status": "delivered"
+        }
+      ]
+    },
+    "relationshipContext": {
+      "version": 13,
+      "asOf": "2026-10-06T11:18:00.000Z",
+      "claims": [],
+      "events": [
+        {
+          "id": "a968b3d1-1e58-4a80-ac9d-1bcc80456d28",
+          "version": 1,
+          "text": "用户邀请联系人10月10日一起去看展。",
+          "sourceIds": [
+            "s2"
+          ],
+          "sourceRevisions": {
+            "s2": "0e223520ae13608c3a21dd24a1b33b606b4b28cb05593befe8825e5d72c68aae"
+          },
+          "evidenceValidity": "valid",
+          "reviewComplete": true,
+          "topicKeys": [],
+          "firstEvidenceAt": "2026-10-01T10:00:00.000Z",
+          "lastEvidenceAt": "2026-10-01T10:00:00.000Z",
+          "reportedAt": "2026-10-01T10:00:00.000Z",
+          "reviewedAt": "2026-10-03T11:11:00.000Z",
+          "activityId": "activity:7c41ab45-2782-47c0-9c7c-6abd56393476",
+          "activityKey": "展览",
+          "eventKind": "invitation",
+          "actor": "self",
+          "occurredAt": "2026-10-01T10:00:00.000Z",
+          "plannedFor": "2026-10-10T00:00:00.000Z",
+          "occurrenceTimeStatus": "known",
+          "lifecycle": "active",
+          "origin": "qq_observation",
+          "authority": "source_backed_summary_not_independent_evidence"
+        },
+        {
+          "id": "b8fddfba-b17d-4b87-b5fe-9e2ffe5d08c2",
+          "version": 1,
+          "text": "联系人答应用户10月10日一起去看展。",
+          "sourceIds": [
+            "s2",
+            "s3"
+          ],
+          "sourceRevisions": {
+            "s2": "0e223520ae13608c3a21dd24a1b33b606b4b28cb05593befe8825e5d72c68aae",
+            "s3": "37fa9ea7a676c3f387ef83c3f698720c606b5fbbb215e951818e26c6ab1b35c2"
+          },
+          "evidenceValidity": "valid",
+          "reviewComplete": true,
+          "topicKeys": [],
+          "firstEvidenceAt": "2026-10-01T10:01:00.000Z",
+          "lastEvidenceAt": "2026-10-01T10:01:00.000Z",
+          "reportedAt": "2026-10-01T10:01:00.000Z",
+          "reviewedAt": "2026-10-03T11:11:00.000Z",
+          "activityId": "activity:7c41ab45-2782-47c0-9c7c-6abd56393476",
+          "activityKey": "展览",
+          "eventKind": "acceptance",
+          "actor": "contact",
+          "occurredAt": "2026-10-01T10:01:00.000Z",
+          "plannedFor": "2026-10-10T00:00:00.000Z",
+          "occurrenceTimeStatus": "known",
+          "lifecycle": "active",
+          "origin": "qq_observation",
+          "authority": "source_backed_summary_not_independent_evidence"
+        }
+      ],
+      "activities": [
+        {
+          "activityId": "activity:7c41ab45-2782-47c0-9c7c-6abd56393476",
+          "activityKey": "10月10日一起去看看那个展吗？",
+          "status": "needs_review",
+          "authority": "withdrawn_evidence_gap",
+          "identityStatus": "anchored",
+          "definitionAvailable": true,
+          "definitionEvidence": {
+            "sourceIds": [
+              "s2"
+            ],
+            "sourceRevisions": {
+              "s2": "0e223520ae13608c3a21dd24a1b33b606b4b28cb05593befe8825e5d72c68aae"
+            }
+          },
+          "historicalEvidenceGap": true,
+          "currentReportedState": null,
+          "priorCurrentReportedState": null,
+          "latestEventId": "b8fddfba-b17d-4b87-b5fe-9e2ffe5d08c2",
+          "knowledgeChangedAt": "2026-10-06T11:00:00.000Z",
+          "affectedWorldAt": "2026-10-03T11:00:00.000Z",
+          "occurredAt": "2026-10-01T10:01:00.000Z",
+          "plannedFor": "2026-10-10T00:00:00.000Z",
+          "qualified": false,
+          "eventIds": [
+            "a968b3d1-1e58-4a80-ac9d-1bcc80456d28",
+            "b8fddfba-b17d-4b87-b5fe-9e2ffe5d08c2"
+          ]
+        }
+      ],
+      "activityUncertainties": [],
+      "activityEvidenceRule": "Historical evidence gaps do not negate a separately supported current-state report. Preserve currentReportedState source/asOf/authority; it is not an event occurrence clock.",
+      "coverage": {
+        "pending": 1,
+        "semanticPending": 0,
+        "processorVersion": "evidence-backed-understanding-2026-10-31.2",
+        "bootstrapPending": false,
+        "history": {
+          "status": "accessible_end",
+          "pages": 1,
+          "cursor": "72057594049927937001",
+          "oldestAt": 1790848800000,
+          "checkedAt": "2026-10-03T11:01:00.000Z",
+          "source": "fictional-native-boundary-replay"
+        },
+        "semanticCertainty": false
+      }
+    },
+    "experienceContext": {
+      "cases": [
+        {
+          "id": "qq:72057594049927937001",
+          "status": "observation_available",
+          "goalVersion": 0,
+          "actualActions": [
+            {
+              "kind": "qq_message",
+              "messageId": "72057594049927937001",
+              "eventAt": "2026-10-01T10:00:00.000Z",
+              "availability": "available",
+              "sourceId": "s2"
+            }
+          ],
+          "observations": [
+            {
+              "kind": "subsequent_message",
+              "messageId": "72057594049927937002",
+              "eventAt": "2026-10-01T10:01:00.000Z",
+              "relevance": "unconfirmed",
+              "authority": "actual_qq",
+              "sourceId": "s3"
+            }
+          ],
+          "attribution": "unlinked",
+          "links": [],
+          "reviewSourceIds": [],
+          "sourceIds": [
+            "s2",
+            "s3"
+          ],
+          "authority": "source_backed_summary_not_independent_evidence"
+        }
+      ],
+      "adaptations": [],
+      "constraints": [
+        "仅为局部经验；不是她的心理或方法因果效果证据。",
+        "候选适用性尚未确定，核对applicability与当前任务后再使用；本轮明确意思优先，不相关或相反的指导不采用。"
+      ]
+    },
+    "work": {
+      "version": "conversation-work-2026-10-30.2",
+      "authority": "derived_work_view_not_factual_evidence",
+      "scope": "this_relationship",
+      "request": {
+        "sourceId": "s1",
+        "purpose": "discussion",
+        "origin": "user",
+        "trigger": "private_request",
+        "meaningFromSource": "s1",
+        "authority": "current_source_pointer_not_material_or_permission"
+      },
+      "goal": {
+        "available": true,
+        "meaningFrom": "goal",
+        "authority": "user_owned_long_term_direction_not_wording"
+      },
+      "current": null,
+      "focus": {
+        "sourceIds": [
+          "s3"
+        ],
+        "positionFrom": "taskContext.latestActual"
+      },
+      "pendingPrivateIntent": {
+        "sourceIds": []
+      },
+      "controlsFrom": {
+        "current": "topicContext.active",
+        "responsePreference": "taskContext.responsePreference",
+        "authority": "applicable_controls_not_shareable_facts"
+      },
+      "sourceIds": [
+        "s1",
+        "s3"
+      ],
+      "outputUse": "planning_only_not_outbound_authorization"
+    },
+    "materialView": {
+      "version": "conversation-materials-2026-10-30.2",
+      "items": [
+        {
+          "kind": "current_exchange",
+          "sourceIds": [
+            "s2",
+            "s3"
+          ],
+          "novelty": "not_determined",
+          "owner": "both",
+          "availableAs": "actual_conversation",
+          "interpretation": "read_actual_order_and_speakers"
+        },
+        {
+          "kind": "already_expressed",
+          "sourceIds": [
+            "s2"
+          ],
+          "novelty": "not_determined",
+          "owner": "self",
+          "availableAs": "actual_sent_not_a_fresh_draft"
+        },
+        {
+          "kind": "arrangement_evidence",
+          "sourceIds": [
+            "s2"
+          ],
+          "novelty": "not_determined",
+          "owner": "self",
+          "availableAs": "verify_event_and_later_changes",
+          "eventKind": "invitation",
+          "at": "2026-10-01T10:00:00.000Z"
+        },
+        {
+          "kind": "arrangement_evidence",
+          "sourceIds": [
+            "s2",
+            "s3"
+          ],
+          "novelty": "not_determined",
+          "owner": "contact",
+          "availableAs": "verify_event_and_later_changes",
+          "eventKind": "acceptance",
+          "at": "2026-10-01T10:01:00.000Z"
+        }
+      ],
+      "currentIntent": {
+        "sourceId": "s1",
+        "trigger": "private_request",
+        "authority": "current_source_pointer_not_material_or_permission"
+      },
+      "authority": "evidence_navigation_not_a_script",
+      "instruction": "从实际原话选本轮可聊一点，核对主体、日期、已表达内容和后续限制；未知不逐项追问。此视图的类别/指针非素材或许可；sources原始用户话可含事实、任务和范围明确的分享意思，须结合当前QQ指代、否定、条件判断。视图和所选操作本身不授分享许可。"
+    },
+    "taskContext": {
+      "version": "relationship-task-2026-10-16.2",
+      "sourceTextLocation": "sources",
+      "requestOrigin": "private_discussion",
+      "currentRequestSourceId": "s1",
+      "invocation": {
+        "origin": "user",
+        "trigger": "private_request",
+        "requestedPurpose": "discussion"
+      },
+      "timeContext": {
+        "localNow": "2026-10-06 19:18"
+      },
+      "consultationTask": {
+        "purpose": "discussion",
+        "focusOrigin": "latest_available",
+        "focus": [
+          {
+            "sourceId": "s3",
+            "laterAvailableMessageCount": 0
+          }
+        ]
+      },
+      "responsePreference": "自然一点，贴近我的说话方式",
+      "latestActual": {
+        "sourceId": "s3",
+        "direction": "incoming",
+        "speaker": "对方",
+        "at": "2026-10-01T10:01:00.000Z",
+        "sequence": "2",
+        "localAt": "2026-10-01 18:01",
+        "elapsedMinutes": 7277,
+        "ageMs": 436620000
+      },
+      "recentExchange": [
+        {
+          "sourceId": "s2",
+          "speaker": "我",
+          "direction": "outgoing",
+          "at": "2026-10-01T10:00:00.000Z",
+          "sequence": "1"
+        },
+        {
+          "sourceId": "s3",
+          "speaker": "对方",
+          "direction": "incoming",
+          "at": "2026-10-01T10:01:00.000Z",
+          "localAt": "2026-10-01 18:01",
+          "sequence": "2"
+        }
+      ],
+      "selfMessagesAfterLastContact": [],
+      "recentContext": {
+        "selection": "bounded_actual_neighborhoods",
+        "limits": {
+          "maxMessages": 24,
+          "maxGapMs": 1800000,
+          "maxSpanMs": 7200000,
+          "maxAdditionalBytes": 12000
+        },
+        "windows": [
+          {
+            "anchorSourceId": "s3",
+            "reasons": [
+              "latest"
+            ],
+            "sourceIds": [
+              "s2",
+              "s3"
+            ],
+            "boundaryBefore": "accessible_end",
+            "boundaryAfter": "accessible_end",
+            "omittedMessageCount": 0
+          }
+        ],
+        "gaps": [],
+        "coverage": "accessible_messages_only_not_complete_history"
+      },
+      "contactMessagesAfterLastSelf": [
+        "s3"
+      ],
+      "observationCoverage": {
+        "status": "accessible_end",
+        "checkedAt": "2026-10-03T11:01:00.000Z"
+      },
+      "selfEvidenceSourceIds": [
+        "s2",
+        "s4",
+        "s5",
+        "s6",
+        "s1"
+      ],
+      "auxiliaryPolicy": "best_effort",
+      "factsRule": "仅限已提供原话，不补未知事实或分享授权。",
+      "recentHumanContext": [
+        {
+          "sourceId": "s4",
+          "at": "2026-10-03T11:18:00.000Z",
+          "role": "user",
+          "bodyLocation": "sources",
+          "text": "我们这次看展现在是什么状态？"
+        },
+        {
+          "sourceId": "s5",
+          "at": "2026-10-05T11:00:00.000Z",
+          "role": "user",
+          "bodyLocation": "sources",
+          "text": "补充一下：她10月1日曾经答应过10月10日去看展。"
+        },
+        {
+          "sourceId": "s6",
+          "at": "2026-10-05T11:18:00.000Z",
+          "role": "user",
+          "bodyLocation": "sources",
+          "text": "补充后，现在的安排应怎么理解？"
+        }
+      ]
+    },
+    "userRequest": {
+      "sourceId": "s1",
+      "text": "那条消息撤回后，现在能当作还约好了吗？"
+    },
+    "currentPermission": {
+      "authorityRef": "a4",
+      "authority": "original_current_human_statement_candidate_not_grant",
+      "bodyLocation": "userRequest"
+    },
+    "primaryReferenceProtocol": {
+      "version": "primary-reference-choices-v1"
+    },
+    "operationProtocol": {
+      "version": "primary-operation-v2"
+    },
+    "sourceReferenceProtocol": {
+      "version": "foreground-source-handles-v1"
+    }
+  }
+}

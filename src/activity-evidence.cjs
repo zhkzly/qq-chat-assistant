@@ -1,10 +1,11 @@
 'use strict';
 // Activity identity and evidence-loss state are local program data. Neither an
 // original-span match nor a model's world-statement choice proves entailment.
-const {randomUUID}=require('node:crypto');
+const {randomUUID,createHash}=require('node:crypto');
 const {ValidationIssues}=require('./validation-issues.cjs');
 const {redact}=require('./model.cjs');
 const PROTOCOL='activity-original-evidence-v1';
+const LOSS_RULE='evidenceLosses use a separate loss: namespace, never source handles, citations, sharing permission or new event evidence. They describe prior derived understanding, not current facts: only a statement dependency identifies what the unavailable original previously served as evidence for; definition/time/support loss does not establish the original message meaning. Original author and prior event actor are distinct; a native recall does not identify its operator. Missing/omitted loss details stay unknown. Historical gaps do not negate separately supported newer world or current-state reports.';
 const speechActs=new Set(['invitation','acceptance','decline','reschedule','cancellation','interest_expression','boundary','sharing']);
 const statuses={invitation:'invited',acceptance:'accepted',decline:'declined',reschedule:'rescheduled',cancellation:'cancelled',occurred:'occurred'};
 const plain=value=>value&&typeof value==='object'&&!Array.isArray(value);
@@ -45,6 +46,22 @@ function storedState(store,scope,originals=new Map(store._rawMemorySources(scope
  return readState(store._memoryRecords(scope),gaps,originals);
 }
 function worldClock(event){return event.occurredAt||event.reportedAt||event.lastEvidenceAt||'';}
+function lossView(gap){
+ const loss=gap.evidenceLoss;if(!loss||loss.namespace!=='historical_evidence_loss_v1')return null;
+ // Deliberately avoid sourceId/sourceIds/sourceRevisions: those names mint
+ // evidence handles in foreground consumers, including for unavailable bodies.
+ return {...clone(loss),knowledgeChangedAt:gap.knowledgeChangedAt||null,affectedWorldAt:gap.affectedWorldAt||null};
+}
+function evidenceLosses(gaps){return gaps.map(lossView).filter(Boolean);}
+function trimContextLoss(context){const item=context?.activities?.findLast(activity=>activity.evidenceLosses?.length);if(!item)return false;item.evidenceLosses.pop();item.omittedEvidenceLossCount=(item.omittedEvidenceLossCount||0)+1;return true;}
+const lossFingerprint=loss=>createHash('sha256').update(JSON.stringify(loss)).digest('hex');
+function lossReferences(scope,losses){return losses.map(loss=>({scope:{...scope},lossRef:loss.lossRef,fingerprint:lossFingerprint(loss)}));}
+function assertLossReferences(store,scope,refs=[]){
+ if(!Array.isArray(refs)||refs.length>128)throw new Error('Invalid historical evidence loss dependencies');
+ if(!refs.length)return [];
+ const gaps=store.db.prepare('SELECT record FROM memory_gaps WHERE scope_key=?').all(store.scopeKey(scope)).map(row=>JSON.parse(row.record)),current=new Map(evidenceLosses(gaps).map(loss=>[loss.lossRef,loss]));
+ return refs.map(ref=>{const loss=current.get(ref?.lossRef);if(!ref?.scope||!['accountUid','accountUin','peerUid','peerUin'].every(key=>ref.scope[key]===scope[key])||!loss||lossFingerprint(loss)!==ref.fingerprint)throw new Error('Historical evidence loss dependency changed before publication');return {scope:{...scope},lossRef:ref.lossRef,fingerprint:ref.fingerprint};});
+}
 function publicActivities(records,gaps,originals){
  const state=readState(records,gaps,originals),activities=state.activities.map(item=>{
   const originalsCurrent=record=>Object.entries(record.sourceRevisions||{}).every(([id,revision])=>originals.get(id)?.revision===revision);
@@ -64,24 +81,33 @@ function publicActivities(records,gaps,originals){
   const reportView=reported?{status:reported.status,asOf:reported.asOf,origin:reported.origin,sourceIds:[...new Set([...stateClaim.sourceIds,...Object.keys(activityReferences(stateClaim))])],sourceRevisions:{...stateClaim.sourceRevisions,...activityReferences(stateClaim)},claimId:stateClaim.id}:null;
   return {activityId:item.id,activityKey:item.label,definitionAvailable:item.label!==null,identityStatus:'anchored',status:useReported?reported.status:needsReview?'needs_review':statuses[current.eventKind]||'observed',
    authority:useReported?reported.origin==='qq_observation'?'source_backed_current_statement':'user_reported_current_state':unresolved?'withdrawn_evidence_gap':item.label===null?'activity_definition_unavailable':provisional?'unresolved_prior_activity_scope':current?.origin==='user_report'?'user_reported':'source_backed_statement',
-   historicalEvidenceGap:unresolved,qualified:identityProvisional||state.legacyUncertainties.length>0,currentReportedState:useReported?reportView:null,priorCurrentReportedState:reported&&!useReported?{...reportView,qualification:undatedContrary?'later_undated_contrary_evidence':oldOnlyClaim?'legacy_activity_identity_unresolved':'historical_report'}:null,
+   historicalEvidenceGap:unresolved,evidenceLosses:evidenceLosses(item.gaps),qualified:identityProvisional||state.legacyUncertainties.length>0,currentReportedState:useReported?reportView:null,priorCurrentReportedState:reported&&!useReported?{...reportView,qualification:undatedContrary?'later_undated_contrary_evidence':oldOnlyClaim?'legacy_activity_identity_unresolved':'historical_report'}:null,
    eventIds:events.map(event=>event.id),latestEventId:current?.id||null,claimIds:item.stateClaims.map(claim=>claim.id),sourceIds:[...new Set([...events.flatMap(event=>evidenceViewRecord(event).sourceIds),...(useReported?reportView.sourceIds:[])])],definitionEvidence:item.label!==null?{sourceIds:[item.definition.sourceId],sourceRevisions:{[item.definition.sourceId]:item.definition.revision}}:{sourceIds:[],sourceRevisions:{}},
    knowledgeChangedAt:item.gaps.map(gap=>gap.knowledgeChangedAt).filter(Boolean).sort().at(-1)||null,affectedWorldAt:item.gaps.map(gap=>gap.affectedWorldAt).filter(Boolean).sort().at(-1)||null,
    lastEvidenceAt:current?.lastEvidenceAt||null,occurredAt:current?.occurredAt||null,plannedFor:current?.plannedFor||null,occurrenceTimeStatus:current?.occurrenceTimeStatus||'unknown'};
  });
  return {activities,activityUncertainties:state.legacyUncertainties};
 }
-function makeGap(prior,{changedAt,basis='detected_source_change',legacyDigest}){
+function makeGap(prior,{changedAt,basis='detected_source_change',legacyDigest,invalidatedOriginal,operation,retainInterpretation=false}){
  const affectedAt=prior.currentActivityState?.asOf||prior.occurredAt||null;
  const common={id:prior.id,activityDigest:legacyDigest,orderAt:affectedAt||prior.lastEvidenceAt,reason:'support_changed_or_withdrawn'};
  if(!prior.activityId)return common; // Legacy hash-only rows have no recoverable knowledge clock.
- return {...common,activityId:prior.activityId,...(prior.activityDefinition?{activityDefinition:clone(prior.activityDefinition)}:{}),affectedWorldAt:affectedAt,worldTimeStatus:prior.currentActivityState?'observed_state_as_of':prior.occurrenceTimeStatus||'unknown',knowledgeChangedAt:changedAt,knowledgeTimeBasis:basis};
+ const gap={...common,activityId:prior.activityId,...(prior.activityDefinition?{activityDefinition:clone(prior.activityDefinition)}:{}),affectedWorldAt:affectedAt,worldTimeStatus:prior.currentActivityState?'observed_state_as_of':prior.occurrenceTimeStatus||'unknown',knowledgeChangedAt:changedAt,knowledgeTimeBasis:basis};
+ if(retainInterpretation&&invalidatedOriginal?.id&&invalidatedOriginal.revision){
+  const same=ref=>ref?.sourceId===invalidatedOriginal.id&&ref.revision===invalidatedOriginal.revision;
+  const roles=[['statement',prior.statementEvidence],['definition',prior.activityDefinition],['time',prior.timeEvidence?.evidence],['planned_time',prior.plannedEvidence]].filter(([,ref])=>same(ref)).map(([role])=>role);
+  if(!roles.length)roles.push('support');
+  gap.evidenceLoss={namespace:'historical_evidence_loss_v1',lossRef:`loss:${prior.id}`,authority:'historical_derived_interpretation_not_current_fact_or_evidence',invalidatedOriginal:{canonicalId:invalidatedOriginal.id,previousRevision:invalidatedOriginal.revision,type:invalidatedOriginal.type,authorRole:invalidatedOriginal.role||'unknown'},operation,operationActor:'unknown',dependencyRoles:roles,priorInterpretation:{recordType:prior.recordType,...(prior.recordType==='relationship_event'?{eventKind:prior.eventKind,eventActor:prior.actor}:{}),...(prior.currentActivityState?{currentState:prior.currentActivityState.status}:{})}};
+  // Internal privacy dependencies are never projected as delivered originals.
+  gap.lossDependencyIds=[...new Set([...Object.keys(prior.sourceRevisions||{}),...Object.keys(activityReferences(prior))])];
+ }
+ return gap;
 }
 function memoryContext(store,scope,originals){
  const state=storedState(store,scope,originals);
  const projected=publicActivities(store._memoryRecords(scope),store.db.prepare('SELECT record FROM memory_gaps WHERE scope_key=?').all(store.scopeKey(scope)).map(row=>JSON.parse(row.record)),originals),reports=new Map(projected.activities.map(item=>[item.activityId,item.currentReportedState]));
  const ordered=state.activities.sort((a,b)=>Number(!!b.gaps.length)-Number(!!a.gaps.length)||String(b.gaps.at(-1)?.knowledgeChangedAt||b.events.at(-1)?.lastEvidenceAt||'').localeCompare(String(a.gaps.at(-1)?.knowledgeChangedAt||a.events.at(-1)?.lastEvidenceAt||'')));
- return {protocol:PROTOCOL,activities:ordered.slice(0,6).map(item=>({id:item.id,definition:item.definition,label:item.label,currentReportedState:reports.get(item.id)||null,gaps:item.gaps.length?[{affectedWorldAt:item.gaps.every(gap=>gap.affectedWorldAt)?item.gaps.map(gap=>gap.affectedWorldAt).sort().at(-1):null,knowledgeChangedAt:item.gaps.map(gap=>gap.knowledgeChangedAt).filter(Boolean).sort().at(-1)||null,worldTimeStatus:item.gaps.every(gap=>gap.affectedWorldAt)?'known':'unknown'}]:[]})),legacyUncertainties:state.legacyUncertainties.slice(0,4),omittedLegacyGapCount:Math.max(0,state.legacyUncertainties.length-4),omittedActivityCount:Math.max(0,ordered.length-6)};
+ return {protocol:PROTOCOL,activities:ordered.slice(0,6).map(item=>({id:item.id,definition:item.definition,label:item.label,currentReportedState:reports.get(item.id)||null,evidenceLosses:evidenceLosses(item.gaps).slice(0,4),omittedEvidenceLossCount:Math.max(0,evidenceLosses(item.gaps).length-4),gaps:item.gaps.length?[{affectedWorldAt:item.gaps.every(gap=>gap.affectedWorldAt)?item.gaps.map(gap=>gap.affectedWorldAt).sort().at(-1):null,knowledgeChangedAt:item.gaps.map(gap=>gap.knowledgeChangedAt).filter(Boolean).sort().at(-1)||null,worldTimeStatus:item.gaps.every(gap=>gap.affectedWorldAt)?'known':'unknown'}]:[]})),legacyUncertainties:state.legacyUncertainties.slice(0,4),omittedLegacyGapCount:Math.max(0,state.legacyUncertainties.length-4),omittedActivityCount:Math.max(0,ordered.length-6)};
 }
 function wireContext(context,sourceAliases,delivered){
  const aliases=new Map(),sources=new Map(delivered.map(source=>[source.id,source]));
@@ -89,7 +115,7 @@ function wireContext(context,sourceAliases,delivered){
   const ref=`v${index+1}`;aliases.set(ref,item);
   const source=item.definition&&sources.get(item.definition.sourceId),available=source&&source.revision===item.definition.revision&&!source.deleted&&!source.segment&&!source.delivery;
   const report=item.currentReportedState;
-  return {ref,state:item.gaps.length?'historical_evidence_gap':'known_activity',definition:available?{sourceId:sourceAliases.get(source.id),quote:source.text.slice(item.definition.start,item.definition.end)}:{available:false},gaps:item.gaps,currentReportedState:report?{status:report.status,asOf:report.asOf,origin:report.origin,sourceIds:report.sourceIds.filter(id=>sourceAliases.has(id)).map(id=>sourceAliases.get(id)),originalsDelivered:report.sourceIds.every(id=>sources.has(id))}:null};
+  return {ref,state:item.gaps.length?'historical_evidence_gap':'known_activity',definition:available?{sourceId:sourceAliases.get(source.id),quote:source.text.slice(item.definition.start,item.definition.end)}:{available:false},gaps:item.gaps,evidenceLosses:item.evidenceLosses||[],omittedEvidenceLossCount:item.omittedEvidenceLossCount||0,currentReportedState:report?{status:report.status,asOf:report.asOf,origin:report.origin,sourceIds:report.sourceIds.filter(id=>sourceAliases.has(id)).map(id=>sourceAliases.get(id)),originalsDelivered:report.sourceIds.every(id=>sources.has(id))}:null};
  });
  return {aliases,input:{protocol:PROTOCOL,activities,legacyUncertainties:(context?.legacyUncertainties||[]).map(({id,...gap},index)=>({uncertaintyRef:`u${index+1}`,...gap})),omittedLegacyGapCount:context?.omittedLegacyGapCount||0,omittedActivityCount:context?.omittedActivityCount||0,rule:'Evidence loss is knowledge state, not a new world event. Empty events are a completed no-change decision. Labels do not define identity.'}};
 }
@@ -192,4 +218,4 @@ function resolveProof(store,scope,value,{raw,delivered,old,state,minted,offeredI
  const provisional=proof.create&&priorUncertainties.some(gap=>!(gap.affectedWorldAt||gap.legacyOrderAt)||!evidenceAt||(gap.affectedWorldAt||gap.legacyOrderAt)>=evidenceAt);
  return {fields:{activityId:id,activityDefinition:clone(definition),statementEvidence:clone(proof.statement),timeEvidence:clone(proof.occurrence),...(proof.planned?{plannedFor:proof.planned.at,plannedEvidence:clone(proof.planned.evidence)}:{}),activityProvisional:provisional,occurredAt:proof.occurrence.at||null},statementAt:statement.at,origin:statement.type==='qq'?'qq_observation':'user_report',identitySourceIds:[definition.sourceId]};
 }
-module.exports={PROTOCOL,activityReferences,evidenceViewRecord,readState,storedState,publicActivities,makeGap,memoryContext,wireContext,decodeEvent,decodeClaim,normalizeProof,resolveProof,referenceText};
+module.exports={PROTOCOL,LOSS_RULE,evidenceLosses,trimContextLoss,lossReferences,assertLossReferences,activityReferences,evidenceViewRecord,readState,storedState,publicActivities,makeGap,memoryContext,wireContext,decodeEvent,decodeClaim,normalizeProof,resolveProof,referenceText};

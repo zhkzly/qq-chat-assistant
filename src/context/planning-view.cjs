@@ -19,6 +19,7 @@ const {projectDiscussionReads}=require('./discussion-view.cjs');
 const {bytes}=require('./shared.cjs');
 const {MATERIAL_POLICY}=require('./draft-material.cjs');
 const {offerEditingReferences,editingReferenceView,bindEditingReferenceChoices}=require('./editing-reference.cjs');
+const {lossReferences,assertLossReferences}=require('../activity-evidence.cjs');
 
 function reconcilePlanningViews(payload){
   const sources=new Map(payload.sources.map(source=>[source.id,source])),available=new Set(sources.keys());
@@ -261,6 +262,8 @@ function buildContext(options) {
   const currentRequest=payload.userRequest,position=payload.taskContext;delete payload.userRequest;delete payload.taskContext;
   payload.taskContext=position;payload.userRequest=currentRequest;
   const context=finish(payload, payload.sources, { scope, requestId, companion, coverage }, all, byteBudget, budget);
+  const losses=(payload.relationshipContext?.activities||[]).flatMap(activity=>activity.evidenceLosses||[]);
+  if(losses.length)context.manifest.inputEvidenceLossRefs=lossReferences(scope,losses);
   // Qualified stored activity summaries can remain navigation without raw
   // originals in this request. Bind every original dependency to publication;
   // these refs are not added to the delivered/reviewed-source receipt.
@@ -281,6 +284,7 @@ function buildContext(options) {
   Object.defineProperty(context, 'fullAvailableSources', { value: all });
   Object.defineProperty(context,'rebuildForRequest',{value:measure=>{
     options.store?.experiences.assertInputArtifactsCurrent(scope,context.manifest.inputArtifactRefs||[]);
+    if(options.store)assertLossReferences(options.store,scope,context.manifest.inputEvidenceLossRefs||[]);
     return buildContext({...options,asOf,viewerTimeZone,invocation,requestMeasure:measure});
   }});
   context.restrictions=restrictions;

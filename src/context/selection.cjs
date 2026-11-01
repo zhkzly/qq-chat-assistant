@@ -9,6 +9,7 @@ const {quoteTarget}=require('./policy.cjs');
 const {boundedSource,sourceDeliveryManifest}=require('./source-delivery.cjs');
 const {taskContext}=require('./timeline-view.cjs');
 const {trimEmptyNavigation}=require('./budget-manifest.cjs');
+const {LOSS_RULE}=require('../activity-evidence.cjs');
 
 function selectPlanningContext({options,snapshot,candidates,view,budget,coreInventory,projectPlanningViews,reconcilePlanningViews,compactPlanningViews}){
   const {scope,records,companion,turn,purpose='discussion',coverage,memoryResult,memoryIndex=[],retrievedSources=[],
@@ -434,7 +435,7 @@ function selectPlanningContext({options,snapshot,candidates,view,budget,coreInve
   }
   if (relationshipContext && sameScopeIfPresent(relationshipContext, scope)) {
     payload.relationshipContext = { version: relationshipContext.version, asOf: relationshipContext.asOf,
-      claims: [], events: [], activities: [],activityUncertainties:sanitize(relationshipContext.activityUncertainties||[]),activityEvidenceRule:'Historical evidence gaps do not negate a separately supported current-state report. Preserve currentReportedState source/asOf/authority; it is not an event occurrence clock.', coverage: sanitize(relationshipContext.coverage || {}) };
+      claims: [], events: [], activities: [],activityUncertainties:sanitize(relationshipContext.activityUncertainties||[]),activityEvidenceRule:`Historical evidence gaps do not negate a separately supported current-state report. Preserve currentReportedState source/asOf/authority; it is not an event occurrence clock. ${LOSS_RULE}`, coverage: sanitize(relationshipContext.coverage || {}) };
     const common = ['id','version','text','sourceIds','sourceRevisions','evidenceValidity','applicability','currentApplicability','reviewComplete','topicKeys','firstEvidenceAt','lastEvidenceAt','reportedAt','reviewedAt','applicabilityKind','attribution','condition','readCategory'];
     const categories=new Map();
     for(const subject of ['self','contact','dyad'])for(const category of ['knownFacts','recentCircumstances','uncertainties','boundaries'])for(const claim of relationshipContext.understanding?.[subject]?.[category]||[])categories.set(claim.id,category);
@@ -448,12 +449,15 @@ function selectPlanningContext({options,snapshot,candidates,view,budget,coreInve
       includeGrounded(event, payload.relationshipContext.events, [...common,'activityId','activityKey','identityStatus','activityEvidenceStatus','eventKind','actor','occurredAt','plannedFor','occurrenceTimeStatus','lifecycle','assertionKind','epistemicStatus','origin']);
     payload.relationshipContext.events.sort((a,b)=>String(a.occurredAt||a.lastEvidenceAt||'').localeCompare(String(b.occurredAt||b.lastEvidenceAt||'')));
     const eventIds = new Set(payload.relationshipContext.events.map(event => event.id));
-    for (const activity of (relationshipContext.activities || []).slice(0, 8)) {
+    const relatedActivities=new Set([...payload.relationshipContext.events,...payload.relationshipContext.claims].map(record=>record.activityId).filter(Boolean));
+    const relevantActivities=(relationshipContext.activities||[]).filter(activity=>reviewing||relatedActivities.has(activity.activityId)||(activity.definitionEvidence?.sourceIds||[]).some(id=>selected.has(id))||activity.activityKey&&relevantRecord({text:activity.activityKey,sourceIds:activity.sourceIds})||activity.historicalEvidenceGap&&inRecentWindow(activity.knowledgeChangedAt));
+    for (const activity of relevantActivities.slice(0, 8)) {
       const ids = activity.eventIds || activity.events?.map(event => typeof event === 'string' ? event : event.id) || [];
       if (!activity.activityId&&(!ids.length || ids.some(id => !eventIds.has(id)))) continue;
-      const compact = sanitize({ ...pick(activity, ['activityId','activityKey','status','authority','identityStatus','definitionAvailable','definitionEvidence','historicalEvidenceGap','currentReportedState','priorCurrentReportedState','latestEventId','knowledgeChangedAt','affectedWorldAt','occurredAt','plannedFor','qualified']), eventIds: ids.filter(id=>eventIds.has(id)) });
+      const compact = sanitize({ ...pick(activity, ['activityId','activityKey','status','authority','identityStatus','definitionAvailable','definitionEvidence','historicalEvidenceGap','currentReportedState','priorCurrentReportedState','latestEventId','knowledgeChangedAt','affectedWorldAt','occurredAt','plannedFor','qualified']),evidenceLosses:(activity.evidenceLosses||[]).slice(0,4),omittedEvidenceLossCount:Math.max(0,(activity.evidenceLosses||[]).length-4), eventIds: ids.filter(id=>eventIds.has(id)) });
       payload.relationshipContext.activities.push(compact);
       reconcilePlanningViews(payload);
+      while(!fits(payload)&&compact.evidenceLosses.length){compact.evidenceLosses.pop();compact.omittedEvidenceLossCount++;}
       if (!fits(payload)) payload.relationshipContext.activities.pop();
     }
   }
@@ -608,6 +612,8 @@ function selectPlanningContext({options,snapshot,candidates,view,budget,coreInve
     }
     refresh();
     if (fits(payload)) break;
+    const lossDetail=payload.relationshipContext?.activities.findLast(activity=>activity.evidenceLosses?.length);
+    if(lossDetail){lossDetail.evidenceLosses.pop();lossDetail.omittedEvidenceLossCount=(lossDetail.omittedEvidenceLossCount||0)+1;continue;}
     const optionalCandidate = payload.privateCandidates?.findLastIndex(item => item.availability === 'full' && !preferredCandidateTurnIds.has(item.turnId)) ?? -1;
     if (optionalCandidate >= 0) {
       const reference = { ...payload.privateCandidates[optionalCandidate], availability: 'needs_lookup' }; delete reference.text; delete reference.quotes;

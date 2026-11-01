@@ -1,7 +1,7 @@
 'use strict';
 const { randomUUID, createHash } = require('node:crypto');
 const {readableDiscussionTurns,discussionTurnFingerprint}=require('./discussion-compaction-store.cjs');
-const {publicActivities,evidenceViewRecord}=require('./activity-evidence.cjs');
+const {publicActivities,evidenceViewRecord,assertLossReferences}=require('./activity-evidence.cjs');
 const digest = value => createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const clone = value => JSON.parse(JSON.stringify(value));
 const now = () => new Date().toISOString();
@@ -226,6 +226,7 @@ class ExperienceStore {
       if (turn.role !== 'assistant') throw new Error('Only assistant output creates assistance artifacts');
       text(turn.id, 'assistant turn id', 256);
       const inputArtifactRefs=this.assertInputArtifactsCurrent(scope,metadata.inputArtifactRefs||[]);
+      const inputEvidenceLossRefs=assertLossReferences(this.store,scope,metadata.inputEvidenceLossRefs||[]);
       const requestedRefs=metadata.inputSourceRefs||[];
       const sourceRefs = this._refs(scope,requestedRefs.length?requestedRefs.map(r=>r.sourceId):turn.sourceIds || []), raw = this._raw(scope);
       if(requestedRefs.some(r=>sourceRefs.find(s=>s.sourceId===r.sourceId)?.revision!==r.revision))throw new Error('Artifact generation-stage evidence changed before commit');
@@ -234,12 +235,12 @@ class ExperienceStore {
       const delivered = clone(metadata.deliveredMethodRefs || [...new Map(stages.flatMap(s => s.deliveredMethodRefs || []).map(m => [`${m.methodId}:${m.version}`, m])).values()]);
       const stageReports=stages.flatMap(s=>s.reportedUsedMethodRefs||[]);
       const reported = clone(metadata.reportedUsedMethodRefs || (stageReports.length?stageReports:(turn.methodIds || []).map(id => ({ methodId: id, version: delivered.find(m => m.methodId === id)?.version || 'unknown' }))));
-      const common = { requestId: turn.requestId || null, assistantTurnId: turn.id, inputArtifactRefs, sourceRefs, sourceIds: sourceRefs.map(s => s.sourceId),
+      const common = { requestId: turn.requestId || null, assistantTurnId: turn.id, inputArtifactRefs,...(inputEvidenceLossRefs.length?{inputEvidenceLossRefs}:{}), sourceRefs, sourceIds: sourceRefs.map(s => s.sourceId),
         goalVersion: metadata.goalRef?.version ?? metadata.goalVersion ?? raw.goal?.version ?? 0, deliveredMethodRefs: delivered, reportedUsedMethodRefs: reported,
         generationStages: clone(stages), modelRef: metadata.modelRef || metadata.model || null, promptVersion: metadata.promptVersion || metadata.manifest?.promptVersion || null };
       const save = (id, kind, body, extra = {}) => {
         const previous = this._all(scope, 'artifact').filter(a => a.ref.artifactId === id).at(-1);
-        const signature = digest({ kind, body, sourceRefs, inputArtifactRefs, delivered, reported, extra });
+        const signature = digest({ kind, body, sourceRefs, inputArtifactRefs,...(inputEvidenceLossRefs.length?{inputEvidenceLossRefs}:{}), delivered, reported, extra });
         if (previous?.signature === signature && previous.availability === 'active') return previous.ref;
         const reference = { artifactId: id, version: (previous?.ref.version || 0) + 1 };
         this._put(scope, 'artifact', refKey(reference), { ...common, ...extra, ref: reference, kind, body: text(body, 'artifact body', 100000, true), bodyDigest: digest(body), signature, createdAt: now(), availability: 'active' });
@@ -603,6 +604,10 @@ class ExperienceStore {
     }
     if(changed&&!record)this.db.prepare('UPDATE companion SET record=? WHERE scope_key=?').run(this.store._serializeCompanion(retained),this.scopeKey(scope));
     return changed;
+  }
+  invalidateEvidenceLosses(scope,lossRefs,{mode='forget'}={}) {
+    const changed=new Set(lossRefs),artifacts=this._all(scope,'artifact').filter(artifact=>(artifact.inputEvidenceLossRefs||[]).some(ref=>changed.has(ref.lossRef)));
+    return this.invalidateArtifacts(scope,artifacts.map(artifact=>artifact.ref),{mode});
   }
   invalidateSources(scope, ids, { mode = 'correct', artifactRefs=[] } = {}) {
     return this._transaction(() => {
