@@ -10,7 +10,12 @@ const {mapSourceReferences}=require('../src/source-handles.cjs');
 const {Controller}=require('../src/controller.cjs'),{Store}=require('../src/store.cjs');
 const {assistModel}=require('../src/assistant-model.cjs');
 const {scope,raw}=require('./fixtures/native.cjs');
-const ROOT=path.resolve(__dirname,'../../..');
+// Robust root: worktrees at <repo>/.worktrees/<name> resolve three levels up,
+// while the main checkout resolves two levels up; pick whichever actually
+// contains the captured fixture directory.
+const ROOT=['..','../..','../../..'].map(up=>path.resolve(__dirname,up))
+  .find(candidate=>fs.existsSync(path.join(candidate,'.goal-runs/context-051-factual-finding-publication')))
+  ||path.resolve(__dirname,'..');
 const EVIDENCE=path.join(ROOT,'.goal-runs/context-051-factual-finding-publication/runs/candidate');
 function captured(sequence=8){
  const report=JSON.parse(fs.readFileSync(path.join(EVIDENCE,'conv-share-own-material.run.json'),'utf8'));
