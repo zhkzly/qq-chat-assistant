@@ -474,7 +474,7 @@ class Controller extends EventEmitter {
     if(!work.pending&&!work.recoveryReady)return {status:work.semanticPending?'unfinished':'complete',...work};
     const schedule=this.memorySchedule(),remaining=schedule.windowLimit-schedule.requestsInWindow;
     if(!force&&remaining<=0)return {status:'deferred',...this.store.memoryStatus(scope)};
-    const budget=this.usage.create(scope,{inputDigest:fingerprint({origin:'maintenance',at:Date.now(),scope}),origin:'maintenance',limit:Math.min(Math.max(2,Math.min(6,maxBatches*2)),force?6:remaining)});
+    const budget=this.usage.create(scope,{inputDigest:fingerprint({origin:'maintenance',at:Date.now(),scope}),origin:'maintenance',limit:Math.min(Math.max(2,maxBatches*2),force?Math.max(6,maxBatches*2):remaining)});
     const epoch=this.epoch, settings={...this.settings,requestBudget:budget.forStage('memory_maintenance')}, abort=this.memoryAbort=new AbortController();
     this.memoryBusy=true;this.changed();
     const active=()=>this.memoryAbort===abort&&!abort.signal.aborted&&this.epoch===epoch&&sameScope(scope,this.scope)&&this.hasModelConsent()&&this.settings.baseUrl===settings.baseUrl&&this.settings.model===settings.model;

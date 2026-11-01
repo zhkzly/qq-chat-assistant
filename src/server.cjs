@@ -114,7 +114,12 @@ function createServer({ controller, token, uiDir, saveSettings, fillDraft, inspe
         case '/api/confirm-action': controller.confirmAction(args.id,args.decision); break;
         case '/api/undo-action': controller.undoAction(args.id); break;
         case '/api/memory-search': return json(response,200,{scope:controller.scope,...controller.searchMemory(args.query||'',{limit:24,before:args.before,after:args.after,types:args.types})});
-        case '/api/memory-maintain': await controller.maintainMemory({maxBatches:1,force:true}); break;
+        case '/api/memory-maintain': {
+          // Manual maintenance uses the configured batch size so a large
+          // backlog clears in a few clicks; idle scheduling stays at 1 batch.
+          const manual=Math.max(1,Math.min(40,Number(controller.settings.memoryMaintenanceBatches)||8));
+          await controller.maintainMemory({maxBatches:manual,force:true}); break;
+        }
         case '/api/interaction-events': return json(response,200,controller.experienceAction('interaction',args));
         case '/api/experience-link': controller.experienceAction('link',args);break;
         case '/api/experience-review': controller.experienceAction('review',args);break;
