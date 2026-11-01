@@ -227,22 +227,52 @@ function selectPlanningContext({options,snapshot,candidates,view,budget,coreInve
   // The current multi-turn interaction is considered before optional historical
   // summaries and their evidence closures. This allowance never enlarges the
   // mandatory floor or makes an otherwise feasible request fail.
+  // Declared arrangements ride along on every degraded view of their
+  // source (the digest design): a projected range that replaces a digest
+  // view must not silently drop the verbatim declaration sentences a
+  // previous call delivered (sv-001 Gap-s1 material loss point).
+  const ridingDeclarations=(view,original)=>{
+    if(!view||typeof view!=='object')return view;
+    const digested=digestSource(original);
+    if(!digested||!Array.isArray(digested.digest.declarations))return view;
+    const body=String(view.text||'');
+    const present=new Set((Array.isArray(view.digest&&view.digest.declarations)?view.digest.declarations:[]).map(item=>item.sentence));
+    const declarations=digested.digest.declarations.filter(item=>!present.has(item.sentence)&&!body.includes(item.sentence));
+    if(!declarations.length)return view;
+    return {...view,digest:{...(view.digest||{}),declarations,declarationRule:digested.digest.declarationRule}};
+  };
   const admitExplicit=source=>{
     const original=byId.get(source.id);if(!original||source.id===current.id||source.id===intentSource.id)return;
     const prior=selected.get(source.id);
     const parameters={start:source.offset??source.delivery?.start??0,maxChars:source.maxChars??(source.delivery?source.delivery.end-source.delivery.start:Infinity)};
     // An explicit read may borrow unused capacity. Do not shorten a feasible
     // complete source merely to satisfy a soft per-layer allocation.
-    let candidate=boundedSource(original,{...parameters,maxBytes:Math.max(1000,options.byteBudget||48000)});
+    let candidate=ridingDeclarations(boundedSource(original,{...parameters,maxBytes:Math.max(1000,options.byteBudget||48000)}),original);
     if(!candidate)return;
     selected.set(source.id,candidate);foldedPrivateIds.delete(source.id);refresh();
     if(!fits(payload)){
       const focused={...parameters,start:source.offset??source.delivery?.start??source.focusOffset??0};
-      candidate=boundedSource(original,{...focused,maxBytes:Math.max(1000,Math.min(14000,Math.floor(options.byteBudget||48000)/2))});
+      candidate=ridingDeclarations(boundedSource(original,{...focused,maxBytes:Math.max(1000,Math.min(14000,Math.floor(options.byteBudget||48000)/2))}),original);
       if(candidate){selected.set(source.id,candidate);refresh();}
-      if(!fits(payload))candidate=boundedSource(original,{...focused,maxBytes:4000});
+      if(!fits(payload))candidate=ridingDeclarations(boundedSource(original,{...focused,maxBytes:4000}),original);
       if(candidate)selected.set(source.id,candidate);else selected.delete(source.id);refresh();
-      if(!fits(payload)){if(prior)selected.set(source.id,prior);else selected.delete(source.id);refresh();}
+      if(!fits(payload))candidate=ridingDeclarations(boundedSource(original,{...focused,maxBytes:1000}),original);
+      if(candidate)selected.set(source.id,candidate);refresh();
+      if(!fits(payload)){
+        // An explicit range read is user intent (sv-001 Gap-s2): rolling it
+        // back to a non-overlapping prior window records the read as
+        // executed while omitting its content from the final composer. When
+        // the bounded requested range is no larger than the prior view,
+        // keeping it is strictly cheaper than the old rollback, so the same
+        // settlement evictions that made the prior fit make the requested
+        // range fit. Every other case keeps the previous contract exactly:
+        // restore the prior view when one exists, otherwise omit the read
+        // honestly (many concurrent reads still compete for the budget).
+        if(candidate&&prior&&bytes(candidate)<=bytes(prior))selected.set(source.id,candidate);
+        else if(prior)selected.set(source.id,prior);
+        else if(!fits(payload))selected.delete(source.id);
+        refresh();
+      }
     }
     if(selected.has(source.id))essentialIds.add(source.id);
   };

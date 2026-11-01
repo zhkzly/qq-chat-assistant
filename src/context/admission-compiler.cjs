@@ -401,6 +401,24 @@ function compileContext(options = {}) {
       return TIER_RANK[admission.tier] >= TIER_RANK.declarations;
     };
     const deliveredDeclarations = declarationMaterials.filter(declarationDelivered);
+    // Explicitly retrieved ranges are already-retrieved key facts (sv-001
+    // Gap-s2): mark them available on the MQA material surface so downstream
+    // stages treat the retrieved verbatim range as delivered evidence —
+    // never as "the original is insufficient" while its content rides in
+    // sources. Availability is a material fact, not a wording instruction.
+    const retrievedMaterials = (explicitLookups || []).flatMap(read => {
+      const id = read.id || read;
+      const admission = admissionById.get(id);
+      if (!admission || admission.tier === 'marker' || !admission.view) return [];
+      const start = Number.isSafeInteger(read.offset) ? read.offset
+        : Number.isSafeInteger(admission.view.delivery && admission.view.delivery.start) ? admission.view.delivery.start : 0;
+      const requestedEnd = start + (Number.isSafeInteger(read.maxChars) ? read.maxChars
+        : String(admission.view.text || '').length);
+      const end = Number.isSafeInteger(admission.view.delivery && admission.view.delivery.end)
+        ? admission.view.delivery.end : requestedEnd;
+      return [{ sourceId: id, available: true, tier: admission.tier, start, end,
+        lookup: { sourceIds: [id], ...(byId.get(id) ? { revision: byId.get(id).revision } : {}), offset: start } }];
+    });
     const materialRequirements = requirements.mandatory.map(row => {
       const isDeclarationRow = row.materialClass === 'declared_arrangement' || row.materialClass === 'availability_state';
       const sources = isDeclarationRow
@@ -421,7 +439,8 @@ function compileContext(options = {}) {
       userRequest, intentAuthority: { sourceId: intent.id }, sources: delivered,
       contextRequest: { version: context.version, intentClass: context.intentClass, classification: context.classification,
         wants: context.wants, anchors: context.anchors },
-      materialRequirements: { version: MQA_VERSION, intentClass: context.intentClass, outcomes: materialRequirements },
+      materialRequirements: { version: MQA_VERSION, intentClass: context.intentClass, outcomes: materialRequirements,
+        ...(retrievedMaterials.length ? { retrievedMaterials } : {}) },
       mandatoryMaterials: deliveredDeclarations.map(material => ({ materialClass: material.materialClass, sourceId: material.sourceId,
         revision: material.revision, sentence: material.sentence, start: material.start, end: material.end,
         current: material.current, lookup: material.lookup })),
