@@ -1,6 +1,6 @@
 'use strict';
 const { methodFor } = require('./help-methods.cjs');
-const { postModel, modelFailure } = require('./model-http.cjs');
+const { postModel, modelFailure, modelTimeoutSignal } = require('./model-http.cjs');
 const { normalizeRelationshipPatch, SUBJECTS, ASSERTIONS, EPISTEMIC, LIFECYCLES, EVENT_KINDS, ASPECTS } = require('./relationship-schema.cjs');
 const { normalizeTopicPatch, TOPIC_PROTOCOL } = require('./topic-schema.cjs');
 const { sourceClosure, isLocalFeedback } = require('./provenance.cjs');
@@ -555,7 +555,7 @@ async function assistModel(settings, context, signal, fetchImpl = fetch) {
   Object.defineProperty(context,'sourceHandleOwner',{value:settings.sourceHandleOwner,writable:true,configurable:true});
   const url = new URL(`${settings.baseUrl.replace(/\/$/, '')}/chat/completions`);
   if (!['http:', 'https:'].includes(url.protocol)) throw new Error('模型地址协议无效');
-  const timeout = AbortSignal.timeout(60000);
+  const timeout = modelTimeoutSignal(settings);
   const boundedSignal = signal ? AbortSignal.any([signal, timeout]) : timeout;
   const wireOptionsFor=input=>({sourceRevisions:input.sourceReferenceRevisions||input.manifest?.sourceRevisions});
   const originalPayload=context.mediaContext?{...context.payload,mediaContext:context.mediaContext}:context.payload;

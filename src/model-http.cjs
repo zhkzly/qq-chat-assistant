@@ -1,5 +1,8 @@
 'use strict';
 const {setTimeout:pause}=require('node:timers/promises');
+// One configured model-call timeout across the assistant, memory and compaction
+// transports: settings.modelTimeoutMs when set (bounded 1s..600s), else 60s.
+const modelTimeoutSignal=settings=>AbortSignal.timeout(Math.max(1000,Math.min(600000,Number(settings?.modelTimeoutMs)||60000)));
 // Inference is side-effect free for QQ and persistence only happens after a
 // validated response. Retry transport/server failures once at the same endpoint.
 async function postModel(url,request,fetchImpl=fetch,wait=pause,budget=null,options={}) {
@@ -41,4 +44,4 @@ async function modelFailure(response,label='Model') {
   const error=new Error(`${label} HTTP ${response.status} (${category})`);
   error.code=`model_http_${response.status}_${category}`;error.status=response.status;return error;
 }
-module.exports={postModel,modelFailure};
+module.exports={postModel,modelFailure,modelTimeoutSignal};
