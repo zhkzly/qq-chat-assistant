@@ -19,6 +19,86 @@ const {parseFidelityResult}=require('./whole-answer-fidelity.cjs');
 const {parseRequestDelivery,parseDeliveryBlocker,normalizeBlockerQuestion,blockerRenderingWitness,validateTerminalDelivery,editable}=require('./request-delivery.cjs');
 const {assertSpeechAttribution,SPEAKER_IDENTITY_RULE}=require('./speaker-identity.cjs');
 const {runLookup,lookupRepairLines}=require('./wire/lookup.cjs');
+const {validateArrangementHandling,deliveredDeclarationMaterials,arrangementTimeWindowGap}=require('./context/mqa-registry.cjs');
+// Live arrangement-consumption validation (design §3.2, CC1 integration
+// residual #4): the MQA registry's consumption-field validator joins the
+// response validation chain. It fires only when current declared
+// arrangements actually reached the model (mandatoryMaterials or the
+// declarations riding on delivered digest views) AND the response carries
+// outward candidate text. A used claim whose outward text drops the declared
+// time window is an incomplete adoption (sv-001 blind review Gap-s1) and
+// gets the bounded repair round, with the copy-ready original sentence and
+// lookup handle quoted in the repair guidance (same copy-ready pattern as
+// the lookup repair guides). Non-used dispositions keep the existing
+// reason-required rule only — no new blocking.
+function arrangementDeliveryState(payload) {
+  if (!payload || typeof payload !== 'object') return { delivered: [], contract: null };
+  const delivered = [], seen = new Set();
+  const candidates = [...(Array.isArray(payload.mandatoryMaterials) ? payload.mandatoryMaterials : []),
+    ...deliveredDeclarationMaterials(payload.sources, { asOf: payload.asOf })];
+  for (const material of candidates) {
+    if (!material || typeof material.sentence !== 'string' || !material.sentence) continue;
+    const key = material.sourceId + '\n' + material.sentence;
+    if (seen.has(key)) continue;
+    seen.add(key); delivered.push(material);
+  }
+  const fields = Array.isArray(payload.consumptionContract && payload.consumptionContract.fields) ? payload.consumptionContract.fields : [];
+  return { delivered: delivered.filter(material => material.current !== false),
+    contract: fields.some(field => field && field.name === 'arrangementHandling') ? payload.consumptionContract : null };
+}
+function arrangementValidationError(checked) {
+  const repairLines = [];
+  for (const ready of checked.copyReady || []) {
+    repairLines.push('补全采纳时间窗可照抄的原句：' + ready.sentence);
+    repairLines.push('需要完整上下文时把这条lookup整条照抄：' + JSON.stringify(ready.lookup));
+  }
+  const missing = Array.isArray(checked.missingTimeWindows) && checked.missingTimeWindows.length
+    ? '缺失的时间窗词：' + checked.missingTimeWindows.join('、') : '';
+  const lead = checked.code === 'arrangement_time_window_missing'
+    ? '申报used但对外表达缺少已声明的时间窗，采纳不完整；把声明中的时间窗写入对外表达'
+    : checked.message || 'arrangementHandling消费申报不合规';
+  const error = new Error(['arrangementHandling: ' + lead, missing].concat(repairLines)
+    .concat(['或在arrangementHandling改用conflict|stale|missing并附具体reason；不要重问已经声明的时间'])
+    .filter(Boolean).join('；'));
+  error.code = checked.code; error.field = 'arrangementHandling';
+  return error;
+}
+function arrangementOutboundTexts(value, purpose, wholeAnswer) {
+  const texts = [];
+  if (Array.isArray(wholeAnswer && wholeAnswer.suggestions)) for (const suggestion of wholeAnswer.suggestions)
+    if (typeof suggestion === 'object' && suggestion && typeof suggestion.text === 'string') texts.push(suggestion.text);
+  if (purpose === 'draft' && value && value.kind === 'draft') {
+    if (typeof value.text === 'string') texts.push(value.text);
+    if (Array.isArray(value.suggestions)) for (const suggestion of value.suggestions)
+      texts.push(typeof suggestion === 'string' ? suggestion : suggestion && typeof suggestion === 'object' && typeof suggestion.text === 'string' ? suggestion.text : null);
+  }
+  return texts.filter(text => typeof text === 'string' && !!text.trim());
+}
+function validateArrangementConsumption(value, payload, { purpose, wholeAnswer, manifest }) {
+  const outboundTexts = arrangementOutboundTexts(value, purpose, wholeAnswer);
+  if (!outboundTexts.length) return;
+  const { delivered, contract } = arrangementDeliveryState(payload);
+  if (!delivered.length) return;
+  const handling = value && typeof value === 'object' && !Array.isArray(value) && value.arrangementHandling !== undefined
+    ? value.arrangementHandling : null;
+  if (handling && typeof handling === 'object' && !Array.isArray(handling)) {
+    // A present claim runs the full registry contract (existing disposition
+    // and reason rules plus the time-window adoption rule), whether or not
+    // the consumption-contract metadata itself survived budget eviction.
+    const intentClass = (contract && contract.intentClass) || 'invitation_arrangement';
+    const checked = validateArrangementHandling({ intentClass, delivered, handling, outboundTexts });
+    if (!checked.ok) throw arrangementValidationError(checked);
+    return;
+  }
+  // No arrangementHandling claim: the response gate adds no new blocking
+  // (sv-001 counterexample protection — a field-absent response may be a
+  // legitimate declination or question). Record a non-blocking observation
+  // so rounds can audit adoptions that carry no claim: whether the outward
+  // text at least contains the declared time-window tokens.
+  if (manifest && !manifest.arrangementAdoption)
+    manifest.arrangementAdoption = { claim: 'absent',
+      declaredWindowInText: !arrangementTimeWindowGap(delivered, outboundTexts) };
+}
 function relationshipProtocol({activityEvidence=false}={}) {
  const eventProtocol=activityEvidence?`events: {id?,expectedVersion?,activityKey,eventKind,actor,text,sourceIds,topicKeys?,transition?,activity,evidence}. eventKind=${EVENT_KINDS.join('|')}; actor=self|contact|both|unknown. activityKey is display wording, never entity identity. The memory activity/evidence protocol selects a persisted program identity or explicit original-anchored NEW, plus original world-statement and time witnesses. Do not return outer occurredAt; evidence.time owns occurrence meaning, and plannedFor is separate. A source withdrawal or a question is not a new world event; no-change is valid. User reports remain attributed rather than invented actual QQ actions.`:`events: {id?,expectedVersion?,activityKey,eventKind,actor,text,occurredAt?,sourceIds,topicKeys?}. eventKind=${EVENT_KINDS.join('|')}; actor=self|contact|both|unknown. activityKey is a short, stable label for the same activity (up to 120 characters), not a relationship stage; use a new label for a genuinely new activity. Distinguish invitation, acceptance, reschedule, cancellation and occurred. A copied draft is none of these actual actions. User-reported activities stay reported; do not invent actual QQ messages.`;
  return `relationshipPatch is optional and contains only claims (at most 24), events (at most 12), and retire (at most 24), each an array. An empty patch is {"claims":[],"events":[],"retire":[]}.
@@ -216,6 +296,7 @@ function parseAssistantStrict(value, purpose, input,issues,{auxiliaryOnly=false,
   const payload = input?.payload || input;
   const checkDisposition=()=>{if(value.replyDisposition!==undefined&&!['wait','clarify','unavailable'].includes(value.replyDisposition))throw new Error('replyDisposition: use wait, clarify, or unavailable; a reply candidate uses draftPlan/suggestions instead');};
   if(issues)issues.check('replyDisposition','reply_disposition_invalid',checkDisposition);else checkDisposition();
+  validateArrangementConsumption(value, payload, { purpose, wholeAnswer, manifest: input?.manifest });
   // Planning and lookup are control envelopes, but their readable explanation
   // remains private help for the user. Legacy pure envelopes stay compatible.
   const readableStep = ['discussion','question','options','review','acknowledgment'].includes(value.kind) &&
@@ -322,6 +403,7 @@ function parseAssistantStrict(value, purpose, input,issues,{auxiliaryOnly=false,
     const editingReference=selectEditingReference(input,value.editingReference,value.editingReferenceBinding);
     return {...extras,...wholeAnswer,...(value.currentFacts!==undefined?{currentFacts:structuredClone(value.currentFacts)}:{}),
       ...(value.materials!==undefined?{materials:structuredClone(value.materials)}:{}),
+      ...(value.arrangementHandling!==undefined?{arrangementHandling:structuredClone(value.arrangementHandling)}:{}),
       ...(editingReference?{editingReference,editingReferenceBinding:editingReferenceBinding(input)}:{})};
   }
   if (purpose !== 'draft' && value.lookup) {

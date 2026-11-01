@@ -85,6 +85,26 @@
     }
    }
   },
+  "arrangementHandling": {
+   "type": "object",
+   "operations": ["prepare_message"],
+   "fields": {
+    "disposition": {
+     "type": "enum",
+     "values": ["used", "conflict", "stale", "missing"],
+     "required": true
+    },
+    "evidenceRefs": {
+     "type": "stringArray"
+    },
+    "reason": {
+     "type": "string",
+     "maxLength": 500,
+     "optional": true
+    }
+   },
+   "note": "MQA consumption field (mqa-registry arrangement-handling-v1): declared for prepare_message when current declared arrangements were delivered; a used claim must carry the declared time window in the outward suggestions and cite declaration sourceIds in evidenceRefs; conflict/stale/missing require a concrete reason."
+  },
   "lookup": {
    "type": "contract",
    "contract": "lookup"

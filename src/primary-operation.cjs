@@ -43,6 +43,10 @@ function normalizePrimaryOperation(raw,payload={}){
  if(operation==='advise'||operation==='lookup')allowed.add('text');
  for(const key of auxiliary)allowed.add(key);
  if(operation==='prepare_message')allowed.add('answer');
+ // MQA consumption field (assistant-result contract + mqa-registry
+ // arrangement-handling-v1): the arrangement disposition travels only with
+ // message deliveries that adopted (or declined) a delivered arrangement.
+ if(operation==='prepare_message')allowed.add('arrangementHandling');
  if(operation==='advise'||operation==='prepare_message'){allowed.add('materials');allowed.add('currentFacts');}
  if(operation==='prepare_message')allowed.add('editingReference');
  if(operation==='lookup'){allowed.add('lookup');allowed.add('continuation');}
@@ -92,6 +96,7 @@ function normalizePrimaryOperation(raw,payload={}){
  }else{
   value={kind:'discussion',...(hasText?{text:raw.text}:{})};
   if(operation==='prepare_message')value.editingReference=clone(raw.editingReference);
+  if(operation==='prepare_message'&&own(raw,'arrangementHandling'))value.arrangementHandling=clone(raw.arrangementHandling);
   if((operation==='advise'||operation==='prepare_message')&&own(raw,'materials'))value.materials=clone(raw.materials);
   if((operation==='advise'||operation==='prepare_message')&&own(raw,'currentFacts'))value.currentFacts=clone(raw.currentFacts);
   if(operation==='lookup')value.lookup=clone(raw.lookup);
