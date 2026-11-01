@@ -11,6 +11,7 @@ const { Store } = require('../src/store.cjs');
 const { normalize } = require('../src/messages.cjs');
 const { buildContext } = require('../src/assistant-context.cjs');
 const { digestSource, splitEntries, firstSentence } = require('../src/context/evidence-digest.cjs');
+const { parseAssistant } = require('../src/assistant-model.cjs');
 const { parseModelJson } = require('../src/model-json.cjs');
 const { planDiscussionCompaction } = require('../src/discussion-compaction.cjs');
 const { scope, raw } = require('./fixtures/native.cjs');
@@ -82,7 +83,8 @@ test('oversized background evidence degrades to a deterministic verbatim digest 
   assert.ok(digested.digest.entries.length >= 8, 'per-entry lines cover the structure');
   for (const entry of digested.digest.entries) {
     assert.ok(entry.sentence && source.text.includes(entry.sentence.trimEnd()), 'each line is a verbatim leading sentence');
-    assert.equal(entry.lookup.sourceId, source.id);
+    assert.deepEqual(entry.lookup.sourceIds, [source.id], 'the per-entry handle is copy-ready with an explicit sourceIds array');
+    assert.ok(Number.isInteger(entry.lookup.offset) && Number.isInteger(entry.lookup.maxChars) && entry.lookup.maxChars >= 1);
     assert.ok(entry.end > entry.start && entry.end <= source.text.length);
   }
   assert.ok(Buffer.byteLength(JSON.stringify(digested), 'utf8') < 4000, 'the digest itself is bounded');
@@ -176,4 +178,42 @@ test('controller-level long pasted request returns a usable discussion instead o
   assert.ok(seenPayload.userRequest && seenPayload.userRequest.text.length < requestText.length,
     'the request was range-delivered rather than blocked or silently whole');
   assert.ok(requestText.startsWith(seenPayload.userRequest.text), 'the delivered range is an exact span of the original');
+});
+
+test('a ranged lookup without explicit IDs is completed from the digest handle instead of failing', () => {
+  const source = { id: 'private:lookup-completion', type: 'private', role: 'user', use: 'discussion',
+    at: new Date().toISOString(), revision: 'lookup-r1', text: handNote(20, '续读来源') };
+  const digested = digestSource(source);
+  const input = { payload: { purpose: 'discussion', sources: [digested], methodCards: [],
+    methodSelection: { candidates: [] }, userRequest: { sourceId: 'private:other', text: 'q' } } };
+  // The observed live malformation: the model emits a bounded range with no
+  // sourceIds/discussionTurnIds. With exactly one ranged candidate the ID is
+  // deterministic program knowledge and is completed, not re-asked.
+  const result = parseAssistant({ kind: 'discussion', text: '续读摘要条目。', lookup: { offset: 1200, maxChars: 2000 } },
+    'discussion', input, {});
+  assert.deepEqual(result.lookup.sourceIds, ['private:lookup-completion']);
+  assert.equal(result.lookup.offset, 1200);
+  assert.equal(result.lookup.maxChars, 2000);
+});
+
+test('an ambiguous ranged lookup without IDs still fails, naming the copy-ready candidates', () => {
+  const first = digestSource({ id: 'private:cand-a', type: 'private', role: 'user', use: 'discussion',
+    at: new Date().toISOString(), revision: 'ra', text: handNote(8, '候选甲') });
+  const second = digestSource({ id: 'private:cand-b', type: 'private', role: 'user', use: 'discussion',
+    at: new Date().toISOString(), revision: 'rb', text: handNote(8, '候选乙') });
+  const input = { payload: { purpose: 'discussion', sources: [first, second], methodCards: [],
+    methodSelection: { candidates: [] }, userRequest: { sourceId: 'private:other', text: 'q' } } };
+  // Both candidates cover the offset: the target cannot be completed without
+  // guessing, so the explicit error survives — now listing both handles.
+  assert.throws(() => parseAssistant({ kind: 'discussion', text: '续读。', lookup: { offset: 300, maxChars: 1000 } },
+    'discussion', input, {}), error => /lookup ranges require explicit sourceIds/.test(error.message)
+    && error.message.includes('private:cand-a') && error.message.includes('private:cand-b'));
+  // With an offset beyond the first digest's covered entries but inside the
+  // second's, exactly one candidate covers it and the completion resolves
+  // deterministically.
+  first.digest.coveredCharRange = { ...first.digest.coveredCharRange, end: 500 };
+  const withinSecondOnly = Math.min(700, second.digest.coveredCharRange.end - 1);
+  const resolved = parseAssistant({ kind: 'discussion', text: '续读。', lookup: { offset: withinSecondOnly, maxChars: 1000 } },
+    'discussion', input, {});
+  assert.deepEqual(resolved.lookup.sourceIds, ['private:cand-b']);
 });
