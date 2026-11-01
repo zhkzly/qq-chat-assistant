@@ -14,6 +14,15 @@ const {scope,complete}=require('./fixtures/evidence-backed-memory.cjs');
 const {createWriteGate,createGatedStore,RECEIPT_CODES}=require('../src/memory/write-gate.cjs');
 const {maintainMemory}=require('../src/memory-engine.cjs');
 
+// Integration adaptation (M2 strict candidate channel): a model-proposed
+// recurring classification files as a candidate; the durable lane opens via
+// the user-attestation channel. Gate tests call this after proposing a
+// stable preference, mirroring preference-candidate-lifecycle tests.
+function attestStable(store){
+  const proposals=store.preferenceUpgradeProposals(scope,{status:'pending'});
+  if(proposals.length)assert.equal(store.resolvePreferenceUpgrade(scope,{id:proposals[0].id,decision:'authorize'}).applied,true,JSON.stringify(proposals[0]));
+}
+
 // Mirrors the frozen counterexample cm-stable-preference-quoted-wish: a quoted,
 // recurring, user-owned expression preference declared in the owner's own words.
 const STABLE_DECLARATION='以后默认回复简短，不用表情；这只是我的表达偏好，不是要求她也这样。';
@@ -110,6 +119,7 @@ test('transition chains quarantine as a unit: an invalid successor never marks i
   const gate=createWriteGate({store});
   let batch=store.memoryBatch(scope);
   assert.equal(gate.apply(scope,batch,complete(batch,{relationshipPatch:{claims:[stableClaim(declarationId)],events:[],retire:[]}})).applied,true);
+  attestStable(store);
   const target=store.relationshipView(scope).claims.find(record=>record.applicabilityKind==='recurring');
   assert.ok(target,'the prior understanding exists');
   const later=store.appendTurn(scope,{id:'later-source',role:'user',kind:'discussion',text:'用户补充了新的情况。'});
@@ -136,6 +146,7 @@ test('transition chains commit as a unit when valid',t=>{
   const gate=createWriteGate({store});
   let batch=store.memoryBatch(scope);
   assert.equal(gate.apply(scope,batch,complete(batch,{relationshipPatch:{claims:[stableClaim(declarationId)],events:[],retire:[]}})).applied,true);
+  attestStable(store);
   const target=store.relationshipView(scope).claims.find(record=>record.applicabilityKind==='recurring');
   const later=store.appendTurn(scope,{id:'valid-successor-source',role:'user',kind:'discussion',text:'用户说明这不再是固定偏好，只是近期安排。'});
   batch=store.memoryBatch(scope);
@@ -156,9 +167,14 @@ test('attested stable preferences persist without regression across later correc
   const gate=createWriteGate({store});
   let batch=store.memoryBatch(scope);
   assert.equal(gate.apply(scope,batch,complete(batch,{relationshipPatch:{claims:[stableClaim(declarationId)],events:[],retire:[]}})).applied,true);
+  attestStable(store);
   const before=store.relationshipView(scope).claims.find(record=>record.applicabilityKind==='recurring');
   assert.ok(before,'the owner-declared recurring preference is admitted active (user statement evidence)');
-  assert.equal(receiptsOf({receipt:store.memoryStatus(scope).lastReview}).length,0,'its admission carries no quarantine');
+  // M2 semantics: the owner-backed proposal files the designed
+  // preference_candidate receipt (never a failure-class receipt); the durable
+  // lane opened through the attestation channel above.
+  const admissionReceipts=receiptsOf({receipt:store.memoryStatus(scope).lastReview});
+  assert.ok(admissionReceipts.every(entry=>entry.code==='preference_candidate'),'an owner-backed proposal files only the designed candidate receipt');
   // A later round misfiles the local correction as a recurring preference.
   const answer=store.appendTurn(scope,{id:'assistant-answer-2',role:'assistant',kind:'discussion',text:'又一份过于正式的参考表达。',requestId:'local-correction-run-2'});
   const feedback=store.addFeedback(scope,{text:LOCAL_CORRECTION,targetRef:{kind:'artifact',artifactRef:answer.artifactRef},clientEventId:'local-correction-feedback-2'});
@@ -314,6 +330,7 @@ test('gated maintenance completes the B1 same-shape scenario end to end',async t
   const status=await maintainMemory({store:gated,scope,settings,model,maxBatches:4});
   assert.notEqual(status.status,'rejected',JSON.stringify(status));
   assert.notEqual(status.status,'error',JSON.stringify(status));
+  attestStable(store);
   const final=store.memoryStatus(scope);
   assert.equal(final.pending,0,'the journal fully drained past the misfiled preference');
   assert.ok(!final.errors?.length,JSON.stringify(final.errors));

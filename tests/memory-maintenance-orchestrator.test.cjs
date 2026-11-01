@@ -194,6 +194,12 @@ test('runToCompletion drains the journal through the gated engine without touchi
   const receiptsBefore=store.db.prepare('SELECT count(*) n FROM memory_receipts').get().n;
   await orchestrator.runToCompletion(scope);
   assert.equal(store.db.prepare('SELECT count(*) n FROM memory_receipts').get().n,receiptsBefore,'maintenance passes never rewrite gate receipts');
+  // Integration adaptation (M2 strict candidate channel): the model-proposed
+  // recurring classification files as a candidate; the durable lane opens via
+  // the user-attestation channel (resolvePreferenceUpgrade), as delivered by
+  // the M2 storage stream and covered by preference-candidate-lifecycle tests.
+  const proposals=store.preferenceUpgradeProposals(scope,{status:'pending'});
+  if(proposals.length)assert.equal(store.resolvePreferenceUpgrade(scope,{id:proposals[0].id,decision:'authorize'}).applied,true);
   assert.ok(store.relationshipView(scope).claims.some(record=>record.applicabilityKind==='recurring'&&record.sourceIds.includes(declarationId)),'the attested stable preference persisted');
   assert.equal(gated.__writeGate.listOverlays(scope).length,1,'the correction was recorded as a scoped overlay');
   assert.ok(!store.relationshipView(scope).claims.some(record=>record.sourceIds.includes(feedback.sourceId)),'the misfiled promotion never became knowledge');
