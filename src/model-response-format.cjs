@@ -24,7 +24,12 @@ const claim=object({...common,subject:choice(SUBJECTS),aspect:choice(ASPECTS),as
  transition:object({operation:choice(TRANSITIONS),targets:array(object({id:string,expectedVersion:integer},['id','expectedVersion']))},['operation','targets'])},['text','sourceIds','subject','aspect','assertionKind','epistemicStatus']);
 const event=object({...common,activityKey:string,eventKind:choice(EVENT_KINDS),actor:choice(['self','contact','both','unknown']),occurredAt:string,transition:claim.properties.transition},['text','sourceIds','activityKey','eventKind','actor']);
 const activityWitness=object({sourceId:string,quote:string},['sourceId','quote']);
-const activityTime=object({basis:choice(['qq_statement','explicit','unknown']),at:string,sourceId:string,quote:string},['basis']);
+const activityTimeProperties={basis:choice(['qq_statement','explicit','unknown']),at:{...string,description:'Explicit occurrence time, or an optional qq_statement echo denoting the same instant as the actual bound QQ statement at. Forbidden for unknown.'},sourceId:{...string,description:'Required original time-witness source for explicit; optional qq_statement echo must equal the statement source. Forbidden for unknown.'},quote:{...string,description:'Required original time witness for explicit; optional qq_statement echo must be an exact original span from the same statement source. Forbidden for unknown.'}};
+const activityTime={...object(activityTimeProperties,['basis']),anyOf:[
+ object({basis:choice(['unknown'])},['basis']),
+ object({...activityTimeProperties,basis:choice(['qq_statement'])},['basis']),
+ object({...activityTimeProperties,basis:choice(['explicit'])},['basis','at','sourceId','quote'])
+]};
 const activitySelection=object({ref:{...string,description:'Choose an offered persisted activity ref; NEW requires one exact unique original definition. Display activityKey is not identity.'},definition:activityWitness},['ref']);
 const activityEvidence=object({statement:activityWitness,time:activityTime,plannedFor:object({at:string,sourceId:string,quote:string},['at','sourceId','quote'])},['statement','time']);
 const activityCurrentState=object({status:choice(['invited','accepted','declined','rescheduled','cancelled','unknown']),statement:activityWitness},['status','statement']);

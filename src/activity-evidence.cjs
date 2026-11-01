@@ -3,6 +3,7 @@
 // original-span match nor a model's world-statement choice proves entailment.
 const {randomUUID}=require('node:crypto');
 const {ValidationIssues}=require('./validation-issues.cjs');
+const {redact}=require('./model.cjs');
 const PROTOCOL='activity-original-evidence-v1';
 const speechActs=new Set(['invitation','acceptance','decline','reschedule','cancellation','interest_expression','boundary','sharing']);
 const statuses={invitation:'invited',acceptance:'accepted',decline:'declined',reschedule:'rescheduled',cancellation:'cancelled',occurred:'occurred'};
@@ -11,6 +12,7 @@ const clone=value=>structuredClone(value);
 const fail=(field,message)=>Object.assign(new Error(`${field}: ${message}`),{code:'invalid_activity_event',field,allowedShape:'Choose an offered activity ref or explicit NEW with an exact original definition; supply original statement and explicit/QQ-statement/unknown time evidence. Source loss is already program-owned uncertainty; events:[] is valid no-change.'});
 function keys(value,allowed,field){if(!plain(value)||Object.keys(value).some(key=>!allowed.includes(key)))throw fail(field,'unexpected activity evidence fields');}
 function iso(value,field){if(typeof value!=='string'||!Number.isFinite(Date.parse(value)))throw fail(field,'expected an explicit ISO date/time');return new Date(value).toISOString();}
+function echoActual(value){const text=redact(JSON.stringify(value)??String(value));return text.length<=800?text:`${text.slice(0,800)}… (${text.length} characters; full actual value remains at this field in invalidResponse)`;}
 function reference(value,field){
  keys(value,['sourceId','revision','start','end'],field);
  if(typeof value.sourceId!=='string'||typeof value.revision!=='string'||!Number.isSafeInteger(value.start)||!Number.isSafeInteger(value.end)||value.start<0||value.end<=value.start)throw fail(field,'invalid original range identity');
@@ -116,10 +118,23 @@ function decodeEvent(record,field,{sourceIds,delivered,activityAliases}){
  }
  check(`${field}.evidence`,()=>keys(record.evidence,['statement','time','plannedFor'],`${field}.evidence`));
  const evidence=plain(record.evidence)?record.evidence:{},statement=check(`${field}.evidence.statement`,()=>witness(evidence.statement,`${field}.evidence.statement`));
- const time=check(`${field}.evidence.time`,()=>{keys(evidence.time,['basis','at','sourceId','quote'],`${field}.evidence.time`);if(!['unknown','qq_statement','explicit'].includes(evidence.time.basis))throw fail(`${field}.evidence.time.basis`,'choose qq_statement, explicit, or unknown; record time is never a private world-event default');return evidence.time;});
+ const time=plain(evidence.time)?evidence.time:undefined;
+ check(`${field}.evidence.time`,()=>{keys(evidence.time,['basis','at','sourceId','quote'],`${field}.evidence.time`);if(!['unknown','qq_statement','explicit'].includes(evidence.time.basis))throw fail(`${field}.evidence.time.basis`,'choose qq_statement, explicit, or unknown; record time is never a private world-event default');});
  let occurrence;
- if(time?.basis==='unknown')occurrence=check(`${field}.evidence.time`,()=>{if(Object.keys(time).some(key=>key!=='basis'))throw fail(`${field}.evidence.time`,'unknown occurrence has no invented date');return {basis:'unknown'};});
- if(time?.basis==='qq_statement')occurrence=check(`${field}.evidence.time`,()=>{if(Object.keys(time).some(key=>key!=='basis')||statement&&(statement.source.type!=='qq'||!speechActs.has(record.eventKind)))throw fail(`${field}.evidence.time`,'QQ statement time applies only to actual QQ speech acts, not private report/question time or activity completion');return statement?{basis:'qq_statement',at:statement.source.at,evidence:statement.ref}:undefined;});
+ if(time?.basis==='unknown'){
+  for(const key of ['at','sourceId','quote'])if(Object.hasOwn(time,key))check(`${field}.evidence.time.${key}`,()=>{throw fail(`${field}.evidence.time.${key}`,`expected absent for unknown occurrence; actual ${echoActual(time[key])}. Legal undated form: {basis:"unknown"}.`);});
+  occurrence={basis:'unknown'};
+ }
+ if(time?.basis==='qq_statement'){
+  const legal='Legal minimal form: {basis:"qq_statement"}; optional echoes never choose the canonical clock.';
+  if(statement){
+   check(`${field}.evidence.time.basis`,()=>{if(statement.source.type!=='qq'||!speechActs.has(record.eventKind))throw fail(`${field}.evidence.time.basis`,`expected an actual QQ speech act; actual source type ${statement.source.type}, eventKind ${record.eventKind}. Use explicit original time evidence or unknown for private reports/questions and physical occurrences.`);});
+   if(Object.hasOwn(time,'at'))check(`${field}.evidence.time.at`,()=>{if(typeof time.at!=='string'||!Number.isFinite(Date.parse(time.at))||new Date(time.at).toISOString()!==statement.source.at)throw fail(`${field}.evidence.time.at`,`expected actual QQ statement time ${statement.source.at}; actual ${echoActual(time.at)}. ${legal}`);});
+   if(Object.hasOwn(time,'sourceId'))check(`${field}.evidence.time.sourceId`,()=>{if(time.sourceId!==evidence.statement.sourceId)throw fail(`${field}.evidence.time.sourceId`,`expected bound statement source ${evidence.statement.sourceId}; actual ${echoActual(time.sourceId)}. ${legal}`);});
+   if(Object.hasOwn(time,'quote'))check(`${field}.evidence.time.quote`,()=>{try{witness({sourceId:evidence.statement.sourceId,quote:time.quote},`${field}.evidence.time.quote`);}catch{throw fail(`${field}.evidence.time.quote`,`expected one exact original quote span from bound QQ statement source ${evidence.statement.sourceId}; actual ${echoActual(time.quote)}. ${legal}`);}});
+   occurrence={basis:'qq_statement',at:statement.source.at,evidence:statement.ref};
+  }
+ }
  if(time?.basis==='explicit'){
   const at=check(`${field}.evidence.time.at`,()=>iso(time.at,`${field}.evidence.time.at`)),proof=check(`${field}.evidence.time`,()=>witness({sourceId:time.sourceId,quote:time.quote},`${field}.evidence.time`));
   if(at&&statement)check(`${field}.evidence.time.at`,()=>{if(at>statement.source.at)throw fail(`${field}.evidence.time.at`,'a planned future activity time is not an already occurred world event; use plannedFor separately');});

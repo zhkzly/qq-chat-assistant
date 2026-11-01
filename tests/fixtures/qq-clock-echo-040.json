@@ -1,0 +1,250 @@
+{
+  "provenance": {
+    "kind": "zero_provider_decode_probe_not_semantic_evaluation",
+    "command": "node /tmp/qq-clock-echo-040-probe.cjs",
+    "scriptSha256": "8e3a1f1d434fa5424ce460cc393d79b5ec435f45d755bf2961d28af353429cfd",
+    "runFile": "/home/zhkzly/pycodes/qq-chat-assistant/.goal-runs/memory-v4-observation-04-candidate039-live/mu-late-report-cancellation-and-withdrawal.run.json",
+    "runSha256": "162c615ba9bb9c8753233693105169800780ff706d7996f948ea5c323e04274a",
+    "transportFile": "/home/zhkzly/pycodes/qq-chat-assistant/.goal-runs/memory-v4-observation-04-candidate039-live/transport.json",
+    "transportSha256": "e606ddeaa55bd4b9b814bb256762596d30fdc4464c248d17d9b37c8afb043ac2",
+    "traceIndex": 44,
+    "transportSequence": 2,
+    "implementation": {
+      "hash": "cc81e014d1543aa99a1ca7f91e9202e0aa9e9bd8dbd96b8ea055ce05c3a56d62",
+      "scope": "isolated QQ Assistant backend src/**/*.cjs"
+    },
+    "batchSha256": "7847a11be2380482c21e182c6b21b7743b3ef65a0c61b537ad80a70c48d2afac",
+    "originalProposalSha256": "c7eb6ff8a2c53fb815a116fb0b94b55b0ffcc1a4b118d198801e05daed6cee5b",
+    "basisOnlyProposalSha256": "50607fa3997b5f03544f5370845561a767bccbc9340fe4075cac35af2033012d"
+  },
+  "batch": {
+    "id": "16a0432f98affb6c30111865a40f751a06ec7fbca1f1ec08a8030c7a3f180784",
+    "scopeKey": "[\"eval_replay_owner\",\"1111111111\",\"eval_replay_contact\",\"3333333333\"]",
+    "baseRevision": 2,
+    "baseMemoryVersion": 3,
+    "baseState": {
+      "version": 1,
+      "focus": ""
+    },
+    "sources": [
+      {
+        "id": "qq:72057594049927937001",
+        "type": "qq",
+        "text": "10月10日一起去看看那个展吗？",
+        "at": "2026-10-01T10:00:00.000Z",
+        "role": "user",
+        "direction": "outgoing",
+        "use": "discussion",
+        "messageId": "72057594049927937001",
+        "sequence": "1",
+        "senderUid": "eval_replay_owner",
+        "senderUin": "1111111111",
+        "revision": "0e223520ae13608c3a21dd24a1b33b606b4b28cb05593befe8825e5d72c68aae",
+        "scope": {
+          "accountUid": "eval_replay_owner",
+          "accountUin": "1111111111",
+          "peerUid": "eval_replay_contact",
+          "peerUin": "3333333333"
+        }
+      },
+      {
+        "id": "qq:72057594049927937002",
+        "type": "qq",
+        "text": "好呀，可以。",
+        "at": "2026-10-01T10:01:00.000Z",
+        "role": "contact",
+        "direction": "incoming",
+        "use": "discussion",
+        "messageId": "72057594049927937002",
+        "sequence": "2",
+        "senderUid": "eval_replay_contact",
+        "senderUin": "3333333333",
+        "revision": "37fa9ea7a676c3f387ef83c3f698720c606b5fbbb215e951818e26c6ab1b35c2",
+        "scope": {
+          "accountUid": "eval_replay_owner",
+          "accountUin": "1111111111",
+          "peerUid": "eval_replay_contact",
+          "peerUin": "3333333333"
+        }
+      },
+      {
+        "id": "qq:72057594049927937003",
+        "type": "qq",
+        "text": "10号这次先不去了，周末临时有别的安排。",
+        "at": "2026-10-03T11:00:00.000Z",
+        "role": "contact",
+        "direction": "incoming",
+        "use": "discussion",
+        "messageId": "72057594049927937003",
+        "sequence": "3",
+        "senderUid": "eval_replay_contact",
+        "senderUin": "3333333333",
+        "revision": "a7738c9937039b74bc99ea30658a8436650f196715e036c0a0a87f7c1712b40e",
+        "scope": {
+          "accountUid": "eval_replay_owner",
+          "accountUin": "1111111111",
+          "peerUid": "eval_replay_contact",
+          "peerUin": "3333333333"
+        }
+      }
+    ],
+    "events": [
+      {
+        "seq": 1,
+        "id": "qq:72057594049927937001",
+        "revision": "0e223520ae13608c3a21dd24a1b33b606b4b28cb05593befe8825e5d72c68aae",
+        "operation": "upsert",
+        "offset": 0,
+        "end": 16
+      },
+      {
+        "seq": 2,
+        "id": "qq:72057594049927937002",
+        "revision": "37fa9ea7a676c3f387ef83c3f698720c606b5fbbb215e951818e26c6ab1b35c2",
+        "operation": "upsert",
+        "offset": 0,
+        "end": 6
+      },
+      {
+        "seq": 3,
+        "id": "qq:72057594049927937003",
+        "revision": "a7738c9937039b74bc99ea30658a8436650f196715e036c0a0a87f7c1712b40e",
+        "operation": "upsert",
+        "offset": 0,
+        "end": 20
+      }
+    ],
+    "priorMemory": {
+      "items": [],
+      "episodes": [],
+      "claims": [],
+      "events": []
+    },
+    "contextSources": [],
+    "reviewedSourceIds": [
+      "qq:72057594049927937001",
+      "qq:72057594049927937002",
+      "qq:72057594049927937003"
+    ],
+    "evidenceCoverage": {
+      "version": "original-evidence-v1",
+      "rule": "journal_progress_is_not_semantic_review"
+    },
+    "maxBytes": 24000,
+    "inputBytes": 2438
+  },
+  "proposal": {
+    "batchId": "ba91ec4722b671c9c",
+    "reviewedAll": true,
+    "episodes": [],
+    "relationshipPatch": {
+      "claims": [],
+      "events": [
+        {
+          "activityKey": "看展",
+          "eventKind": "invitation",
+          "actor": "self",
+          "text": "用户邀请联系人于10月10日一起看展。",
+          "sourceIds": [
+            "s1"
+          ],
+          "activity": {
+            "ref": "NEW",
+            "definition": {
+              "sourceId": "s1",
+              "quote": "10月10日一起去看看那个展吗？"
+            }
+          },
+          "evidence": {
+            "statement": {
+              "sourceId": "s1",
+              "quote": "10月10日一起去看看那个展吗？"
+            },
+            "time": {
+              "basis": "qq_statement",
+              "at": "2026-10-01T10:00:00.000Z",
+              "sourceId": "s1",
+              "quote": "10月10日一起去看看那个展吗？"
+            },
+            "plannedFor": {
+              "at": "2026-10-10",
+              "sourceId": "s1",
+              "quote": "10月10日"
+            }
+          }
+        },
+        {
+          "activityKey": "看展",
+          "eventKind": "acceptance",
+          "actor": "contact",
+          "text": "联系人答应了10月10日一起看展。",
+          "sourceIds": [
+            "s1",
+            "s2"
+          ],
+          "activity": {
+            "ref": "NEW",
+            "definition": {
+              "sourceId": "s1",
+              "quote": "10月10日一起去看看那个展吗？"
+            }
+          },
+          "evidence": {
+            "statement": {
+              "sourceId": "s2",
+              "quote": "好呀，可以。"
+            },
+            "time": {
+              "basis": "qq_statement",
+              "at": "2026-10-01T10:01:00.000Z",
+              "sourceId": "s2",
+              "quote": "好呀，可以。"
+            },
+            "plannedFor": {
+              "at": "2026-10-10",
+              "sourceId": "s1",
+              "quote": "10月10日"
+            }
+          }
+        },
+        {
+          "activityKey": "看展",
+          "eventKind": "cancellation",
+          "actor": "contact",
+          "text": "联系人取消了原定10月10日的看展安排，称周末临时有别的安排。",
+          "sourceIds": [
+            "s1",
+            "s3"
+          ],
+          "activity": {
+            "ref": "NEW",
+            "definition": {
+              "sourceId": "s1",
+              "quote": "10月10日一起去看看那个展吗？"
+            }
+          },
+          "evidence": {
+            "statement": {
+              "sourceId": "s3",
+              "quote": "10号这次先不去了，周末临时有别的安排。"
+            },
+            "time": {
+              "basis": "qq_statement",
+              "at": "2026-10-03T11:00:00.000Z",
+              "sourceId": "s3",
+              "quote": "10号这次先不去了，周末临时有别的安排。"
+            },
+            "plannedFor": {
+              "at": "2026-10-10",
+              "sourceId": "s1",
+              "quote": "10月10日"
+            }
+          }
+        }
+      ]
+    }
+  },
+  "settings": {
+    "model": "gpt-6-luna"
+  }
+}
