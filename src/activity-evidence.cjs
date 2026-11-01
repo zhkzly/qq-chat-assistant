@@ -5,7 +5,7 @@ const {randomUUID,createHash}=require('node:crypto');
 const {ValidationIssues}=require('./validation-issues.cjs');
 const {redact}=require('./model.cjs');
 const PROTOCOL='activity-original-evidence-v1';
-const LOSS_RULE='evidenceLosses use a separate loss: namespace, never source handles, citations, sharing permission or new event evidence. They describe prior derived understanding, not current facts: only a statement dependency identifies what the unavailable original previously served as evidence for; definition/time/support loss does not establish the original message meaning. Original author and prior event actor are distinct; a native recall does not identify its operator. Missing/omitted loss details stay unknown. Historical gaps do not negate separately supported newer world or current-state reports.';
+const LOSS_RULE='evidenceLosses use a separate loss: namespace, never source handles, citations, sharing permission or new event evidence. They describe prior derived understanding, not current facts: only a statement dependency identifies what the unavailable original previously served as evidence for; definition/time/support loss does not establish the original message meaning. Original author and prior event actor are distinct; a native recall does not identify its operator. invalidatedOriginal.sourceTime is only previousRevision\'s saved original timestamp, not world occurrence. status:unknown means no original time; never substitute affectedWorldAt (affected prior world/state time), knowledgeChangedAt (evidence loss) or plannedFor (planned activity time). Missing/omitted loss details stay unknown. Historical gaps do not negate separately supported newer world or current-state reports.';
 const speechActs=new Set(['invitation','acceptance','decline','reschedule','cancellation','interest_expression','boundary','sharing']);
 const statuses={invitation:'invited',acceptance:'accepted',decline:'declined',reschedule:'rescheduled',cancellation:'cancelled',occurred:'occurred'};
 const plain=value=>value&&typeof value==='object'&&!Array.isArray(value);
@@ -50,7 +50,10 @@ function lossView(gap){
  const loss=gap.evidenceLoss;if(!loss||loss.namespace!=='historical_evidence_loss_v1')return null;
  // Deliberately avoid sourceId/sourceIds/sourceRevisions: those names mint
  // evidence handles in foreground consumers, including for unavailable bodies.
- return {...clone(loss),knowledgeChangedAt:gap.knowledgeChangedAt||null,affectedWorldAt:gap.affectedWorldAt||null};
+ const original=clone(loss.invalidatedOriginal),time=original.sourceTime;
+ // Old losses remain explicitly unknown; never consult today's same-ID source.
+ original.sourceTime=time?.status==='known'&&time.basis==='saved_original_source_at'&&typeof time.at==='string'&&Number.isFinite(Date.parse(time.at))?{status:'known',at:time.at,basis:time.basis}:{status:'unknown'};
+ return {...clone(loss),invalidatedOriginal:original,knowledgeChangedAt:gap.knowledgeChangedAt||null,affectedWorldAt:gap.affectedWorldAt||null};
 }
 function evidenceLosses(gaps){return gaps.map(lossView).filter(Boolean);}
 function trimContextLoss(context){const item=context?.activities?.findLast(activity=>activity.evidenceLosses?.length);if(!item)return false;item.evidenceLosses.pop();item.omittedEvidenceLossCount=(item.omittedEvidenceLossCount||0)+1;return true;}
@@ -97,7 +100,10 @@ function makeGap(prior,{changedAt,basis='detected_source_change',legacyDigest,in
   const same=ref=>ref?.sourceId===invalidatedOriginal.id&&ref.revision===invalidatedOriginal.revision;
   const roles=[['statement',prior.statementEvidence],['definition',prior.activityDefinition],['time',prior.timeEvidence?.evidence],['planned_time',prior.plannedEvidence]].filter(([,ref])=>same(ref)).map(([role])=>role);
   if(!roles.length)roles.push('support');
-  gap.evidenceLoss={namespace:'historical_evidence_loss_v1',lossRef:`loss:${prior.id}`,authority:'historical_derived_interpretation_not_current_fact_or_evidence',invalidatedOriginal:{canonicalId:invalidatedOriginal.id,previousRevision:invalidatedOriginal.revision,type:invalidatedOriginal.type,authorRole:invalidatedOriginal.role||'unknown'},operation,operationActor:'unknown',dependencyRoles:roles,priorInterpretation:{recordType:prior.recordType,...(prior.recordType==='relationship_event'?{eventKind:prior.eventKind,eventActor:prior.actor}:{}),...(prior.currentActivityState?{currentState:prior.currentActivityState.status}:{})}};
+  const revisions=[prior.sourceRevisions?.[invalidatedOriginal.id],...[prior.statementEvidence,prior.activityDefinition,prior.timeEvidence?.evidence,prior.plannedEvidence].filter(ref=>ref?.sourceId===invalidatedOriginal.id).map(ref=>ref.revision)].filter(revision=>revision!==undefined);
+  const timeBound=revisions.length>0&&revisions.every(revision=>revision===invalidatedOriginal.revision)&&typeof invalidatedOriginal.at==='string'&&Number.isFinite(Date.parse(invalidatedOriginal.at));
+  const sourceTime=timeBound?{status:'known',at:invalidatedOriginal.at,basis:'saved_original_source_at'}:{status:'unknown'};
+  gap.evidenceLoss={namespace:'historical_evidence_loss_v1',lossRef:`loss:${prior.id}`,authority:'historical_derived_interpretation_not_current_fact_or_evidence',invalidatedOriginal:{canonicalId:invalidatedOriginal.id,previousRevision:invalidatedOriginal.revision,type:invalidatedOriginal.type,authorRole:invalidatedOriginal.role||'unknown',sourceTime},operation,operationActor:'unknown',dependencyRoles:roles,priorInterpretation:{recordType:prior.recordType,...(prior.recordType==='relationship_event'?{eventKind:prior.eventKind,eventActor:prior.actor}:{}),...(prior.currentActivityState?{currentState:prior.currentActivityState.status}:{})}};
   // Internal privacy dependencies are never projected as delivered originals.
   gap.lossDependencyIds=[...new Set([...Object.keys(prior.sourceRevisions||{}),...Object.keys(activityReferences(prior))])];
  }

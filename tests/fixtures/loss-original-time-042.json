@@ -1,0 +1,2432 @@
+{
+  "provenance": {
+    "kind": "Complete fictional actual041 dependency-counter source/prior records and final canonical/serialized input; unchanged capture",
+    "runSha256": "97f6c1a74a02ac64c765961dc84bb19bf90ff96d5cf0498ea8adeeb3b8e8fcb2",
+    "transportSha256": "b0447cb5790bd287faef32ea699ef2f7d3d93118a5c2b3804f554b6bde9ae7ab",
+    "sourcePointer": "/steps/1/diagnostics/snapshot/sources/0",
+    "priorPointer": "/steps/1/diagnostics/snapshot/relationship/claims",
+    "contextPointer": "/steps/2/diagnostics/trace/252/args/1",
+    "serializedPointer": "/requests/11/request/messages/1/content",
+    "recallPointer": "/steps/2/diagnostics/trace/213/raw",
+    "backendHash": "9290b8b0a6621bdd702e5590218996d1ff48ca33c687375a131a8562c84227ab"
+  },
+  "scope": {
+    "accountUid": "eval_replay_owner",
+    "accountUin": "1111111111",
+    "peerUid": "eval_replay_contact",
+    "peerUin": "3333333333"
+  },
+  "originalSource": {
+    "id": "qq:72057594049927937001",
+    "type": "qq",
+    "text": "10月10日一起去看看那个展吗？",
+    "at": "2026-10-01T10:00:00.000Z",
+    "role": "user",
+    "direction": "outgoing",
+    "use": "discussion",
+    "messageId": "72057594049927937001",
+    "sequence": "1",
+    "senderUid": "eval_replay_owner",
+    "senderUin": "1111111111",
+    "revision": "0e223520ae13608c3a21dd24a1b33b606b4b28cb05593befe8825e5d72c68aae"
+  },
+  "priorRecords": [
+    {
+      "text": "The planned October 10 exhibition visit is currently declined; the contact said they would not go this time because other plans came up for the weekend.",
+      "sourceIds": [
+        "qq:72057594049927937001",
+        "qq:72057594049927937003"
+      ],
+      "subject": "dyad",
+      "aspect": "coordination",
+      "assertionKind": "stated",
+      "epistemicStatus": "supported",
+      "lifecycle": "active",
+      "applicabilityKind": "local",
+      "attribution": "speaker",
+      "activityId": "activity:d64d0585-d445-4bc8-bb1e-362f957bf727",
+      "activityDefinition": {
+        "sourceId": "qq:72057594049927937001",
+        "revision": "0e223520ae13608c3a21dd24a1b33b606b4b28cb05593befe8825e5d72c68aae",
+        "start": 0,
+        "end": 16
+      },
+      "statementEvidence": {
+        "sourceId": "qq:72057594049927937003",
+        "revision": "a7738c9937039b74bc99ea30658a8436650f196715e036c0a0a87f7c1712b40e",
+        "start": 0,
+        "end": 20
+      },
+      "currentActivityState": {
+        "status": "declined",
+        "asOf": "2026-10-03T11:00:00.000Z",
+        "origin": "qq_observation"
+      },
+      "topicKeys": [],
+      "id": "4bf01aca-788c-4330-8e0d-ccc2e5fcd3ef",
+      "kind": "relationship_claim",
+      "recordType": "claim",
+      "version": 2,
+      "sourceRevisions": {
+        "qq:72057594049927937001": "0e223520ae13608c3a21dd24a1b33b606b4b28cb05593befe8825e5d72c68aae",
+        "qq:72057594049927937003": "a7738c9937039b74bc99ea30658a8436650f196715e036c0a0a87f7c1712b40e"
+      },
+      "reviewComplete": true,
+      "evidenceValidity": "valid",
+      "semanticSignature": "5b845f56d43b2f9cd194e578578720950132805efb5b9016f768a9ce9db66292",
+      "firstEvidenceAt": "2026-10-03T11:00:00.000Z",
+      "lastEvidenceAt": "2026-10-03T11:00:00.000Z",
+      "at": "2026-10-03T11:00:00.000Z",
+      "reportedAt": "2026-10-03T11:00:00.000Z",
+      "reviewedAt": "2026-10-05T11:28:00.000Z",
+      "semanticReview": {
+        "status": "evidence_reviewed",
+        "reviewedAt": "2026-10-05T11:28:00.000Z",
+        "coverage": {
+          "version": "original-evidence-v1",
+          "scope": {
+            "accountUid": "eval_replay_owner",
+            "accountUin": "1111111111",
+            "peerUid": "eval_replay_contact",
+            "peerUin": "3333333333"
+          },
+          "sourceRevisions": {
+            "private:1f5c39fb-eee6-472f-99a3-690acf677abf": "44f8055feee98d08ac39f0fe0956fe5481cb77a95688043240948596c904fa13",
+            "qq:72057594049927937001": "0e223520ae13608c3a21dd24a1b33b606b4b28cb05593befe8825e5d72c68aae",
+            "qq:72057594049927937002": "37fa9ea7a676c3f387ef83c3f698720c606b5fbbb215e951818e26c6ab1b35c2",
+            "qq:72057594049927937003": "a7738c9937039b74bc99ea30658a8436650f196715e036c0a0a87f7c1712b40e",
+            "private:b59ffab4-3eec-4c34-8109-c6382e246acb": "d19da37c8bf261d72cb710ae25fcbcdcb867d23c09f650faa41e474542025a01",
+            "private:2fce7488-d7a6-4c66-8829-43967867ed6a": "acc2717f7dae136d2d554acd9b0c5d4270f9e40cb47b7255ea27abcd9ac20bd5"
+          },
+          "reads": [
+            {
+              "sourceId": "private:1f5c39fb-eee6-472f-99a3-690acf677abf",
+              "revision": "44f8055feee98d08ac39f0fe0956fe5481cb77a95688043240948596c904fa13",
+              "start": 0,
+              "end": 15,
+              "total": 15,
+              "complete": true,
+              "bodyHash": "2beb483d5d7b5578f7ecab5467483fc8c154548106a021baaaa84dbd2794e460"
+            },
+            {
+              "sourceId": "qq:72057594049927937001",
+              "revision": "0e223520ae13608c3a21dd24a1b33b606b4b28cb05593befe8825e5d72c68aae",
+              "start": 0,
+              "end": 16,
+              "total": 16,
+              "complete": true,
+              "bodyHash": "cf86d2cf0c0364bc959639e30cbca5b176b54da0ad8da0e428567e6613ac295d"
+            },
+            {
+              "sourceId": "qq:72057594049927937002",
+              "revision": "37fa9ea7a676c3f387ef83c3f698720c606b5fbbb215e951818e26c6ab1b35c2",
+              "start": 0,
+              "end": 6,
+              "total": 6,
+              "complete": true,
+              "bodyHash": "9a47ad63c30d43a7d1aeede142fde6783ce77d314b15955b3cc5674ccb0b4fc1"
+            },
+            {
+              "sourceId": "qq:72057594049927937003",
+              "revision": "a7738c9937039b74bc99ea30658a8436650f196715e036c0a0a87f7c1712b40e",
+              "start": 0,
+              "end": 20,
+              "total": 20,
+              "complete": true,
+              "bodyHash": "bdf3a78786f5666de9d2366ec9253671682b255bfb70ec3d3f22a890234c39f3"
+            },
+            {
+              "sourceId": "private:b59ffab4-3eec-4c34-8109-c6382e246acb",
+              "revision": "d19da37c8bf261d72cb710ae25fcbcdcb867d23c09f650faa41e474542025a01",
+              "start": 0,
+              "end": 14,
+              "total": 14,
+              "complete": true,
+              "bodyHash": "5f9bc6b826a6c874a40fc4b23c7ccc7eedc42add4de4118dbcfe0de3d7504d9b"
+            },
+            {
+              "sourceId": "private:2fce7488-d7a6-4c66-8829-43967867ed6a",
+              "revision": "acc2717f7dae136d2d554acd9b0c5d4270f9e40cb47b7255ea27abcd9ac20bd5",
+              "start": 0,
+              "end": 26,
+              "total": 26,
+              "complete": true,
+              "bodyHash": "c5ba324d3cd71b63ad500c0f4b20b7120086907d4069b2a8ca6203b7e0ea79ab"
+            }
+          ],
+          "completeSourceIds": [
+            "private:1f5c39fb-eee6-472f-99a3-690acf677abf",
+            "qq:72057594049927937001",
+            "qq:72057594049927937002",
+            "qq:72057594049927937003",
+            "private:b59ffab4-3eec-4c34-8109-c6382e246acb",
+            "private:2fce7488-d7a6-4c66-8829-43967867ed6a"
+          ],
+          "requiredSourceIds": [
+            "qq:72057594049927937001",
+            "qq:72057594049927937003"
+          ],
+          "missingSourceIds": [],
+          "partialSourceIds": [],
+          "complete": true
+        }
+      },
+      "knowledgeSchemaVersion": 2,
+      "createdAt": "2026-10-05T11:10:00.000Z",
+      "updatedAt": "2026-10-05T11:28:00.000Z",
+      "revisions": [
+        {
+          "version": 1,
+          "semanticSignature": "5b845f56d43b2f9cd194e578578720950132805efb5b9016f768a9ce9db66292",
+          "operation": "reaffirm",
+          "reviewedAt": "2026-10-05T11:28:00.000Z"
+        }
+      ],
+      "transition": {
+        "operation": "reaffirm",
+        "targets": [
+          {
+            "id": "4bf01aca-788c-4330-8e0d-ccc2e5fcd3ef",
+            "expectedVersion": 1
+          }
+        ],
+        "reviewedAt": "2026-10-05T11:28:00.000Z",
+        "proposal": {
+          "text": "The planned October 10 exhibition visit is currently declined; the contact said they would not go this time because other plans came up for the weekend.",
+          "sourceIds": [
+            "qq:72057594049927937001",
+            "qq:72057594049927937003"
+          ],
+          "subject": "dyad",
+          "aspect": "coordination",
+          "assertionKind": "stated",
+          "epistemicStatus": "supported",
+          "lifecycle": "active",
+          "applicabilityKind": "local",
+          "attribution": "speaker",
+          "activityId": "activity:d64d0585-d445-4bc8-bb1e-362f957bf727",
+          "activityDefinition": {
+            "sourceId": "qq:72057594049927937001",
+            "revision": "0e223520ae13608c3a21dd24a1b33b606b4b28cb05593befe8825e5d72c68aae",
+            "start": 0,
+            "end": 16
+          },
+          "statementEvidence": {
+            "sourceId": "qq:72057594049927937003",
+            "revision": "a7738c9937039b74bc99ea30658a8436650f196715e036c0a0a87f7c1712b40e",
+            "start": 0,
+            "end": 20
+          },
+          "currentActivityState": {
+            "status": "declined",
+            "asOf": "2026-10-03T11:00:00.000Z",
+            "origin": "qq_observation"
+          },
+          "topicKeys": []
+        },
+        "sourceIds": [
+          "qq:72057594049927937001",
+          "qq:72057594049927937003"
+        ],
+        "sourceRevisions": {
+          "qq:72057594049927937001": "0e223520ae13608c3a21dd24a1b33b606b4b28cb05593befe8825e5d72c68aae",
+          "qq:72057594049927937003": "a7738c9937039b74bc99ea30658a8436650f196715e036c0a0a87f7c1712b40e"
+        },
+        "evidenceValidity": "valid"
+      },
+      "retrievalScore": 0,
+      "applicability": "local"
+    },
+    {
+      "text": "The contact declined the planned October 10 exhibition visit, saying they had other plans that weekend.",
+      "sourceIds": [
+        "qq:72057594049927937003",
+        "qq:72057594049927937001"
+      ],
+      "subject": "dyad",
+      "aspect": "coordination",
+      "assertionKind": "stated",
+      "epistemicStatus": "supported",
+      "lifecycle": "active",
+      "applicabilityKind": "local",
+      "attribution": "speaker",
+      "activityId": "activity:d64d0585-d445-4bc8-bb1e-362f957bf727",
+      "activityDefinition": {
+        "sourceId": "qq:72057594049927937001",
+        "revision": "0e223520ae13608c3a21dd24a1b33b606b4b28cb05593befe8825e5d72c68aae",
+        "start": 0,
+        "end": 16
+      },
+      "statementEvidence": {
+        "sourceId": "qq:72057594049927937003",
+        "revision": "a7738c9937039b74bc99ea30658a8436650f196715e036c0a0a87f7c1712b40e",
+        "start": 0,
+        "end": 20
+      },
+      "currentActivityState": {
+        "status": "declined",
+        "asOf": "2026-10-03T11:00:00.000Z",
+        "origin": "qq_observation"
+      },
+      "topicKeys": [],
+      "id": "b9c96388-999c-4ba7-bdc4-32bcef840a3c",
+      "kind": "relationship_claim",
+      "recordType": "claim",
+      "version": 2,
+      "sourceRevisions": {
+        "qq:72057594049927937003": "a7738c9937039b74bc99ea30658a8436650f196715e036c0a0a87f7c1712b40e",
+        "qq:72057594049927937001": "0e223520ae13608c3a21dd24a1b33b606b4b28cb05593befe8825e5d72c68aae"
+      },
+      "reviewComplete": true,
+      "evidenceValidity": "valid",
+      "semanticSignature": "c7104e5bf9c36fffd502434610db5cc9f1de0d2372578b15c643beb5e17190c8",
+      "firstEvidenceAt": "2026-10-03T11:00:00.000Z",
+      "lastEvidenceAt": "2026-10-03T11:00:00.000Z",
+      "at": "2026-10-03T11:00:00.000Z",
+      "reportedAt": "2026-10-03T11:00:00.000Z",
+      "reviewedAt": "2026-10-05T11:28:00.000Z",
+      "semanticReview": {
+        "status": "evidence_reviewed",
+        "reviewedAt": "2026-10-05T11:28:00.000Z",
+        "coverage": {
+          "version": "original-evidence-v1",
+          "scope": {
+            "accountUid": "eval_replay_owner",
+            "accountUin": "1111111111",
+            "peerUid": "eval_replay_contact",
+            "peerUin": "3333333333"
+          },
+          "sourceRevisions": {
+            "private:1f5c39fb-eee6-472f-99a3-690acf677abf": "44f8055feee98d08ac39f0fe0956fe5481cb77a95688043240948596c904fa13",
+            "qq:72057594049927937001": "0e223520ae13608c3a21dd24a1b33b606b4b28cb05593befe8825e5d72c68aae",
+            "qq:72057594049927937002": "37fa9ea7a676c3f387ef83c3f698720c606b5fbbb215e951818e26c6ab1b35c2",
+            "qq:72057594049927937003": "a7738c9937039b74bc99ea30658a8436650f196715e036c0a0a87f7c1712b40e",
+            "private:b59ffab4-3eec-4c34-8109-c6382e246acb": "d19da37c8bf261d72cb710ae25fcbcdcb867d23c09f650faa41e474542025a01",
+            "private:2fce7488-d7a6-4c66-8829-43967867ed6a": "acc2717f7dae136d2d554acd9b0c5d4270f9e40cb47b7255ea27abcd9ac20bd5"
+          },
+          "reads": [
+            {
+              "sourceId": "private:1f5c39fb-eee6-472f-99a3-690acf677abf",
+              "revision": "44f8055feee98d08ac39f0fe0956fe5481cb77a95688043240948596c904fa13",
+              "start": 0,
+              "end": 15,
+              "total": 15,
+              "complete": true,
+              "bodyHash": "2beb483d5d7b5578f7ecab5467483fc8c154548106a021baaaa84dbd2794e460"
+            },
+            {
+              "sourceId": "qq:72057594049927937001",
+              "revision": "0e223520ae13608c3a21dd24a1b33b606b4b28cb05593befe8825e5d72c68aae",
+              "start": 0,
+              "end": 16,
+              "total": 16,
+              "complete": true,
+              "bodyHash": "cf86d2cf0c0364bc959639e30cbca5b176b54da0ad8da0e428567e6613ac295d"
+            },
+            {
+              "sourceId": "qq:72057594049927937002",
+              "revision": "37fa9ea7a676c3f387ef83c3f698720c606b5fbbb215e951818e26c6ab1b35c2",
+              "start": 0,
+              "end": 6,
+              "total": 6,
+              "complete": true,
+              "bodyHash": "9a47ad63c30d43a7d1aeede142fde6783ce77d314b15955b3cc5674ccb0b4fc1"
+            },
+            {
+              "sourceId": "qq:72057594049927937003",
+              "revision": "a7738c9937039b74bc99ea30658a8436650f196715e036c0a0a87f7c1712b40e",
+              "start": 0,
+              "end": 20,
+              "total": 20,
+              "complete": true,
+              "bodyHash": "bdf3a78786f5666de9d2366ec9253671682b255bfb70ec3d3f22a890234c39f3"
+            },
+            {
+              "sourceId": "private:b59ffab4-3eec-4c34-8109-c6382e246acb",
+              "revision": "d19da37c8bf261d72cb710ae25fcbcdcb867d23c09f650faa41e474542025a01",
+              "start": 0,
+              "end": 14,
+              "total": 14,
+              "complete": true,
+              "bodyHash": "5f9bc6b826a6c874a40fc4b23c7ccc7eedc42add4de4118dbcfe0de3d7504d9b"
+            },
+            {
+              "sourceId": "private:2fce7488-d7a6-4c66-8829-43967867ed6a",
+              "revision": "acc2717f7dae136d2d554acd9b0c5d4270f9e40cb47b7255ea27abcd9ac20bd5",
+              "start": 0,
+              "end": 26,
+              "total": 26,
+              "complete": true,
+              "bodyHash": "c5ba324d3cd71b63ad500c0f4b20b7120086907d4069b2a8ca6203b7e0ea79ab"
+            }
+          ],
+          "completeSourceIds": [
+            "private:1f5c39fb-eee6-472f-99a3-690acf677abf",
+            "qq:72057594049927937001",
+            "qq:72057594049927937002",
+            "qq:72057594049927937003",
+            "private:b59ffab4-3eec-4c34-8109-c6382e246acb",
+            "private:2fce7488-d7a6-4c66-8829-43967867ed6a"
+          ],
+          "requiredSourceIds": [
+            "qq:72057594049927937003",
+            "qq:72057594049927937001"
+          ],
+          "missingSourceIds": [],
+          "partialSourceIds": [],
+          "complete": true
+        }
+      },
+      "knowledgeSchemaVersion": 2,
+      "createdAt": "2026-10-03T11:28:00.000Z",
+      "updatedAt": "2026-10-05T11:28:00.000Z",
+      "revisions": [
+        {
+          "version": 1,
+          "semanticSignature": "5d551aea89e5e26baf1f092198ff89853e29a2e22a81fac70277204d26845b58",
+          "operation": "reaffirm",
+          "reviewedAt": "2026-10-05T11:28:00.000Z"
+        }
+      ],
+      "transition": {
+        "operation": "reaffirm",
+        "targets": [
+          {
+            "id": "b9c96388-999c-4ba7-bdc4-32bcef840a3c",
+            "expectedVersion": 1
+          }
+        ],
+        "reviewedAt": "2026-10-05T11:28:00.000Z",
+        "proposal": {
+          "text": "The planned October 10 exhibition visit is currently declined; the contact said they would not go this time because other plans came up for the weekend.",
+          "sourceIds": [
+            "qq:72057594049927937003"
+          ],
+          "subject": "dyad",
+          "aspect": "coordination",
+          "assertionKind": "stated",
+          "epistemicStatus": "supported",
+          "lifecycle": "active",
+          "applicabilityKind": "local",
+          "attribution": "speaker",
+          "activityId": "activity:d64d0585-d445-4bc8-bb1e-362f957bf727",
+          "activityDefinition": {
+            "sourceId": "qq:72057594049927937001",
+            "revision": "0e223520ae13608c3a21dd24a1b33b606b4b28cb05593befe8825e5d72c68aae",
+            "start": 0,
+            "end": 16
+          },
+          "statementEvidence": {
+            "sourceId": "qq:72057594049927937003",
+            "revision": "a7738c9937039b74bc99ea30658a8436650f196715e036c0a0a87f7c1712b40e",
+            "start": 0,
+            "end": 20
+          },
+          "currentActivityState": {
+            "status": "declined",
+            "asOf": "2026-10-03T11:00:00.000Z",
+            "origin": "qq_observation"
+          },
+          "topicKeys": []
+        },
+        "sourceIds": [
+          "qq:72057594049927937003"
+        ],
+        "sourceRevisions": {
+          "qq:72057594049927937003": "a7738c9937039b74bc99ea30658a8436650f196715e036c0a0a87f7c1712b40e"
+        },
+        "evidenceValidity": "valid"
+      },
+      "retrievalScore": 0,
+      "applicability": "local"
+    }
+  ],
+  "recallRaw": {
+    "chatType": 1,
+    "peerUid": "eval_replay_contact",
+    "peerUin": "3333333333",
+    "senderUid": "eval_replay_owner",
+    "senderUin": "1111111111",
+    "msgId": "72057594049927937001",
+    "msgSeq": "1",
+    "msgTime": "1790848800",
+    "sendStatus": 2,
+    "recallTime": "1791284400",
+    "elements": [
+      {
+        "elementType": 1,
+        "textElement": {
+          "content": "10月10日一起去看看那个展吗？"
+        }
+      }
+    ]
+  },
+  "context": {
+    "payload": {
+      "promptVersion": "goal-context-2026-11-01.14",
+      "purpose": "discussion",
+      "method": "围绕用户当前目的和本轮实际请求选择帮助，可理解、接续、真实分享、比较行动或组织表达。意思明确就直接帮助，只问会改变建议的必要问题。允许暂缓或不用助手，不强制每次制定目的。",
+      "methodCards": [],
+      "methodCatalog": [
+        {
+          "id": "clarify",
+          "version": "goal-methods-2026-10-30.2",
+          "name": "理清这次想表达什么",
+          "applicability": "用户说不清困惑、想表达的意思，或明确希望先讨论。"
+        },
+        {
+          "id": "choose_next_step",
+          "version": "goal-methods-2026-10-30.2",
+          "name": "比较下一步",
+          "applicability": "想联系但不知道聊什么、何时继续，或有多个可行方向。"
+        },
+        {
+          "id": "respond",
+          "version": "goal-methods-2026-10-30.2",
+          "name": "理解并回应她的话",
+          "applicability": "有实际来信，需要理解、回应分享或接续她提出的话题。"
+        },
+        {
+          "id": "compose",
+          "version": "goal-methods-2026-10-30.2",
+          "name": "组织参考表达",
+          "applicability": "用户明确要草稿、改写，或采用已讨论且明确可分享的内容。"
+        },
+        {
+          "id": "review",
+          "version": "goal-methods-2026-10-30.2",
+          "name": "找回与回顾",
+          "applicability": "问以前说过什么、约定进展，或希望回顾一段时间的互动。"
+        },
+        {
+          "id": "shared_activity",
+          "version": "goal-methods-2026-10-30.2",
+          "name": "考虑一起做点什么",
+          "applicability": "用户想邀约、讨论共同兴趣或寻找文字聊天之外的共同活动。"
+        },
+        {
+          "id": "correction",
+          "version": "goal-methods-2026-10-30.2",
+          "name": "纠正理解与用法",
+          "applicability": "用户纠正事实、分享范围、目标、建议风格，或要求记住/更改/忘记。"
+        },
+        {
+          "id": "express_interest",
+          "version": "goal-methods-2026-10-30.2",
+          "name": "表达好感与关系意图",
+          "applicability": "用户想表达喜欢、明确邀请含义，或希望讨论怎样从友好交流走向恋爱认识。"
+        }
+      ],
+      "methodSelection": {
+        "version": "goal-methods-2026-10-30.2",
+        "selection": "candidates",
+        "candidates": [
+          "clarify",
+          "choose_next_step",
+          "respond",
+          "compose",
+          "review",
+          "shared_activity",
+          "correction",
+          "express_interest"
+        ],
+        "maxApplied": 2,
+        "operationalInstructionsLocation": "methodCards",
+        "selectionRule": "以当前用户目的和本次意思选择零至两个方法；目录不是必走步骤，也不表示对方的心理。完整卡按需用lookup.methodIds读取，已有足够依据可以直接帮助，不必多查或先提问。",
+        "feedbackRule": "局部反馈只用于对应情境，稳定偏好须有用户明确依据。方法及论文只是有适用范围的参考，不保证交流或关系结果。"
+      },
+      "asOf": "2026-10-06T11:18:00.000Z",
+      "viewerTimeZone": "Asia/Shanghai",
+      "goal": "和这位朋友保持联系，商量一起看展的安排。",
+      "intentAuthority": {
+        "sourceId": "private:745becbe-d9b3-4c02-8889-4e333d5470a7"
+      },
+      "requestDeliveryPolicy": {
+        "version": 1
+      },
+      "draftMaterialPolicy": {
+        "version": 1
+      },
+      "generationOrigin": "private_discussion",
+      "currentObservationSourceId": null,
+      "topicContext": {
+        "version": 0,
+        "activeId": null,
+        "active": null,
+        "retained": [],
+        "authority": "private_direction_not_outbound_authorization"
+      },
+      "workingState": {
+        "version": 2,
+        "items": [],
+        "possiblyStale": true,
+        "ownership": "evidence_only_task_controls_in_topicContext",
+        "authority": "previous_summary_needs_review"
+      },
+      "coverage": {
+        "status": "accessible_end",
+        "pages": 1,
+        "cursor": "72057594049927937001",
+        "oldestAt": 1790848800000,
+        "checkedAt": "2026-10-03T11:01:00.000Z",
+        "source": "fictional-native-boundary-replay"
+      },
+      "selectedMaterialIds": [],
+      "allowedMaterialIds": [],
+      "expressionOptions": [],
+      "selectedOption": null,
+      "actionReceipts": [],
+      "privateRestrictions": [],
+      "preferences": [],
+      "experienceProposalPolicy": {
+        "enabled": false,
+        "maxItems": 2,
+        "feedbackSourceIds": [],
+        "caseIds": []
+      },
+      "replyFocus": [],
+      "lookupHistory": [],
+      "reviewRange": null,
+      "retrievedMemory": {
+        "items": [],
+        "episodes": [],
+        "coverage": {
+          "complete": false,
+          "sourceCount": 6,
+          "retrievedCount": 5,
+          "pending": 1,
+          "processed": 7,
+          "history": {
+            "status": "accessible_end",
+            "pages": 1,
+            "cursor": "72057594049927937001",
+            "oldestAt": 1790848800000,
+            "checkedAt": "2026-10-03T11:01:00.000Z",
+            "source": "fictional-native-boundary-replay"
+          },
+          "retrieval": "lexical-han-bigram-bm25",
+          "semanticCertainty": false
+        }
+      },
+      "memoryIndex": [],
+      "sources": [
+        {
+          "id": "qq:72057594049927937002",
+          "type": "qq",
+          "text": "好呀，可以。",
+          "at": "2026-10-01T10:01:00.000Z",
+          "role": "contact",
+          "direction": "incoming",
+          "use": "discussion",
+          "messageId": "72057594049927937002",
+          "sequence": "2",
+          "senderUid": "eval_replay_contact",
+          "senderUin": "3333333333",
+          "revision": "37fa9ea7a676c3f387ef83c3f698720c606b5fbbb215e951818e26c6ab1b35c2",
+          "speaker": "对方"
+        },
+        {
+          "id": "qq:72057594049927937003",
+          "type": "qq",
+          "text": "10号这次先不去了，周末临时有别的安排。",
+          "at": "2026-10-03T11:00:00.000Z",
+          "role": "contact",
+          "direction": "incoming",
+          "use": "discussion",
+          "messageId": "72057594049927937003",
+          "sequence": "3",
+          "senderUid": "eval_replay_contact",
+          "senderUin": "3333333333",
+          "revision": "a7738c9937039b74bc99ea30658a8436650f196715e036c0a0a87f7c1712b40e",
+          "speaker": "对方"
+        },
+        {
+          "id": "private:b59ffab4-3eec-4c34-8109-c6382e246acb",
+          "type": "private",
+          "text": "我们这次看展现在是什么状态？",
+          "at": "2026-10-03T11:18:00.000Z",
+          "role": "user",
+          "use": "discussion",
+          "kind": "discussion",
+          "version": 1,
+          "revision": "d19da37c8bf261d72cb710ae25fcbcdcb867d23c09f650faa41e474542025a01"
+        },
+        {
+          "id": "private:2fce7488-d7a6-4c66-8829-43967867ed6a",
+          "type": "private",
+          "text": "补充一下：她10月1日曾经答应过10月10日去看展。",
+          "at": "2026-10-05T11:00:00.000Z",
+          "role": "user",
+          "use": "discussion",
+          "kind": "discussion",
+          "version": 1,
+          "revision": "acc2717f7dae136d2d554acd9b0c5d4270f9e40cb47b7255ea27abcd9ac20bd5"
+        },
+        {
+          "id": "private:1f5c39fb-eee6-472f-99a3-690acf677abf",
+          "type": "private",
+          "text": "补充后，现在的安排应怎么理解？",
+          "at": "2026-10-05T11:18:00.000Z",
+          "role": "user",
+          "use": "discussion",
+          "kind": "discussion",
+          "version": 1,
+          "revision": "44f8055feee98d08ac39f0fe0956fe5481cb77a95688043240948596c904fa13"
+        },
+        {
+          "id": "private:745becbe-d9b3-4c02-8889-4e333d5470a7",
+          "type": "private",
+          "text": "这次撤回的是哪条记录？她之前取消的那条也撤回了吗？",
+          "at": "2026-10-06T11:18:00.000Z",
+          "role": "user",
+          "use": "discussion",
+          "kind": "discussion",
+          "version": 1,
+          "revision": "b3f3cef10e8b1a13eab71bca8c1af007b67ea911d2d306609f4858f2495201f1"
+        }
+      ],
+      "privateConversation": [
+        {
+          "id": "b59ffab4-3eec-4c34-8109-c6382e246acb",
+          "role": "user",
+          "kind": "discussion",
+          "sourceId": "private:b59ffab4-3eec-4c34-8109-c6382e246acb",
+          "sourceTextLocation": "sources",
+          "at": "2026-10-03T11:18:00.000Z",
+          "requestId": "replay-request-1"
+        },
+        {
+          "id": "2fce7488-d7a6-4c66-8829-43967867ed6a",
+          "role": "user",
+          "kind": "discussion",
+          "sourceId": "private:2fce7488-d7a6-4c66-8829-43967867ed6a",
+          "sourceTextLocation": "sources",
+          "at": "2026-10-05T11:00:00.000Z",
+          "requestId": "replay-request-2"
+        },
+        {
+          "id": "1f5c39fb-eee6-472f-99a3-690acf677abf",
+          "role": "user",
+          "kind": "discussion",
+          "sourceId": "private:1f5c39fb-eee6-472f-99a3-690acf677abf",
+          "sourceTextLocation": "sources",
+          "at": "2026-10-05T11:18:00.000Z",
+          "requestId": "replay-request-3"
+        }
+      ],
+      "evidenceRule": "historicalOnly=true 的消息仅为历史提及，后续可能有未读的更改，不可据此断言当前约定有效。possiblyStale 的状态只作需要核查的上次理解，新原话与用户纠正优先。",
+      "contextPolicy": {
+        "recentHours": 72,
+        "since": "2026-10-03T11:18:00.000Z"
+      },
+      "deferredContext": {
+        "lookupAvailable": true,
+        "qqSourceCount": 0,
+        "privateTurnCount": 0,
+        "relationshipClaimCount": 0
+      },
+      "omittedStateEntries": 0,
+      "imageContext": {
+        "version": 1,
+        "mode": "none",
+        "attached": [],
+        "omitted": []
+      },
+      "memoryDiscovery": {
+        "version": "conversation-discovery-2026-10-30.1",
+        "directory": [
+          {
+            "id": "raw:private:745becbe-d9b3-4c02-8889-4e333d5470a7",
+            "kind": "raw_source",
+            "subject": "undetermined",
+            "sourceSpeaker": "private_user",
+            "aspect": "private",
+            "at": "2026-10-06T11:18:00.000Z",
+            "temporalStatus": "source_time_not_current_state",
+            "omittedSupportCount": 0,
+            "requiresOriginalRead": true,
+            "sourceRefs": [
+              {
+                "sourceId": "private:745becbe-d9b3-4c02-8889-4e333d5470a7",
+                "revision": "b3f3cef10e8b1a13eab71bca8c1af007b67ea911d2d306609f4858f2495201f1"
+              }
+            ],
+            "sourceIds": [
+              "private:745becbe-d9b3-4c02-8889-4e333d5470a7"
+            ],
+            "authority": "navigation_only_needs_source_lookup",
+            "textFromSource": "private:745becbe-d9b3-4c02-8889-4e333d5470a7"
+          },
+          {
+            "id": "raw:qq:72057594049927937003",
+            "kind": "raw_source",
+            "subject": "undetermined",
+            "sourceSpeaker": "contact",
+            "aspect": "qq",
+            "at": "2026-10-03T11:00:00.000Z",
+            "temporalStatus": "source_time_not_current_state",
+            "omittedSupportCount": 0,
+            "requiresOriginalRead": true,
+            "sourceRefs": [
+              {
+                "sourceId": "qq:72057594049927937003",
+                "revision": "a7738c9937039b74bc99ea30658a8436650f196715e036c0a0a87f7c1712b40e"
+              }
+            ],
+            "sourceIds": [
+              "qq:72057594049927937003"
+            ],
+            "authority": "navigation_only_needs_source_lookup",
+            "textFromSource": "qq:72057594049927937003"
+          },
+          {
+            "id": "raw:private:2fce7488-d7a6-4c66-8829-43967867ed6a",
+            "kind": "raw_source",
+            "subject": "undetermined",
+            "sourceSpeaker": "private_user",
+            "aspect": "private",
+            "at": "2026-10-05T11:00:00.000Z",
+            "temporalStatus": "source_time_not_current_state",
+            "omittedSupportCount": 0,
+            "requiresOriginalRead": true,
+            "sourceRefs": [
+              {
+                "sourceId": "private:2fce7488-d7a6-4c66-8829-43967867ed6a",
+                "revision": "acc2717f7dae136d2d554acd9b0c5d4270f9e40cb47b7255ea27abcd9ac20bd5"
+              }
+            ],
+            "sourceIds": [
+              "private:2fce7488-d7a6-4c66-8829-43967867ed6a"
+            ],
+            "authority": "navigation_only_needs_source_lookup",
+            "textFromSource": "private:2fce7488-d7a6-4c66-8829-43967867ed6a"
+          },
+          {
+            "id": "raw:qq:72057594049927937002",
+            "kind": "raw_source",
+            "subject": "undetermined",
+            "sourceSpeaker": "contact",
+            "aspect": "qq",
+            "at": "2026-10-01T10:01:00.000Z",
+            "temporalStatus": "source_time_not_current_state",
+            "omittedSupportCount": 0,
+            "requiresOriginalRead": true,
+            "sourceRefs": [
+              {
+                "sourceId": "qq:72057594049927937002",
+                "revision": "37fa9ea7a676c3f387ef83c3f698720c606b5fbbb215e951818e26c6ab1b35c2"
+              }
+            ],
+            "sourceIds": [
+              "qq:72057594049927937002"
+            ],
+            "authority": "navigation_only_needs_source_lookup",
+            "textFromSource": "qq:72057594049927937002"
+          },
+          {
+            "id": "raw:private:1f5c39fb-eee6-472f-99a3-690acf677abf",
+            "kind": "raw_source",
+            "subject": "undetermined",
+            "sourceSpeaker": "private_user",
+            "aspect": "private",
+            "at": "2026-10-05T11:18:00.000Z",
+            "temporalStatus": "source_time_not_current_state",
+            "omittedSupportCount": 0,
+            "requiresOriginalRead": true,
+            "sourceRefs": [
+              {
+                "sourceId": "private:1f5c39fb-eee6-472f-99a3-690acf677abf",
+                "revision": "44f8055feee98d08ac39f0fe0956fe5481cb77a95688043240948596c904fa13"
+              }
+            ],
+            "sourceIds": [
+              "private:1f5c39fb-eee6-472f-99a3-690acf677abf"
+            ],
+            "authority": "navigation_only_needs_source_lookup",
+            "textFromSource": "private:1f5c39fb-eee6-472f-99a3-690acf677abf"
+          },
+          {
+            "id": "raw:private:b59ffab4-3eec-4c34-8109-c6382e246acb",
+            "kind": "raw_source",
+            "subject": "undetermined",
+            "sourceSpeaker": "private_user",
+            "aspect": "private",
+            "at": "2026-10-03T11:18:00.000Z",
+            "temporalStatus": "source_time_not_current_state",
+            "omittedSupportCount": 0,
+            "requiresOriginalRead": true,
+            "sourceRefs": [
+              {
+                "sourceId": "private:b59ffab4-3eec-4c34-8109-c6382e246acb",
+                "revision": "d19da37c8bf261d72cb710ae25fcbcdcb867d23c09f650faa41e474542025a01"
+              }
+            ],
+            "sourceIds": [
+              "private:b59ffab4-3eec-4c34-8109-c6382e246acb"
+            ],
+            "authority": "navigation_only_needs_source_lookup",
+            "textFromSource": "private:b59ffab4-3eec-4c34-8109-c6382e246acb"
+          }
+        ],
+        "authority": "fallible_navigation_requires_original_lookup",
+        "rule": "目录用于发现可核对的旧事、自述和共同背景；先核对原文、后续变化和已表达内容，不能把预览当当前事实、未聊过证明或分享授权。",
+        "omittedEntryCount": 0,
+        "candidateSourceCount": 6,
+        "delivery": [
+          {
+            "sourceId": "private:2fce7488-d7a6-4c66-8829-43967867ed6a",
+            "status": "delivered"
+          },
+          {
+            "sourceId": "qq:72057594049927937002",
+            "status": "delivered"
+          },
+          {
+            "sourceId": "private:b59ffab4-3eec-4c34-8109-c6382e246acb",
+            "status": "delivered"
+          },
+          {
+            "sourceId": "private:745becbe-d9b3-4c02-8889-4e333d5470a7",
+            "status": "delivered"
+          },
+          {
+            "sourceId": "qq:72057594049927937003",
+            "status": "delivered"
+          },
+          {
+            "sourceId": "private:1f5c39fb-eee6-472f-99a3-690acf677abf",
+            "status": "delivered"
+          }
+        ]
+      },
+      "relationshipContext": {
+        "version": 13,
+        "asOf": "2026-10-06T11:18:00.000Z",
+        "claims": [],
+        "events": [],
+        "activities": [
+          {
+            "activityId": "activity:d64d0585-d445-4bc8-bb1e-362f957bf727",
+            "activityKey": null,
+            "status": "needs_review",
+            "authority": "activity_definition_unavailable",
+            "identityStatus": "anchored",
+            "definitionAvailable": false,
+            "definitionEvidence": {
+              "sourceIds": [],
+              "sourceRevisions": {}
+            },
+            "historicalEvidenceGap": true,
+            "currentReportedState": null,
+            "priorCurrentReportedState": null,
+            "latestEventId": null,
+            "knowledgeChangedAt": "2026-10-06T11:00:00.000Z",
+            "affectedWorldAt": "2026-10-03T11:00:00.000Z",
+            "occurredAt": null,
+            "plannedFor": null,
+            "qualified": false,
+            "evidenceLosses": [
+              {
+                "namespace": "historical_evidence_loss_v1",
+                "lossRef": "loss:4bf01aca-788c-4330-8e0d-ccc2e5fcd3ef",
+                "authority": "historical_derived_interpretation_not_current_fact_or_evidence",
+                "invalidatedOriginal": {
+                  "canonicalId": "qq:72057594049927937001",
+                  "previousRevision": "0e223520ae13608c3a21dd24a1b33b606b4b28cb05593befe8825e5d72c68aae",
+                  "type": "qq",
+                  "authorRole": "user"
+                },
+                "operation": "native_recall",
+                "operationActor": "unknown",
+                "dependencyRoles": [
+                  "definition"
+                ],
+                "priorInterpretation": {
+                  "recordType": "claim",
+                  "currentState": "declined"
+                },
+                "knowledgeChangedAt": "2026-10-06T11:00:00.000Z",
+                "affectedWorldAt": "2026-10-03T11:00:00.000Z"
+              },
+              {
+                "namespace": "historical_evidence_loss_v1",
+                "lossRef": "loss:b9c96388-999c-4ba7-bdc4-32bcef840a3c",
+                "authority": "historical_derived_interpretation_not_current_fact_or_evidence",
+                "invalidatedOriginal": {
+                  "canonicalId": "qq:72057594049927937001",
+                  "previousRevision": "0e223520ae13608c3a21dd24a1b33b606b4b28cb05593befe8825e5d72c68aae",
+                  "type": "qq",
+                  "authorRole": "user"
+                },
+                "operation": "native_recall",
+                "operationActor": "unknown",
+                "dependencyRoles": [
+                  "definition"
+                ],
+                "priorInterpretation": {
+                  "recordType": "claim",
+                  "currentState": "declined"
+                },
+                "knowledgeChangedAt": "2026-10-06T11:00:00.000Z",
+                "affectedWorldAt": "2026-10-03T11:00:00.000Z"
+              }
+            ],
+            "omittedEvidenceLossCount": 0,
+            "eventIds": []
+          }
+        ],
+        "activityUncertainties": [],
+        "activityEvidenceRule": "Historical evidence gaps do not negate a separately supported current-state report. Preserve currentReportedState source/asOf/authority; it is not an event occurrence clock. evidenceLosses use a separate loss: namespace, never source handles, citations, sharing permission or new event evidence. They describe prior derived understanding, not current facts: only a statement dependency identifies what the unavailable original previously served as evidence for; definition/time/support loss does not establish the original message meaning. Original author and prior event actor are distinct; a native recall does not identify its operator. Missing/omitted loss details stay unknown. Historical gaps do not negate separately supported newer world or current-state reports.",
+        "coverage": {
+          "pending": 1,
+          "semanticPending": 0,
+          "processorVersion": "evidence-backed-understanding-2026-10-31.2",
+          "bootstrapPending": false,
+          "history": {
+            "status": "accessible_end",
+            "pages": 1,
+            "cursor": "72057594049927937001",
+            "oldestAt": 1790848800000,
+            "checkedAt": "2026-10-03T11:01:00.000Z",
+            "source": "fictional-native-boundary-replay"
+          },
+          "semanticCertainty": false
+        }
+      },
+      "experienceContext": {
+        "cases": [],
+        "adaptations": [],
+        "constraints": [
+          "仅为局部经验；不是她的心理或方法因果效果证据。",
+          "候选适用性尚未确定，核对applicability与当前任务后再使用；本轮明确意思优先，不相关或相反的指导不采用。"
+        ]
+      },
+      "work": {
+        "version": "conversation-work-2026-10-30.2",
+        "authority": "derived_work_view_not_factual_evidence",
+        "scope": "this_relationship",
+        "request": {
+          "sourceId": "private:745becbe-d9b3-4c02-8889-4e333d5470a7",
+          "purpose": "discussion",
+          "origin": "user",
+          "trigger": "private_request",
+          "meaningFromSource": "private:745becbe-d9b3-4c02-8889-4e333d5470a7",
+          "authority": "current_source_pointer_not_material_or_permission"
+        },
+        "goal": {
+          "available": true,
+          "meaningFrom": "goal",
+          "authority": "user_owned_long_term_direction_not_wording"
+        },
+        "current": null,
+        "focus": {
+          "sourceIds": [
+            "qq:72057594049927937003"
+          ],
+          "positionFrom": "taskContext.latestActual"
+        },
+        "pendingPrivateIntent": {
+          "sourceIds": []
+        },
+        "controlsFrom": {
+          "current": "topicContext.active",
+          "responsePreference": "taskContext.responsePreference",
+          "authority": "applicable_controls_not_shareable_facts"
+        },
+        "sourceIds": [
+          "private:745becbe-d9b3-4c02-8889-4e333d5470a7",
+          "qq:72057594049927937003"
+        ],
+        "outputUse": "planning_only_not_outbound_authorization"
+      },
+      "materialView": {
+        "version": "conversation-materials-2026-10-30.2",
+        "items": [
+          {
+            "kind": "current_exchange",
+            "sourceIds": [
+              "qq:72057594049927937003"
+            ],
+            "novelty": "not_determined",
+            "owner": "contact",
+            "availableAs": "actual_conversation",
+            "interpretation": "read_actual_order_and_speakers"
+          },
+          {
+            "kind": "historical_anchor",
+            "sourceIds": [
+              "qq:72057594049927937002"
+            ],
+            "novelty": "not_determined",
+            "owner": "contact",
+            "at": "2026-10-01T10:01:00.000Z",
+            "availableAs": "historical_reference",
+            "currentStatus": "unknown",
+            "detail": "好呀，可以。"
+          }
+        ],
+        "currentIntent": {
+          "sourceId": "private:745becbe-d9b3-4c02-8889-4e333d5470a7",
+          "trigger": "private_request",
+          "authority": "current_source_pointer_not_material_or_permission"
+        },
+        "authority": "evidence_navigation_not_a_script",
+        "instruction": "从实际原话选本轮可聊一点，核对主体、日期、已表达内容和后续限制；未知不逐项追问。此视图的类别/指针非素材或许可；sources原始用户话可含事实、任务和范围明确的分享意思，须结合当前QQ指代、否定、条件判断。视图和所选操作本身不授分享许可。"
+      },
+      "taskContext": {
+        "version": "relationship-task-2026-10-16.2",
+        "sourceTextLocation": "sources",
+        "requestOrigin": "private_discussion",
+        "currentRequestSourceId": "private:745becbe-d9b3-4c02-8889-4e333d5470a7",
+        "invocation": {
+          "origin": "user",
+          "trigger": "private_request",
+          "requestedPurpose": "discussion"
+        },
+        "timeContext": {
+          "localNow": "2026-10-06 19:18"
+        },
+        "consultationTask": {
+          "purpose": "discussion",
+          "focusOrigin": "latest_available",
+          "focus": [
+            {
+              "sourceId": "qq:72057594049927937003",
+              "laterAvailableMessageCount": 0
+            }
+          ]
+        },
+        "responsePreference": "自然一点，贴近我的说话方式",
+        "latestActual": {
+          "sourceId": "qq:72057594049927937003",
+          "direction": "incoming",
+          "speaker": "对方",
+          "at": "2026-10-03T11:00:00.000Z",
+          "sequence": "3",
+          "localAt": "2026-10-03 19:00",
+          "elapsedMinutes": 4338,
+          "ageMs": 260280000
+        },
+        "recentExchange": [
+          {
+            "sourceId": "qq:72057594049927937003",
+            "speaker": "对方",
+            "direction": "incoming",
+            "at": "2026-10-03T11:00:00.000Z",
+            "localAt": "2026-10-03 19:00",
+            "sequence": "3"
+          }
+        ],
+        "selfMessagesAfterLastContact": [],
+        "recentContext": {
+          "selection": "bounded_actual_neighborhoods",
+          "limits": {
+            "maxMessages": 24,
+            "maxGapMs": 1800000,
+            "maxSpanMs": 7200000,
+            "maxAdditionalBytes": 12000
+          },
+          "windows": [
+            {
+              "anchorSourceId": "qq:72057594049927937003",
+              "reasons": [
+                "latest"
+              ],
+              "sourceIds": [
+                "qq:72057594049927937003"
+              ],
+              "boundaryBefore": "time_gap",
+              "boundaryAfter": "accessible_end",
+              "omittedMessageCount": 0
+            }
+          ],
+          "gaps": [],
+          "coverage": "accessible_messages_only_not_complete_history"
+        },
+        "contactMessagesAfterLastSelf": [
+          "qq:72057594049927937002",
+          "qq:72057594049927937003"
+        ],
+        "observationCoverage": {
+          "status": "accessible_end",
+          "checkedAt": "2026-10-03T11:01:00.000Z"
+        },
+        "selfEvidenceSourceIds": [
+          "private:b59ffab4-3eec-4c34-8109-c6382e246acb",
+          "private:2fce7488-d7a6-4c66-8829-43967867ed6a",
+          "private:1f5c39fb-eee6-472f-99a3-690acf677abf",
+          "private:745becbe-d9b3-4c02-8889-4e333d5470a7"
+        ],
+        "auxiliaryPolicy": "best_effort",
+        "factsRule": "仅限已提供原话，不补未知事实或分享授权。",
+        "recentHumanContext": [
+          {
+            "sourceId": "private:b59ffab4-3eec-4c34-8109-c6382e246acb",
+            "at": "2026-10-03T11:18:00.000Z",
+            "role": "user",
+            "bodyLocation": "sources"
+          },
+          {
+            "sourceId": "private:2fce7488-d7a6-4c66-8829-43967867ed6a",
+            "at": "2026-10-05T11:00:00.000Z",
+            "role": "user",
+            "bodyLocation": "sources"
+          },
+          {
+            "sourceId": "private:1f5c39fb-eee6-472f-99a3-690acf677abf",
+            "at": "2026-10-05T11:18:00.000Z",
+            "role": "user",
+            "bodyLocation": "sources"
+          }
+        ],
+        "draftControlPolicy": {
+          "version": 1,
+          "required": true,
+          "requiredFields": [
+            "objective",
+            "allowedApproach",
+            "avoidances"
+          ],
+          "intentSourceId": "private:745becbe-d9b3-4c02-8889-4e333d5470a7"
+        }
+      },
+      "userRequest": {
+        "sourceId": "private:745becbe-d9b3-4c02-8889-4e333d5470a7",
+        "text": "这次撤回的是哪条记录？她之前取消的那条也撤回了吗？"
+      }
+    },
+    "manifest": {
+      "requestId": "replay-request-4",
+      "scope": {
+        "accountUid": "eval_replay_owner",
+        "accountUin": "1111111111",
+        "peerUid": "eval_replay_contact",
+        "peerUin": "3333333333"
+      },
+      "purpose": "discussion",
+      "promptVersion": "goal-context-2026-11-01.14",
+      "contextRevision": 7,
+      "stateVersion": 2,
+      "sourceIds": [
+        "qq:72057594049927937002",
+        "qq:72057594049927937003",
+        "private:b59ffab4-3eec-4c34-8109-c6382e246acb",
+        "private:2fce7488-d7a6-4c66-8829-43967867ed6a",
+        "private:1f5c39fb-eee6-472f-99a3-690acf677abf",
+        "private:745becbe-d9b3-4c02-8889-4e333d5470a7"
+      ],
+      "sourceRevisions": {
+        "qq:72057594049927937002": "37fa9ea7a676c3f387ef83c3f698720c606b5fbbb215e951818e26c6ab1b35c2",
+        "qq:72057594049927937003": "a7738c9937039b74bc99ea30658a8436650f196715e036c0a0a87f7c1712b40e",
+        "private:b59ffab4-3eec-4c34-8109-c6382e246acb": "d19da37c8bf261d72cb710ae25fcbcdcb867d23c09f650faa41e474542025a01",
+        "private:2fce7488-d7a6-4c66-8829-43967867ed6a": "acc2717f7dae136d2d554acd9b0c5d4270f9e40cb47b7255ea27abcd9ac20bd5",
+        "private:1f5c39fb-eee6-472f-99a3-690acf677abf": "44f8055feee98d08ac39f0fe0956fe5481cb77a95688043240948596c904fa13",
+        "private:745becbe-d9b3-4c02-8889-4e333d5470a7": "b3f3cef10e8b1a13eab71bca8c1af007b67ea911d2d306609f4858f2495201f1"
+      },
+      "sourceDelivery": {
+        "version": "source-delivery-v1",
+        "offsetUnit": "utf16_redacted_source",
+        "partialSourceCount": 0,
+        "omittedSourceCount": 0,
+        "explicitLookups": [],
+        "sources": [
+          {
+            "sourceId": "qq:72057594049927937002",
+            "revision": "37fa9ea7a676c3f387ef83c3f698720c606b5fbbb215e951818e26c6ab1b35c2",
+            "status": "delivered",
+            "start": 0,
+            "end": 6,
+            "originalCharLength": 6
+          },
+          {
+            "sourceId": "qq:72057594049927937003",
+            "revision": "a7738c9937039b74bc99ea30658a8436650f196715e036c0a0a87f7c1712b40e",
+            "status": "delivered",
+            "start": 0,
+            "end": 20,
+            "originalCharLength": 20
+          },
+          {
+            "sourceId": "private:b59ffab4-3eec-4c34-8109-c6382e246acb",
+            "revision": "d19da37c8bf261d72cb710ae25fcbcdcb867d23c09f650faa41e474542025a01",
+            "status": "delivered",
+            "start": 0,
+            "end": 14,
+            "originalCharLength": 14
+          },
+          {
+            "sourceId": "private:2fce7488-d7a6-4c66-8829-43967867ed6a",
+            "revision": "acc2717f7dae136d2d554acd9b0c5d4270f9e40cb47b7255ea27abcd9ac20bd5",
+            "status": "delivered",
+            "start": 0,
+            "end": 26,
+            "originalCharLength": 26
+          },
+          {
+            "sourceId": "private:1f5c39fb-eee6-472f-99a3-690acf677abf",
+            "revision": "44f8055feee98d08ac39f0fe0956fe5481cb77a95688043240948596c904fa13",
+            "status": "delivered",
+            "start": 0,
+            "end": 15,
+            "originalCharLength": 15
+          },
+          {
+            "sourceId": "private:745becbe-d9b3-4c02-8889-4e333d5470a7",
+            "revision": "b3f3cef10e8b1a13eab71bca8c1af007b67ea911d2d306609f4858f2495201f1",
+            "status": "delivered",
+            "start": 0,
+            "end": 25,
+            "originalCharLength": 25
+          }
+        ]
+      },
+      "completeReview": true,
+      "omittedSourceCount": 0,
+      "historyCoverage": {
+        "status": "accessible_end",
+        "pages": 1,
+        "cursor": "72057594049927937001",
+        "oldestAt": 1790848800000,
+        "checkedAt": "2026-10-03T11:01:00.000Z",
+        "source": "fictional-native-boundary-replay"
+      },
+      "inputBytes": 19802,
+      "byteBudget": 48000,
+      "tokenizerVerified": false,
+      "serializedTextRequestBytes": 37657,
+      "requestByteBudget": 64000,
+      "requestEnvelopeBytes": 19186,
+      "payloadWireByteBudget": 44814,
+      "requestModel": "gpt-6-luna",
+      "budgetMethod": "Complete serialized UTF-8 request envelope plus payload ceiling; tokenizer and provider window unverified",
+      "methodTrace": {
+        "purpose": "discussion",
+        "delivered": [],
+        "catalog": [
+          {
+            "id": "clarify",
+            "version": "goal-methods-2026-10-30.2"
+          },
+          {
+            "id": "choose_next_step",
+            "version": "goal-methods-2026-10-30.2"
+          },
+          {
+            "id": "respond",
+            "version": "goal-methods-2026-10-30.2"
+          },
+          {
+            "id": "compose",
+            "version": "goal-methods-2026-10-30.2"
+          },
+          {
+            "id": "review",
+            "version": "goal-methods-2026-10-30.2"
+          },
+          {
+            "id": "shared_activity",
+            "version": "goal-methods-2026-10-30.2"
+          },
+          {
+            "id": "correction",
+            "version": "goal-methods-2026-10-30.2"
+          },
+          {
+            "id": "express_interest",
+            "version": "goal-methods-2026-10-30.2"
+          }
+        ],
+        "operationalDelivery": {
+          "location": "methodCards",
+          "ids": []
+        },
+        "reported": null
+      },
+      "createdAt": "2026-10-06T11:18:00.000Z",
+      "inputEvidenceLossRefs": [
+        {
+          "scope": {
+            "accountUid": "eval_replay_owner",
+            "accountUin": "1111111111",
+            "peerUid": "eval_replay_contact",
+            "peerUin": "3333333333"
+          },
+          "lossRef": "loss:4bf01aca-788c-4330-8e0d-ccc2e5fcd3ef",
+          "fingerprint": "e02dcd1f7598512eda407eeeaaa33ed2fb07b022616e13715de181f42a9d408d"
+        },
+        {
+          "scope": {
+            "accountUid": "eval_replay_owner",
+            "accountUin": "1111111111",
+            "peerUid": "eval_replay_contact",
+            "peerUin": "3333333333"
+          },
+          "lossRef": "loss:b9c96388-999c-4ba7-bdc4-32bcef840a3c",
+          "fingerprint": "686aa2be3717e513bfd6b0a5b6bdc23a8bed6549796d9fc71db84b8f6c05f83e"
+        }
+      ],
+      "contextSelection": {
+        "policy": {
+          "version": 1,
+          "recentHours": 72,
+          "since": "2026-10-03T11:18:00.000Z",
+          "asOf": "2026-10-06T11:18:00.000Z",
+          "currentEpisode": {
+            "maxGapMs": 1800000,
+            "maxSpanMs": 7200000
+          },
+          "loading": "complete_source_segments_within_request_budget",
+          "older": "core_summaries_and_explicit_or_ranked_lookup",
+          "optimality": "user_configured_window_not_quality_evidence"
+        },
+        "recentQQ": {
+          "candidateSourceIds": [],
+          "loadedSourceIds": [],
+          "partialSourceIds": [],
+          "omittedSourceIds": [],
+          "segments": []
+        },
+        "recentPrivate": {
+          "candidateSourceIds": [
+            "private:b59ffab4-3eec-4c34-8109-c6382e246acb",
+            "private:2fce7488-d7a6-4c66-8829-43967867ed6a",
+            "private:1f5c39fb-eee6-472f-99a3-690acf677abf"
+          ],
+          "loadedSourceIds": [
+            "private:b59ffab4-3eec-4c34-8109-c6382e246acb",
+            "private:2fce7488-d7a6-4c66-8829-43967867ed6a",
+            "private:1f5c39fb-eee6-472f-99a3-690acf677abf"
+          ],
+          "partialSourceIds": [],
+          "foldedSourceIds": [],
+          "omittedSourceIds": []
+        },
+        "taskControlRefs": [],
+        "taskSourceRefs": [],
+        "coreSourceRefs": [],
+        "reasons": [
+          "bounded_current_exchange_and_explicit_sources",
+          "confirmed_preferences_and_dated_core",
+          "recent_time_window",
+          "ranked_or_explicit_lookup"
+        ]
+      },
+      "optionalRawRetrieval": {
+        "limit": 4,
+        "admittedCount": 0,
+        "deferredCount": 0,
+        "ordering": "retrieval_score_then_recency"
+      },
+      "recentQQContext": {
+        "limits": {
+          "maxMessages": 24,
+          "maxGapMs": 1800000,
+          "maxSpanMs": 7200000,
+          "maxAdditionalBytes": 12000
+        },
+        "projection": "loaded",
+        "candidateSourceIds": [
+          "qq:72057594049927937003"
+        ],
+        "admittedPrioritySourceIds": [],
+        "initialAdditionalBytes": 427,
+        "ordering": "current_neighborhood_before_optional_history"
+      },
+      "planningViews": {
+        "workVersion": "conversation-work-2026-10-30.2",
+        "materialVersion": "conversation-materials-2026-10-30.2",
+        "materialRefs": [
+          {
+            "kind": "current_exchange",
+            "sourceIds": [
+              "qq:72057594049927937003"
+            ]
+          },
+          {
+            "kind": "historical_anchor",
+            "sourceIds": [
+              "qq:72057594049927937002"
+            ]
+          }
+        ],
+        "projection": "full"
+      },
+      "images": [],
+      "imageCount": 0,
+      "imageContext": {
+        "version": 1,
+        "mode": "none",
+        "attached": [],
+        "omitted": []
+      },
+      "stageId": "3728e984-24ce-4a58-bda4-1534dc2bb41a",
+      "candidateSession": {
+        "qqRevision": 3,
+        "privateInputSeq": 4
+      }
+    },
+    "images": [],
+    "mediaContext": {
+      "mode": "off",
+      "omitted": []
+    },
+    "essentialSourceIds": [
+      "private:745becbe-d9b3-4c02-8889-4e333d5470a7",
+      "qq:72057594049927937003",
+      "private:1f5c39fb-eee6-472f-99a3-690acf677abf"
+    ],
+    "restrictions": []
+  },
+  "baselinePrimaryInput": {
+    "promptVersion": "goal-context-2026-11-01.14",
+    "purpose": "discussion",
+    "method": "围绕用户当前目的和本轮实际请求选择帮助，可理解、接续、真实分享、比较行动或组织表达。意思明确就直接帮助，只问会改变建议的必要问题。允许暂缓或不用助手，不强制每次制定目的。",
+    "methodCards": [],
+    "methodCatalog": [
+      {
+        "id": "clarify",
+        "version": "goal-methods-2026-10-30.2",
+        "name": "理清这次想表达什么",
+        "applicability": "用户说不清困惑、想表达的意思，或明确希望先讨论。"
+      },
+      {
+        "id": "choose_next_step",
+        "version": "goal-methods-2026-10-30.2",
+        "name": "比较下一步",
+        "applicability": "想联系但不知道聊什么、何时继续，或有多个可行方向。"
+      },
+      {
+        "id": "respond",
+        "version": "goal-methods-2026-10-30.2",
+        "name": "理解并回应她的话",
+        "applicability": "有实际来信，需要理解、回应分享或接续她提出的话题。"
+      },
+      {
+        "id": "compose",
+        "version": "goal-methods-2026-10-30.2",
+        "name": "组织参考表达",
+        "applicability": "用户明确要草稿、改写，或采用已讨论且明确可分享的内容。"
+      },
+      {
+        "id": "review",
+        "version": "goal-methods-2026-10-30.2",
+        "name": "找回与回顾",
+        "applicability": "问以前说过什么、约定进展，或希望回顾一段时间的互动。"
+      },
+      {
+        "id": "shared_activity",
+        "version": "goal-methods-2026-10-30.2",
+        "name": "考虑一起做点什么",
+        "applicability": "用户想邀约、讨论共同兴趣或寻找文字聊天之外的共同活动。"
+      },
+      {
+        "id": "correction",
+        "version": "goal-methods-2026-10-30.2",
+        "name": "纠正理解与用法",
+        "applicability": "用户纠正事实、分享范围、目标、建议风格，或要求记住/更改/忘记。"
+      },
+      {
+        "id": "express_interest",
+        "version": "goal-methods-2026-10-30.2",
+        "name": "表达好感与关系意图",
+        "applicability": "用户想表达喜欢、明确邀请含义，或希望讨论怎样从友好交流走向恋爱认识。"
+      }
+    ],
+    "methodSelection": {
+      "version": "goal-methods-2026-10-30.2",
+      "selection": "candidates",
+      "candidates": [
+        "clarify",
+        "choose_next_step",
+        "respond",
+        "compose",
+        "review",
+        "shared_activity",
+        "correction",
+        "express_interest"
+      ],
+      "maxApplied": 2,
+      "operationalInstructionsLocation": "methodCards",
+      "selectionRule": "以当前用户目的和本次意思选择零至两个方法；目录不是必走步骤，也不表示对方的心理。完整卡按需用lookup.methodIds读取，已有足够依据可以直接帮助，不必多查或先提问。",
+      "feedbackRule": "局部反馈只用于对应情境，稳定偏好须有用户明确依据。方法及论文只是有适用范围的参考，不保证交流或关系结果。"
+    },
+    "asOf": "2026-10-06T11:18:00.000Z",
+    "viewerTimeZone": "Asia/Shanghai",
+    "goal": "和这位朋友保持联系，商量一起看展的安排。",
+    "intentAuthority": {
+      "sourceId": "s1"
+    },
+    "draftMaterialPolicy": {
+      "version": 1
+    },
+    "generationOrigin": "private_discussion",
+    "currentObservationSourceId": null,
+    "topicContext": {
+      "version": 0,
+      "activeId": null,
+      "active": null,
+      "retained": [],
+      "authority": "private_direction_not_outbound_authorization"
+    },
+    "workingState": {
+      "version": 2,
+      "items": [],
+      "possiblyStale": true,
+      "ownership": "evidence_only_task_controls_in_topicContext",
+      "authority": "previous_summary_needs_review"
+    },
+    "coverage": {
+      "status": "accessible_end",
+      "pages": 1,
+      "cursor": "72057594049927937001",
+      "oldestAt": 1790848800000,
+      "checkedAt": "2026-10-03T11:01:00.000Z",
+      "source": "fictional-native-boundary-replay"
+    },
+    "selectedMaterialIds": [],
+    "allowedMaterialIds": [],
+    "expressionOptions": [],
+    "selectedOption": null,
+    "actionReceipts": [],
+    "privateRestrictions": [],
+    "preferences": [],
+    "experienceProposalPolicy": {
+      "enabled": false,
+      "maxItems": 2,
+      "feedbackSourceIds": [],
+      "caseIds": []
+    },
+    "replyFocus": [],
+    "lookupHistory": [],
+    "reviewRange": null,
+    "retrievedMemory": {
+      "items": [],
+      "episodes": [],
+      "coverage": {
+        "complete": false,
+        "sourceCount": 6,
+        "retrievedCount": 5,
+        "pending": 1,
+        "processed": 7,
+        "history": {
+          "status": "accessible_end",
+          "pages": 1,
+          "cursor": "72057594049927937001",
+          "oldestAt": 1790848800000,
+          "checkedAt": "2026-10-03T11:01:00.000Z",
+          "source": "fictional-native-boundary-replay"
+        },
+        "retrieval": "lexical-han-bigram-bm25",
+        "semanticCertainty": false
+      }
+    },
+    "memoryIndex": [],
+    "sources": [
+      {
+        "id": "s2",
+        "type": "qq",
+        "at": "2026-10-01T10:01:00.000Z",
+        "role": "contact",
+        "direction": "incoming",
+        "use": "discussion",
+        "messageId": "72057594049927937002",
+        "sequence": "2",
+        "senderUid": "eval_replay_contact",
+        "senderUin": "3333333333",
+        "speaker": "对方",
+        "text": "好呀，可以。"
+      },
+      {
+        "id": "s3",
+        "type": "qq",
+        "at": "2026-10-03T11:00:00.000Z",
+        "role": "contact",
+        "direction": "incoming",
+        "use": "discussion",
+        "messageId": "72057594049927937003",
+        "sequence": "3",
+        "senderUid": "eval_replay_contact",
+        "senderUin": "3333333333",
+        "speaker": "对方",
+        "text": "10号这次先不去了，周末临时有别的安排。"
+      },
+      {
+        "id": "s4",
+        "type": "private",
+        "at": "2026-10-03T11:18:00.000Z",
+        "role": "user",
+        "use": "discussion",
+        "kind": "discussion",
+        "segments": [
+          {
+            "materialRef": "m1",
+            "parts": [
+              [
+                "b1",
+                "我们"
+              ],
+              [
+                "b2",
+                "这次"
+              ],
+              [
+                "b3",
+                "看"
+              ],
+              [
+                "b4",
+                "展"
+              ],
+              [
+                "b5",
+                "现在"
+              ],
+              [
+                "b6",
+                "是"
+              ],
+              [
+                "b7",
+                "什么"
+              ],
+              [
+                "b8",
+                "状态"
+              ],
+              [
+                "b9",
+                "？"
+              ]
+            ],
+            "endBoundary": "b10"
+          }
+        ],
+        "materialChoices": [],
+        "refinementCoverage": {
+          "status": "complete",
+          "maxParts": 32
+        },
+        "authorityChoices": {
+          "originalUserStatementCandidates": [
+            {
+              "authorityRef": "a1"
+            }
+          ],
+          "candidateMeaning": "ORIGINALUSERSTATEMENTCANDIDATE_NOT_GRANT"
+        }
+      },
+      {
+        "id": "s5",
+        "type": "private",
+        "at": "2026-10-05T11:00:00.000Z",
+        "role": "user",
+        "use": "discussion",
+        "kind": "discussion",
+        "segments": [
+          {
+            "materialRef": "m2",
+            "parts": [
+              [
+                "b11",
+                "补充"
+              ],
+              [
+                "b12",
+                "一下"
+              ],
+              [
+                "b13",
+                "："
+              ]
+            ]
+          },
+          {
+            "materialRef": "m3",
+            "parts": [
+              [
+                "b14",
+                "她"
+              ],
+              [
+                "b15",
+                "10"
+              ],
+              [
+                "b16",
+                "月"
+              ],
+              [
+                "b17",
+                "1"
+              ],
+              [
+                "b18",
+                "日"
+              ],
+              [
+                "b19",
+                "曾经"
+              ],
+              [
+                "b20",
+                "答应"
+              ],
+              [
+                "b21",
+                "过"
+              ],
+              [
+                "b22",
+                "10"
+              ],
+              [
+                "b23",
+                "月"
+              ],
+              [
+                "b24",
+                "10"
+              ],
+              [
+                "b25",
+                "日"
+              ],
+              [
+                "b26",
+                "去"
+              ],
+              [
+                "b27",
+                "看"
+              ],
+              [
+                "b28",
+                "展"
+              ],
+              [
+                "b29",
+                "。"
+              ]
+            ],
+            "endBoundary": "b30"
+          }
+        ],
+        "materialChoices": [
+          {
+            "materialRef": "m4",
+            "from": "m2",
+            "to": "m3"
+          }
+        ],
+        "refinementCoverage": {
+          "status": "complete",
+          "maxParts": 32
+        },
+        "authorityChoices": {
+          "originalUserStatementCandidates": [
+            {
+              "authorityRef": "a2"
+            }
+          ],
+          "candidateMeaning": "ORIGINALUSERSTATEMENTCANDIDATE_NOT_GRANT"
+        }
+      },
+      {
+        "id": "s6",
+        "type": "private",
+        "at": "2026-10-05T11:18:00.000Z",
+        "role": "user",
+        "use": "discussion",
+        "kind": "discussion",
+        "segments": [
+          {
+            "materialRef": "m5",
+            "parts": [
+              [
+                "b31",
+                "补充"
+              ],
+              [
+                "b32",
+                "后"
+              ],
+              [
+                "b33",
+                "，"
+              ]
+            ]
+          },
+          {
+            "materialRef": "m6",
+            "parts": [
+              [
+                "b34",
+                "现在"
+              ],
+              [
+                "b35",
+                "的"
+              ],
+              [
+                "b36",
+                "安排"
+              ],
+              [
+                "b37",
+                "应"
+              ],
+              [
+                "b38",
+                "怎么"
+              ],
+              [
+                "b39",
+                "理解"
+              ],
+              [
+                "b40",
+                "？"
+              ]
+            ],
+            "endBoundary": "b41"
+          }
+        ],
+        "materialChoices": [
+          {
+            "materialRef": "m7",
+            "from": "m5",
+            "to": "m6"
+          }
+        ],
+        "refinementCoverage": {
+          "status": "complete",
+          "maxParts": 32
+        },
+        "authorityChoices": {
+          "originalUserStatementCandidates": [
+            {
+              "authorityRef": "a3"
+            }
+          ],
+          "candidateMeaning": "ORIGINALUSERSTATEMENTCANDIDATE_NOT_GRANT"
+        }
+      }
+    ],
+    "privateConversation": [
+      {
+        "id": "b59ffab4-3eec-4c34-8109-c6382e246acb",
+        "role": "user",
+        "kind": "discussion",
+        "sourceId": "s4",
+        "sourceTextLocation": "sources",
+        "at": "2026-10-03T11:18:00.000Z",
+        "requestId": "replay-request-1"
+      },
+      {
+        "id": "2fce7488-d7a6-4c66-8829-43967867ed6a",
+        "role": "user",
+        "kind": "discussion",
+        "sourceId": "s5",
+        "sourceTextLocation": "sources",
+        "at": "2026-10-05T11:00:00.000Z",
+        "requestId": "replay-request-2"
+      },
+      {
+        "id": "1f5c39fb-eee6-472f-99a3-690acf677abf",
+        "role": "user",
+        "kind": "discussion",
+        "sourceId": "s6",
+        "sourceTextLocation": "sources",
+        "at": "2026-10-05T11:18:00.000Z",
+        "requestId": "replay-request-3"
+      }
+    ],
+    "evidenceRule": "historicalOnly=true 的消息仅为历史提及，后续可能有未读的更改，不可据此断言当前约定有效。possiblyStale 的状态只作需要核查的上次理解，新原话与用户纠正优先。",
+    "contextPolicy": {
+      "recentHours": 72,
+      "since": "2026-10-03T11:18:00.000Z"
+    },
+    "deferredContext": {
+      "lookupAvailable": true,
+      "qqSourceCount": 0,
+      "privateTurnCount": 0,
+      "relationshipClaimCount": 0
+    },
+    "omittedStateEntries": 0,
+    "imageContext": {
+      "version": 1,
+      "mode": "none",
+      "attached": [],
+      "omitted": []
+    },
+    "memoryDiscovery": {
+      "version": "conversation-discovery-2026-10-30.1",
+      "directory": [
+        {
+          "id": "raw:private:745becbe-d9b3-4c02-8889-4e333d5470a7",
+          "kind": "raw_source",
+          "subject": "undetermined",
+          "sourceSpeaker": "private_user",
+          "aspect": "private",
+          "at": "2026-10-06T11:18:00.000Z",
+          "temporalStatus": "source_time_not_current_state",
+          "omittedSupportCount": 0,
+          "requiresOriginalRead": true,
+          "sourceRefs": [
+            {
+              "sourceId": "s1",
+              "revision": "b3f3cef10e8b1a13eab71bca8c1af007b67ea911d2d306609f4858f2495201f1"
+            }
+          ],
+          "sourceIds": [
+            "s1"
+          ],
+          "authority": "navigation_only_needs_source_lookup",
+          "textFromSource": "s1"
+        },
+        {
+          "id": "raw:qq:72057594049927937003",
+          "kind": "raw_source",
+          "subject": "undetermined",
+          "sourceSpeaker": "contact",
+          "aspect": "qq",
+          "at": "2026-10-03T11:00:00.000Z",
+          "temporalStatus": "source_time_not_current_state",
+          "omittedSupportCount": 0,
+          "requiresOriginalRead": true,
+          "sourceRefs": [
+            {
+              "sourceId": "s3",
+              "revision": "a7738c9937039b74bc99ea30658a8436650f196715e036c0a0a87f7c1712b40e"
+            }
+          ],
+          "sourceIds": [
+            "s3"
+          ],
+          "authority": "navigation_only_needs_source_lookup",
+          "textFromSource": "s3"
+        },
+        {
+          "id": "raw:private:2fce7488-d7a6-4c66-8829-43967867ed6a",
+          "kind": "raw_source",
+          "subject": "undetermined",
+          "sourceSpeaker": "private_user",
+          "aspect": "private",
+          "at": "2026-10-05T11:00:00.000Z",
+          "temporalStatus": "source_time_not_current_state",
+          "omittedSupportCount": 0,
+          "requiresOriginalRead": true,
+          "sourceRefs": [
+            {
+              "sourceId": "s5",
+              "revision": "acc2717f7dae136d2d554acd9b0c5d4270f9e40cb47b7255ea27abcd9ac20bd5"
+            }
+          ],
+          "sourceIds": [
+            "s5"
+          ],
+          "authority": "navigation_only_needs_source_lookup",
+          "textFromSource": "s5"
+        },
+        {
+          "id": "raw:qq:72057594049927937002",
+          "kind": "raw_source",
+          "subject": "undetermined",
+          "sourceSpeaker": "contact",
+          "aspect": "qq",
+          "at": "2026-10-01T10:01:00.000Z",
+          "temporalStatus": "source_time_not_current_state",
+          "omittedSupportCount": 0,
+          "requiresOriginalRead": true,
+          "sourceRefs": [
+            {
+              "sourceId": "s2",
+              "revision": "37fa9ea7a676c3f387ef83c3f698720c606b5fbbb215e951818e26c6ab1b35c2"
+            }
+          ],
+          "sourceIds": [
+            "s2"
+          ],
+          "authority": "navigation_only_needs_source_lookup",
+          "textFromSource": "s2"
+        },
+        {
+          "id": "raw:private:1f5c39fb-eee6-472f-99a3-690acf677abf",
+          "kind": "raw_source",
+          "subject": "undetermined",
+          "sourceSpeaker": "private_user",
+          "aspect": "private",
+          "at": "2026-10-05T11:18:00.000Z",
+          "temporalStatus": "source_time_not_current_state",
+          "omittedSupportCount": 0,
+          "requiresOriginalRead": true,
+          "sourceRefs": [
+            {
+              "sourceId": "s6",
+              "revision": "44f8055feee98d08ac39f0fe0956fe5481cb77a95688043240948596c904fa13"
+            }
+          ],
+          "sourceIds": [
+            "s6"
+          ],
+          "authority": "navigation_only_needs_source_lookup",
+          "textFromSource": "s6"
+        },
+        {
+          "id": "raw:private:b59ffab4-3eec-4c34-8109-c6382e246acb",
+          "kind": "raw_source",
+          "subject": "undetermined",
+          "sourceSpeaker": "private_user",
+          "aspect": "private",
+          "at": "2026-10-03T11:18:00.000Z",
+          "temporalStatus": "source_time_not_current_state",
+          "omittedSupportCount": 0,
+          "requiresOriginalRead": true,
+          "sourceRefs": [
+            {
+              "sourceId": "s4",
+              "revision": "d19da37c8bf261d72cb710ae25fcbcdcb867d23c09f650faa41e474542025a01"
+            }
+          ],
+          "sourceIds": [
+            "s4"
+          ],
+          "authority": "navigation_only_needs_source_lookup",
+          "textFromSource": "s4"
+        }
+      ],
+      "authority": "fallible_navigation_requires_original_lookup",
+      "rule": "目录用于发现可核对的旧事、自述和共同背景；先核对原文、后续变化和已表达内容，不能把预览当当前事实、未聊过证明或分享授权。",
+      "omittedEntryCount": 0,
+      "candidateSourceCount": 6,
+      "delivery": [
+        {
+          "sourceId": "s5",
+          "status": "delivered"
+        },
+        {
+          "sourceId": "s2",
+          "status": "delivered"
+        },
+        {
+          "sourceId": "s4",
+          "status": "delivered"
+        },
+        {
+          "sourceId": "s1",
+          "status": "delivered"
+        },
+        {
+          "sourceId": "s3",
+          "status": "delivered"
+        },
+        {
+          "sourceId": "s6",
+          "status": "delivered"
+        }
+      ]
+    },
+    "relationshipContext": {
+      "version": 13,
+      "asOf": "2026-10-06T11:18:00.000Z",
+      "claims": [],
+      "events": [],
+      "activities": [
+        {
+          "activityId": "activity:d64d0585-d445-4bc8-bb1e-362f957bf727",
+          "activityKey": null,
+          "status": "needs_review",
+          "authority": "activity_definition_unavailable",
+          "identityStatus": "anchored",
+          "definitionAvailable": false,
+          "definitionEvidence": {
+            "sourceIds": [],
+            "sourceRevisions": {}
+          },
+          "historicalEvidenceGap": true,
+          "currentReportedState": null,
+          "priorCurrentReportedState": null,
+          "latestEventId": null,
+          "knowledgeChangedAt": "2026-10-06T11:00:00.000Z",
+          "affectedWorldAt": "2026-10-03T11:00:00.000Z",
+          "occurredAt": null,
+          "plannedFor": null,
+          "qualified": false,
+          "evidenceLosses": [
+            {
+              "namespace": "historical_evidence_loss_v1",
+              "lossRef": "loss:4bf01aca-788c-4330-8e0d-ccc2e5fcd3ef",
+              "authority": "historical_derived_interpretation_not_current_fact_or_evidence",
+              "invalidatedOriginal": {
+                "canonicalId": "qq:72057594049927937001",
+                "previousRevision": "0e223520ae13608c3a21dd24a1b33b606b4b28cb05593befe8825e5d72c68aae",
+                "type": "qq",
+                "authorRole": "user"
+              },
+              "operation": "native_recall",
+              "operationActor": "unknown",
+              "dependencyRoles": [
+                "definition"
+              ],
+              "priorInterpretation": {
+                "recordType": "claim",
+                "currentState": "declined"
+              },
+              "knowledgeChangedAt": "2026-10-06T11:00:00.000Z",
+              "affectedWorldAt": "2026-10-03T11:00:00.000Z"
+            },
+            {
+              "namespace": "historical_evidence_loss_v1",
+              "lossRef": "loss:b9c96388-999c-4ba7-bdc4-32bcef840a3c",
+              "authority": "historical_derived_interpretation_not_current_fact_or_evidence",
+              "invalidatedOriginal": {
+                "canonicalId": "qq:72057594049927937001",
+                "previousRevision": "0e223520ae13608c3a21dd24a1b33b606b4b28cb05593befe8825e5d72c68aae",
+                "type": "qq",
+                "authorRole": "user"
+              },
+              "operation": "native_recall",
+              "operationActor": "unknown",
+              "dependencyRoles": [
+                "definition"
+              ],
+              "priorInterpretation": {
+                "recordType": "claim",
+                "currentState": "declined"
+              },
+              "knowledgeChangedAt": "2026-10-06T11:00:00.000Z",
+              "affectedWorldAt": "2026-10-03T11:00:00.000Z"
+            }
+          ],
+          "omittedEvidenceLossCount": 0,
+          "eventIds": []
+        }
+      ],
+      "activityUncertainties": [],
+      "activityEvidenceRule": "Historical evidence gaps do not negate a separately supported current-state report. Preserve currentReportedState source/asOf/authority; it is not an event occurrence clock. evidenceLosses use a separate loss: namespace, never source handles, citations, sharing permission or new event evidence. They describe prior derived understanding, not current facts: only a statement dependency identifies what the unavailable original previously served as evidence for; definition/time/support loss does not establish the original message meaning. Original author and prior event actor are distinct; a native recall does not identify its operator. Missing/omitted loss details stay unknown. Historical gaps do not negate separately supported newer world or current-state reports.",
+      "coverage": {
+        "pending": 1,
+        "semanticPending": 0,
+        "processorVersion": "evidence-backed-understanding-2026-10-31.2",
+        "bootstrapPending": false,
+        "history": {
+          "status": "accessible_end",
+          "pages": 1,
+          "cursor": "72057594049927937001",
+          "oldestAt": 1790848800000,
+          "checkedAt": "2026-10-03T11:01:00.000Z",
+          "source": "fictional-native-boundary-replay"
+        },
+        "semanticCertainty": false
+      }
+    },
+    "experienceContext": {
+      "cases": [],
+      "adaptations": [],
+      "constraints": [
+        "仅为局部经验；不是她的心理或方法因果效果证据。",
+        "候选适用性尚未确定，核对applicability与当前任务后再使用；本轮明确意思优先，不相关或相反的指导不采用。"
+      ]
+    },
+    "work": {
+      "version": "conversation-work-2026-10-30.2",
+      "authority": "derived_work_view_not_factual_evidence",
+      "scope": "this_relationship",
+      "request": {
+        "sourceId": "s1",
+        "purpose": "discussion",
+        "origin": "user",
+        "trigger": "private_request",
+        "meaningFromSource": "s1",
+        "authority": "current_source_pointer_not_material_or_permission"
+      },
+      "goal": {
+        "available": true,
+        "meaningFrom": "goal",
+        "authority": "user_owned_long_term_direction_not_wording"
+      },
+      "current": null,
+      "focus": {
+        "sourceIds": [
+          "s3"
+        ],
+        "positionFrom": "taskContext.latestActual"
+      },
+      "pendingPrivateIntent": {
+        "sourceIds": []
+      },
+      "controlsFrom": {
+        "current": "topicContext.active",
+        "responsePreference": "taskContext.responsePreference",
+        "authority": "applicable_controls_not_shareable_facts"
+      },
+      "sourceIds": [
+        "s1",
+        "s3"
+      ],
+      "outputUse": "planning_only_not_outbound_authorization"
+    },
+    "materialView": {
+      "version": "conversation-materials-2026-10-30.2",
+      "items": [
+        {
+          "kind": "current_exchange",
+          "sourceIds": [
+            "s3"
+          ],
+          "novelty": "not_determined",
+          "owner": "contact",
+          "availableAs": "actual_conversation",
+          "interpretation": "read_actual_order_and_speakers"
+        },
+        {
+          "kind": "historical_anchor",
+          "sourceIds": [
+            "s2"
+          ],
+          "novelty": "not_determined",
+          "owner": "contact",
+          "at": "2026-10-01T10:01:00.000Z",
+          "availableAs": "historical_reference",
+          "currentStatus": "unknown",
+          "detail": "好呀，可以。"
+        }
+      ],
+      "currentIntent": {
+        "sourceId": "s1",
+        "trigger": "private_request",
+        "authority": "current_source_pointer_not_material_or_permission"
+      },
+      "authority": "evidence_navigation_not_a_script",
+      "instruction": "从实际原话选本轮可聊一点，核对主体、日期、已表达内容和后续限制；未知不逐项追问。此视图的类别/指针非素材或许可；sources原始用户话可含事实、任务和范围明确的分享意思，须结合当前QQ指代、否定、条件判断。视图和所选操作本身不授分享许可。"
+    },
+    "taskContext": {
+      "version": "relationship-task-2026-10-16.2",
+      "sourceTextLocation": "sources",
+      "requestOrigin": "private_discussion",
+      "currentRequestSourceId": "s1",
+      "invocation": {
+        "origin": "user",
+        "trigger": "private_request",
+        "requestedPurpose": "discussion"
+      },
+      "timeContext": {
+        "localNow": "2026-10-06 19:18"
+      },
+      "consultationTask": {
+        "purpose": "discussion",
+        "focusOrigin": "latest_available",
+        "focus": [
+          {
+            "sourceId": "s3",
+            "laterAvailableMessageCount": 0
+          }
+        ]
+      },
+      "responsePreference": "自然一点，贴近我的说话方式",
+      "latestActual": {
+        "sourceId": "s3",
+        "direction": "incoming",
+        "speaker": "对方",
+        "at": "2026-10-03T11:00:00.000Z",
+        "sequence": "3",
+        "localAt": "2026-10-03 19:00",
+        "elapsedMinutes": 4338,
+        "ageMs": 260280000
+      },
+      "recentExchange": [
+        {
+          "sourceId": "s3",
+          "speaker": "对方",
+          "direction": "incoming",
+          "at": "2026-10-03T11:00:00.000Z",
+          "localAt": "2026-10-03 19:00",
+          "sequence": "3"
+        }
+      ],
+      "selfMessagesAfterLastContact": [],
+      "recentContext": {
+        "selection": "bounded_actual_neighborhoods",
+        "limits": {
+          "maxMessages": 24,
+          "maxGapMs": 1800000,
+          "maxSpanMs": 7200000,
+          "maxAdditionalBytes": 12000
+        },
+        "windows": [
+          {
+            "anchorSourceId": "s3",
+            "reasons": [
+              "latest"
+            ],
+            "sourceIds": [
+              "s3"
+            ],
+            "boundaryBefore": "time_gap",
+            "boundaryAfter": "accessible_end",
+            "omittedMessageCount": 0
+          }
+        ],
+        "gaps": [],
+        "coverage": "accessible_messages_only_not_complete_history"
+      },
+      "contactMessagesAfterLastSelf": [
+        "s2",
+        "s3"
+      ],
+      "observationCoverage": {
+        "status": "accessible_end",
+        "checkedAt": "2026-10-03T11:01:00.000Z"
+      },
+      "selfEvidenceSourceIds": [
+        "s4",
+        "s5",
+        "s6",
+        "s1"
+      ],
+      "auxiliaryPolicy": "best_effort",
+      "factsRule": "仅限已提供原话，不补未知事实或分享授权。",
+      "recentHumanContext": [
+        {
+          "sourceId": "s4",
+          "at": "2026-10-03T11:18:00.000Z",
+          "role": "user",
+          "bodyLocation": "sources",
+          "text": "我们这次看展现在是什么状态？"
+        },
+        {
+          "sourceId": "s5",
+          "at": "2026-10-05T11:00:00.000Z",
+          "role": "user",
+          "bodyLocation": "sources",
+          "text": "补充一下：她10月1日曾经答应过10月10日去看展。"
+        },
+        {
+          "sourceId": "s6",
+          "at": "2026-10-05T11:18:00.000Z",
+          "role": "user",
+          "bodyLocation": "sources",
+          "text": "补充后，现在的安排应怎么理解？"
+        }
+      ]
+    },
+    "userRequest": {
+      "sourceId": "s1",
+      "text": "这次撤回的是哪条记录？她之前取消的那条也撤回了吗？"
+    },
+    "currentPermission": {
+      "authorityRef": "a4",
+      "authority": "original_current_human_statement_candidate_not_grant",
+      "bodyLocation": "userRequest"
+    },
+    "primaryReferenceProtocol": {
+      "version": "primary-reference-choices-v1"
+    },
+    "operationProtocol": {
+      "version": "primary-operation-v2"
+    },
+    "sourceReferenceProtocol": {
+      "version": "foreground-source-handles-v1"
+    }
+  }
+}

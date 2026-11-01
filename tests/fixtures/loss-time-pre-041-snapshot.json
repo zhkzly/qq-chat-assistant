@@ -1,0 +1,1389 @@
+{
+  "format": "qq-fictional-sqlite-logical-snapshot-v1",
+  "provenance": {
+    "source_revision": "9b865baaea0bf018ca771b241ac245ad20b0d8f7",
+    "source_backend_hash": "9290b8b0a6621bdd702e5590218996d1ff48ca33c687375a131a8562c84227ab",
+    "source_store_sha256": "eb30cafca43f488dbb4c8ff9c6a87e612dcc13b2b63a733dedfaec450e5ebbc3",
+    "input_fixture_sha256": "7b5f8246780fb84aa89f759683ea63e202661762b9d0478bfd65417912b5e6ba",
+    "generator_sha256": "6dc62711aa1e21709f24337a217265080d3568042bebff1717fddba1c7c58d42",
+    "generation_method": "Frozen041 Store and native decoder apply the captured fictional040 corrected proposal with only opaque batchId rebound; discussion-only note and local feedback retained; post fixture applies native invitation recall. No current042 Store used.",
+    "synthetic_only": true,
+    "http_attempts": 0,
+    "logical_snapshot_sha256": "7d02028e57e313bfc328ac375473e91e551b6fb8081abbe180b83ec27d4d7255"
+  },
+  "expected": {
+    "scope": {
+      "accountUid": "eval_replay_owner",
+      "accountUin": "1111111111",
+      "peerUid": "eval_replay_contact",
+      "peerUin": "3333333333"
+    },
+    "testAsOf": "2026-10-03T11:11:00.000Z",
+    "invalidatedOriginal": {
+      "id": "qq:72057594049927937001",
+      "type": "qq",
+      "text": "10月10日一起去看看那个展吗？",
+      "at": "2026-10-01T10:00:00.000Z",
+      "role": "user",
+      "direction": "outgoing",
+      "use": "discussion",
+      "messageId": "72057594049927937001",
+      "sequence": "1",
+      "senderUid": "eval_replay_owner",
+      "senderUin": "1111111111",
+      "revision": "0e223520ae13608c3a21dd24a1b33b606b4b28cb05593befe8825e5d72c68aae"
+    },
+    "sources": [
+      {
+        "id": "qq:72057594049927937001",
+        "type": "qq",
+        "text": "10月10日一起去看看那个展吗？",
+        "at": "2026-10-01T10:00:00.000Z",
+        "role": "user",
+        "direction": "outgoing",
+        "use": "discussion",
+        "messageId": "72057594049927937001",
+        "sequence": "1",
+        "senderUid": "eval_replay_owner",
+        "senderUin": "1111111111",
+        "revision": "0e223520ae13608c3a21dd24a1b33b606b4b28cb05593befe8825e5d72c68aae"
+      },
+      {
+        "id": "qq:72057594049927937002",
+        "type": "qq",
+        "text": "好呀，可以。",
+        "at": "2026-10-01T10:01:00.000Z",
+        "role": "contact",
+        "direction": "incoming",
+        "use": "discussion",
+        "messageId": "72057594049927937002",
+        "sequence": "2",
+        "senderUid": "eval_replay_contact",
+        "senderUin": "3333333333",
+        "revision": "37fa9ea7a676c3f387ef83c3f698720c606b5fbbb215e951818e26c6ab1b35c2"
+      },
+      {
+        "id": "qq:72057594049927937003",
+        "type": "qq",
+        "text": "10号这次先不去了，周末临时有别的安排。",
+        "at": "2026-10-03T11:00:00.000Z",
+        "role": "contact",
+        "direction": "incoming",
+        "use": "discussion",
+        "messageId": "72057594049927937003",
+        "sequence": "3",
+        "senderUid": "eval_replay_contact",
+        "senderUin": "3333333333",
+        "revision": "a7738c9937039b74bc99ea30658a8436650f196715e036c0a0a87f7c1712b40e"
+      },
+      {
+        "id": "note:old041-private-note",
+        "type": "note",
+        "text": "A fictional note that is authorized for private discussion only.",
+        "at": "2026-10-03T11:11:00.000Z",
+        "use": "discussion",
+        "kind": "material",
+        "version": 1,
+        "revision": "02280b51d5a88d1eb985d9f2e68d828ba377584dd7eeb5d71790803fc3e5a4d6"
+      },
+      {
+        "id": "private:feedback-50e9f19c-ec03-446b-a630-67deb4608d89",
+        "type": "feedback",
+        "text": "Preserve this fictional scoped local feedback.",
+        "at": "2026-10-03T11:11:00.000Z",
+        "role": "user",
+        "kind": "local",
+        "use": "discussion",
+        "version": 1,
+        "requestId": "old041-feedback-run",
+        "targetRef": {
+          "kind": "unresolved_legacy",
+          "requestId": "old041-feedback-run",
+          "reason": "Original target unavailable"
+        },
+        "canonicalFeedbackId": "50e9f19c-ec03-446b-a630-67deb4608d89",
+        "applicability": "local",
+        "revision": "78de2e60f60946bb5f621dc42e52312983c5e670c252b5c84d1dab0b4da6c1e8"
+      }
+    ],
+    "messages": [
+      {
+        "accountUid": "eval_replay_owner",
+        "accountUin": "1111111111",
+        "peerUid": "eval_replay_contact",
+        "peerUin": "3333333333",
+        "messageId": "72057594049927937001",
+        "sequence": "1",
+        "timestamp": 1790848800000,
+        "direction": "outgoing",
+        "senderUid": "eval_replay_owner",
+        "senderUin": "1111111111",
+        "text": "10月10日一起去看看那个展吗？",
+        "media": [],
+        "recalled": false,
+        "kind": "actual",
+        "source": "desktop-qq-native"
+      },
+      {
+        "accountUid": "eval_replay_owner",
+        "accountUin": "1111111111",
+        "peerUid": "eval_replay_contact",
+        "peerUin": "3333333333",
+        "messageId": "72057594049927937002",
+        "sequence": "2",
+        "timestamp": 1790848860000,
+        "direction": "incoming",
+        "senderUid": "eval_replay_contact",
+        "senderUin": "3333333333",
+        "text": "好呀，可以。",
+        "media": [],
+        "recalled": false,
+        "kind": "actual",
+        "source": "desktop-qq-native"
+      },
+      {
+        "accountUid": "eval_replay_owner",
+        "accountUin": "1111111111",
+        "peerUid": "eval_replay_contact",
+        "peerUin": "3333333333",
+        "messageId": "72057594049927937003",
+        "sequence": "3",
+        "timestamp": 1791025200000,
+        "direction": "incoming",
+        "senderUid": "eval_replay_contact",
+        "senderUin": "3333333333",
+        "text": "10号这次先不去了，周末临时有别的安排。",
+        "media": [],
+        "recalled": false,
+        "kind": "actual",
+        "source": "desktop-qq-native"
+      }
+    ],
+    "companion": {
+      "taskSemanticsVersion": 1,
+      "revision": 4,
+      "goal": {
+        "text": "和这位朋友保持联系，商量一起看展的安排。",
+        "version": 1
+      },
+      "notes": [
+        {
+          "id": "old041-private-note",
+          "text": "A fictional note that is authorized for private discussion only.",
+          "use": "discussion",
+          "version": 1,
+          "createdAt": "2026-10-03T11:11:00.000Z",
+          "updatedAt": "2026-10-03T11:11:00.000Z"
+        }
+      ],
+      "turns": [
+        {
+          "id": "df85fa44-3cc0-4155-981f-14643445914d",
+          "role": "user",
+          "kind": "feedback_ref",
+          "feedbackId": "50e9f19c-ec03-446b-a630-67deb4608d89",
+          "requestId": "old041-feedback-run",
+          "createdAt": "2026-10-03T11:11:00.000Z",
+          "text": "对助手建议的反馈：Preserve this fictional scoped local feedback."
+        }
+      ],
+      "state": {
+        "version": 1,
+        "focus": "",
+        "items": [],
+        "openThreads": [],
+        "unknowns": [],
+        "possiblyStale": true,
+        "coverage": {
+          "complete": false,
+          "sourceIds": []
+        }
+      },
+      "topics": {
+        "version": 0,
+        "activeId": null,
+        "items": []
+      },
+      "runs": [
+        {
+          "id": "old041-feedback-run",
+          "createdAt": "2026-10-03T11:11:00.000Z",
+          "updatedAt": "2026-10-03T11:11:00.000Z"
+        }
+      ],
+      "feedback": [
+        {
+          "id": "50e9f19c-ec03-446b-a630-67deb4608d89",
+          "sourceId": "private:feedback-50e9f19c-ec03-446b-a630-67deb4608d89",
+          "text": "Preserve this fictional scoped local feedback.",
+          "kind": "local",
+          "applicability": "local",
+          "requestId": "old041-feedback-run",
+          "clientEventId": null,
+          "targetRef": {
+            "kind": "unresolved_legacy",
+            "requestId": "old041-feedback-run",
+            "reason": "Original target unavailable"
+          },
+          "targetStatus": "missing",
+          "revision": 1,
+          "createdAt": "2026-10-03T11:11:00.000Z"
+        }
+      ],
+      "pendingActions": [],
+      "actionReceipts": [],
+      "consultationTask": {
+        "version": 0,
+        "activeId": null,
+        "items": [],
+        "scope": {
+          "accountUid": "eval_replay_owner",
+          "accountUin": "1111111111",
+          "peerUid": "eval_replay_contact",
+          "peerUin": "3333333333"
+        },
+        "active": null,
+        "retained": [],
+        "retainedCount": 0,
+        "authority": "private_direction_not_outbound_authorization",
+        "semanticOwner": "consultation_task"
+      }
+    },
+    "relationship": {
+      "scope": {
+        "accountUid": "eval_replay_owner",
+        "accountUin": "1111111111",
+        "peerUid": "eval_replay_contact",
+        "peerUin": "3333333333"
+      },
+      "version": 7,
+      "asOf": "2026-10-03T11:11:00.000Z",
+      "claims": [],
+      "events": [
+        {
+          "text": "用户邀请联系人10月10日一起去看展。",
+          "sourceIds": [
+            "qq:72057594049927937001"
+          ],
+          "activityKey": "展览",
+          "eventKind": "invitation",
+          "actor": "self",
+          "activityId": "activity:04893280-c9d1-41d3-9d4e-2d095427d04b",
+          "activityDefinition": {
+            "sourceId": "qq:72057594049927937001",
+            "revision": "0e223520ae13608c3a21dd24a1b33b606b4b28cb05593befe8825e5d72c68aae",
+            "start": 0,
+            "end": 16
+          },
+          "statementEvidence": {
+            "sourceId": "qq:72057594049927937001",
+            "revision": "0e223520ae13608c3a21dd24a1b33b606b4b28cb05593befe8825e5d72c68aae",
+            "start": 0,
+            "end": 16
+          },
+          "timeEvidence": {
+            "basis": "qq_statement",
+            "at": "2026-10-01T10:00:00.000Z",
+            "evidence": {
+              "sourceId": "qq:72057594049927937001",
+              "revision": "0e223520ae13608c3a21dd24a1b33b606b4b28cb05593befe8825e5d72c68aae",
+              "start": 0,
+              "end": 16
+            }
+          },
+          "plannedFor": "2026-10-10T00:00:00.000Z",
+          "plannedEvidence": {
+            "sourceId": "qq:72057594049927937001",
+            "revision": "0e223520ae13608c3a21dd24a1b33b606b4b28cb05593befe8825e5d72c68aae",
+            "start": 0,
+            "end": 6
+          },
+          "activityProvisional": false,
+          "occurredAt": "2026-10-01T10:00:00.000Z",
+          "topicKeys": [],
+          "lifecycle": "active",
+          "id": "ddff04a0-71f6-495f-8763-40a5bfda9cb2",
+          "kind": "relationship_event",
+          "recordType": "relationship_event",
+          "version": 1,
+          "sourceRevisions": {
+            "qq:72057594049927937001": "0e223520ae13608c3a21dd24a1b33b606b4b28cb05593befe8825e5d72c68aae"
+          },
+          "reviewComplete": true,
+          "evidenceValidity": "valid",
+          "semanticSignature": "b187c4bd887a3fbed6ba457eb24c589cd6a9ea7159213034753f155be279bb71",
+          "firstEvidenceAt": "2026-10-01T10:00:00.000Z",
+          "lastEvidenceAt": "2026-10-01T10:00:00.000Z",
+          "at": "2026-10-01T10:00:00.000Z",
+          "reportedAt": "2026-10-01T10:00:00.000Z",
+          "reviewedAt": "2026-10-03T11:11:00.000Z",
+          "semanticReview": {
+            "status": "evidence_reviewed",
+            "reviewedAt": "2026-10-03T11:11:00.000Z",
+            "coverage": {
+              "version": "original-evidence-v1",
+              "scope": {
+                "accountUid": "eval_replay_owner",
+                "accountUin": "1111111111",
+                "peerUid": "eval_replay_contact",
+                "peerUin": "3333333333"
+              },
+              "sourceRevisions": {
+                "qq:72057594049927937001": "0e223520ae13608c3a21dd24a1b33b606b4b28cb05593befe8825e5d72c68aae",
+                "qq:72057594049927937002": "37fa9ea7a676c3f387ef83c3f698720c606b5fbbb215e951818e26c6ab1b35c2",
+                "qq:72057594049927937003": "a7738c9937039b74bc99ea30658a8436650f196715e036c0a0a87f7c1712b40e"
+              },
+              "reads": [
+                {
+                  "sourceId": "qq:72057594049927937001",
+                  "revision": "0e223520ae13608c3a21dd24a1b33b606b4b28cb05593befe8825e5d72c68aae",
+                  "start": 0,
+                  "end": 16,
+                  "total": 16,
+                  "complete": true,
+                  "bodyHash": "cf86d2cf0c0364bc959639e30cbca5b176b54da0ad8da0e428567e6613ac295d"
+                },
+                {
+                  "sourceId": "qq:72057594049927937002",
+                  "revision": "37fa9ea7a676c3f387ef83c3f698720c606b5fbbb215e951818e26c6ab1b35c2",
+                  "start": 0,
+                  "end": 6,
+                  "total": 6,
+                  "complete": true,
+                  "bodyHash": "9a47ad63c30d43a7d1aeede142fde6783ce77d314b15955b3cc5674ccb0b4fc1"
+                },
+                {
+                  "sourceId": "qq:72057594049927937003",
+                  "revision": "a7738c9937039b74bc99ea30658a8436650f196715e036c0a0a87f7c1712b40e",
+                  "start": 0,
+                  "end": 20,
+                  "total": 20,
+                  "complete": true,
+                  "bodyHash": "bdf3a78786f5666de9d2366ec9253671682b255bfb70ec3d3f22a890234c39f3"
+                }
+              ],
+              "completeSourceIds": [
+                "qq:72057594049927937001",
+                "qq:72057594049927937002",
+                "qq:72057594049927937003"
+              ],
+              "requiredSourceIds": [
+                "qq:72057594049927937001"
+              ],
+              "missingSourceIds": [],
+              "partialSourceIds": [],
+              "complete": true
+            }
+          },
+          "knowledgeSchemaVersion": 2,
+          "createdAt": "2026-10-03T11:11:00.000Z",
+          "updatedAt": "2026-10-03T11:11:00.000Z",
+          "occurrenceTimeStatus": "known",
+          "origin": "qq_observation"
+        },
+        {
+          "text": "联系人答应用户10月10日一起去看展。",
+          "sourceIds": [
+            "qq:72057594049927937001",
+            "qq:72057594049927937002"
+          ],
+          "activityKey": "展览",
+          "eventKind": "acceptance",
+          "actor": "contact",
+          "activityId": "activity:04893280-c9d1-41d3-9d4e-2d095427d04b",
+          "activityDefinition": {
+            "sourceId": "qq:72057594049927937001",
+            "revision": "0e223520ae13608c3a21dd24a1b33b606b4b28cb05593befe8825e5d72c68aae",
+            "start": 0,
+            "end": 16
+          },
+          "statementEvidence": {
+            "sourceId": "qq:72057594049927937002",
+            "revision": "37fa9ea7a676c3f387ef83c3f698720c606b5fbbb215e951818e26c6ab1b35c2",
+            "start": 0,
+            "end": 6
+          },
+          "timeEvidence": {
+            "basis": "qq_statement",
+            "at": "2026-10-01T10:01:00.000Z",
+            "evidence": {
+              "sourceId": "qq:72057594049927937002",
+              "revision": "37fa9ea7a676c3f387ef83c3f698720c606b5fbbb215e951818e26c6ab1b35c2",
+              "start": 0,
+              "end": 6
+            }
+          },
+          "plannedFor": "2026-10-10T00:00:00.000Z",
+          "plannedEvidence": {
+            "sourceId": "qq:72057594049927937001",
+            "revision": "0e223520ae13608c3a21dd24a1b33b606b4b28cb05593befe8825e5d72c68aae",
+            "start": 0,
+            "end": 6
+          },
+          "activityProvisional": false,
+          "occurredAt": "2026-10-01T10:01:00.000Z",
+          "topicKeys": [],
+          "lifecycle": "active",
+          "id": "6a278e3c-d32f-42d9-b5d4-690897d52b4b",
+          "kind": "relationship_event",
+          "recordType": "relationship_event",
+          "version": 1,
+          "sourceRevisions": {
+            "qq:72057594049927937001": "0e223520ae13608c3a21dd24a1b33b606b4b28cb05593befe8825e5d72c68aae",
+            "qq:72057594049927937002": "37fa9ea7a676c3f387ef83c3f698720c606b5fbbb215e951818e26c6ab1b35c2"
+          },
+          "reviewComplete": true,
+          "evidenceValidity": "valid",
+          "semanticSignature": "7b21a4ccfaf1f9ee033fdb8bcc5742959f474b432c9f7b1030420deff440b859",
+          "firstEvidenceAt": "2026-10-01T10:01:00.000Z",
+          "lastEvidenceAt": "2026-10-01T10:01:00.000Z",
+          "at": "2026-10-01T10:01:00.000Z",
+          "reportedAt": "2026-10-01T10:01:00.000Z",
+          "reviewedAt": "2026-10-03T11:11:00.000Z",
+          "semanticReview": {
+            "status": "evidence_reviewed",
+            "reviewedAt": "2026-10-03T11:11:00.000Z",
+            "coverage": {
+              "version": "original-evidence-v1",
+              "scope": {
+                "accountUid": "eval_replay_owner",
+                "accountUin": "1111111111",
+                "peerUid": "eval_replay_contact",
+                "peerUin": "3333333333"
+              },
+              "sourceRevisions": {
+                "qq:72057594049927937001": "0e223520ae13608c3a21dd24a1b33b606b4b28cb05593befe8825e5d72c68aae",
+                "qq:72057594049927937002": "37fa9ea7a676c3f387ef83c3f698720c606b5fbbb215e951818e26c6ab1b35c2",
+                "qq:72057594049927937003": "a7738c9937039b74bc99ea30658a8436650f196715e036c0a0a87f7c1712b40e"
+              },
+              "reads": [
+                {
+                  "sourceId": "qq:72057594049927937001",
+                  "revision": "0e223520ae13608c3a21dd24a1b33b606b4b28cb05593befe8825e5d72c68aae",
+                  "start": 0,
+                  "end": 16,
+                  "total": 16,
+                  "complete": true,
+                  "bodyHash": "cf86d2cf0c0364bc959639e30cbca5b176b54da0ad8da0e428567e6613ac295d"
+                },
+                {
+                  "sourceId": "qq:72057594049927937002",
+                  "revision": "37fa9ea7a676c3f387ef83c3f698720c606b5fbbb215e951818e26c6ab1b35c2",
+                  "start": 0,
+                  "end": 6,
+                  "total": 6,
+                  "complete": true,
+                  "bodyHash": "9a47ad63c30d43a7d1aeede142fde6783ce77d314b15955b3cc5674ccb0b4fc1"
+                },
+                {
+                  "sourceId": "qq:72057594049927937003",
+                  "revision": "a7738c9937039b74bc99ea30658a8436650f196715e036c0a0a87f7c1712b40e",
+                  "start": 0,
+                  "end": 20,
+                  "total": 20,
+                  "complete": true,
+                  "bodyHash": "bdf3a78786f5666de9d2366ec9253671682b255bfb70ec3d3f22a890234c39f3"
+                }
+              ],
+              "completeSourceIds": [
+                "qq:72057594049927937001",
+                "qq:72057594049927937002",
+                "qq:72057594049927937003"
+              ],
+              "requiredSourceIds": [
+                "qq:72057594049927937001",
+                "qq:72057594049927937002"
+              ],
+              "missingSourceIds": [],
+              "partialSourceIds": [],
+              "complete": true
+            }
+          },
+          "knowledgeSchemaVersion": 2,
+          "createdAt": "2026-10-03T11:11:00.000Z",
+          "updatedAt": "2026-10-03T11:11:00.000Z",
+          "occurrenceTimeStatus": "known",
+          "origin": "qq_observation"
+        },
+        {
+          "text": "联系人表示10月10日这次先不去看展，称周末临时有别的安排。",
+          "sourceIds": [
+            "qq:72057594049927937003",
+            "qq:72057594049927937001"
+          ],
+          "activityKey": "展览",
+          "eventKind": "cancellation",
+          "actor": "contact",
+          "activityId": "activity:04893280-c9d1-41d3-9d4e-2d095427d04b",
+          "activityDefinition": {
+            "sourceId": "qq:72057594049927937001",
+            "revision": "0e223520ae13608c3a21dd24a1b33b606b4b28cb05593befe8825e5d72c68aae",
+            "start": 0,
+            "end": 16
+          },
+          "statementEvidence": {
+            "sourceId": "qq:72057594049927937003",
+            "revision": "a7738c9937039b74bc99ea30658a8436650f196715e036c0a0a87f7c1712b40e",
+            "start": 0,
+            "end": 20
+          },
+          "timeEvidence": {
+            "basis": "qq_statement",
+            "at": "2026-10-03T11:00:00.000Z",
+            "evidence": {
+              "sourceId": "qq:72057594049927937003",
+              "revision": "a7738c9937039b74bc99ea30658a8436650f196715e036c0a0a87f7c1712b40e",
+              "start": 0,
+              "end": 20
+            }
+          },
+          "plannedFor": "2026-10-10T00:00:00.000Z",
+          "plannedEvidence": {
+            "sourceId": "qq:72057594049927937003",
+            "revision": "a7738c9937039b74bc99ea30658a8436650f196715e036c0a0a87f7c1712b40e",
+            "start": 0,
+            "end": 5
+          },
+          "activityProvisional": false,
+          "occurredAt": "2026-10-03T11:00:00.000Z",
+          "topicKeys": [],
+          "lifecycle": "active",
+          "id": "360d67c3-a13d-402c-8950-40146d5c2681",
+          "kind": "relationship_event",
+          "recordType": "relationship_event",
+          "version": 1,
+          "sourceRevisions": {
+            "qq:72057594049927937003": "a7738c9937039b74bc99ea30658a8436650f196715e036c0a0a87f7c1712b40e",
+            "qq:72057594049927937001": "0e223520ae13608c3a21dd24a1b33b606b4b28cb05593befe8825e5d72c68aae"
+          },
+          "reviewComplete": true,
+          "evidenceValidity": "valid",
+          "semanticSignature": "a7d87eacf132a4be7078d19a13c653c4a71a23ed959ffe6cbd1e754b02fe89ec",
+          "firstEvidenceAt": "2026-10-03T11:00:00.000Z",
+          "lastEvidenceAt": "2026-10-03T11:00:00.000Z",
+          "at": "2026-10-03T11:00:00.000Z",
+          "reportedAt": "2026-10-03T11:00:00.000Z",
+          "reviewedAt": "2026-10-03T11:11:00.000Z",
+          "semanticReview": {
+            "status": "evidence_reviewed",
+            "reviewedAt": "2026-10-03T11:11:00.000Z",
+            "coverage": {
+              "version": "original-evidence-v1",
+              "scope": {
+                "accountUid": "eval_replay_owner",
+                "accountUin": "1111111111",
+                "peerUid": "eval_replay_contact",
+                "peerUin": "3333333333"
+              },
+              "sourceRevisions": {
+                "qq:72057594049927937001": "0e223520ae13608c3a21dd24a1b33b606b4b28cb05593befe8825e5d72c68aae",
+                "qq:72057594049927937002": "37fa9ea7a676c3f387ef83c3f698720c606b5fbbb215e951818e26c6ab1b35c2",
+                "qq:72057594049927937003": "a7738c9937039b74bc99ea30658a8436650f196715e036c0a0a87f7c1712b40e"
+              },
+              "reads": [
+                {
+                  "sourceId": "qq:72057594049927937001",
+                  "revision": "0e223520ae13608c3a21dd24a1b33b606b4b28cb05593befe8825e5d72c68aae",
+                  "start": 0,
+                  "end": 16,
+                  "total": 16,
+                  "complete": true,
+                  "bodyHash": "cf86d2cf0c0364bc959639e30cbca5b176b54da0ad8da0e428567e6613ac295d"
+                },
+                {
+                  "sourceId": "qq:72057594049927937002",
+                  "revision": "37fa9ea7a676c3f387ef83c3f698720c606b5fbbb215e951818e26c6ab1b35c2",
+                  "start": 0,
+                  "end": 6,
+                  "total": 6,
+                  "complete": true,
+                  "bodyHash": "9a47ad63c30d43a7d1aeede142fde6783ce77d314b15955b3cc5674ccb0b4fc1"
+                },
+                {
+                  "sourceId": "qq:72057594049927937003",
+                  "revision": "a7738c9937039b74bc99ea30658a8436650f196715e036c0a0a87f7c1712b40e",
+                  "start": 0,
+                  "end": 20,
+                  "total": 20,
+                  "complete": true,
+                  "bodyHash": "bdf3a78786f5666de9d2366ec9253671682b255bfb70ec3d3f22a890234c39f3"
+                }
+              ],
+              "completeSourceIds": [
+                "qq:72057594049927937001",
+                "qq:72057594049927937002",
+                "qq:72057594049927937003"
+              ],
+              "requiredSourceIds": [
+                "qq:72057594049927937003",
+                "qq:72057594049927937001"
+              ],
+              "missingSourceIds": [],
+              "partialSourceIds": [],
+              "complete": true
+            }
+          },
+          "knowledgeSchemaVersion": 2,
+          "createdAt": "2026-10-03T11:11:00.000Z",
+          "updatedAt": "2026-10-03T11:11:00.000Z",
+          "occurrenceTimeStatus": "known",
+          "origin": "qq_observation"
+        }
+      ],
+      "self": [],
+      "contact": [],
+      "dyad": [],
+      "activities": [
+        {
+          "activityId": "activity:04893280-c9d1-41d3-9d4e-2d095427d04b",
+          "activityKey": "10月10日一起去看看那个展吗？",
+          "definitionAvailable": true,
+          "identityStatus": "anchored",
+          "status": "cancelled",
+          "authority": "source_backed_statement",
+          "historicalEvidenceGap": false,
+          "evidenceLosses": [],
+          "qualified": false,
+          "currentReportedState": null,
+          "priorCurrentReportedState": null,
+          "eventIds": [
+            "ddff04a0-71f6-495f-8763-40a5bfda9cb2",
+            "6a278e3c-d32f-42d9-b5d4-690897d52b4b",
+            "360d67c3-a13d-402c-8950-40146d5c2681"
+          ],
+          "latestEventId": "360d67c3-a13d-402c-8950-40146d5c2681",
+          "claimIds": [],
+          "sourceIds": [
+            "qq:72057594049927937001",
+            "qq:72057594049927937002",
+            "qq:72057594049927937003"
+          ],
+          "definitionEvidence": {
+            "sourceIds": [
+              "qq:72057594049927937001"
+            ],
+            "sourceRevisions": {
+              "qq:72057594049927937001": "0e223520ae13608c3a21dd24a1b33b606b4b28cb05593befe8825e5d72c68aae"
+            }
+          },
+          "knowledgeChangedAt": null,
+          "affectedWorldAt": null,
+          "lastEvidenceAt": "2026-10-03T11:00:00.000Z",
+          "occurredAt": "2026-10-03T11:00:00.000Z",
+          "plannedFor": "2026-10-10T00:00:00.000Z",
+          "occurrenceTimeStatus": "known"
+        }
+      ],
+      "activityUncertainties": [],
+      "coverage": {
+        "pending": 0,
+        "semanticPending": 0,
+        "processorVersion": "evidence-backed-understanding-2026-10-31.2",
+        "bootstrapPending": false,
+        "history": {
+          "status": "not_loaded",
+          "pages": 0
+        },
+        "semanticCertainty": false
+      },
+      "understanding": {
+        "version": 7,
+        "asOf": "2026-10-03T11:11:00.000Z",
+        "self": {
+          "knownFacts": [],
+          "recentCircumstances": [],
+          "uncertainties": [],
+          "boundaries": []
+        },
+        "contact": {
+          "knownFacts": [],
+          "recentCircumstances": [],
+          "uncertainties": [],
+          "boundaries": []
+        },
+        "dyad": {
+          "knownFacts": [],
+          "recentCircumstances": [],
+          "uncertainties": [],
+          "boundaries": []
+        },
+        "coverage": {
+          "pending": 0,
+          "semanticPending": 0,
+          "processorVersion": "evidence-backed-understanding-2026-10-31.2",
+          "bootstrapPending": false,
+          "history": {
+            "status": "not_loaded",
+            "pages": 0
+          },
+          "semanticCertainty": false,
+          "semanticReview": "evidence_based_not_entailment_proof"
+        }
+      }
+    },
+    "gaps": [],
+    "memoryStatus": {
+      "pending": 0,
+      "processed": 5,
+      "superseded": 0,
+      "semanticPending": 0,
+      "pendingProposals": 0,
+      "recoveryReady": 0,
+      "recoveryDeferred": 0,
+      "recoveryReasons": [],
+      "version": 7,
+      "counts": {
+        "sources": 5,
+        "items": 0,
+        "episodes": 0,
+        "claims": 0,
+        "events": 3
+      },
+      "errors": [],
+      "lastReview": {
+        "batchId": "8c5206d20550653b79d7540b9f37cca912a8c02d024bb5980f04aae930af02c8",
+        "kind": "source_journal",
+        "reviewedSourceIds": [
+          "note:old041-private-note",
+          "private:feedback-50e9f19c-ec03-446b-a630-67deb4608d89"
+        ],
+        "sourceRevisions": {
+          "note:old041-private-note": "02280b51d5a88d1eb985d9f2e68d828ba377584dd7eeb5d71790803fc3e5a4d6",
+          "private:feedback-50e9f19c-ec03-446b-a630-67deb4608d89": "78de2e60f60946bb5f621dc42e52312983c5e670c252b5c84d1dab0b4da6c1e8"
+        },
+        "seqFrom": 4,
+        "seqTo": 5,
+        "segments": [
+          {
+            "sourceId": "note:old041-private-note",
+            "offset": 0,
+            "end": 64
+          },
+          {
+            "sourceId": "private:feedback-50e9f19c-ec03-446b-a630-67deb4608d89",
+            "offset": 0,
+            "end": 46
+          }
+        ],
+        "originalCoverage": {
+          "version": "original-evidence-v1",
+          "scope": {
+            "accountUid": "eval_replay_owner",
+            "accountUin": "1111111111",
+            "peerUid": "eval_replay_contact",
+            "peerUin": "3333333333"
+          },
+          "sourceRevisions": {
+            "note:old041-private-note": "02280b51d5a88d1eb985d9f2e68d828ba377584dd7eeb5d71790803fc3e5a4d6",
+            "private:feedback-50e9f19c-ec03-446b-a630-67deb4608d89": "78de2e60f60946bb5f621dc42e52312983c5e670c252b5c84d1dab0b4da6c1e8",
+            "qq:72057594049927937001": "0e223520ae13608c3a21dd24a1b33b606b4b28cb05593befe8825e5d72c68aae",
+            "qq:72057594049927937002": "37fa9ea7a676c3f387ef83c3f698720c606b5fbbb215e951818e26c6ab1b35c2",
+            "qq:72057594049927937003": "a7738c9937039b74bc99ea30658a8436650f196715e036c0a0a87f7c1712b40e"
+          },
+          "reads": [
+            {
+              "sourceId": "note:old041-private-note",
+              "revision": "02280b51d5a88d1eb985d9f2e68d828ba377584dd7eeb5d71790803fc3e5a4d6",
+              "start": 0,
+              "end": 64,
+              "total": 64,
+              "complete": true,
+              "bodyHash": "aea82077d4eea1346319de76d17cb090c3df35f46ae2afd8ee5389891caabb0a"
+            },
+            {
+              "sourceId": "private:feedback-50e9f19c-ec03-446b-a630-67deb4608d89",
+              "revision": "78de2e60f60946bb5f621dc42e52312983c5e670c252b5c84d1dab0b4da6c1e8",
+              "start": 0,
+              "end": 46,
+              "total": 46,
+              "complete": true,
+              "bodyHash": "0877ed69bc55d7dcaa84e533860d71e19733d287f1d47a63661b7acc1e4c9bfa"
+            },
+            {
+              "sourceId": "qq:72057594049927937001",
+              "revision": "0e223520ae13608c3a21dd24a1b33b606b4b28cb05593befe8825e5d72c68aae",
+              "start": 0,
+              "end": 16,
+              "total": 16,
+              "complete": true,
+              "bodyHash": "cf86d2cf0c0364bc959639e30cbca5b176b54da0ad8da0e428567e6613ac295d"
+            },
+            {
+              "sourceId": "qq:72057594049927937002",
+              "revision": "37fa9ea7a676c3f387ef83c3f698720c606b5fbbb215e951818e26c6ab1b35c2",
+              "start": 0,
+              "end": 6,
+              "total": 6,
+              "complete": true,
+              "bodyHash": "9a47ad63c30d43a7d1aeede142fde6783ce77d314b15955b3cc5674ccb0b4fc1"
+            },
+            {
+              "sourceId": "qq:72057594049927937003",
+              "revision": "a7738c9937039b74bc99ea30658a8436650f196715e036c0a0a87f7c1712b40e",
+              "start": 0,
+              "end": 20,
+              "total": 20,
+              "complete": true,
+              "bodyHash": "bdf3a78786f5666de9d2366ec9253671682b255bfb70ec3d3f22a890234c39f3"
+            }
+          ],
+          "completeSourceIds": [
+            "note:old041-private-note",
+            "private:feedback-50e9f19c-ec03-446b-a630-67deb4608d89",
+            "qq:72057594049927937001",
+            "qq:72057594049927937002",
+            "qq:72057594049927937003"
+          ],
+          "requiredSourceIds": [
+            "note:old041-private-note",
+            "private:feedback-50e9f19c-ec03-446b-a630-67deb4608d89",
+            "qq:72057594049927937001",
+            "qq:72057594049927937002",
+            "qq:72057594049927937003"
+          ],
+          "missingSourceIds": [],
+          "partialSourceIds": [],
+          "complete": true
+        },
+        "reviewedAt": "2026-10-03T11:11:00.000Z",
+        "outcome": "reviewed_no_change",
+        "updates": 0
+      }
+    }
+  },
+  "snapshot": {
+    "user_version": 2,
+    "schema": [
+      {
+        "type": "index",
+        "name": "experience_kind",
+        "tbl_name": "experience_objects",
+        "sql": "CREATE INDEX experience_kind ON experience_objects(scope_key,kind)"
+      },
+      {
+        "type": "index",
+        "name": "memory_pending",
+        "tbl_name": "memory_journal",
+        "sql": "CREATE INDEX memory_pending ON memory_journal(scope_key,status,seq)"
+      },
+      {
+        "type": "index",
+        "name": "memory_source_dependencies",
+        "tbl_name": "memory_dependencies",
+        "sql": "CREATE INDEX memory_source_dependencies ON memory_dependencies(scope_key,source_id)"
+      },
+      {
+        "type": "table",
+        "name": "companion",
+        "tbl_name": "companion",
+        "sql": "CREATE TABLE companion(scope_key TEXT PRIMARY KEY,record TEXT NOT NULL)"
+      },
+      {
+        "type": "table",
+        "name": "coverage",
+        "tbl_name": "coverage",
+        "sql": "CREATE TABLE coverage(account_uid TEXT NOT NULL,peer_uid TEXT NOT NULL,record TEXT NOT NULL,\n      PRIMARY KEY(account_uid,peer_uid))"
+      },
+      {
+        "type": "table",
+        "name": "discussion_compactions",
+        "tbl_name": "discussion_compactions",
+        "sql": "CREATE TABLE discussion_compactions(scope_key TEXT NOT NULL,id TEXT NOT NULL,record TEXT NOT NULL,created_at TEXT NOT NULL,PRIMARY KEY(scope_key,id))"
+      },
+      {
+        "type": "table",
+        "name": "experience_objects",
+        "tbl_name": "experience_objects",
+        "sql": "CREATE TABLE experience_objects(\n      scope_key TEXT NOT NULL,kind TEXT NOT NULL,id TEXT NOT NULL,record TEXT NOT NULL,\n      PRIMARY KEY(scope_key,kind,id))"
+      },
+      {
+        "type": "table",
+        "name": "memory_dependencies",
+        "tbl_name": "memory_dependencies",
+        "sql": "CREATE TABLE memory_dependencies(scope_key TEXT NOT NULL,id TEXT NOT NULL,source_id TEXT NOT NULL,revision TEXT NOT NULL,PRIMARY KEY(scope_key,id,source_id))"
+      },
+      {
+        "type": "table",
+        "name": "memory_exclusions",
+        "tbl_name": "memory_exclusions",
+        "sql": "CREATE TABLE memory_exclusions(scope_key TEXT NOT NULL,source_id TEXT NOT NULL,PRIMARY KEY(scope_key,source_id))"
+      },
+      {
+        "type": "table",
+        "name": "memory_gaps",
+        "tbl_name": "memory_gaps",
+        "sql": "CREATE TABLE memory_gaps(scope_key TEXT NOT NULL,id TEXT NOT NULL,record TEXT NOT NULL,PRIMARY KEY(scope_key,id))"
+      },
+      {
+        "type": "table",
+        "name": "memory_journal",
+        "tbl_name": "memory_journal",
+        "sql": "CREATE TABLE memory_journal(seq INTEGER PRIMARY KEY AUTOINCREMENT,scope_key TEXT NOT NULL,source_id TEXT NOT NULL,revision TEXT NOT NULL,operation TEXT NOT NULL,status TEXT NOT NULL DEFAULT 'pending',cursor INTEGER NOT NULL DEFAULT 0, queued_at TEXT)"
+      },
+      {
+        "type": "table",
+        "name": "memory_meta",
+        "tbl_name": "memory_meta",
+        "sql": "CREATE TABLE memory_meta(scope_key TEXT PRIMARY KEY,version INTEGER NOT NULL DEFAULT 0,error TEXT, processor_version TEXT)"
+      },
+      {
+        "type": "table",
+        "name": "memory_migrations",
+        "tbl_name": "memory_migrations",
+        "sql": "CREATE TABLE memory_migrations(scope_key TEXT NOT NULL,version INTEGER NOT NULL,record TEXT NOT NULL,PRIMARY KEY(scope_key,version))"
+      },
+      {
+        "type": "table",
+        "name": "memory_pending_proposals",
+        "tbl_name": "memory_pending_proposals",
+        "sql": "CREATE TABLE memory_pending_proposals(scope_key TEXT NOT NULL,id TEXT NOT NULL,record TEXT NOT NULL,PRIMARY KEY(scope_key,id))"
+      },
+      {
+        "type": "table",
+        "name": "memory_receipts",
+        "tbl_name": "memory_receipts",
+        "sql": "CREATE TABLE memory_receipts(scope_key TEXT NOT NULL,batch_id TEXT NOT NULL,record TEXT NOT NULL,PRIMARY KEY(scope_key,batch_id))"
+      },
+      {
+        "type": "table",
+        "name": "memory_records",
+        "tbl_name": "memory_records",
+        "sql": "CREATE TABLE memory_records(scope_key TEXT NOT NULL,id TEXT NOT NULL,kind TEXT NOT NULL,record TEXT NOT NULL,PRIMARY KEY(scope_key,id))"
+      },
+      {
+        "type": "table",
+        "name": "memory_sources",
+        "tbl_name": "memory_sources",
+        "sql": "CREATE TABLE memory_sources(scope_key TEXT NOT NULL,source_id TEXT NOT NULL,revision TEXT NOT NULL,record TEXT NOT NULL,deleted INTEGER NOT NULL DEFAULT 0,PRIMARY KEY(scope_key,source_id))"
+      },
+      {
+        "type": "table",
+        "name": "messages",
+        "tbl_name": "messages",
+        "sql": "CREATE TABLE messages(\n      account_uid TEXT NOT NULL, peer_uid TEXT NOT NULL, message_id TEXT NOT NULL, record TEXT NOT NULL,\n      PRIMARY KEY(account_uid,peer_uid,message_id))"
+      },
+      {
+        "type": "table",
+        "name": "schema_migrations",
+        "tbl_name": "schema_migrations",
+        "sql": "CREATE TABLE schema_migrations(version INTEGER PRIMARY KEY,applied_at TEXT NOT NULL,description TEXT NOT NULL)"
+      }
+    ],
+    "tables": [
+      {
+        "name": "companion",
+        "columns": [
+          "scope_key",
+          "record"
+        ],
+        "rows": [
+          {
+            "snapshot_rowid": 1,
+            "scope_key": "[\"eval_replay_owner\",\"1111111111\",\"eval_replay_contact\",\"3333333333\"]",
+            "record": "{\"taskSemanticsVersion\":1,\"revision\":4,\"goal\":{\"text\":\"和这位朋友保持联系，商量一起看展的安排。\",\"version\":1},\"notes\":[{\"id\":\"old041-private-note\",\"text\":\"A fictional note that is authorized for private discussion only.\",\"use\":\"discussion\",\"version\":1,\"createdAt\":\"2026-10-03T11:11:00.000Z\",\"updatedAt\":\"2026-10-03T11:11:00.000Z\"}],\"turns\":[{\"id\":\"df85fa44-3cc0-4155-981f-14643445914d\",\"role\":\"user\",\"kind\":\"feedback_ref\",\"feedbackId\":\"50e9f19c-ec03-446b-a630-67deb4608d89\",\"requestId\":\"old041-feedback-run\",\"createdAt\":\"2026-10-03T11:11:00.000Z\"}],\"state\":{\"version\":1,\"focus\":\"\",\"items\":[],\"openThreads\":[],\"unknowns\":[],\"possiblyStale\":true,\"coverage\":{\"complete\":false,\"sourceIds\":[]}},\"topics\":{\"version\":0,\"activeId\":null,\"items\":[]},\"runs\":[{\"id\":\"old041-feedback-run\",\"createdAt\":\"2026-10-03T11:11:00.000Z\",\"updatedAt\":\"2026-10-03T11:11:00.000Z\"}],\"feedback\":[],\"pendingActions\":[],\"actionReceipts\":[]}"
+          }
+        ]
+      },
+      {
+        "name": "coverage",
+        "columns": [
+          "account_uid",
+          "peer_uid",
+          "record"
+        ],
+        "rows": []
+      },
+      {
+        "name": "discussion_compactions",
+        "columns": [
+          "scope_key",
+          "id",
+          "record",
+          "created_at"
+        ],
+        "rows": []
+      },
+      {
+        "name": "experience_objects",
+        "columns": [
+          "scope_key",
+          "kind",
+          "id",
+          "record"
+        ],
+        "rows": [
+          {
+            "snapshot_rowid": 1,
+            "scope_key": "[\"eval_replay_owner\",\"1111111111\",\"eval_replay_contact\",\"3333333333\"]",
+            "kind": "case",
+            "id": "qq:72057594049927937001",
+            "record": "{\"id\":\"qq:72057594049927937001\",\"createdAt\":\"2026-10-03T11:11:00.000Z\",\"eventAt\":\"2026-10-01T10:00:00.000Z\",\"goalVersion\":1,\"actualActions\":[{\"kind\":\"qq_message\",\"messageId\":\"72057594049927937001\",\"sourceRevision\":\"f7c226e3f35c8428eb2b5570dc640a051738aeaa92f7a09732d184d7c5c20e79\",\"eventAt\":\"2026-10-01T10:00:00.000Z\"}],\"sourceIds\":[\"qq:72057594049927937001\"],\"links\":[],\"observations\":[{\"kind\":\"subsequent_message\",\"messageId\":\"72057594049927937002\",\"sourceId\":\"qq:72057594049927937002\",\"sourceRevision\":\"931e9e31207cf50f91db9c74d130eb252ff48b69244c7d940860ecc7708559a3\",\"eventAt\":\"2026-10-01T10:01:00.000Z\",\"relevance\":\"unconfirmed\",\"authority\":\"actual_qq\"},{\"kind\":\"subsequent_message\",\"messageId\":\"72057594049927937003\",\"sourceId\":\"qq:72057594049927937003\",\"sourceRevision\":\"7ad4e56541f5a3657a8fc3448dc0e348d8565a01bbd596d481dea05f90e84078\",\"eventAt\":\"2026-10-03T11:00:00.000Z\",\"relevance\":\"unconfirmed\",\"authority\":\"actual_qq\"}],\"feedbackIds\":[],\"status\":\"observation_available\",\"attribution\":\"unlinked\"}"
+          },
+          {
+            "snapshot_rowid": 2,
+            "scope_key": "[\"eval_replay_owner\",\"1111111111\",\"eval_replay_contact\",\"3333333333\"]",
+            "kind": "case",
+            "id": "activity:04893280-c9d1-41d3-9d4e-2d095427d04b",
+            "record": "{\"id\":\"activity:04893280-c9d1-41d3-9d4e-2d095427d04b\",\"createdAt\":\"2026-10-03T11:11:00.000Z\",\"eventAt\":\"2026-10-03T11:00:00.000Z\",\"reportedAt\":\"2026-10-03T11:00:00.000Z\",\"occurrenceTimeStatus\":\"known\",\"goalVersion\":1,\"actualActions\":[],\"sourceIds\":[\"qq:72057594049927937001\",\"qq:72057594049927937002\",\"qq:72057594049927937003\"],\"links\":[],\"observations\":[{\"kind\":\"activity_event\",\"relationshipEventId\":\"ddff04a0-71f6-495f-8763-40a5bfda9cb2\",\"eventKind\":\"invitation\",\"text\":\"用户邀请联系人10月10日一起去看展。\",\"sourceIds\":[\"qq:72057594049927937001\"],\"sourceRevisions\":{\"qq:72057594049927937001\":\"0e223520ae13608c3a21dd24a1b33b606b4b28cb05593befe8825e5d72c68aae\"},\"eventAt\":\"2026-10-01T10:00:00.000Z\",\"reportedAt\":\"2026-10-01T10:00:00.000Z\",\"occurrenceTimeStatus\":\"known\",\"authority\":\"derived_from_qq_statements\",\"lifecycle\":\"active\"},{\"kind\":\"activity_event\",\"relationshipEventId\":\"6a278e3c-d32f-42d9-b5d4-690897d52b4b\",\"eventKind\":\"acceptance\",\"text\":\"联系人答应用户10月10日一起去看展。\",\"sourceIds\":[\"qq:72057594049927937001\",\"qq:72057594049927937002\"],\"sourceRevisions\":{\"qq:72057594049927937001\":\"0e223520ae13608c3a21dd24a1b33b606b4b28cb05593befe8825e5d72c68aae\",\"qq:72057594049927937002\":\"37fa9ea7a676c3f387ef83c3f698720c606b5fbbb215e951818e26c6ab1b35c2\"},\"eventAt\":\"2026-10-01T10:01:00.000Z\",\"reportedAt\":\"2026-10-01T10:01:00.000Z\",\"occurrenceTimeStatus\":\"known\",\"authority\":\"derived_from_qq_statements\",\"lifecycle\":\"active\"},{\"kind\":\"activity_event\",\"relationshipEventId\":\"360d67c3-a13d-402c-8950-40146d5c2681\",\"eventKind\":\"cancellation\",\"text\":\"联系人表示10月10日这次先不去看展，称周末临时有别的安排。\",\"sourceIds\":[\"qq:72057594049927937003\",\"qq:72057594049927937001\"],\"sourceRevisions\":{\"qq:72057594049927937003\":\"a7738c9937039b74bc99ea30658a8436650f196715e036c0a0a87f7c1712b40e\",\"qq:72057594049927937001\":\"0e223520ae13608c3a21dd24a1b33b606b4b28cb05593befe8825e5d72c68aae\"},\"eventAt\":\"2026-10-03T11:00:00.000Z\",\"reportedAt\":\"2026-10-03T11:00:00.000Z\",\"occurrenceTimeStatus\":\"known\",\"authority\":\"derived_from_qq_statements\",\"lifecycle\":\"active\"}],\"feedbackIds\":[],\"status\":\"observation_available\",\"attribution\":\"unlinked\",\"activityId\":\"activity:04893280-c9d1-41d3-9d4e-2d095427d04b\"}"
+          },
+          {
+            "snapshot_rowid": 3,
+            "scope_key": "[\"eval_replay_owner\",\"1111111111\",\"eval_replay_contact\",\"3333333333\"]",
+            "kind": "feedback",
+            "id": "50e9f19c-ec03-446b-a630-67deb4608d89",
+            "record": "{\"id\":\"50e9f19c-ec03-446b-a630-67deb4608d89\",\"sourceId\":\"private:feedback-50e9f19c-ec03-446b-a630-67deb4608d89\",\"text\":\"Preserve this fictional scoped local feedback.\",\"kind\":\"local\",\"applicability\":\"local\",\"requestId\":\"old041-feedback-run\",\"clientEventId\":null,\"targetRef\":{\"kind\":\"unresolved_legacy\",\"requestId\":\"old041-feedback-run\",\"reason\":\"Original target unavailable\"},\"targetStatus\":\"missing\",\"revision\":1,\"createdAt\":\"2026-10-03T11:11:00.000Z\"}"
+          },
+          {
+            "snapshot_rowid": 4,
+            "scope_key": "[\"eval_replay_owner\",\"1111111111\",\"eval_replay_contact\",\"3333333333\"]",
+            "kind": "alias",
+            "id": "private:df85fa44-3cc0-4155-981f-14643445914d",
+            "record": "{\"sourceId\":\"private:df85fa44-3cc0-4155-981f-14643445914d\",\"canonicalId\":\"private:feedback-50e9f19c-ec03-446b-a630-67deb4608d89\",\"learnable\":false}"
+          }
+        ]
+      },
+      {
+        "name": "memory_dependencies",
+        "columns": [
+          "scope_key",
+          "id",
+          "source_id",
+          "revision"
+        ],
+        "rows": [
+          {
+            "snapshot_rowid": 1,
+            "scope_key": "[\"eval_replay_owner\",\"1111111111\",\"eval_replay_contact\",\"3333333333\"]",
+            "id": "ddff04a0-71f6-495f-8763-40a5bfda9cb2",
+            "source_id": "qq:72057594049927937001",
+            "revision": "0e223520ae13608c3a21dd24a1b33b606b4b28cb05593befe8825e5d72c68aae"
+          },
+          {
+            "snapshot_rowid": 2,
+            "scope_key": "[\"eval_replay_owner\",\"1111111111\",\"eval_replay_contact\",\"3333333333\"]",
+            "id": "6a278e3c-d32f-42d9-b5d4-690897d52b4b",
+            "source_id": "qq:72057594049927937001",
+            "revision": "0e223520ae13608c3a21dd24a1b33b606b4b28cb05593befe8825e5d72c68aae"
+          },
+          {
+            "snapshot_rowid": 3,
+            "scope_key": "[\"eval_replay_owner\",\"1111111111\",\"eval_replay_contact\",\"3333333333\"]",
+            "id": "6a278e3c-d32f-42d9-b5d4-690897d52b4b",
+            "source_id": "qq:72057594049927937002",
+            "revision": "37fa9ea7a676c3f387ef83c3f698720c606b5fbbb215e951818e26c6ab1b35c2"
+          },
+          {
+            "snapshot_rowid": 4,
+            "scope_key": "[\"eval_replay_owner\",\"1111111111\",\"eval_replay_contact\",\"3333333333\"]",
+            "id": "360d67c3-a13d-402c-8950-40146d5c2681",
+            "source_id": "qq:72057594049927937003",
+            "revision": "a7738c9937039b74bc99ea30658a8436650f196715e036c0a0a87f7c1712b40e"
+          },
+          {
+            "snapshot_rowid": 5,
+            "scope_key": "[\"eval_replay_owner\",\"1111111111\",\"eval_replay_contact\",\"3333333333\"]",
+            "id": "360d67c3-a13d-402c-8950-40146d5c2681",
+            "source_id": "qq:72057594049927937001",
+            "revision": "0e223520ae13608c3a21dd24a1b33b606b4b28cb05593befe8825e5d72c68aae"
+          }
+        ]
+      },
+      {
+        "name": "memory_exclusions",
+        "columns": [
+          "scope_key",
+          "source_id"
+        ],
+        "rows": []
+      },
+      {
+        "name": "memory_gaps",
+        "columns": [
+          "scope_key",
+          "id",
+          "record"
+        ],
+        "rows": []
+      },
+      {
+        "name": "memory_journal",
+        "columns": [
+          "seq",
+          "scope_key",
+          "source_id",
+          "revision",
+          "operation",
+          "status",
+          "cursor",
+          "queued_at"
+        ],
+        "rows": [
+          {
+            "snapshot_rowid": 1,
+            "seq": 1,
+            "scope_key": "[\"eval_replay_owner\",\"1111111111\",\"eval_replay_contact\",\"3333333333\"]",
+            "source_id": "qq:72057594049927937001",
+            "revision": "0e223520ae13608c3a21dd24a1b33b606b4b28cb05593befe8825e5d72c68aae",
+            "operation": "upsert",
+            "status": "reviewed",
+            "cursor": 16,
+            "queued_at": "2026-10-03T11:11:00.000Z"
+          },
+          {
+            "snapshot_rowid": 2,
+            "seq": 2,
+            "scope_key": "[\"eval_replay_owner\",\"1111111111\",\"eval_replay_contact\",\"3333333333\"]",
+            "source_id": "qq:72057594049927937002",
+            "revision": "37fa9ea7a676c3f387ef83c3f698720c606b5fbbb215e951818e26c6ab1b35c2",
+            "operation": "upsert",
+            "status": "reviewed",
+            "cursor": 6,
+            "queued_at": "2026-10-03T11:11:00.000Z"
+          },
+          {
+            "snapshot_rowid": 3,
+            "seq": 3,
+            "scope_key": "[\"eval_replay_owner\",\"1111111111\",\"eval_replay_contact\",\"3333333333\"]",
+            "source_id": "qq:72057594049927937003",
+            "revision": "a7738c9937039b74bc99ea30658a8436650f196715e036c0a0a87f7c1712b40e",
+            "operation": "upsert",
+            "status": "reviewed",
+            "cursor": 20,
+            "queued_at": "2026-10-03T11:11:00.000Z"
+          },
+          {
+            "snapshot_rowid": 4,
+            "seq": 4,
+            "scope_key": "[\"eval_replay_owner\",\"1111111111\",\"eval_replay_contact\",\"3333333333\"]",
+            "source_id": "note:old041-private-note",
+            "revision": "02280b51d5a88d1eb985d9f2e68d828ba377584dd7eeb5d71790803fc3e5a4d6",
+            "operation": "upsert",
+            "status": "reviewed",
+            "cursor": 64,
+            "queued_at": "2026-10-03T11:11:00.000Z"
+          },
+          {
+            "snapshot_rowid": 5,
+            "seq": 5,
+            "scope_key": "[\"eval_replay_owner\",\"1111111111\",\"eval_replay_contact\",\"3333333333\"]",
+            "source_id": "private:feedback-50e9f19c-ec03-446b-a630-67deb4608d89",
+            "revision": "78de2e60f60946bb5f621dc42e52312983c5e670c252b5c84d1dab0b4da6c1e8",
+            "operation": "upsert",
+            "status": "reviewed",
+            "cursor": 46,
+            "queued_at": "2026-10-03T11:11:00.000Z"
+          }
+        ]
+      },
+      {
+        "name": "memory_meta",
+        "columns": [
+          "scope_key",
+          "version",
+          "error",
+          "processor_version"
+        ],
+        "rows": [
+          {
+            "snapshot_rowid": 1,
+            "scope_key": "[\"eval_replay_owner\",\"1111111111\",\"eval_replay_contact\",\"3333333333\"]",
+            "version": 7,
+            "error": null,
+            "processor_version": "evidence-backed-understanding-2026-10-31.2"
+          }
+        ]
+      },
+      {
+        "name": "memory_migrations",
+        "columns": [
+          "scope_key",
+          "version",
+          "record"
+        ],
+        "rows": [
+          {
+            "snapshot_rowid": 1,
+            "scope_key": "[\"eval_replay_owner\",\"1111111111\",\"eval_replay_contact\",\"3333333333\"]",
+            "version": 2,
+            "record": "{\"version\":2,\"changed\":false,\"records\":0,\"semanticReverified\":0,\"at\":\"2026-10-03T11:11:00.000Z\"}"
+          }
+        ]
+      },
+      {
+        "name": "memory_pending_proposals",
+        "columns": [
+          "scope_key",
+          "id",
+          "record"
+        ],
+        "rows": []
+      },
+      {
+        "name": "memory_receipts",
+        "columns": [
+          "scope_key",
+          "batch_id",
+          "record"
+        ],
+        "rows": [
+          {
+            "snapshot_rowid": 1,
+            "scope_key": "[\"eval_replay_owner\",\"1111111111\",\"eval_replay_contact\",\"3333333333\"]",
+            "batch_id": "16a0432f98affb6c30111865a40f751a06ec7fbca1f1ec08a8030c7a3f180784",
+            "record": "{\"batchId\":\"16a0432f98affb6c30111865a40f751a06ec7fbca1f1ec08a8030c7a3f180784\",\"kind\":\"source_journal\",\"reviewedSourceIds\":[\"qq:72057594049927937001\",\"qq:72057594049927937002\",\"qq:72057594049927937003\"],\"sourceRevisions\":{\"qq:72057594049927937001\":\"0e223520ae13608c3a21dd24a1b33b606b4b28cb05593befe8825e5d72c68aae\",\"qq:72057594049927937002\":\"37fa9ea7a676c3f387ef83c3f698720c606b5fbbb215e951818e26c6ab1b35c2\",\"qq:72057594049927937003\":\"a7738c9937039b74bc99ea30658a8436650f196715e036c0a0a87f7c1712b40e\"},\"seqFrom\":1,\"seqTo\":3,\"segments\":[{\"sourceId\":\"qq:72057594049927937001\",\"offset\":0,\"end\":16},{\"sourceId\":\"qq:72057594049927937002\",\"offset\":0,\"end\":6},{\"sourceId\":\"qq:72057594049927937003\",\"offset\":0,\"end\":20}],\"originalCoverage\":{\"version\":\"original-evidence-v1\",\"scope\":{\"accountUid\":\"eval_replay_owner\",\"accountUin\":\"1111111111\",\"peerUid\":\"eval_replay_contact\",\"peerUin\":\"3333333333\"},\"sourceRevisions\":{\"qq:72057594049927937001\":\"0e223520ae13608c3a21dd24a1b33b606b4b28cb05593befe8825e5d72c68aae\",\"qq:72057594049927937002\":\"37fa9ea7a676c3f387ef83c3f698720c606b5fbbb215e951818e26c6ab1b35c2\",\"qq:72057594049927937003\":\"a7738c9937039b74bc99ea30658a8436650f196715e036c0a0a87f7c1712b40e\"},\"reads\":[{\"sourceId\":\"qq:72057594049927937001\",\"revision\":\"0e223520ae13608c3a21dd24a1b33b606b4b28cb05593befe8825e5d72c68aae\",\"start\":0,\"end\":16,\"total\":16,\"complete\":true,\"bodyHash\":\"cf86d2cf0c0364bc959639e30cbca5b176b54da0ad8da0e428567e6613ac295d\"},{\"sourceId\":\"qq:72057594049927937002\",\"revision\":\"37fa9ea7a676c3f387ef83c3f698720c606b5fbbb215e951818e26c6ab1b35c2\",\"start\":0,\"end\":6,\"total\":6,\"complete\":true,\"bodyHash\":\"9a47ad63c30d43a7d1aeede142fde6783ce77d314b15955b3cc5674ccb0b4fc1\"},{\"sourceId\":\"qq:72057594049927937003\",\"revision\":\"a7738c9937039b74bc99ea30658a8436650f196715e036c0a0a87f7c1712b40e\",\"start\":0,\"end\":20,\"total\":20,\"complete\":true,\"bodyHash\":\"bdf3a78786f5666de9d2366ec9253671682b255bfb70ec3d3f22a890234c39f3\"}],\"completeSourceIds\":[\"qq:72057594049927937001\",\"qq:72057594049927937002\",\"qq:72057594049927937003\"],\"requiredSourceIds\":[\"qq:72057594049927937001\",\"qq:72057594049927937002\",\"qq:72057594049927937003\"],\"missingSourceIds\":[],\"partialSourceIds\":[],\"complete\":true},\"reviewedAt\":\"2026-10-03T11:11:00.000Z\",\"outcome\":\"updated\",\"updates\":3}"
+          },
+          {
+            "snapshot_rowid": 2,
+            "scope_key": "[\"eval_replay_owner\",\"1111111111\",\"eval_replay_contact\",\"3333333333\"]",
+            "batch_id": "8c5206d20550653b79d7540b9f37cca912a8c02d024bb5980f04aae930af02c8",
+            "record": "{\"batchId\":\"8c5206d20550653b79d7540b9f37cca912a8c02d024bb5980f04aae930af02c8\",\"kind\":\"source_journal\",\"reviewedSourceIds\":[\"note:old041-private-note\",\"private:feedback-50e9f19c-ec03-446b-a630-67deb4608d89\"],\"sourceRevisions\":{\"note:old041-private-note\":\"02280b51d5a88d1eb985d9f2e68d828ba377584dd7eeb5d71790803fc3e5a4d6\",\"private:feedback-50e9f19c-ec03-446b-a630-67deb4608d89\":\"78de2e60f60946bb5f621dc42e52312983c5e670c252b5c84d1dab0b4da6c1e8\"},\"seqFrom\":4,\"seqTo\":5,\"segments\":[{\"sourceId\":\"note:old041-private-note\",\"offset\":0,\"end\":64},{\"sourceId\":\"private:feedback-50e9f19c-ec03-446b-a630-67deb4608d89\",\"offset\":0,\"end\":46}],\"originalCoverage\":{\"version\":\"original-evidence-v1\",\"scope\":{\"accountUid\":\"eval_replay_owner\",\"accountUin\":\"1111111111\",\"peerUid\":\"eval_replay_contact\",\"peerUin\":\"3333333333\"},\"sourceRevisions\":{\"note:old041-private-note\":\"02280b51d5a88d1eb985d9f2e68d828ba377584dd7eeb5d71790803fc3e5a4d6\",\"private:feedback-50e9f19c-ec03-446b-a630-67deb4608d89\":\"78de2e60f60946bb5f621dc42e52312983c5e670c252b5c84d1dab0b4da6c1e8\",\"qq:72057594049927937001\":\"0e223520ae13608c3a21dd24a1b33b606b4b28cb05593befe8825e5d72c68aae\",\"qq:72057594049927937002\":\"37fa9ea7a676c3f387ef83c3f698720c606b5fbbb215e951818e26c6ab1b35c2\",\"qq:72057594049927937003\":\"a7738c9937039b74bc99ea30658a8436650f196715e036c0a0a87f7c1712b40e\"},\"reads\":[{\"sourceId\":\"note:old041-private-note\",\"revision\":\"02280b51d5a88d1eb985d9f2e68d828ba377584dd7eeb5d71790803fc3e5a4d6\",\"start\":0,\"end\":64,\"total\":64,\"complete\":true,\"bodyHash\":\"aea82077d4eea1346319de76d17cb090c3df35f46ae2afd8ee5389891caabb0a\"},{\"sourceId\":\"private:feedback-50e9f19c-ec03-446b-a630-67deb4608d89\",\"revision\":\"78de2e60f60946bb5f621dc42e52312983c5e670c252b5c84d1dab0b4da6c1e8\",\"start\":0,\"end\":46,\"total\":46,\"complete\":true,\"bodyHash\":\"0877ed69bc55d7dcaa84e533860d71e19733d287f1d47a63661b7acc1e4c9bfa\"},{\"sourceId\":\"qq:72057594049927937001\",\"revision\":\"0e223520ae13608c3a21dd24a1b33b606b4b28cb05593befe8825e5d72c68aae\",\"start\":0,\"end\":16,\"total\":16,\"complete\":true,\"bodyHash\":\"cf86d2cf0c0364bc959639e30cbca5b176b54da0ad8da0e428567e6613ac295d\"},{\"sourceId\":\"qq:72057594049927937002\",\"revision\":\"37fa9ea7a676c3f387ef83c3f698720c606b5fbbb215e951818e26c6ab1b35c2\",\"start\":0,\"end\":6,\"total\":6,\"complete\":true,\"bodyHash\":\"9a47ad63c30d43a7d1aeede142fde6783ce77d314b15955b3cc5674ccb0b4fc1\"},{\"sourceId\":\"qq:72057594049927937003\",\"revision\":\"a7738c9937039b74bc99ea30658a8436650f196715e036c0a0a87f7c1712b40e\",\"start\":0,\"end\":20,\"total\":20,\"complete\":true,\"bodyHash\":\"bdf3a78786f5666de9d2366ec9253671682b255bfb70ec3d3f22a890234c39f3\"}],\"completeSourceIds\":[\"note:old041-private-note\",\"private:feedback-50e9f19c-ec03-446b-a630-67deb4608d89\",\"qq:72057594049927937001\",\"qq:72057594049927937002\",\"qq:72057594049927937003\"],\"requiredSourceIds\":[\"note:old041-private-note\",\"private:feedback-50e9f19c-ec03-446b-a630-67deb4608d89\",\"qq:72057594049927937001\",\"qq:72057594049927937002\",\"qq:72057594049927937003\"],\"missingSourceIds\":[],\"partialSourceIds\":[],\"complete\":true},\"reviewedAt\":\"2026-10-03T11:11:00.000Z\",\"outcome\":\"reviewed_no_change\",\"updates\":0}"
+          }
+        ]
+      },
+      {
+        "name": "memory_records",
+        "columns": [
+          "scope_key",
+          "id",
+          "kind",
+          "record"
+        ],
+        "rows": [
+          {
+            "snapshot_rowid": 1,
+            "scope_key": "[\"eval_replay_owner\",\"1111111111\",\"eval_replay_contact\",\"3333333333\"]",
+            "id": "ddff04a0-71f6-495f-8763-40a5bfda9cb2",
+            "kind": "relationship_event",
+            "record": "{\"text\":\"用户邀请联系人10月10日一起去看展。\",\"sourceIds\":[\"qq:72057594049927937001\"],\"activityKey\":\"展览\",\"eventKind\":\"invitation\",\"actor\":\"self\",\"activityId\":\"activity:04893280-c9d1-41d3-9d4e-2d095427d04b\",\"activityDefinition\":{\"sourceId\":\"qq:72057594049927937001\",\"revision\":\"0e223520ae13608c3a21dd24a1b33b606b4b28cb05593befe8825e5d72c68aae\",\"start\":0,\"end\":16},\"statementEvidence\":{\"sourceId\":\"qq:72057594049927937001\",\"revision\":\"0e223520ae13608c3a21dd24a1b33b606b4b28cb05593befe8825e5d72c68aae\",\"start\":0,\"end\":16},\"timeEvidence\":{\"basis\":\"qq_statement\",\"at\":\"2026-10-01T10:00:00.000Z\",\"evidence\":{\"sourceId\":\"qq:72057594049927937001\",\"revision\":\"0e223520ae13608c3a21dd24a1b33b606b4b28cb05593befe8825e5d72c68aae\",\"start\":0,\"end\":16}},\"plannedFor\":\"2026-10-10T00:00:00.000Z\",\"plannedEvidence\":{\"sourceId\":\"qq:72057594049927937001\",\"revision\":\"0e223520ae13608c3a21dd24a1b33b606b4b28cb05593befe8825e5d72c68aae\",\"start\":0,\"end\":6},\"activityProvisional\":false,\"occurredAt\":\"2026-10-01T10:00:00.000Z\",\"topicKeys\":[],\"lifecycle\":\"active\",\"id\":\"ddff04a0-71f6-495f-8763-40a5bfda9cb2\",\"kind\":\"relationship_event\",\"recordType\":\"relationship_event\",\"version\":1,\"sourceRevisions\":{\"qq:72057594049927937001\":\"0e223520ae13608c3a21dd24a1b33b606b4b28cb05593befe8825e5d72c68aae\"},\"reviewComplete\":true,\"evidenceValidity\":\"valid\",\"semanticSignature\":\"b187c4bd887a3fbed6ba457eb24c589cd6a9ea7159213034753f155be279bb71\",\"firstEvidenceAt\":\"2026-10-01T10:00:00.000Z\",\"lastEvidenceAt\":\"2026-10-01T10:00:00.000Z\",\"at\":\"2026-10-01T10:00:00.000Z\",\"reportedAt\":\"2026-10-01T10:00:00.000Z\",\"reviewedAt\":\"2026-10-03T11:11:00.000Z\",\"semanticReview\":{\"status\":\"evidence_reviewed\",\"reviewedAt\":\"2026-10-03T11:11:00.000Z\",\"coverage\":{\"version\":\"original-evidence-v1\",\"scope\":{\"accountUid\":\"eval_replay_owner\",\"accountUin\":\"1111111111\",\"peerUid\":\"eval_replay_contact\",\"peerUin\":\"3333333333\"},\"sourceRevisions\":{\"qq:72057594049927937001\":\"0e223520ae13608c3a21dd24a1b33b606b4b28cb05593befe8825e5d72c68aae\",\"qq:72057594049927937002\":\"37fa9ea7a676c3f387ef83c3f698720c606b5fbbb215e951818e26c6ab1b35c2\",\"qq:72057594049927937003\":\"a7738c9937039b74bc99ea30658a8436650f196715e036c0a0a87f7c1712b40e\"},\"reads\":[{\"sourceId\":\"qq:72057594049927937001\",\"revision\":\"0e223520ae13608c3a21dd24a1b33b606b4b28cb05593befe8825e5d72c68aae\",\"start\":0,\"end\":16,\"total\":16,\"complete\":true,\"bodyHash\":\"cf86d2cf0c0364bc959639e30cbca5b176b54da0ad8da0e428567e6613ac295d\"},{\"sourceId\":\"qq:72057594049927937002\",\"revision\":\"37fa9ea7a676c3f387ef83c3f698720c606b5fbbb215e951818e26c6ab1b35c2\",\"start\":0,\"end\":6,\"total\":6,\"complete\":true,\"bodyHash\":\"9a47ad63c30d43a7d1aeede142fde6783ce77d314b15955b3cc5674ccb0b4fc1\"},{\"sourceId\":\"qq:72057594049927937003\",\"revision\":\"a7738c9937039b74bc99ea30658a8436650f196715e036c0a0a87f7c1712b40e\",\"start\":0,\"end\":20,\"total\":20,\"complete\":true,\"bodyHash\":\"bdf3a78786f5666de9d2366ec9253671682b255bfb70ec3d3f22a890234c39f3\"}],\"completeSourceIds\":[\"qq:72057594049927937001\",\"qq:72057594049927937002\",\"qq:72057594049927937003\"],\"requiredSourceIds\":[\"qq:72057594049927937001\"],\"missingSourceIds\":[],\"partialSourceIds\":[],\"complete\":true}},\"knowledgeSchemaVersion\":2,\"createdAt\":\"2026-10-03T11:11:00.000Z\",\"updatedAt\":\"2026-10-03T11:11:00.000Z\",\"occurrenceTimeStatus\":\"known\",\"origin\":\"qq_observation\"}"
+          },
+          {
+            "snapshot_rowid": 2,
+            "scope_key": "[\"eval_replay_owner\",\"1111111111\",\"eval_replay_contact\",\"3333333333\"]",
+            "id": "6a278e3c-d32f-42d9-b5d4-690897d52b4b",
+            "kind": "relationship_event",
+            "record": "{\"text\":\"联系人答应用户10月10日一起去看展。\",\"sourceIds\":[\"qq:72057594049927937001\",\"qq:72057594049927937002\"],\"activityKey\":\"展览\",\"eventKind\":\"acceptance\",\"actor\":\"contact\",\"activityId\":\"activity:04893280-c9d1-41d3-9d4e-2d095427d04b\",\"activityDefinition\":{\"sourceId\":\"qq:72057594049927937001\",\"revision\":\"0e223520ae13608c3a21dd24a1b33b606b4b28cb05593befe8825e5d72c68aae\",\"start\":0,\"end\":16},\"statementEvidence\":{\"sourceId\":\"qq:72057594049927937002\",\"revision\":\"37fa9ea7a676c3f387ef83c3f698720c606b5fbbb215e951818e26c6ab1b35c2\",\"start\":0,\"end\":6},\"timeEvidence\":{\"basis\":\"qq_statement\",\"at\":\"2026-10-01T10:01:00.000Z\",\"evidence\":{\"sourceId\":\"qq:72057594049927937002\",\"revision\":\"37fa9ea7a676c3f387ef83c3f698720c606b5fbbb215e951818e26c6ab1b35c2\",\"start\":0,\"end\":6}},\"plannedFor\":\"2026-10-10T00:00:00.000Z\",\"plannedEvidence\":{\"sourceId\":\"qq:72057594049927937001\",\"revision\":\"0e223520ae13608c3a21dd24a1b33b606b4b28cb05593befe8825e5d72c68aae\",\"start\":0,\"end\":6},\"activityProvisional\":false,\"occurredAt\":\"2026-10-01T10:01:00.000Z\",\"topicKeys\":[],\"lifecycle\":\"active\",\"id\":\"6a278e3c-d32f-42d9-b5d4-690897d52b4b\",\"kind\":\"relationship_event\",\"recordType\":\"relationship_event\",\"version\":1,\"sourceRevisions\":{\"qq:72057594049927937001\":\"0e223520ae13608c3a21dd24a1b33b606b4b28cb05593befe8825e5d72c68aae\",\"qq:72057594049927937002\":\"37fa9ea7a676c3f387ef83c3f698720c606b5fbbb215e951818e26c6ab1b35c2\"},\"reviewComplete\":true,\"evidenceValidity\":\"valid\",\"semanticSignature\":\"7b21a4ccfaf1f9ee033fdb8bcc5742959f474b432c9f7b1030420deff440b859\",\"firstEvidenceAt\":\"2026-10-01T10:01:00.000Z\",\"lastEvidenceAt\":\"2026-10-01T10:01:00.000Z\",\"at\":\"2026-10-01T10:01:00.000Z\",\"reportedAt\":\"2026-10-01T10:01:00.000Z\",\"reviewedAt\":\"2026-10-03T11:11:00.000Z\",\"semanticReview\":{\"status\":\"evidence_reviewed\",\"reviewedAt\":\"2026-10-03T11:11:00.000Z\",\"coverage\":{\"version\":\"original-evidence-v1\",\"scope\":{\"accountUid\":\"eval_replay_owner\",\"accountUin\":\"1111111111\",\"peerUid\":\"eval_replay_contact\",\"peerUin\":\"3333333333\"},\"sourceRevisions\":{\"qq:72057594049927937001\":\"0e223520ae13608c3a21dd24a1b33b606b4b28cb05593befe8825e5d72c68aae\",\"qq:72057594049927937002\":\"37fa9ea7a676c3f387ef83c3f698720c606b5fbbb215e951818e26c6ab1b35c2\",\"qq:72057594049927937003\":\"a7738c9937039b74bc99ea30658a8436650f196715e036c0a0a87f7c1712b40e\"},\"reads\":[{\"sourceId\":\"qq:72057594049927937001\",\"revision\":\"0e223520ae13608c3a21dd24a1b33b606b4b28cb05593befe8825e5d72c68aae\",\"start\":0,\"end\":16,\"total\":16,\"complete\":true,\"bodyHash\":\"cf86d2cf0c0364bc959639e30cbca5b176b54da0ad8da0e428567e6613ac295d\"},{\"sourceId\":\"qq:72057594049927937002\",\"revision\":\"37fa9ea7a676c3f387ef83c3f698720c606b5fbbb215e951818e26c6ab1b35c2\",\"start\":0,\"end\":6,\"total\":6,\"complete\":true,\"bodyHash\":\"9a47ad63c30d43a7d1aeede142fde6783ce77d314b15955b3cc5674ccb0b4fc1\"},{\"sourceId\":\"qq:72057594049927937003\",\"revision\":\"a7738c9937039b74bc99ea30658a8436650f196715e036c0a0a87f7c1712b40e\",\"start\":0,\"end\":20,\"total\":20,\"complete\":true,\"bodyHash\":\"bdf3a78786f5666de9d2366ec9253671682b255bfb70ec3d3f22a890234c39f3\"}],\"completeSourceIds\":[\"qq:72057594049927937001\",\"qq:72057594049927937002\",\"qq:72057594049927937003\"],\"requiredSourceIds\":[\"qq:72057594049927937001\",\"qq:72057594049927937002\"],\"missingSourceIds\":[],\"partialSourceIds\":[],\"complete\":true}},\"knowledgeSchemaVersion\":2,\"createdAt\":\"2026-10-03T11:11:00.000Z\",\"updatedAt\":\"2026-10-03T11:11:00.000Z\",\"occurrenceTimeStatus\":\"known\",\"origin\":\"qq_observation\"}"
+          },
+          {
+            "snapshot_rowid": 3,
+            "scope_key": "[\"eval_replay_owner\",\"1111111111\",\"eval_replay_contact\",\"3333333333\"]",
+            "id": "360d67c3-a13d-402c-8950-40146d5c2681",
+            "kind": "relationship_event",
+            "record": "{\"text\":\"联系人表示10月10日这次先不去看展，称周末临时有别的安排。\",\"sourceIds\":[\"qq:72057594049927937003\"],\"activityKey\":\"展览\",\"eventKind\":\"cancellation\",\"actor\":\"contact\",\"activityId\":\"activity:04893280-c9d1-41d3-9d4e-2d095427d04b\",\"activityDefinition\":{\"sourceId\":\"qq:72057594049927937001\",\"revision\":\"0e223520ae13608c3a21dd24a1b33b606b4b28cb05593befe8825e5d72c68aae\",\"start\":0,\"end\":16},\"statementEvidence\":{\"sourceId\":\"qq:72057594049927937003\",\"revision\":\"a7738c9937039b74bc99ea30658a8436650f196715e036c0a0a87f7c1712b40e\",\"start\":0,\"end\":20},\"timeEvidence\":{\"basis\":\"qq_statement\",\"at\":\"2026-10-03T11:00:00.000Z\",\"evidence\":{\"sourceId\":\"qq:72057594049927937003\",\"revision\":\"a7738c9937039b74bc99ea30658a8436650f196715e036c0a0a87f7c1712b40e\",\"start\":0,\"end\":20}},\"plannedFor\":\"2026-10-10T00:00:00.000Z\",\"plannedEvidence\":{\"sourceId\":\"qq:72057594049927937003\",\"revision\":\"a7738c9937039b74bc99ea30658a8436650f196715e036c0a0a87f7c1712b40e\",\"start\":0,\"end\":5},\"activityProvisional\":false,\"occurredAt\":\"2026-10-03T11:00:00.000Z\",\"topicKeys\":[],\"lifecycle\":\"active\",\"id\":\"360d67c3-a13d-402c-8950-40146d5c2681\",\"kind\":\"relationship_event\",\"recordType\":\"relationship_event\",\"version\":1,\"sourceRevisions\":{\"qq:72057594049927937003\":\"a7738c9937039b74bc99ea30658a8436650f196715e036c0a0a87f7c1712b40e\"},\"reviewComplete\":true,\"evidenceValidity\":\"valid\",\"semanticSignature\":\"a7d87eacf132a4be7078d19a13c653c4a71a23ed959ffe6cbd1e754b02fe89ec\",\"firstEvidenceAt\":\"2026-10-03T11:00:00.000Z\",\"lastEvidenceAt\":\"2026-10-03T11:00:00.000Z\",\"at\":\"2026-10-03T11:00:00.000Z\",\"reportedAt\":\"2026-10-03T11:00:00.000Z\",\"reviewedAt\":\"2026-10-03T11:11:00.000Z\",\"semanticReview\":{\"status\":\"evidence_reviewed\",\"reviewedAt\":\"2026-10-03T11:11:00.000Z\",\"coverage\":{\"version\":\"original-evidence-v1\",\"scope\":{\"accountUid\":\"eval_replay_owner\",\"accountUin\":\"1111111111\",\"peerUid\":\"eval_replay_contact\",\"peerUin\":\"3333333333\"},\"sourceRevisions\":{\"qq:72057594049927937001\":\"0e223520ae13608c3a21dd24a1b33b606b4b28cb05593befe8825e5d72c68aae\",\"qq:72057594049927937002\":\"37fa9ea7a676c3f387ef83c3f698720c606b5fbbb215e951818e26c6ab1b35c2\",\"qq:72057594049927937003\":\"a7738c9937039b74bc99ea30658a8436650f196715e036c0a0a87f7c1712b40e\"},\"reads\":[{\"sourceId\":\"qq:72057594049927937001\",\"revision\":\"0e223520ae13608c3a21dd24a1b33b606b4b28cb05593befe8825e5d72c68aae\",\"start\":0,\"end\":16,\"total\":16,\"complete\":true,\"bodyHash\":\"cf86d2cf0c0364bc959639e30cbca5b176b54da0ad8da0e428567e6613ac295d\"},{\"sourceId\":\"qq:72057594049927937002\",\"revision\":\"37fa9ea7a676c3f387ef83c3f698720c606b5fbbb215e951818e26c6ab1b35c2\",\"start\":0,\"end\":6,\"total\":6,\"complete\":true,\"bodyHash\":\"9a47ad63c30d43a7d1aeede142fde6783ce77d314b15955b3cc5674ccb0b4fc1\"},{\"sourceId\":\"qq:72057594049927937003\",\"revision\":\"a7738c9937039b74bc99ea30658a8436650f196715e036c0a0a87f7c1712b40e\",\"start\":0,\"end\":20,\"total\":20,\"complete\":true,\"bodyHash\":\"bdf3a78786f5666de9d2366ec9253671682b255bfb70ec3d3f22a890234c39f3\"}],\"completeSourceIds\":[\"qq:72057594049927937001\",\"qq:72057594049927937002\",\"qq:72057594049927937003\"],\"requiredSourceIds\":[\"qq:72057594049927937003\",\"qq:72057594049927937001\"],\"missingSourceIds\":[],\"partialSourceIds\":[],\"complete\":true}},\"knowledgeSchemaVersion\":2,\"createdAt\":\"2026-10-03T11:11:00.000Z\",\"updatedAt\":\"2026-10-03T11:11:00.000Z\",\"occurrenceTimeStatus\":\"known\",\"origin\":\"qq_observation\"}"
+          }
+        ]
+      },
+      {
+        "name": "memory_sources",
+        "columns": [
+          "scope_key",
+          "source_id",
+          "revision",
+          "record",
+          "deleted"
+        ],
+        "rows": [
+          {
+            "snapshot_rowid": 1,
+            "scope_key": "[\"eval_replay_owner\",\"1111111111\",\"eval_replay_contact\",\"3333333333\"]",
+            "source_id": "qq:72057594049927937001",
+            "revision": "0e223520ae13608c3a21dd24a1b33b606b4b28cb05593befe8825e5d72c68aae",
+            "record": "{\"id\":\"qq:72057594049927937001\",\"type\":\"qq\",\"text\":\"10月10日一起去看看那个展吗？\",\"at\":\"2026-10-01T10:00:00.000Z\",\"role\":\"user\",\"direction\":\"outgoing\",\"use\":\"discussion\",\"messageId\":\"72057594049927937001\",\"sequence\":\"1\",\"senderUid\":\"eval_replay_owner\",\"senderUin\":\"1111111111\",\"revision\":\"0e223520ae13608c3a21dd24a1b33b606b4b28cb05593befe8825e5d72c68aae\"}",
+            "deleted": 0
+          },
+          {
+            "snapshot_rowid": 2,
+            "scope_key": "[\"eval_replay_owner\",\"1111111111\",\"eval_replay_contact\",\"3333333333\"]",
+            "source_id": "qq:72057594049927937002",
+            "revision": "37fa9ea7a676c3f387ef83c3f698720c606b5fbbb215e951818e26c6ab1b35c2",
+            "record": "{\"id\":\"qq:72057594049927937002\",\"type\":\"qq\",\"text\":\"好呀，可以。\",\"at\":\"2026-10-01T10:01:00.000Z\",\"role\":\"contact\",\"direction\":\"incoming\",\"use\":\"discussion\",\"messageId\":\"72057594049927937002\",\"sequence\":\"2\",\"senderUid\":\"eval_replay_contact\",\"senderUin\":\"3333333333\",\"revision\":\"37fa9ea7a676c3f387ef83c3f698720c606b5fbbb215e951818e26c6ab1b35c2\"}",
+            "deleted": 0
+          },
+          {
+            "snapshot_rowid": 3,
+            "scope_key": "[\"eval_replay_owner\",\"1111111111\",\"eval_replay_contact\",\"3333333333\"]",
+            "source_id": "qq:72057594049927937003",
+            "revision": "a7738c9937039b74bc99ea30658a8436650f196715e036c0a0a87f7c1712b40e",
+            "record": "{\"id\":\"qq:72057594049927937003\",\"type\":\"qq\",\"text\":\"10号这次先不去了，周末临时有别的安排。\",\"at\":\"2026-10-03T11:00:00.000Z\",\"role\":\"contact\",\"direction\":\"incoming\",\"use\":\"discussion\",\"messageId\":\"72057594049927937003\",\"sequence\":\"3\",\"senderUid\":\"eval_replay_contact\",\"senderUin\":\"3333333333\",\"revision\":\"a7738c9937039b74bc99ea30658a8436650f196715e036c0a0a87f7c1712b40e\"}",
+            "deleted": 0
+          },
+          {
+            "snapshot_rowid": 4,
+            "scope_key": "[\"eval_replay_owner\",\"1111111111\",\"eval_replay_contact\",\"3333333333\"]",
+            "source_id": "note:old041-private-note",
+            "revision": "02280b51d5a88d1eb985d9f2e68d828ba377584dd7eeb5d71790803fc3e5a4d6",
+            "record": "{\"id\":\"note:old041-private-note\",\"type\":\"note\",\"text\":\"A fictional note that is authorized for private discussion only.\",\"at\":\"2026-10-03T11:11:00.000Z\",\"use\":\"discussion\",\"kind\":\"material\",\"version\":1,\"revision\":\"02280b51d5a88d1eb985d9f2e68d828ba377584dd7eeb5d71790803fc3e5a4d6\"}",
+            "deleted": 0
+          },
+          {
+            "snapshot_rowid": 5,
+            "scope_key": "[\"eval_replay_owner\",\"1111111111\",\"eval_replay_contact\",\"3333333333\"]",
+            "source_id": "private:feedback-50e9f19c-ec03-446b-a630-67deb4608d89",
+            "revision": "78de2e60f60946bb5f621dc42e52312983c5e670c252b5c84d1dab0b4da6c1e8",
+            "record": "{\"id\":\"private:feedback-50e9f19c-ec03-446b-a630-67deb4608d89\",\"type\":\"feedback\",\"text\":\"Preserve this fictional scoped local feedback.\",\"at\":\"2026-10-03T11:11:00.000Z\",\"role\":\"user\",\"kind\":\"local\",\"use\":\"discussion\",\"version\":1,\"requestId\":\"old041-feedback-run\",\"targetRef\":{\"kind\":\"unresolved_legacy\",\"requestId\":\"old041-feedback-run\",\"reason\":\"Original target unavailable\"},\"canonicalFeedbackId\":\"50e9f19c-ec03-446b-a630-67deb4608d89\",\"applicability\":\"local\",\"revision\":\"78de2e60f60946bb5f621dc42e52312983c5e670c252b5c84d1dab0b4da6c1e8\"}",
+            "deleted": 0
+          }
+        ]
+      },
+      {
+        "name": "messages",
+        "columns": [
+          "account_uid",
+          "peer_uid",
+          "message_id",
+          "record"
+        ],
+        "rows": [
+          {
+            "snapshot_rowid": 1,
+            "account_uid": "eval_replay_owner",
+            "peer_uid": "eval_replay_contact",
+            "message_id": "72057594049927937001",
+            "record": "{\"accountUid\":\"eval_replay_owner\",\"accountUin\":\"1111111111\",\"peerUid\":\"eval_replay_contact\",\"peerUin\":\"3333333333\",\"messageId\":\"72057594049927937001\",\"sequence\":\"1\",\"timestamp\":1790848800000,\"direction\":\"outgoing\",\"senderUid\":\"eval_replay_owner\",\"senderUin\":\"1111111111\",\"text\":\"10月10日一起去看看那个展吗？\",\"media\":[],\"recalled\":false,\"kind\":\"actual\",\"source\":\"desktop-qq-native\"}"
+          },
+          {
+            "snapshot_rowid": 2,
+            "account_uid": "eval_replay_owner",
+            "peer_uid": "eval_replay_contact",
+            "message_id": "72057594049927937002",
+            "record": "{\"accountUid\":\"eval_replay_owner\",\"accountUin\":\"1111111111\",\"peerUid\":\"eval_replay_contact\",\"peerUin\":\"3333333333\",\"messageId\":\"72057594049927937002\",\"sequence\":\"2\",\"timestamp\":1790848860000,\"direction\":\"incoming\",\"senderUid\":\"eval_replay_contact\",\"senderUin\":\"3333333333\",\"text\":\"好呀，可以。\",\"media\":[],\"recalled\":false,\"kind\":\"actual\",\"source\":\"desktop-qq-native\"}"
+          },
+          {
+            "snapshot_rowid": 3,
+            "account_uid": "eval_replay_owner",
+            "peer_uid": "eval_replay_contact",
+            "message_id": "72057594049927937003",
+            "record": "{\"accountUid\":\"eval_replay_owner\",\"accountUin\":\"1111111111\",\"peerUid\":\"eval_replay_contact\",\"peerUin\":\"3333333333\",\"messageId\":\"72057594049927937003\",\"sequence\":\"3\",\"timestamp\":1791025200000,\"direction\":\"incoming\",\"senderUid\":\"eval_replay_contact\",\"senderUin\":\"3333333333\",\"text\":\"10号这次先不去了，周末临时有别的安排。\",\"media\":[],\"recalled\":false,\"kind\":\"actual\",\"source\":\"desktop-qq-native\"}"
+          }
+        ]
+      },
+      {
+        "name": "schema_migrations",
+        "columns": [
+          "version",
+          "applied_at",
+          "description"
+        ],
+        "rows": [
+          {
+            "snapshot_rowid": 1,
+            "version": 1,
+            "applied_at": "2026-10-03T11:11:00.000Z",
+            "description": "Relationship and experience storage; semantic bootstrap is tracked separately"
+          },
+          {
+            "snapshot_rowid": 2,
+            "version": 2,
+            "applied_at": "2026-10-03T11:11:00.000Z",
+            "description": "Evidence-backed knowledge metadata; structural conversion is not semantic review"
+          }
+        ]
+      }
+    ],
+    "sequences": [
+      {
+        "name": "memory_journal",
+        "seq": 5
+      }
+    ]
+  }
+}
