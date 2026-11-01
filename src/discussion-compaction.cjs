@@ -163,7 +163,11 @@ async function assistDiscussionCompaction(settings, plan, signal, fetchImpl = fe
     stageManifest.networkAttempts = attempts;
     if (!response.ok) throw await modelFailure(response, '私下讨论压缩失败：');
     const json = await response.json(); budget?.recordUsage(json.usage);
-    const output = readModelOutput(json); stageManifest.outputMetadata = output.metadata; return output.text;
+    const output = readModelOutput(json); stageManifest.outputMetadata = output.metadata;
+    // A length-truncated compaction response is never parsed as complete: it
+    // fails this optional step instead of silently dropping covered turns.
+    if (output.metadata.finishReason === 'length') { const cut = new Error(`私下讨论压缩输出达到长度上限，可能被截断（${output.metadata.contentCharacters} 字符）；原文已保留`); cut.code = 'model_output_truncated'; throw cut; }
+    return output.text;
   };
   const content = await send(plan.payload, settings.requestBudget, manifest);
   try { return { ...parseDiscussionCompaction(content, plan), manifest }; }

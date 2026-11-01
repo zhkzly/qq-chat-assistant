@@ -265,7 +265,20 @@ test('oversized protected pending originals fail without silently cutting the co
     args.availableSources.push({ id: `private:${id}`, type: 'private', role: 'user', text, revision: `later-${index}` });
   }
   args.byteBudget = 10000;
-  assert.throws(() => buildContext(args), /预算.*没有静默截断|预算.*内容未被截断/);
+  // The ladder degrades protected pending corrections to explicit ranges or
+  // digests instead of dead-ending: each delivered view is an exact span of
+  // the original, the undelivered remainder is disclosed as unknown, and the
+  // degradation stays recorded on the manifest for review.
+  const degraded = buildContext(args);
+  for (const id of pending) {
+    const original = args.availableSources.find(source => source.id === id);
+    const view = degraded.payload.sources.find(source => source.id === id);
+    if (view) {
+      assert.ok(view.delivery?.status === 'partial' || view.digest, `${id} must be explicitly ranged or digested, never silently cut`);
+      if (view.delivery?.status === 'partial') assert.equal(view.text, original.text.slice(view.delivery.start, view.delivery.end));
+    }
+  }
+  assert.ok(degraded.manifest.degradation?.some(entry => pending.includes(entry.appliedTo)),'pending degradation is explainable');
 });
 
 test('pending canonical feedback keeps its exact evaluated object or explicitly rejects its budget', t => {
@@ -297,7 +310,13 @@ test('pending canonical feedback keeps its exact evaluated object or explicitly 
   const unavailable = buildContext({ ...options, experienceContext: null });
   assert.equal(unavailable.payload.pendingPrivateReview.refs[0].targetAvailability, 'needs_lookup');
   assert.equal(unavailable.payload.feedbackTargets, undefined);
-  assert.throws(() => buildContext({ ...options, byteBudget: 10000 }), /所选反馈.*预算/);
+  // A required feedback target that cannot fit degrades to an explicit
+  // missing marker instead of blocking the whole request on the budget.
+  const tight = buildContext({ ...options, byteBudget: 10000 });
+  const marked = tight.payload.feedbackTargets.find(item => item.feedback.id === feedback.id);
+  assert.equal(marked.missing, true);
+  assert.ok(marked.reason.includes('未能放入本次上下文'));
+  assert.ok(tight.manifest.degradation?.some(entry => entry.step === 'feedback_target_missing_marker' && entry.appliedTo === feedback.sourceId));
 });
 
 test('canonical feedback same-ID edits invalidate old recovery and cannot be cleared by stale or unbound review receipts', t => {

@@ -10,6 +10,7 @@ const {resolveDraftMaterial,assertDraftSourcesCurrent}=require('./draft-material
 const {resolveEditingReference}=require('./editing-reference.cjs');
 const {buildMaterialProvenance}=require('./material-provenance.cjs');
 const {buildCurrentHumanControl,currentFactQuotes}=require('./current-human-control.cjs');
+const {boundedSource}=require('./source-delivery.cjs');
 const {validationError}=require('../validation-issues.cjs');
 const {buildSelectedDirectionControl}=require('./selected-direction-control.cjs');
 function buildDraftContext(prepared, plan, info) {
@@ -47,6 +48,7 @@ function buildDraftContext(prepared, plan, info) {
       ...projectedControls.presentation } };
   let draftTaskTextReferences=prepared.payload.taskContext?.sourceTextLocation==='sources';
   let draftRecentMetadata='full';
+  const degradation=[...(prepared.manifest.degradation||[])];
   const refreshDraftTask=()=>{if(!prepared.payload.taskContext)return;const task=prepared.payload.taskContext,ids=new Map(payload.sources.map(s=>[s.id,s]));
     const recent=task.recentExchange.filter(m=>ids.has(m.sourceId)).map(m=>({...m,...(ids.get(m.sourceId).historicalOnly?{historicalOnly:true}:{}),...(m.quote?{quote:m.quote.sourceId&&!ids.has(m.quote.sourceId)?{availability:'unavailable'}:{...m.quote,...(ids.get(m.quote.sourceId)?.historicalOnly?{historicalOnly:true}:{})}}:{})}));
     const deliveredQQ=payload.sources.filter(source=>source.type==='qq');
@@ -88,7 +90,24 @@ function buildDraftContext(prepared, plan, info) {
     let removable=payload.sources.findIndex(source=>!essentialIds.has(source.id)&&!recentPriorityIds.has(source.id));
     if(removable<0)removable=payload.sources.findIndex(source=>!essentialIds.has(source.id));
     if(removable<0&&draftRecentMetadata==='compact'){draftRecentMetadata='omitted';continue;}
-    if(removable<0)throw new Error('当前拟表达内容或最新完整来信超过上下文预算，请分段处理；没有静默截断');
+    if(removable<0){
+      // Draft-floor sources degrade to explicit marked ranges (never silent
+      // slices) before any rejection; approved outbound quotes stay verbatim.
+      const shrinkable=payload.sources.find(source=>Buffer.byteLength(JSON.stringify(source),'utf8')>400);
+      if(shrinkable){
+        const original=(prepared.fullAvailableSources||[]).find(source=>source.id===shrinkable.id)||shrinkable;
+        const cap=Math.max(200,Math.floor(Buffer.byteLength(JSON.stringify(shrinkable),'utf8')*0.5));
+        const projected=boundedSource(original,{start:0,maxBytes:cap});
+        if(projected&&Buffer.byteLength(JSON.stringify(projected),'utf8')<Buffer.byteLength(JSON.stringify(shrinkable),'utf8')){
+          payload.sources=payload.sources.map(item=>item.id===shrinkable.id?projected:item);
+          degradation.push({step:'ranged_excerpt',appliedTo:shrinkable.id,
+            recoveredBytes:Buffer.byteLength(JSON.stringify(shrinkable),'utf8')-Buffer.byteLength(JSON.stringify(projected),'utf8'),
+            remainingNeed:0,lookupHandle:projected.delivery?.lookup});
+          continue;
+        }
+      }
+      throw new Error('当前拟表达内容或最新完整来信超过上下文预算，请分段处理；没有静默截断');
+    }
     payload.sources.splice(removable,1);
   }
   // Only the bound current-human control lane may carry current private text.
@@ -98,6 +117,7 @@ function buildDraftContext(prepared, plan, info) {
   const uniqueSources = entries => [...new Map(entries.map(source => [source.id, source])).values()];
   const safeSources=uniqueSources([...payload.sources,...referencedSources]),allSafeSources=uniqueSources([...qq,...referencedSources]);
   const context=finish(payload,safeSources,info,allSafeSources,prepared.manifest.byteBudget,budget);
+  if(degradation.length)context.manifest.degradation=degradation;
   // Root metadata does not deliver root bodies. Keep full dependencies only
   // in canonical private revision fences/artifact input references.
   Object.assign(context.manifest.sourceRevisions,dependencyRevisions);

@@ -25,7 +25,7 @@ function reconcilePlanningViews(payload){
   const sources=new Map(payload.sources.map(source=>[source.id,source])),available=new Set(sources.keys());
   if(payload.relationshipContext){
     const relationship=payload.relationshipContext;
-    const complete=(ids,revisions={})=>Array.isArray(ids)&&ids.length>0&&ids.every(id=>{const source=sources.get(id);return source&&source.revision===revisions[id]&&!source.segment&&source.delivery?.status!=='partial';});
+    const complete=(ids,revisions={})=>Array.isArray(ids)&&ids.length>0&&ids.every(id=>{const source=sources.get(id);return source&&source.revision===revisions[id]&&!source.segment&&!['partial','digest'].includes(source.delivery?.status);});
     for(const kind of ['claims','events'])relationship[kind]=(relationship[kind]||[]).filter(record=>!record.activityId||complete(record.sourceIds,record.sourceRevisions));
     const events=new Set((relationship.events||[]).map(event=>event.id));
     for(const activity of relationship.activities||[]){
@@ -162,7 +162,11 @@ function buildContext(options) {
   const groundedTopic = activeTopic?.lifecycle === 'active' && supportedByAvailable(activeTopic, byId, scope) ? activeTopic : null;
   // A grounded current task is a bounded control view, not a raw-source floor.
   // Original task evidence remains addressable and enters through relevance/read admission.
-  const essentialIds = new Set([...selected.keys()].filter(id=>id!==latestPrivateSource?.id||id===current.id||protectedPendingIds.includes(id)||id===intentSource.id));
+  // An explicit read (source lookup or model lookup result) is user intent:
+  // under budget pressure it shrinks to ranges or digests, but is never
+  // silently evicted before the degradation ladder had a chance to keep it.
+  const explicitLookupIdSet=new Set([...(retrievedSources||[]).map(source=>source.id.startsWith('private:')?source.id:`private:${source.id}`),...(sourceLookupIds||[]).map(id=>id.startsWith('private:')?id:`private:${id}`)]);
+  const essentialIds = new Set([...selected.keys()].filter(id=>id!==latestPrivateSource?.id||id===current.id||protectedPendingIds.includes(id)||id===intentSource.id||explicitLookupIdSet.has(id)));
   const recentPlan=planRecentContext(validQQ,{replyMessageIds,imageMessageIds:protectedImageIds,byteBudget});
   const timeSegments=recentHistorySegments(validQQ,historyPolicy),timeCandidateIds=new Set(timeSegments.flat().map(m=>`qq:${m.messageId}`)),timePriorityIds=new Set();
   const recentPrivateIds=new Set(eligibleTurns.filter(t=>t.role==='user'&&t.id!==turn.id&&inRecentWindow(t.createdAt)&&byId.has(`private:${t.id}`)).map(t=>`private:${t.id}`));
@@ -256,12 +260,19 @@ function buildContext(options) {
   if(implicitAnchor)preferredCandidateTurnIds.add(implicitAnchor.turnId);
   const candidates={selected,automaticTurn,eligibleTurns,explicitTurnIds,inRecentWindow,validQQ,foldedPrivateIds,essentialIds,recentPlan,timeSegments,timeCandidateIds,timePriorityIds,recentPrivateIds,reviewing,privateRequest,relevantRecord,queryText,protectedPendingIds,selectedProposal,proposals,intentSource,topicView,compacted,coveredTurnIds,candidatePool,preferredCandidateTurnIds};
   const coreInventory=[...(options.coreMemory||options.store?._memoryRecords?.(scope)||[]),...(memoryResult?.items||[]),...memoryIndex,...(relationshipContext?.claims||[])];
-  const {coreItems,optionalRawLimit,optionalRawIds,optionalRetrieved,recentContextPlan,recentPriorityIds,recentInitialAdditionalBytes,consultationSupport}=selectPlanningContext({options:{...options,asOf,viewerTimeZone},snapshot,candidates,view:{payload,state,methodSelection,restrictions},budget,coreInventory,projectPlanningViews,reconcilePlanningViews,compactPlanningViews});
+  const {coreItems,optionalRawLimit,optionalRawIds,optionalRetrieved,recentContextPlan,recentPriorityIds,recentInitialAdditionalBytes,degradation,consultationSupport}=selectPlanningContext({options:{...options,asOf,viewerTimeZone},snapshot,candidates,view:{payload,state,methodSelection,restrictions},budget,coreInventory,projectPlanningViews,reconcilePlanningViews,compactPlanningViews});
   const editingReferences=offerEditingReferences({payload,companion,sourceTurnIds,currentCandidateRef:implicitAnchor?currentCandidateRef:undefined,store:options.store,scope});
   if(editingReferences.length){payload.editingReferences=editingReferenceView(editingReferences);if(!fits(payload)){delete payload.editingReferences;if(editingReferences.some(item=>item.selection.startsWith('explicit_')))throw new Error('选定改稿原句超过上下文预算；没有静默截断');}}
   const currentRequest=payload.userRequest,position=payload.taskContext;delete payload.userRequest;delete payload.taskContext;
   payload.taskContext=position;payload.userRequest=currentRequest;
   const context=finish(payload, payload.sources, { scope, requestId, companion, coverage }, all, byteBudget, budget);
+  // Explainable degradation: every applied ladder step stays visible on the
+  // manifest together with the handle that still reaches the complete original.
+  if(degradation.length)context.manifest.degradation=degradation.map(entry=>({...entry}));
+  if(payload.userRequest?.delivery)context.manifest.userRequestDelivery={version:'source-delivery-v1',
+    status:payload.userRequest.delivery.status,requestSourceId:payload.userRequest.sourceId,
+    deliveredRange:{start:payload.userRequest.delivery.start,end:payload.userRequest.delivery.end,originalCharLength:payload.userRequest.delivery.originalCharLength},
+    lookup:payload.userRequest.delivery.lookup,rule:'当前问题按显式范围交付；未交付部分未知，可按lookup续读，不虚构'};
   const losses=(payload.relationshipContext?.activities||[]).flatMap(activity=>activity.evidenceLosses||[]);
   if(losses.length)context.manifest.inputEvidenceLossRefs=lossReferences(scope,losses);
   // Qualified stored activity summaries can remain navigation without raw

@@ -6,9 +6,10 @@ const {bytes,sanitize,pick,digest}=require('./shared.cjs');
 const {supportedByAvailable,sameScopeIfPresent}=require('./source-snapshot.cjs');
 const {modelTopic,relevantTo,projectActualActions,projectObservations,actionSources,coreCatalog}=require('./catalog.cjs');
 const {quoteTarget}=require('./policy.cjs');
-const {boundedSource,sourceDeliveryManifest}=require('./source-delivery.cjs');
+const {boundedSource,sourceDeliveryManifest,rangedDelivery,completeBody}=require('./source-delivery.cjs');
 const {taskContext}=require('./timeline-view.cjs');
 const {trimEmptyNavigation}=require('./budget-manifest.cjs');
+const {digestSource}=require('./evidence-digest.cjs');
 const {LOSS_RULE}=require('../activity-evidence.cjs');
 
 function selectPlanningContext({options,snapshot,candidates,view,budget,coreInventory,projectPlanningViews,reconcilePlanningViews,compactPlanningViews}){
@@ -22,6 +23,12 @@ function selectPlanningContext({options,snapshot,candidates,view,budget,coreInve
   const asOf=payload.asOf;
   const {selected,automaticTurn,eligibleTurns,explicitTurnIds,inRecentWindow,validQQ,foldedPrivateIds,essentialIds,recentPlan,timeSegments,timeCandidateIds,timePriorityIds,recentPrivateIds,reviewing,privateRequest,relevantRecord,queryText,protectedPendingIds,selectedProposal,proposals,intentSource,topicView,compacted,coveredTurnIds,candidatePool,preferredCandidateTurnIds}=candidates;
   let recentContextPlan=null;const recentPriorityIds=new Set(),recentAdmissions=[],privatePriorityIds=new Set(),requiredPrivateTurnIds=new Set();
+  // Explainable degradation ledger: every ladder step applied to this request
+  // is recorded with what it touched, what it recovered, the remaining need
+  // and the lookup handle that still reaches the complete original.
+  const degradation=[];const recordDegradation=(step,appliedTo,recoveredBytes,lookup)=>{
+    degradation.push({step,appliedTo,recoveredBytes,remainingNeed:Math.max(0,bytes(payload)-(options.byteBudget||48000)),...(lookup?{lookupHandle:lookup}:{})});
+  };
   let taskTextReferences=true,compactedPlanningViews=false,humanContextView=true;const priorDirectionIds=new Set();
   const explicitLookupRequests=[...retrievedSources,...sourceLookupIds.map(id=>({id:id.startsWith('private:')?id:`private:${id}`})).filter(source=>!retrievedSources.some(item=>item.id===source.id))];
   const explicitLookupIds=[...new Set(explicitLookupRequests.map(source=>source.id))];
@@ -34,18 +41,28 @@ function selectPlanningContext({options,snapshot,candidates,view,budget,coreInve
       const id=`qq:${message.messageId}`,source=selected.get(id);
       if(!source){laterQQ=false;continue;}
       const {historicalOnly,continuationCoverage,...body}=source;
-      selected.set(id,laterQQ?{...body,...(source.delivery?.status==='partial'?{continuationCoverage:'source_body_partial'}:{})}:{...body,historicalOnly:true,continuationCoverage:'later_messages_omitted'});
-      if(source.delivery?.status==='partial')laterQQ=false;
+      selected.set(id,laterQQ?{...body,...(rangedDelivery(source)?{continuationCoverage:'source_body_partial'}:{})}:{...body,historicalOnly:true,continuationCoverage:'later_messages_omitted'});
+      if(rangedDelivery(source))laterQQ=false;
     }
     let laterPrivate=true;
     for(const original of all.filter(source=>source.type==='private'||source.type==='feedback').reverse()){
       if(original.kind==='feedback_continue'&&intentSource.type==='feedback'&&selected.get(intentSource.id)?.revision===intentSource.revision&&selected.get(intentSource.id)?.delivery?.status!=='partial')continue;
       const source=selected.get(original.id);if(!source){laterPrivate=false;continue;}
       const {historicalOnly,continuationCoverage,...body}=source;
-      selected.set(original.id,laterPrivate?{...body,...(source.delivery?.status==='partial'?{continuationCoverage:'source_body_partial'}:{})}:{...body,historicalOnly:true,continuationCoverage:'later_private_sources_omitted'});
-      if(source.delivery?.status==='partial')laterPrivate=false;
+      selected.set(original.id,laterPrivate?{...body,...(rangedDelivery(source)?{continuationCoverage:'source_body_partial'}:{})}:{...body,historicalOnly:true,continuationCoverage:'later_private_sources_omitted'});
+      if(rangedDelivery(source))laterPrivate=false;
     }
     payload.sources = [...selected.values()].sort((a,b)=>(sourceOrder.get(a.id)??Number.MAX_SAFE_INTEGER)-(sourceOrder.get(b.id)??Number.MAX_SAFE_INTEGER)); payload.allowedMaterialIds=payload.sources.filter(s=>s.type==='note'&&s.use==='draft').map(s=>s.id);
+    // The current request lane mirrors its delivered source view. When the
+    // request body itself is range-delivered, the payload never carries a
+    // second, silently-whole copy: the range and its continuation handle are
+    // disclosed on both views and the undelivered remainder stays unknown.
+    if(payload.userRequest){
+      const requestSource=selected.get(payload.userRequest.sourceId);
+      if(requestSource)payload.userRequest={sourceId:requestSource.id,text:requestSource.text,
+        ...(requestSource.digest?{digest:requestSource.digest}:{}),
+        ...(requestSource.delivery?{delivery:requestSource.delivery,requestDeliveryRule:'range_delivered_request_body; undelivered parts are unknown, continue via delivery.lookup, never fabricate them'}:{})};
+    }
     if(payload.consultationSupport){payload.consultationSupport.sourceIds=payload.consultationSupport.sourceIds.filter(id=>selected.has(id));if(!payload.consultationSupport.sourceIds.length)delete payload.consultationSupport;}
     if(explicitLookupIds.length)payload.evidenceDelivery={version:'source-delivery-v1',explicitLookups:sourceDeliveryManifest(all,payload.sources,explicitLookupRequests).explicitLookups};
     for(const entry of payload.retrievedDiscussion||[])if(entry.role==='user'){const source=selected.get(entry.sourceId);entry.availability=source?source.delivery?.status||'delivered':'needs_lookup';if(source)entry.revision=source.revision;}
@@ -71,16 +88,16 @@ function selectPlanningContext({options,snapshot,candidates,view,budget,coreInve
     if(mediaContext || images?.length)payload.imageContext=imageContextFor(payload,images||[],mediaContext);
     payload.methodSelection.candidates=[...new Set([...(payload.methodCatalog||[]).map(m=>m.id),...payload.methodCards.map(m=>m.id)])];
     if(options.methodLookupIds?.length)payload.methodSelection.lookupDelivery=options.methodLookupIds.map(id=>({id,status:payload.methodCards.some(card=>card.id===id)?'delivered':'omitted_for_budget'}));
-    if(payload.topicContext.active)payload.topicContext.active.sourceAvailability=!payload.topicContext.active.omittedSourceRefCount&&payload.topicContext.active.sourceIds.every(id=>selected.has(id)&&selected.get(id).delivery?.status!=='partial')?'delivered':'lookup_required';
+    if(payload.topicContext.active)payload.topicContext.active.sourceAvailability=!payload.topicContext.active.omittedSourceRefCount&&payload.topicContext.active.sourceIds.every(id=>completeBody(selected.get(id)))?'delivered':'lookup_required';
     payload.replyFocus=replyMessageIds.filter(id=>selected.has(`qq:${id}`));
     payload.taskContext=taskContext({records,sources:payload.sources,scope,coverage,generationOrigin,currentSourceId:current.id,responsePreference,recentContextPlan,asOf:payload.asOf,viewerTimeZone,invocation,purpose,replyMessageIds});
     const recentHumanContext=humanContextView?eligibleTurns.filter(entry=>entry.role==='user'&&entry.id!==turn.id).slice(-3).flatMap(entry=>{
-      const source=selected.get(`private:${entry.id}`);return source&&source.delivery?.status!=='partial'?[{sourceId:source.id,at:source.at,role:'user',bodyLocation:'sources',...(priorDirectionIds.has(source.id)?{status:'needs_current_interpretation'}:{})}]:[];
+      const source=selected.get(`private:${entry.id}`);return source&&completeBody(source)?[{sourceId:source.id,at:source.at,role:'user',bodyLocation:'sources',...(priorDirectionIds.has(source.id)?{status:'needs_current_interpretation'}:{})}]:[];
     }):[];
     if(recentHumanContext.length)payload.taskContext.recentHumanContext=recentHumanContext;
     const recentHumanIds=new Set(recentHumanContext.map(reference=>reference.sourceId));
     const priorHumanDirections=[...priorDirectionIds].filter(id=>!recentHumanIds.has(id)).flatMap(id=>{
-      const source=selected.get(id);return source&&source.delivery?.status!=='partial'?[{sourceId:id,at:source.at,role:'user',bodyLocation:'sources',status:'needs_current_interpretation'}]:[];
+      const source=selected.get(id);return source&&completeBody(source)?[{sourceId:id,at:source.at,role:'user',bodyLocation:'sources',status:'needs_current_interpretation'}]:[];
     });
     if(priorHumanDirections.length)payload.taskContext.priorHumanDirections=priorHumanDirections;
     payload.taskContext.draftControlPolicy={version:1,required:true,requiredFields:['objective','allowedApproach','avoidances'],intentSourceId:intentSource.id};
@@ -92,7 +109,7 @@ function selectPlanningContext({options,snapshot,candidates,view,budget,coreInve
     payload.experienceProposalPolicy = { enabled: allowExperienceProposals === true && feedbackSourceIds.length > 0, maxItems: 2,
       feedbackSourceIds: allowExperienceProposals ? feedbackSourceIds : [], caseIds: allowExperienceProposals ? (payload.experienceContext?.cases || []).map(item => item.id) : [] };
     if (payload.pendingPrivateReview) for (const ref of payload.pendingPrivateReview.refs) {
-      ref.availability = selected.has(ref.sourceId) ? selected.get(ref.sourceId).delivery?.status==='partial'?'partial':'full' : 'needs_lookup';
+      ref.availability = selected.has(ref.sourceId) ? rangedDelivery(selected.get(ref.sourceId))?'partial':'full' : 'needs_lookup';
       if (ref.type === 'feedback') {
         const evaluated = payload.feedbackTargets?.find(item => item.feedback.sourceId === ref.sourceId);
         ref.targetAvailability = evaluated && !evaluated.missing && evaluated.target.body ? 'full' : 'needs_lookup';
@@ -155,7 +172,47 @@ function selectPlanningContext({options,snapshot,candidates,view,budget,coreInve
     }
     refresh();trimStateNavigation();
   }
-  if (!fits(payload)) throw new Error('当前问题或最新完整来信超过上下文预算，请分段处理；没有静默截断');
+  // Deterministic digest tier: background evidence that cannot hold even a
+  // bounded range still contributes its verbatim structure and per-entry
+  // lookup handles, so the request can proceed on explicitly derived views
+  // instead of dying at the floor. No model call, no invented wording.
+  if(!fits(payload))for(const [id,source] of [...selected]){
+    if(fits(payload))break;
+    if(id===current.id||id===intentSource.id||source.type==='request')continue;
+    const original=byId.get(id);if(!original||original.type==='request')continue;
+    const digested=digestSource(original);
+    if(digested&&bytes(digested)<bytes(source)){
+      const before=bytes(payload);selected.set(id,digested);refresh();trimStateNavigation();
+      recordDegradation('deterministic_digest',id,before-bytes(payload),{sourceId:id,revision:original.revision,offset:0});
+    }
+  }
+  // The current interaction is the never-degraded floor, but a floor member
+  // too large for the measured request still degrades to an explicit marked
+  // range with a continuation handle — bound intent first, request last —
+  // before any rejection. The question itself is never dropped or digested.
+  const floorMembers=[...new Set([intentSource,current])].filter(member=>member&&selected.has(member.id));
+  for(const member of floorMembers){
+    for(const maxBytes of [12000,6000,3000,1600,800,400,200]){
+      if(fits(payload))break;
+      const original=byId.get(member.id);
+      const view=selected.get(member.id);
+      if(!original||!view||bytes(view)<=maxBytes)continue;
+      const projected=boundedSource(original,{start:0,maxBytes});
+      if(projected){
+        const before=bytes(payload);selected.set(member.id,projected);refresh();trimStateNavigation();
+        if(bytes(payload)<before)recordDegradation('ranged_excerpt',member.id,before-bytes(payload),projected.delivery?.lookup);
+      }
+    }
+  }
+  // A configured budget below the serialized envelope cannot deliver any
+  // request at all; report that configuration honestly instead of blaming
+  // the current question.
+  if (!fits(payload) && budget.measure(null) > budget.requestByteBudget)
+    throw new Error('配置的请求预算低于最小请求信封，任何问题都无法完整交付；请提高本次预算；没有静默截断');
+  // The single surviving hard rejection: the current request text itself
+  // cannot be delivered even as a minimal explicit range (for example a
+  // configured budget below the request envelope). Everything else degrades.
+  if (!fits(payload)) throw new Error('即使按最小显式范围交付当前问题并降级其余内容，本次上下文预算仍不足以组成有效请求；请提高本次预算或缩短当前问题；没有静默截断');
   // The current multi-turn interaction is considered before optional historical
   // summaries and their evidence closures. This allowance never enlarges the
   // mandatory floor or makes an otherwise feasible request fail.
@@ -193,7 +250,7 @@ function selectPlanningContext({options,snapshot,candidates,view,budget,coreInve
       const ids=[...new Set([quote.sourceId,...(binding?[binding.permission.sourceId,binding.referent.sourceId]:[])])];
       if(ids.some(id=>!byId.has(id)||run.manifest?.sourceRevisions?.[id]!==byId.get(id).revision))continue;
       for(const id of ids)admitExplicit(byId.get(id));
-      if(ids.every(id=>selected.has(id)&&selected.get(id).delivery?.status!=='partial')){
+      if(ids.every(id=>completeBody(selected.get(id)))){
         priorSupport.push({sourceId:quote.sourceId,text:quote.text});for(const id of ids)privatePriorityIds.add(id);
       }
     }
@@ -260,7 +317,12 @@ function selectPlanningContext({options,snapshot,candidates,view,budget,coreInve
     if (!supportedByAvailable(record, byId, scope)) return false;
     if (!allowFolded && record.sourceIds.some(id => foldedPrivateIds.has(id))) return false;
     const before = new Map(selected);
-    for (const id of record.sourceIds) if (!foldedPrivateIds.has(id)) selected.set(id, byId.get(id));
+    // Grounding evidence degrades to bounded ranges rather than entering whole;
+    // the revision still witnesses the complete original for later lookup.
+    for (const id of record.sourceIds) if (!foldedPrivateIds.has(id)) {
+      const original=byId.get(id);
+      selected.set(id, original&&bytes(original)>6000?boundedSource(original,{start:0,maxBytes:6000})||original:original);
+    }
     const clean = sanitize(pick(record, fields));
     if (allowFolded && record.sourceIds.some(id => foldedPrivateIds.has(id))) clean.foldedSourceIds = record.sourceIds.filter(id => foldedPrivateIds.has(id));
     clean.authority ||= record.reviewComplete === false ? 'needs_review' : 'source_backed_summary_not_independent_evidence';
@@ -282,7 +344,7 @@ function selectPlanningContext({options,snapshot,candidates,view,budget,coreInve
     for(const id of record.sourceIds||[]){
       const source=byId.get(id);if(!source||source.role!=='user'||!['private','feedback'].includes(source.type)||directionBytes+bytes(source)>6000)continue;
       admitExplicit(source);
-      if(selected.has(id)&&selected.get(id).delivery?.status!=='partial'){priorDirectionIds.add(id);directionBytes+=bytes(source);}
+      if(selected.has(id)&&completeBody(selected.get(id))){priorDirectionIds.add(id);directionBytes+=bytes(source);}
     }
     refresh();
   }
@@ -328,7 +390,14 @@ function selectPlanningContext({options,snapshot,candidates,view,budget,coreInve
       if (includeGrounded(projected, payload.feedbackTargets, ['feedback','target','missing','sourceIds','correctionContext'], required, true)) {
         seenFeedback.add(id);
         if (required) for (const sourceId of record.sourceIds) essentialIds.add(sourceId);
-      } else if (required) throw new Error('所选反馈的完整对象或必要证据超过上下文预算或已经变化；输入已保留，内容未被截断');
+      } else if (required) {
+        // A required feedback target that cannot fit degrades to an explicit
+        // missing marker: the answer proceeds and asks for the specific object
+        // instead of hard-blocking the whole request on the context budget.
+        if (includeGrounded({ feedback: projected.feedback, target: pick(target, ['artifactRef','kind','authority']), missing: true,
+          reason: '所选反馈的完整对象或必要证据未能放入本次上下文，不能推断反馈针对哪句话；请先指出具体评价对象。', sourceIds: [id] }, payload.feedbackTargets,
+          ['feedback','target','missing','reason','sourceIds'])) { seenFeedback.add(id); recordDegradation('feedback_target_missing_marker', id, 0); }
+      }
       else if (includeGrounded({ feedback: projected.feedback, target: pick(target, ['artifactRef','kind','authority']), missing: true,
         reason: '完整评价对象或其必要证据未能放入本次上下文，不能推断反馈针对哪句话。', sourceIds: [id] }, payload.feedbackTargets,
         ['feedback','target','missing','reason','sourceIds'])) seenFeedback.add(id);
@@ -601,14 +670,14 @@ function selectPlanningContext({options,snapshot,candidates,view,budget,coreInve
       if (!allLaterIncluded) selected.set(id, { ...source, historicalOnly: true, continuationCoverage: 'later_messages_omitted' });
       // Presence of one range is not coverage of the complete later message.
       // Break continuity only for earlier records, not for this source itself.
-      if(source.delivery?.status==='partial')allLaterIncluded=false;
+      if(rangedDelivery(source))allLaterIncluded=false;
     }
     let laterPrivateIncluded=true;
     for(const source of all.filter(s=>s.type==='private'||s.type==='feedback').reverse()) {
       if(source.kind==='feedback_continue'&&intentSource.type==='feedback'&&selected.get(intentSource.id)?.revision===intentSource.revision&&selected.get(intentSource.id)?.delivery?.status!=='partial')continue;
       if(!selected.has(source.id)){laterPrivateIncluded=false;continue;}
       if(!laterPrivateIncluded)selected.set(source.id,{...selected.get(source.id),historicalOnly:true,continuationCoverage:'later_private_sources_omitted'});
-      if(selected.get(source.id).delivery?.status==='partial')laterPrivateIncluded=false;
+      if(rangedDelivery(selected.get(source.id)))laterPrivateIncluded=false;
     }
     refresh();
     if (fits(payload)) break;
@@ -639,7 +708,7 @@ function selectPlanningContext({options,snapshot,candidates,view,budget,coreInve
   }
   // Late budget eviction and chronology checks must also change the authority
   // of every derived view. A source appearing earlier is not proof of current state.
-  const groundFinal = record => record.sourceIds?.every(id => selected.has(id)&&selected.get(id).delivery?.status!=='partial');
+  const groundFinal = record => record.sourceIds?.every(id => completeBody(selected.get(id)));
   payload.topicContext.retained = payload.topicContext.retained.filter(groundFinal);
   if(payload.topicContext.active?.sourceIds.some(id=>selected.get(id)?.historicalOnly))Object.assign(payload.topicContext.active,{reviewPending:true,authority:'needs_review'});
   for (const key of ['claims', 'events']) if (payload.relationshipContext) {
@@ -661,7 +730,7 @@ function selectPlanningContext({options,snapshot,candidates,view,budget,coreInve
   }
   payload.privateConversation = privateGroups.flat();
   for (const kind of ['items', 'episodes']) for (const item of payload.retrievedMemory[kind]) {
-    if (item.sourceIds.some(id => !selected.has(id) || selected.get(id).historicalOnly || selected.get(id).delivery?.status==='partial')) item.authority = 'needs_review';
+    if (item.sourceIds.some(id => !selected.has(id) || selected.get(id).historicalOnly || rangedDelivery(selected.get(id)))) item.authority = 'needs_review';
     if (item.textFromSource && !selected.has(item.textFromSource)) { item.text = redact(memoryResult[kind].find(original => original.id === item.id)?.text || ''); delete item.textFromSource; }
   }
   refresh();
@@ -693,7 +762,7 @@ function selectPlanningContext({options,snapshot,candidates,view,budget,coreInve
   const quotedIds=[...new Set((payload.taskContext?.recentExchange||[]).map(item=>item.quote?.sourceId).filter(Boolean))];
   for(const id of quotedIds){
     const prior=selected.get(id),original=byId.get(id);
-    if(!original||prior?.delivery?.status!=='partial'||explicitLookupIds.includes(id))continue;
+    if(!original||!rangedDelivery(prior)||explicitLookupIds.includes(id))continue;
     const saved={cards:payload.methodCards,selection:structuredClone(payload.methodSelection),material:payload.materialView,work:payload.work};
     selected.set(id,original);refresh();
     if(!fits(payload)){payload.methodCards=[];delete payload.methodSelection.selectionRule;delete payload.methodSelection.feedbackRule;refresh();}
@@ -708,6 +777,6 @@ function selectPlanningContext({options,snapshot,candidates,view,budget,coreInve
   const delivery=sourceDeliveryManifest(all,payload.sources,explicitLookupRequests);
   if(delivery.explicitLookups.length)payload.evidenceDelivery={version:delivery.version,explicitLookups:delivery.explicitLookups};
   if(!fits(payload)){reclaimOptionalRecent(new Set(explicitLookupIds));settleSelection();}
-  return {payload,coreItems,optionalRawLimit,optionalRawIds,optionalRetrieved,recentContextPlan,recentPriorityIds,recentInitialAdditionalBytes,consultationSupport:priorSupport.filter(fragment=>selected.has(fragment.sourceId)).map(fragment=>({...fragment,revision:byId.get(fragment.sourceId).revision}))};
+  return {payload,coreItems,optionalRawLimit,optionalRawIds,optionalRetrieved,recentContextPlan,recentPriorityIds,recentInitialAdditionalBytes,degradation,consultationSupport:priorSupport.filter(fragment=>selected.has(fragment.sourceId)).map(fragment=>({...fragment,revision:byId.get(fragment.sourceId).revision}))};
 }
 module.exports={selectPlanningContext};

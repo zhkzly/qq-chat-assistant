@@ -124,7 +124,17 @@ test('canonical current feedback intent remains exact even when its helper reque
  const helper=store.appendTurn(scope,{role:'user',kind:'discussion',text:'Continue with the canonical feedback.'});
  const result=buildContext({...args,turn:helper,companion:store.getCompanion(scope),intentSourceId:`private:${intent.id}`});
  const source=result.payload.sources.find(source=>source.id===`private:${intent.id}`);assert.equal(source.text,intent.text);assert.equal(source.delivery,undefined);
- assert.throws(()=>buildContext({...args,turn:helper,companion:store.getCompanion(scope),intentSourceId:`private:${intent.id}`,byteBudget:6000}),/预算/);
+ // Under a tight budget the bound intent degrades to an explicitly marked
+ // range (never a silent slice, never dropped), while the short helper request
+ // itself stays exact and the degradation stays explainable on the manifest.
+ const tight=buildContext({...args,turn:helper,companion:store.getCompanion(scope),intentSourceId:`private:${intent.id}`,byteBudget:6000});
+ const tightSource=tight.payload.sources.find(item=>item.id===`private:${intent.id}`);
+ if(tightSource.delivery?.status==='partial'){
+  assert.equal(tightSource.text,intent.text.slice(tightSource.delivery.start,tightSource.delivery.end));
+  assert.ok(tightSource.delivery.lookup?.sourceId===tightSource.id);
+  assert.ok(tight.manifest.degradation?.some(entry=>entry.appliedTo===tightSource.id));
+  assert.equal(tight.payload.userRequest.text,helper.text);
+ } else assert.equal(tightSource.text,intent.text);
 });
 test('an old oversized QQ observation referenced by an unrelated active task is navigation rather than mandatory raw evidence',t=>{
  const old=message('900719925474099899','OLD_QQ_SENTINEL '+ 'o'.repeat(66500),-1000000),latest=message('900719925474099900','A short current incoming message.');

@@ -577,6 +577,9 @@ async function assistModel(settings, context, signal, fetchImpl = fetch) {
   if(context.payload.purpose==='fidelity_check'&&context.manifest)context.manifest.fidelityOutput={raw:responseContent,sha256:require('node:crypto').createHash('sha256').update(String(responseContent)).digest('hex'),metadata:output.metadata};
   settings.requestBudget?.recordUsage(json.usage);
   if (typeof responseContent !== 'string') throw new Error('助手模型未返回文字');
+  // A length-truncated main response is never accepted as-is: it flows into
+  // the bounded repair path instead of being parsed as a complete result.
+  const mainTruncated = output.metadata.finishReason === 'length';
   const parsed = (content, trace = context.manifest?.methodTrace, input = context) => {
     const diagnostics = {};
     const result = parseAssistant(content, (input.payload||input).purpose, input, diagnostics);
@@ -585,7 +588,10 @@ async function assistModel(settings, context, signal, fetchImpl = fetch) {
     if (trace) trace.reported = result.methodIds || null;
     return result;
   };
-  try { return parsed(responseContent); }
+  try {
+    if (mainTruncated) { const cut = new Error('模型输出达到长度上限，可能被截断；未直接采用'); cut.code = 'model_output_truncated'; throw cut; }
+    return parsed(responseContent);
+  }
   catch(error) {
     const checkerRepair=context.payload.purpose==='fidelity_check';
     if(checkerRepair){
@@ -601,7 +607,7 @@ async function assistModel(settings, context, signal, fetchImpl = fetch) {
     // Spend the existing repair slot on fresh help rather than asking it to
     // repair optional bookkeeping; preparation still needs a verified plan.
     let planningCarrierRepair=false;
-    if(['discussion','review','reply'].includes(context.payload.purpose)){
+    if(['discussion','review','reply'].includes(context.payload.purpose)&&!mainTruncated){
       try{planningCarrierRepair=Object.hasOwn(parseModelJson(responseContent),'draftPlan');}catch{ /* No recoverable planning envelope was present. */ }
     }
     const terminalRepair=editable(context.payload.requestDeliveryObligation);

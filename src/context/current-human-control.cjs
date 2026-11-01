@@ -30,6 +30,10 @@ function buildCurrentHumanControl(prepared,info={}){
   prepared.manifest?.sourceRevisions?.[sourceId]!==source.revision||
   typeof source.text!=='string'||!source.text.trim())throw unavailable();
  assertDraftSourcesCurrent(prepared,[sourceId],{...info,scope});
+ // The control lane always carries the complete captured original, even when
+ // the planning delivery was range-limited: a tail veto beyond any delivered
+ // range must still govern the draft. If the whole statement cannot fit the
+ // draft budget, the caller fails explicitly instead of clipping it.
  return {control:{version:1,authority:'CONTROL_ONLY',sourceId,sourceType:source.type,text:source.text},
   dependencies:[{sourceId,revision:source.revision}]};
 }
