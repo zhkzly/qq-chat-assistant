@@ -5,6 +5,7 @@ const {normalizeRelationshipPatch}=require('./relationship-schema.cjs');
 const {sourceClosure,assertPreferenceAuthority}=require('./provenance.cjs');
 const {requireOriginals}=require('./original-evidence.cjs');
 const activityEvidence=require('./activity-evidence.cjs');
+const {assertSpeechAttribution,contactSpeech,ownerAuthoredRecord}=require('./speaker-identity.cjs');
 const PROCESSOR_VERSION='evidence-backed-understanding-2026-10-31.2';
 const hash=value=>createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const typed=r=>r.recordType==='claim'||r.recordType==='relationship_event';
@@ -135,11 +136,17 @@ function prepareRelationshipPatch(store,scope,input,options={}) {
     }
     let refs=historicalRevision?old.sourceIds:retiring||reaffirm?[...new Set([...old.sourceIds,...value.sourceIds])]:value.sourceIds;
     let closure=sourceClosure(raw,refs);
-    if(!retiring&&type==='claim'&&value.assertionKind==='stated'&&value.subject==='contact'){
-      const direct=closure.filter(s=>s.type==='qq'&&s.role==='contact');
-      if(!direct.length)throw new Error('Contact statements require actual contact messages; use reported for user reports');
-      // A new question may cause retrieval, but it is not a new statement by her.
-      refs=direct.map(s=>s.id);closure=sourceClosure(raw,refs);
+    // Single speech-attribution write gate (target architecture M3): one
+    // implementation in speaker-identity.cjs, consumed by the store write,
+    // the foreground audit and the memory decode path. A stated claim about a
+    // speaker must be proven by that speaker's own words.
+    if(!retiring&&type==='claim'&&value.assertionKind==='stated'){
+      assertSpeechAttribution(value,closure,'relationshipPatch.claims');
+      // Narrow a stated claim to the speaking party's own messages: a new
+      // question may cause retrieval, but it is not a new statement by them.
+      const direct=value.subject==='contact'?closure.filter(s=>contactSpeech(s))
+        :value.subject==='self'?closure.filter(s=>ownerAuthoredRecord(s)):null;
+      if(direct&&direct.length){refs=[...new Set(direct.map(s=>s.id))];closure=sourceClosure(raw,refs);}
     }
     if(!retiring&&type==='claim'&&value.assertionKind==='observed'){
       const observed=closure.filter(s=>s.type==='qq');if(!observed.length)throw new Error('Observed claims require actual QQ evidence; use reported for user reports');
@@ -147,7 +154,6 @@ function prepareRelationshipPatch(store,scope,input,options={}) {
     }
     if(!retiring&&type==='claim'&&value.subject==='self'&&value.aspect==='stated_preference')assertPreferenceAuthority(raw,refs);
     if(!retiring&&type==='claim'&&value.applicabilityKind==='recurring')assertPreferenceAuthority(raw,refs);
-    if(type==='claim'&&value.assertionKind==='stated'&&value.subject==='contact'&&!closure.some(s=>s.type==='qq'&&s.role==='contact'))throw new Error('Contact statements require actual contact messages; use reported for user reports');
     const dates=nativeActivity&&!retiring?(reaffirm?[old.firstEvidenceAt,[old.lastEvidenceAt,nativeActivity.statementAt].sort().at(-1)]:[nativeActivity.statementAt]):refs.map(id=>raw.get(id).at).sort();
     if(old&&dates.at(-1)<old.lastEvidenceAt)throw new Error('Older backfill cannot replace newer relationship evidence');
     if(old&&options.reviewedSourceIds){const fresh=value.sourceIds.filter(id=>options.reviewedSourceIds.includes(id));const freshAt=fresh.map(id=>raw.get(id).at).sort().at(-1);const completing=old.reviewComplete===false&&fresh.some(id=>old.sourceIds.includes(id));if(freshAt&&freshAt<old.lastEvidenceAt&&!completing)throw new Error('Older newly reviewed evidence cannot retire or replace a later interpretation');}

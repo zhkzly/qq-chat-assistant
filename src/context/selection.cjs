@@ -10,6 +10,7 @@ const {boundedSource,sourceDeliveryManifest}=require('./source-delivery.cjs');
 const {taskContext}=require('./timeline-view.cjs');
 const {trimEmptyNavigation}=require('./budget-manifest.cjs');
 const {LOSS_RULE}=require('../activity-evidence.cjs');
+const {holderBasis}=require('../speaker-identity.cjs');
 
 function selectPlanningContext({options,snapshot,candidates,view,budget,coreInventory,projectPlanningViews,reconcilePlanningViews,compactPlanningViews}){
   const {scope,records,companion,turn,purpose='discussion',coverage,memoryResult,memoryIndex=[],retrievedSources=[],
@@ -442,11 +443,15 @@ function selectPlanningContext({options,snapshot,candidates,view,budget,coreInve
     const claims=(relationshipContext.claims||[]).filter(claim=>relevantRecord(claim)||claim.aspect==='boundary'&&claim.lifecycle!=='withdrawn'&&claim.lifecycle!=='superseded');
     let relationshipEvidenceBytes=0;
     const admitRelationship=record=>{const extra=(record.sourceIds||[]).filter(id=>!selected.has(id)).reduce((n,id)=>n+bytes(byId.get(id)||{}),bytes(record));if(!reviewing&&relationshipEvidenceBytes+extra>7000)return false;relationshipEvidenceBytes+=extra;return true;};
+    // Entailment rendering (target architecture M3): each derived fragment
+    // carries a mechanically derived holder basis. A claim without contact
+    // speech in its evidence closure can never render as her words.
+    const entailment=record=>({speakerBasis:holderBasis(record,byId)});
     for (const claim of claims.slice(0,reviewing?24:6)) if(admitRelationship(claim))
-      includeGrounded({...claim,...(categories.has(claim.id)?{readCategory:categories.get(claim.id)}:{})}, payload.relationshipContext.claims, [...common,'subject','aspect','assertionKind','epistemicStatus','lifecycle','validFrom','validUntil','context','activityId','currentActivityState']);
+      includeGrounded({...claim,...entailment(claim),...(categories.has(claim.id)?{readCategory:categories.get(claim.id)}:{})}, payload.relationshipContext.claims, [...common,'speakerBasis','subject','aspect','assertionKind','epistemicStatus','lifecycle','validFrom','validUntil','context','activityId','currentActivityState']);
     const eventKeys=new Set((relationshipContext.events||[]).filter(relevantRecord).map(event=>event.activityId||event.activityKey));
     for (const event of (relationshipContext.events || []).filter(event=>reviewing||eventKeys.has(event.activityId||event.activityKey)).slice(-24).reverse()) if(admitRelationship(event))
-      includeGrounded(event, payload.relationshipContext.events, [...common,'activityId','activityKey','identityStatus','activityEvidenceStatus','eventKind','actor','occurredAt','plannedFor','occurrenceTimeStatus','lifecycle','assertionKind','epistemicStatus','origin']);
+      includeGrounded({...event,...entailment(event)}, payload.relationshipContext.events, [...common,'speakerBasis','activityId','activityKey','identityStatus','activityEvidenceStatus','eventKind','actor','occurredAt','plannedFor','occurrenceTimeStatus','lifecycle','assertionKind','epistemicStatus','origin']);
     payload.relationshipContext.events.sort((a,b)=>String(a.occurredAt||a.lastEvidenceAt||'').localeCompare(String(b.occurredAt||b.lastEvidenceAt||'')));
     const eventIds = new Set(payload.relationshipContext.events.map(event => event.id));
     const relatedActivities=new Set([...payload.relationshipContext.events,...payload.relationshipContext.claims].map(record=>record.activityId).filter(Boolean));

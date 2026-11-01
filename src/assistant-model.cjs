@@ -17,6 +17,7 @@ const {readPreparedExplanation,rememberPreparedResponse}=require('./prepared-res
 const {projectComposerEvidence}=require('./context/composer-evidence.cjs');
 const {parseFidelityResult}=require('./whole-answer-fidelity.cjs');
 const {parseRequestDelivery,parseDeliveryBlocker,normalizeBlockerQuestion,blockerRenderingWitness,validateTerminalDelivery,editable}=require('./request-delivery.cjs');
+const {assertSpeechAttribution,SPEAKER_IDENTITY_RULE}=require('./speaker-identity.cjs');
 function relationshipProtocol({activityEvidence=false}={}) {
  const eventProtocol=activityEvidence?`events: {id?,expectedVersion?,activityKey,eventKind,actor,text,sourceIds,topicKeys?,transition?,activity,evidence}. eventKind=${EVENT_KINDS.join('|')}; actor=self|contact|both|unknown. activityKey is display wording, never entity identity. The memory activity/evidence protocol selects a persisted program identity or explicit original-anchored NEW, plus original world-statement and time witnesses. Do not return outer occurredAt; evidence.time owns occurrence meaning, and plannedFor is separate. A source withdrawal or a question is not a new world event; no-change is valid. User reports remain attributed rather than invented actual QQ actions.`:`events: {id?,expectedVersion?,activityKey,eventKind,actor,text,occurredAt?,sourceIds,topicKeys?}. eventKind=${EVENT_KINDS.join('|')}; actor=self|contact|both|unknown. activityKey is a short, stable label for the same activity (up to 120 characters), not a relationship stage; use a new label for a genuinely new activity. Distinguish invitation, acceptance, reschedule, cancellation and occurred. A copied draft is none of these actual actions. User-reported activities stay reported; do not invent actual QQ messages.`;
  return `relationshipPatch is optional and contains only claims (at most 24), events (at most 12), and retire (at most 24), each an array. An empty patch is {"claims":[],"events":[],"retire":[]}.
@@ -301,9 +302,12 @@ function parseAssistantStrict(value, purpose, input,issues,{auxiliaryOnly=false,
           if (record.sourceIds.some(id => !sources.has(id))) throw new Error(`${path}.sourceIds: 只能引用本次 sources 的原始来源ID`);
           if (kind === 'claims' && record.assertionKind === 'observed' && !record.sourceIds.some(id => sourceMap.get(id).type === 'qq'))
             throw new Error(`${path}.assertionKind: observed需要实际QQ证据；用户描述的事件改用reported`);
-          if (kind === 'claims' && record.subject === 'contact' && record.assertionKind === 'stated' && !record.sourceIds.some(id => {
-            const source = sourceMap.get(id); return source.type === 'qq' && (source.direction === 'incoming' || source.role === 'contact' || source.speaker === '对方');
-          })) throw new Error(`${path}.assertionKind: 对方明确陈述需要实际来信；用户转述改用reported，猜测改用inferred`);
+          // Unified speech-attribution gate (single implementation in
+          // speaker-identity.cjs): a stated claim about the contact needs her
+          // actual incoming message; a stated claim about the user needs the
+          // account owner own words. Replaces the two divergent inline checks.
+          if (kind === 'claims' && record.assertionKind === 'stated')
+            assertSpeechAttribution(record, record.sourceIds.map(id => sourceMap.get(id)), path);
           if (record.id && (!prior.has(record.id) || record.expectedVersion !== prior.get(record.id).version))
             throw new Error(`${path}.id/expectedVersion: 必须对应本次 relationshipContext 中的对象与版本；新记录省略这两个字段`);
         }
