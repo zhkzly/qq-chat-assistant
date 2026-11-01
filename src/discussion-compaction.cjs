@@ -1,7 +1,7 @@
 'use strict';
 const { createHash } = require('node:crypto');
 const { redact } = require('./model.cjs');
-const { postModel, modelFailure } = require('./model-http.cjs');
+const { postModel, modelFailure, modelTimeoutSignal } = require('./model-http.cjs');
 const { parseModelJson, readModelOutput } = require('./model-json.cjs');
 const { responseEnvelope } = require('./model-response-format.cjs');
 const { prepareAssistantRequest } = require('./assistant-model.cjs');
@@ -151,7 +151,7 @@ async function assistDiscussionCompaction(settings, plan, signal, fetchImpl = fe
   if ((!settings.apiKey && !settings.anonymous) || !settings.baseUrl || !settings.model) throw new Error('请先配置模型');
   const url = new URL(`${settings.baseUrl.replace(/\/$/, '')}/chat/completions`);
   if (!['http:','https:'].includes(url.protocol)) throw new Error('模型地址协议无效');
-  const boundedSignal = signal ? AbortSignal.any([signal, AbortSignal.timeout(60000)]) : AbortSignal.timeout(60000);
+  const boundedSignal = signal ? AbortSignal.any([signal, modelTimeoutSignal(settings)]) : modelTimeoutSignal(settings);
   const manifest = { purpose: 'discussion_compaction', identity: plan.identity, sourceTurnIds: plan.sourceTurnIds,
     sourceRevisions: plan.sourceRevisions, turnFingerprints: plan.turnFingerprints, requestByteBudget: plan.requestByteBudget, tokenizerVerified: false };
   const send = async (payload, budget, stageManifest) => {
