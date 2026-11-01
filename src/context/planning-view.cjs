@@ -289,7 +289,25 @@ function buildContext(options) {
   // conversation groups, relationship/memory projections) remain owned by
   // the legacy selection engine below until compiler parity is proven —
   // the integration boundary recorded in the CC1 delivery report.
-  const admission=compileAdmissionCore({options:{...options,asOf,viewerTimeZone},snapshot,candidates});
+  // The compiler authority must own BOTH caps (B6, design §3.3): the payload
+  // ceiling and the serialized-request ceiling. Passing the live contextBudget
+  // measure/requestByteBudget keeps the admission receipt honest — without it
+  // the shim measures against an invented infinite request cap and overstates
+  // deliverability (found by the dsh-parity harness). Two seams of the live
+  // measure cannot run over the governed-only shim payload, so the wrapper
+  // falls back to a payload+envelope estimate when they fire: (1) image
+  // validation — image-bearing sources are delivered by the legacy background
+  // admission until layer parity, so the serializer's image-source invariant
+  // cannot hold on the shim payload; (2) other payload-shape invariants the
+  // production serializer checks on content the compiler does not own. The
+  // authoritative serialized check remains finish() on the real payload.
+  const admissionMeasure=value=>{
+    if(!(value&&typeof value==='object'))return budget.measure(value);
+    try{return budget.measure(Object.assign({},value,{mediaContext:undefined,imageContext:undefined}));}
+    catch{return bytes(value)+budget.envelopeBytes;}
+  };
+  const admission=compileAdmissionCore({options:{...options,asOf,viewerTimeZone,
+    budget:{measure:admissionMeasure,requestByteBudget:budget.requestByteBudget}},snapshot,candidates});
   const admissionEntries=new Map();
   for(const entry of admission.admission?.plan?.admissions||[]){
     // Only governed kinds (floor, MQA-mandatory, guaranteed) replace the
