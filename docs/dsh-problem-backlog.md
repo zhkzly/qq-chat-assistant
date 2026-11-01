@@ -1,4 +1,11 @@
 # DSH Problem Backlog — Read-Only Cross-Component Audit
+## Live user-reported additions (2026-11-01 evening, real desktop usage)
+
+### B10 — QQ-local deletions never propagate to stored sources — P1
+User reports deleted QQ messages still influence the assistant. Discovery honors source.deleted (conversation-discovery.cjs:7) but ingestion is append-only: nothing observes QQ-side local deletions or reconciles the stored set against the currently visible history. Recall/exclusion have paths; local deletion has none. Fix ownership: M1 observation log must ingest via reconciliation (visible-vs-stored diff -> monotonic tombstones), not blind append.
+
+### B11 — Failed/partial generations may persist as stale discussion content — P1 (needs characterization)
+User reports that after a model generation failed mid-discussion and the question was re-asked, the stale failed content still influenced later turns. Suspect: failed/partial outputs stored as companion discussion turns without lifecycle cleanup. Characterize in integration phase (candidate/discussion store failure-path lifecycle); no conclusion yet.
 
 - Date: 2026-11-01
 - Auditor: DSH parallel read-only problem hunter (no production code modified)
