@@ -92,7 +92,7 @@ test('consumed leaf dependencies persist on the output family and invalidate a l
  const nextDependency=e.resolveMessageCandidate(scope,{turnId:revised.id,suggestionIndex:0,artifactRef:revised.suggestions[0].artifactRef}).dependency;
  const next=derived(store,nextDependency,'fictional-revised-again','查找功能昨天终于能用了，做这个小网页还挺有成就感的。');
  const nextRef=next.suggestions[0].artifactRef;
- const feedback=store.addFeedback(scope,{text:'最后这句保留自己的小进展就好。',targetRef:{kind:'artifact',artifactRef:nextRef}});
+ const feedback=store.addFeedback(scope,{text:'最后这句保留自己的小进展就好。',targetRef:{kind:'artifact',artifactRef:nextRef}, expectedDigest: store.experiences.artifact(scope, nextRef).bodyDigest});
  e.recordInteraction(scope,{clientEventId:'fictional-adopted-edit',type:'draft_adopted',text:next.suggestions[0].text,artifactRefs:[nextRef],expectedRevision:0});
  e.recordInteraction(scope,{clientEventId:'fictional-copy-edit',type:'clipboard_write',text:next.suggestions[0].text,artifactRefs:[nextRef]});
  e.invalidateArtifacts(scope,[selection.artifactRef],{mode:'correct'});

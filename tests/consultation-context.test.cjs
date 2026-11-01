@@ -100,7 +100,7 @@ test('same-millisecond private sources follow actual turn order and fit without 
  for(let i=0;i<4;i++){
   const user=store.appendTurn(scope,{id:`ffffffff-ffff-ffff-ffff-00000000000${i}`,role:'user',kind:'discussion',text:`过去第${i}次独立讨论。`});
   const answer=store.appendTurn(scope,{role:'assistant',kind:'discussion',requestId:`old-${i}`,text:`OLD_EVALUATED_${i}_`+'X'.repeat(4929),sourceIds:[`private:${user.id}`]});
-  store.addFeedback(scope,{text:`仅评价过去第${i}次帮助：当时太正式。`,targetRef:{kind:'artifact',artifactRef:answer.artifactRef}});
+  store.addFeedback(scope,{text:`仅评价过去第${i}次帮助：当时太正式。`,targetRef:{kind:'artifact',artifactRef:answer.artifactRef},expectedDigest:store.experiences.artifact(scope,answer.artifactRef).bodyDigest}); // F1: explicit artifact feedback pins its version by digest
  }
  const latest=store.appendTurn(scope,{id:'aaaaaaaa-aaaa-aaaa-aaaa-000000000001',role:'user',kind:'discussion',text:'这次请保留轻松的表达方式，不要连续追问。'});
  const answer=store.appendTurn(scope,{role:'assistant',kind:'discussion',text:'最新完整私下回复。'.repeat(80),sourceIds:[`private:${latest.id}`]});

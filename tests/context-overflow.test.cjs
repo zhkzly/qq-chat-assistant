@@ -17,7 +17,9 @@ function fixture(t, { latestText = '最新完整私下回复。'.repeat(600), by
       text: `OLD_EVALUATED_${index}_` + 'X'.repeat(4929), sourceIds: [`private:${user.id}`] });
     assert.ok(answer.text.length <= 6000, 'old evaluated responses fit the actual parser limit');
     parseAssistant({ kind: 'discussion', text: answer.text }, 'discussion');
-    const feedback = store.addFeedback(scope, { text: `仅评价过去第${index}次帮助：当时太正式。`, targetRef: { kind: 'artifact', artifactRef: answer.artifactRef } });
+    // Structural adaptation (F1 switchover): explicit artifact feedback pins
+    // its version with the expected digest; bare references no longer bind.
+    const feedback = store.addFeedback(scope, { text: `仅评价过去第${index}次帮助：当时太正式。`, targetRef: { kind: 'artifact', artifactRef: answer.artifactRef }, expectedDigest: store.experiences.artifact(scope, answer.artifactRef).bodyDigest });
     targets.push(store.experiences.hydrateFeedback(scope, feedback.id));
   }
   const latest = store.appendTurn(scope, { role: 'user', kind: 'discussion', text: '这次请保留轻松的表达方式，不要连续追问。' });

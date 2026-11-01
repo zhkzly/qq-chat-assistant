@@ -45,7 +45,7 @@ test('marker normalizer requires an exact single revision binding and has no unr
 test('canonical local feedback can bind a pending review while actual action receipts remain independently recorded', t => {
   const { store, source } = fixture(t);
   const original = store.appendTurn(scope, { role: 'assistant', kind: 'discussion', text: 'Synthetic evaluated answer', sourceIds: [source.id] });
-  const feedback = store.addFeedback(scope, { text: 'Synthetic local correction', targetRef: { kind: 'artifact', artifactRef: original.artifactRef } });
+  const feedback = store.addFeedback(scope, { text: 'Synthetic local correction', targetRef: { kind: 'artifact', artifactRef: original.artifactRef } , expectedDigest: store.experiences.artifact(scope, original.artifactRef).bodyDigest});
   const current = store.memorySources(scope).find(s => s.id === feedback.sourceId);
   const marker = { reasonCode: 'auxiliary_metadata_rejected', sourceIds: [current.id], sourceRevisions: { [current.id]: current.revision } };
   const receipts = [{ id: 'synthetic-action-receipt', status: 'applied', type: 'save_note' }];

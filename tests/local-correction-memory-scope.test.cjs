@@ -26,7 +26,7 @@ function fixture(t,{withFeedback=true}={}){
   const created={store,declarationId:'private:'+declaration.id,feedbackId:null};
   if(withFeedback){
     const answer=store.appendTurn(scope,{id:'assistant-answer',role:'assistant',kind:'discussion',text:'一份过于正式的参考表达。',requestId:'local-correction-run'});
-    const feedback=store.addFeedback(scope,{text:LOCAL_CORRECTION,targetRef:{kind:'artifact',artifactRef:answer.artifactRef},clientEventId:'local-correction-feedback'});
+    const feedback=store.addFeedback(scope,{text:LOCAL_CORRECTION,targetRef:{kind:'artifact',artifactRef:answer.artifactRef},clientEventId:'local-correction-feedback', expectedDigest: store.experiences.artifact(scope, answer.artifactRef).bodyDigest});
     created.feedbackId=feedback.sourceId;
   }
   return created;
@@ -77,7 +77,7 @@ test('a local correction does not rewrite, retire or share identity with the att
   const stableBefore=store.relationshipView(scope).claims.find(record=>record.applicabilityKind==='recurring');
   assert.ok(stableBefore);
   const answer=store.appendTurn(scope,{id:'assistant-answer-late',role:'assistant',kind:'discussion',text:'又一份过于正式的参考表达。',requestId:'local-correction-run-2'});
-  const feedback=store.addFeedback(scope,{text:LOCAL_CORRECTION,targetRef:{kind:'artifact',artifactRef:answer.artifactRef},clientEventId:'local-correction-feedback-2'});
+  const feedback=store.addFeedback(scope,{text:LOCAL_CORRECTION,targetRef:{kind:'artifact',artifactRef:answer.artifactRef},clientEventId:'local-correction-feedback-2', expectedDigest: store.experiences.artifact(scope, answer.artifactRef).bodyDigest});
   batch=store.memoryBatch(scope);
   assert.equal(store.applyMemoryBatch(scope,batch,complete(batch,{relationshipPatch:{claims:[localClaim(feedback.sourceId)],events:[],retire:[]}})).applied,true);
   const claims=store.relationshipView(scope).claims;

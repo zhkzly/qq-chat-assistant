@@ -25,14 +25,14 @@ test('a second source correction invalidates the captured review witness and can
  assert.equal(e.artifactStates({...scope,peerUid:'other'},refs)[0].availability,'unknown');
 });
 test('deleting a feedback display row forgets its canonical source and descendants',t=>{
- const s=setup(t),{a}=publish(s),f=s.addFeedback(scope,{targetRef:{kind:'artifact',artifactRef:a.artifactRef},text:'局部反馈'});
+ const s=setup(t),{a}=publish(s),f=s.addFeedback(scope,{targetRef:{kind:'artifact',artifactRef:a.artifactRef},text:'局部反馈', expectedDigest: s.experiences.artifact(scope, a.artifactRef).bodyDigest});
  const row=s.getCompanion(scope).turns.find(t=>t.feedbackId===f.id);s.deleteTurn(scope,row.id);
  assert.equal(s.memorySources(scope).some(x=>x.id===f.sourceId),false);assert.equal(s.experiences.hydrateFeedback(scope,f.id),null);
 });
 test('deleting an assistant turn purges only its artifact family and dependent copies, not shared raw sources or QQ',t=>{
  const s=setup(t),{u,a,refs}=publish(s),e=s.experiences;
  const other=s.appendTurn(scope,{role:'assistant',kind:'discussion',text:'独立保留的另一个建议',sourceIds:[`private:${u.id}`]});
- const f=s.addFeedback(scope,{targetRef:{kind:'artifact',artifactRef:refs[0]},text:'只评价第一条'});event(e,'draft_adopted','合成可修改表达',refs);
+ const f=s.addFeedback(scope,{targetRef:{kind:'artifact',artifactRef:refs[0]},text:'只评价第一条', expectedDigest: s.experiences.artifact(scope, refs[0]).bodyDigest});event(e,'draft_adopted','合成可修改表达',refs);
  const message=normalize(raw('900719925474099399',true),scope);s.add(scope,[message]);s.deleteTurn(scope,a.id);
  assert.equal(e.artifact(scope,refs[0]).availability,'redacted');assert.equal(e.draft(scope).text,'');assert.equal(e.hydrateFeedback(scope,f.id),null);
  assert.equal(e.artifact(scope,other.artifactRef).body,'独立保留的另一个建议');assert.ok(s.memorySources(scope).some(x=>x.id===`private:${u.id}`));assert.equal(s.messages(scope)[0].messageId,message.messageId);

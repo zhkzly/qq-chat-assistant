@@ -301,11 +301,31 @@ function compileContext(options = {}) {
   }
 
   // Background candidates: everything else, full ladder down to marker.
+  // An explicit marker is itself a deliverable that costs bytes: when the
+  // candidate set is large (a full history snapshot), pre-reserving a marker
+  // floor for EVERY background source can exceed the whole budget and make
+  // an otherwise feasible request undeliverable. Background sources are
+  // admitted as requirements only while their minimum markers remain
+  // affordable; the dropped tail is recorded as one explainable step — those
+  // sources are simply omitted this request (lookup still reaches them),
+  // which is exactly the legacy omitted-source disclosure.
+  const backgroundCandidates = [];
   for (const source of candidateSources) {
     if (required.has(source.id)) continue;
-    addRequirement(source.id, { id: source.id, kind: 'background', floorTier: 'marker', note: 'background candidate',
+    backgroundCandidates.push({ id: source.id, kind: 'background', floorTier: 'marker', note: 'background candidate',
       lookupHandle: { sourceIds: [source.id], revision: source.revision, offset: 0 }, tierSizes: tierSizesFor(source) });
   }
+  const markerFloorOf = requirement => (requirement.tierSizes.find(size => size.tier === requirement.floorTier) || requirement.tierSizes[requirement.tierSizes.length - 1]).bytes;
+  const reservedFloorBytes = [...required.values()].reduce((sum, requirement) => sum + markerFloorOf(requirement), 0);
+  const markerBudget = Math.max(0, authority.effectivePayloadBudget - reservedFloorBytes);
+  let backgroundUsed = 0, droppedBackground = 0;
+  for (const requirement of backgroundCandidates) {
+    const cost = markerFloorOf(requirement);
+    if (backgroundUsed + cost > markerBudget) { droppedBackground++; continue; }
+    backgroundUsed += cost;
+    required.set(requirement.id, requirement);
+  }
+  if (droppedBackground) record('background_sources_beyond_marker_budget', `${droppedBackground} background candidates`, 0, 0, null);
 
   // Plan under the authority. Admissions are copied mutable: settlement below
   // may degrade them further once metadata bytes are measured. If the floor
@@ -328,7 +348,7 @@ function compileContext(options = {}) {
           record('guarantee_degraded_to_marker', guarantee.id, 0, 0, { sourceIds: [guarantee.id], revision: byId.get(guarantee.id)?.revision, offset: 0 });
     }
   }
-  if (!planned.deliverable) throw new Error('即使按最小显式范围交付当前问题并降级其余内容，本次上下文预算仍不足以组成有效请求；请提高本次预算或缩短当前问题；没有静默截断');
+  if (!planned.deliverable) { if (process.env.DSH_DEBUG_ADMISSION) console.error('DEBUG required:', [...required.values()].map(r => ({ id: r.id, kind: r.kind, floorTier: r.floorTier, floorSize: (r.tierSizes.find(s => s.tier === r.floorTier) || r.tierSizes.at(-1)).bytes, sizes: r.tierSizes.map(s => s.tier + ':' + s.bytes) })), 'budget:', authority.effectivePayloadBudget, 'floorTotal:', [...required.values()].reduce((n, r) => n + (r.tierSizes.find(s => s.tier === r.floorTier) || r.tierSizes.at(-1)).bytes, 0)); throw new Error('即使按最小显式范围交付当前问题并降级其余内容，本次上下文预算仍不足以组成有效请求；请提高本次预算或缩短当前问题；没有静默截断'); }
   const plan = { ...planned, admissions: planned.admissions.map(admission => ({ ...admission })) };
 
   // (7) Identity-entailed rendering stays at fragment-build time: each derived

@@ -38,7 +38,7 @@ function fixture(t,{withFeedback=true}={}){
   const created={store,declarationId:'private:'+declaration.id,feedbackId:null};
   if(withFeedback){
     const answer=store.appendTurn(scope,{id:'assistant-answer',role:'assistant',kind:'discussion',text:'一份过于正式的参考表达。',requestId:'local-correction-run'});
-    const feedback=store.addFeedback(scope,{text:LOCAL_CORRECTION,targetRef:{kind:'artifact',artifactRef:answer.artifactRef},clientEventId:'local-correction-feedback'});
+    const feedback=store.addFeedback(scope,{text:LOCAL_CORRECTION,targetRef:{kind:'artifact',artifactRef:answer.artifactRef},clientEventId:'local-correction-feedback', expectedDigest: store.experiences.artifact(scope, answer.artifactRef).bodyDigest});
     created.feedbackId=feedback.sourceId;
   }
   return created;
@@ -177,7 +177,7 @@ test('attested stable preferences persist without regression across later correc
   assert.ok(admissionReceipts.every(entry=>entry.code==='preference_candidate'),'an owner-backed proposal files only the designed candidate receipt');
   // A later round misfiles the local correction as a recurring preference.
   const answer=store.appendTurn(scope,{id:'assistant-answer-2',role:'assistant',kind:'discussion',text:'又一份过于正式的参考表达。',requestId:'local-correction-run-2'});
-  const feedback=store.addFeedback(scope,{text:LOCAL_CORRECTION,targetRef:{kind:'artifact',artifactRef:answer.artifactRef},clientEventId:'local-correction-feedback-2'});
+  const feedback=store.addFeedback(scope,{text:LOCAL_CORRECTION,targetRef:{kind:'artifact',artifactRef:answer.artifactRef},clientEventId:'local-correction-feedback-2', expectedDigest: store.experiences.artifact(scope, answer.artifactRef).bodyDigest});
   batch=store.memoryBatch(scope);
   const result=gate.apply(scope,batch,complete(batch,{relationshipPatch:{claims:[misfiledClaim(feedback.sourceId)],events:[],retire:[]}}));
   assert.equal(result.applied,true,JSON.stringify(result));
@@ -234,7 +234,7 @@ test('program repetition counting proposes promotion candidates but never activa
   const texts=['这轮先别连续提问。','这轮也别连续提问，先接她说的。','这轮同样别连续提问，放松一点。'];
   days.forEach((day,index)=>{
     const answer=store.appendTurn(scope,{id:'answer-'+index,role:'assistant',kind:'discussion',text:'连续提问的参考表达。',requestId:'run-'+index});
-    const feedback=store.addFeedback(scope,{text:texts[index],targetRef:{kind:'artifact',artifactRef:answer.artifactRef},clientEventId:'feedback-'+index});
+    const feedback=store.addFeedback(scope,{text:texts[index],targetRef:{kind:'artifact',artifactRef:answer.artifactRef},clientEventId:'feedback-'+index, expectedDigest: store.experiences.artifact(scope, answer.artifactRef).bodyDigest});
     // Distinct source days make the three corrections distinct episodes.
     const record=JSON.parse(store.db.prepare('SELECT record FROM experience_objects WHERE scope_key=? AND kind=? AND id=?').get(store.scopeKey(scope),'feedback',feedback.id).record);
     record.createdAt=day;

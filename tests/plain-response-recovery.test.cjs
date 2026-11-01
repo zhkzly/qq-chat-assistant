@@ -284,7 +284,7 @@ test('oversized protected pending originals fail without silently cutting the co
 test('pending canonical feedback keeps its exact evaluated object or explicitly rejects its budget', t => {
   const { store, args } = fixture(t), evaluated = store.appendTurn(scope, { role: 'assistant', kind: 'discussion',
     text: '原始完整评价对象。'.repeat(650), sourceIds: [`private:${args.turn.id}`] });
-  const feedback = store.addFeedback(scope, { targetRef: { kind: 'artifact', artifactRef: evaluated.artifactRef }, text: '这句多问了，不要再连着追问。' });
+  const feedback = store.addFeedback(scope, { targetRef: { kind: 'artifact', artifactRef: evaluated.artifactRef }, text: '这句多问了，不要再连着追问。' , expectedDigest: store.experiences.artifact(scope, evaluated.artifactRef).bodyDigest});
   const companion = store.getCompanion(scope);
   const feedbackRevision = store.memorySources(scope).find(source => source.id === feedback.sourceId).revision;
   companion.turns.push({ id: 'feedback-help', role: 'assistant', kind: 'discussion', text: '本次先按反馈继续帮助。',

@@ -40,8 +40,9 @@ function buildFixtureStore() {
   store.saveNote(scope, { id: 'note-material', text: '她喜欢看展览，特别是当代艺术', use: 'discussion' });
   store.saveNote(scope, { id: 'note-draft', text: '可分享：上次爬山她很开心', use: 'draft' });
   store.saveNote(scope, { id: 'note-off', text: '这条笔记停用了', use: 'disabled' });
-  store.appendTurn(scope, { role: 'assistant', kind: 'reply', text: '辛苦了，注意休息', requestId: 'req-1' });
-  store.addFeedback(scope, { text: '这条建议太正式了', requestId: 'req-1' });
+  const evaluatedReply = store.appendTurn(scope, { role: 'assistant', kind: 'reply', text: '辛苦了，注意休息', requestId: 'req-1' });
+  // F1: explicit artifact binding with digest pinning
+  store.addFeedback(scope, { text: '这条建议太正式了', targetRef: { kind: 'artifact', artifactRef: evaluatedReply.artifactRef }, expectedDigest: store.experiences.artifact(scope, evaluatedReply.artifactRef).bodyDigest });
   store.forgetSource(scope, 'qq:1005');
   return { store, liveTurn, controlTurn };
 }

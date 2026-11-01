@@ -39,12 +39,26 @@ const { maintainMemory: runMemoryMaintenance } = require('./memory-engine.cjs');
 const { applyUserActions, confirmUserAction, undoUserAction } = require('./assistant-actions.cjs');
 const { methodFor } = require('./help-methods.cjs');
 const {CandidateSession}=require('./candidate-session.cjs');
+const {PresentationCandidateSession}=require('./feedback/presentation-candidate-session.cjs');
+const {PresentationLedger,canonicalScopeKey}=require('./feedback/presentation-ledger.cjs');
+const {createGatedStore}=require('./memory/write-gate.cjs');
 class Controller extends EventEmitter {
   constructor({ store, read, settings, model = generate, assistantModel = assistModel, memoryModel = null, compactionModel = assistDiscussionCompaction,
     now = Date.now, viewerTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone }) {
     super(); Object.assign(this, { store, read, settings, model, assistantModel, memoryModel, compactionModel, now, viewerTimeZone });
-    this.candidateSession=new CandidateSession({now:()=>this.candidateNow(),sourceValidity:candidate=>!candidate.artifactRef||
-      this.store.experiences.artifactStates(candidate.scope,[candidate.artifactRef,...(candidate.suggestions||[]).map(item=>item.artifactRef)]).every(item=>item.availability==='active')});
+    // F1 feedback binding: every published display mints server-owned
+    // presentation identities through the SAME ledger the store's
+    // FeedbackBindingStore resolves feedback from. Stores assembled with a
+    // plain ExperienceStore (older fixtures) keep working with a local ledger.
+    const presentationLedger=this.store?.experiences?.presentationLedger||new PresentationLedger({scopeKey:canonicalScopeKey});
+    this.candidateSession=new PresentationCandidateSession({
+      session:new CandidateSession({now:()=>this.candidateNow(),sourceValidity:candidate=>!candidate.artifactRef||
+        this.store.experiences.artifactStates(candidate.scope,[candidate.artifactRef,...(candidate.suggestions||[]).map(item=>item.artifactRef)]).every(item=>item.availability==='active')}),
+      ledger:presentationLedger});
+    // MW1 write gate: memory maintenance runs through a gated view of the
+    // store so every applyMemoryBatch passes the decision-split gate while
+    // every other operation reaches the real store unchanged.
+    this.memoryGateStore=this.store?createGatedStore(this.store):null;
     this.status = { phase: 'waiting_qq', account: null };
     this.selectedImages=[];this.replyMessageIds=[];this.visionCache=null;this.features={qqDraftFill:false};
     this.scope = null; this.epoch = 0; this.revision = 0; this.advice = null;
@@ -325,8 +339,37 @@ class Controller extends EventEmitter {
   deleteTurn(id) { const scope=this.requireScope(),result = this.store.deleteTurn(scope, id);this.usage.redactInputs(scope); this.changedContext(); return result; }
   addFeedback(args) {
     const scope = this.requireScope();
-    const feedback = this.store.addFeedback(scope, args);
+    const feedback = this.store.addFeedback(scope, this.completeFeedbackTarget(scope, args));
+    // A stale/unknown presentation notice is a re-bind prompt, not a saved
+    // record: surface it without invalidating the current assistant state.
+    if (feedback?.staleFeedbackTarget) return feedback;
     this.changedContext(); return feedback;
+  }
+  // F1 server-side completion for explicitly selected feedback targets: a
+  // bare artifact reference (history turns rendered from the current store)
+  // or a typed requestId is resolved HERE into an explicit artifact reference
+  // pinned by its expected digest, so the binding store's strict contract
+  // (presentationId, or artifactRef+expectedDigest) is satisfied without
+  // restoring the silent requestId-only resolution B8 removed. Resolution
+  // failure propagates the store's honest contract error.
+  completeFeedbackTarget(scope, args) {
+    if (args.presentationId !== undefined || args.expectedDigest !== undefined) return args;
+    const artifactDigest = reference => {
+      try { return this.store.experiences.artifact(scope, reference)?.bodyDigest; } catch { return undefined; }
+    };
+    if (args.targetRef?.kind === 'artifact' && args.targetRef.artifactRef) {
+      const expectedDigest = artifactDigest(args.targetRef.artifactRef);
+      return expectedDigest ? { ...args, expectedDigest } : args;
+    }
+    if (!args.targetRef && typeof args.requestId === 'string' && args.requestId) {
+      const turns = this.store.getCompanion(scope).turns.filter(turn => turn.role === 'assistant' && turn.requestId === args.requestId);
+      const target = turns.at(-1);
+      if (target?.artifactRef) {
+        const expectedDigest = artifactDigest(target.artifactRef);
+        if (expectedDigest) return { ...args, targetRef: { kind: 'artifact', artifactRef: target.artifactRef }, expectedDigest };
+      }
+    }
+    return args;
   }
   async continueFeedback(args) {
     const scope={...this.requireScope()};
@@ -339,7 +382,8 @@ class Controller extends EventEmitter {
     const run=async()=>{
       const oldTask=this.usage.db.prepare('SELECT scope_key FROM assistant_tasks WHERE id=?').get(args.taskId);
       if(oldTask&&oldTask.scope_key!==this.store.scopeKey(scope))throw new Error('继续请求不属于当前会话');
-      const feedback=this.store.addFeedback(scope,args);
+      const feedback=this.store.addFeedback(scope,this.completeFeedbackTarget(scope,args));
+      if(feedback?.staleFeedbackTarget)return {...this.snapshot(),staleFeedbackTarget:feedback.staleFeedbackTarget};
       if(!this.store.memorySources(scope).some(source=>source.id===feedback.sourceId))throw new Error('这条反馈的来源已删除，请基于当前内容重新反馈');
       const reference=this.store.getCompanion(scope).turns.find(turn=>turn.kind==='feedback_ref'&&turn.feedbackId===feedback.id);
       if(!reference)throw new Error('反馈已保存，但缺少可继续参考的对象');
@@ -435,7 +479,7 @@ class Controller extends EventEmitter {
     this.memoryBusy=true;this.changed();
     const active=()=>this.memoryAbort===abort&&!abort.signal.aborted&&this.epoch===epoch&&sameScope(scope,this.scope)&&this.hasModelConsent()&&this.settings.baseUrl===settings.baseUrl&&this.settings.model===settings.model;
     try {
-      const result=await runMemoryMaintenance({store:this.store,scope,settings,model:this.memoryModel,signal:abort.signal,maxBatches,
+      const result=await runMemoryMaintenance({store:this.memoryGateStore||this.store,scope,settings,model:this.memoryModel,signal:abort.signal,maxBatches,
         shouldContinue:active,onProgress:()=>{if(active())this.changed();}});
       if(result.batches){this.memoryFailures=0;this.memoryRetryAfter=0;}
       if(['error','rejected','blocked'].includes(result.status)){this.memoryFailures++;this.memoryRetryAfter=Date.now()+Math.min(300000,60000*this.memoryFailures);}
@@ -515,7 +559,16 @@ class Controller extends EventEmitter {
         const index=this.store.searchMemory(scope,query,{limit:8});
         const explicitFeedbackIds=sourceTurnIds.map(id=>companion.turns.find(t=>t.id===id)?.feedbackId).filter(Boolean);
         const experienceContext=this.store.experiences?.context(scope,{query,limit:4});
-        if(experienceContext&&explicitFeedbackIds.length){const chosen=explicitFeedbackIds.map(id=>this.store.experiences.hydrateFeedback(scope,id)).filter(Boolean);experienceContext.evaluationTargets=[...new Map([...chosen,...experienceContext.evaluationTargets].map(target=>[target.feedback.id,target])).values()].slice(0,4);}
+        let feedbackTargets=[];
+        if(explicitFeedbackIds.length){const chosen=explicitFeedbackIds.map(id=>this.store.experiences.hydrateFeedback(scope,id)).filter(Boolean);
+          if(experienceContext)experienceContext.evaluationTargets=[...new Map([...chosen,...experienceContext.evaluationTargets].map(target=>[target.feedback.id,target])).values()].slice(0,4);
+          // CC1 integration requirement: the compiler's feedback_target
+          // mandatory material is fed from presentation-resolved feedback —
+          // targets saved through the F1 binding store carry the minted
+          // presentation identity of the displayed artifact they bind.
+          feedbackTargets=chosen.map(item=>({sourceId:item.feedback.sourceId,feedbackId:item.feedback.id,
+            ...(item.feedback.presentationId?{presentationId:item.feedback.presentationId}:{})}));
+        }
         const topicContext=this.store.topicView?.(scope);
         const discoveryRecords=this.store.knowledgeDirectory?.(scope)||[...(memoryResult.items||[]),...(memoryResult.episodes||[])];
         const liveIds=new Set(availableSources.map(source=>source.id));
@@ -532,7 +585,7 @@ class Controller extends EventEmitter {
           memoryIndex:[...index.items,...index.episodes],memoryDiscovery,retrievedSources,methodLookupIds,sourceTurnIds,selectedOption,currentCandidateRef,candidateAlternative:candidateAlternative===true&&invocation.origin==='user',replyMessageIds:[...this.replyMessageIds],imageMessageIds:liveImages.map(image=>image.messageId),
           actionReceipts:receipts,lookupHistory,reviewRange,
           relationshipContext:this.store.relationshipView?.(scope,{query,limit:16}),
-          experienceContext,allowExperienceProposals:purpose==='review'||explicitFeedbackIds.length>0,topicContext,intentSourceId,
+          experienceContext,feedbackTargets,allowExperienceProposals:purpose==='review'||explicitFeedbackIds.length>0,topicContext,intentSourceId,
           generationOrigin:feedbackIntentId?'user_feedback':transient?'qq_observation':'private_discussion',responsePreference,
           discussionCompaction:activeCompaction,sourceLookupIds,retrievedDiscussion,requestDeliveryObligation,lookupExhausted:lookups>=2,store:this.store,promptVersion:PROMPT_VERSION };
       };

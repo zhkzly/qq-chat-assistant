@@ -73,7 +73,9 @@ test('background relationship patches commit with review progress and source rem
 
 test('canonical feedback and its derived note cannot launder a local complaint into stable preference',t=>{
   const s=new Store(':memory:');t.after(()=>s.close());s.saveRun(scope,{id:'request'});
-  const f=s.addFeedback(scope,{requestId:'request',text:'这句太正式',kind:'local'});
+  // F1: bind feedback explicitly to the retained answer artifact
+  const evaluated=s.appendTurn(scope,{role:'assistant',kind:'discussion',text:'先前那句建议',requestId:'request'});
+  const f=s.addFeedback(scope,{targetRef:{kind:'artifact',artifactRef:evaluated.artifactRef},expectedDigest:s.experiences.artifact(scope,evaluated.artifactRef).bodyDigest,text:'这句太正式',kind:'local'});
   s.appendTurn(scope,{role:'user',kind:'feedback',text:'对助手建议的反馈：这句太正式',requestId:'request'});
   const sources=s.memorySources(scope);assert.equal(sources.filter(x=>x.text.includes('这句太正式')).length,1);
   const n=s.saveNote(scope,{text:'这次正式语气不合适',use:'discussion',evidenceSourceIds:[`private:feedback-${f.id}`]});
@@ -112,7 +114,7 @@ test('partial evidence never yields a current supported profile and source recal
 test('ordinary correction keeps a stale evaluation target but forget purges its body and dependent feedback',t=>{
   const s=new Store(':memory:');t.after(()=>s.close());const u=user(s,'合成私人素材：周六一起看电影');const sourceId=`private:${u.id}`;
   const answer=s.appendTurn(scope,{role:'assistant',kind:'discussion',text:'可以接着讨论周六看电影',requestId:'old-answer',sourceIds:[sourceId]});
-  const f=s.addFeedback(scope,{targetRef:{kind:'artifact',artifactRef:answer.artifactRef},text:'这句话没考虑时间'});
+  const f=s.addFeedback(scope,{targetRef:{kind:'artifact',artifactRef:answer.artifactRef},text:'这句话没考虑时间', expectedDigest: s.experiences.artifact(scope, answer.artifactRef).bodyDigest});
   s.updateTurn(scope,u.id,'更正：周日才有空');
   assert.equal(s.experiences.artifact(scope,answer.artifactRef).availability,'stale');
   assert.ok(s.experiences.hydrateFeedback(scope,f.id).target);
@@ -227,7 +229,9 @@ test('rereading a contact statement with a new user question and changed tags do
 
 test('forgetting a possible canonical target removes an ambiguous legacy plaintext mirror',t=>{
   const s=new Store(':memory:');t.after(()=>s.close());s.saveRun(scope,{id:'ambiguous-request'});
-  const a=s.addFeedback(scope,{requestId:'ambiguous-request',text:'同样的局部意见'});s.addFeedback(scope,{requestId:'ambiguous-request',text:'同样的局部意见'});
+  // F1: bind both feedback records explicitly to the retained answer artifact
+  const evaluated=s.appendTurn(scope,{role:'assistant',kind:'discussion',text:'先前那句建议',requestId:'ambiguous-request'});
+  const a=s.addFeedback(scope,{targetRef:{kind:'artifact',artifactRef:evaluated.artifactRef},expectedDigest:s.experiences.artifact(scope,evaluated.artifactRef).bodyDigest,text:'同样的局部意见'});s.addFeedback(scope,{targetRef:{kind:'artifact',artifactRef:evaluated.artifactRef},expectedDigest:s.experiences.artifact(scope,evaluated.artifactRef).bodyDigest,text:'同样的局部意见'});
   const r=s.getCompanion(scope);r.turns.push({id:'ambiguous-mirror',role:'user',kind:'feedback',text:'对助手建议的反馈：同样的局部意见',requestId:'ambiguous-request',createdAt:new Date().toISOString()});
   s.db.prepare('UPDATE companion SET record=? WHERE scope_key=?').run(JSON.stringify(r),s.scopeKey(scope));s.memorySources(scope);
   s.forgetSource(scope,a.sourceId);
@@ -238,7 +242,9 @@ test('forgetting a possible canonical target removes an ambiguous legacy plainte
 
 test('state CAS persists canonical feedback references without creating a semantic revision on read',t=>{
   const s=new Store(':memory:');t.after(()=>s.close());s.saveRun(scope,{id:'feedback-state'});
-  s.addFeedback(scope,{requestId:'feedback-state',text:'这次语气太正式'});
+  // F1: bind feedback explicitly to the retained answer artifact
+  const evaluated=s.appendTurn(scope,{role:'assistant',kind:'discussion',text:'先前那句建议',requestId:'feedback-state'});
+  s.addFeedback(scope,{targetRef:{kind:'artifact',artifactRef:evaluated.artifactRef},expectedDigest:s.experiences.artifact(scope,evaluated.artifactRef).bodyDigest,text:'这次语气太正式'});
   const before=s.getCompanion(scope),ids=s.memorySources(scope).map(source=>source.id);
   const state=s.applyState(scope,{},{baseRevision:before.revision,baseStateVersion:before.state.version,sourceIds:ids,coverage:{complete:true,sourceIds:ids}});
   assert.equal(state.applied,true);assert.equal(s.getCompanion(scope).revision,before.revision);

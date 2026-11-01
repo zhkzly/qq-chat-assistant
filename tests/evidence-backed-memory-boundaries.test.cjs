@@ -177,7 +177,9 @@ test('semantic revisions cannot use an old target summary or new source alone as
 
 test('local feedback cannot become a recurring preference through canonical or derived-note evidence',t=>{
  const store=app(t);store.saveRun(scope,{id:'local-feedback-run'});
- const feedback=store.addFeedback(scope,{requestId:'local-feedback-run',text:'For this answer, be shorter.',kind:'local'}),id='private:feedback-'+feedback.id;
+ // F1: bind the retained answer artifact explicitly with its digest
+ const evaluatedAnswer=store.appendTurn(scope,{role:'assistant',kind:'discussion',text:'The evaluated answer.',requestId:'local-feedback-run'});
+ const feedback=store.addFeedback(scope,{targetRef:{kind:'artifact',artifactRef:evaluatedAnswer.artifactRef},expectedDigest:store.experiences.artifact(scope,evaluatedAnswer.artifactRef).bodyDigest,text:'For this answer, be shorter.',kind:'local'}),id='private:feedback-'+feedback.id;
  const note=store.saveNote(scope,{text:'A copy of this answer-specific feedback.',use:'discussion',evidenceSourceIds:[id]});
  for(const sourceId of [id,'note:'+note.id]){
   const result=store.applyRelationshipPatch(scope,{claims:[claim(sourceId,{subject:'self',aspect:'stated_preference',text:'The user always wants shorter replies.',assertionKind:'stated',applicabilityKind:'recurring'})]},grounded(store,[sourceId]));

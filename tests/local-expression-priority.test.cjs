@@ -20,7 +20,7 @@ function fixture(t,{core=false,feedback=false,text='这轮不要用短句，可�
  store.add(scope,[normalize(raw('62001',false,{msgTime:String(Math.floor(Date.parse(asOf)/1000)-60),elements:[{elementType:1,textElement:{content:'刚发现这首歌有现场版'}}]}),scope)]);
  let turn,intentSourceId;
  if(feedback){const target=store.appendTurn(scope,{role:'assistant',kind:'discussion',text:'一份虚构参考。',requestId:'local-priority-target',sourceIds:['qq:62001']});
-  const saved=store.addFeedback(scope,{text,targetRef:{kind:'artifact',artifactRef:target.artifactRef},clientEventId:'local-priority-feedback'});intentSourceId=saved.sourceId;
+  const saved=store.addFeedback(scope,{text,targetRef:{kind:'artifact',artifactRef:target.artifactRef},clientEventId:'local-priority-feedback', expectedDigest: store.experiences.artifact(scope, target.artifactRef).bodyDigest});intentSourceId=saved.sourceId;
   turn={id:'priority-feedback-request',role:'user',kind:'discussion',text:'结合选中的反馈继续。',transient:true};
  }else turn=store.appendTurn(scope,{role:'user',kind:'discussion',text});
  const args={scope,store,records:store.messages(scope),availableSources:store.memorySources(scope),companion:store.getCompanion(scope),turn,purpose:'discussion',intentSourceId,

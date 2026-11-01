@@ -63,7 +63,10 @@ test('forgetting observed QQ persists exclusion across reimport without changing
 });
 
 test('memory cannot update user goals, grant material permission, promote local feedback or revive later cancelled plan from backfill',t=>{
-  const s=new Store(':memory:');t.after(()=>s.close());s.setGoal(scope,'逐渐了解');s.saveRun(scope,{id:'r'});s.addFeedback(scope,{requestId:'r',text:'这次太长了'});
+  const s=new Store(':memory:');t.after(()=>s.close());s.setGoal(scope,'逐渐了解');s.saveRun(scope,{id:'r'});
+  // F1: bind feedback explicitly to the retained answer artifact with its digest
+  const evaluated=s.appendTurn(scope,{role:'assistant',kind:'discussion',text:'可以先聊聊近况',requestId:'r'});
+  s.addFeedback(scope,{targetRef:{kind:'artifact',artifactRef:evaluated.artifactRef},expectedDigest:s.experiences.artifact(scope,evaluated.artifactRef).bodyDigest,text:'这次太长了'});
   let b=s.memoryBatch(scope);assert.equal(s.applyMemoryBatch(scope,b,receipt(b,{goal:'hack'})).applied,false);
   // Structural reason (B1 decision-split): a preference proposal is a
   // committing any preference record.
@@ -146,8 +149,8 @@ test('numeric QQ IDs are rejected before precision loss can become a durable sou
 
 test('changing the user goal resets current plans but preserves private dialogue and feedback history',t=>{
   const s=new Store(':memory:');t.after(()=>s.close());const u=turn(s,'希望先多了解彼此');
-  s.saveRun(scope,{id:'run',requestId:'request'});s.appendTurn(scope,{role:'assistant',kind:'discussion',text:'可以先聊聊共同兴趣',requestId:'request',actionReceipts:[{id:'r',status:'applied'}]});
-  s.addFeedback(scope,{requestId:'request',text:'这次很有帮助'});const record=s.getCompanion(scope);
+  s.saveRun(scope,{id:'run',requestId:'request'});const evaluated=s.appendTurn(scope,{role:'assistant',kind:'discussion',text:'可以先聊聊共同兴趣',requestId:'request',actionReceipts:[{id:'r',status:'applied'}]});
+  s.addFeedback(scope,{targetRef:{kind:'artifact',artifactRef:evaluated.artifactRef},expectedDigest:s.experiences.artifact(scope,evaluated.artifactRef).bodyDigest,text:'这次很有帮助'});const record=s.getCompanion(scope);
   s.applyState(scope,{focus:'旧目标下的计划',openThreads:[{text:'待讨论的选择',sourceIds:[`private:${u.id}`]}]},{baseRevision:record.revision,sourceIds:[`private:${u.id}`],coverage:{complete:false,sourceIds:[`private:${u.id}`]}});
   s.setGoal(scope,'希望更自然地相互了解');const after=s.getCompanion(scope);
   assert.equal(after.turns.filter(t=>t.kind!=='feedback_ref').length,2);assert.equal(after.turns.filter(t=>t.kind==='feedback_ref').length,1);assert.equal(after.feedback.length,1);assert.equal(after.runs.length,0);assert.equal(after.state.focus,'');assert.deepEqual(after.state.openThreads,[]);
