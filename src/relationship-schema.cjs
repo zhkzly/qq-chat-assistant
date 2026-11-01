@@ -44,7 +44,7 @@ function transition(value,out,path){
   }
 }
 function normalizeClaim(value,path) {
-  fields(value,['id','expectedVersion','subject','aspect','text','assertionKind','epistemicStatus','lifecycle','validFrom','validUntil','context','sourceIds','topicKeys','applicabilityKind','condition','attribution','transition'],path);
+  fields(value,['id','expectedVersion','subject','aspect','text','assertionKind','epistemicStatus','lifecycle','validFrom','validUntil','context','sourceIds','topicKeys','applicabilityKind','condition','attribution','transition','activityProof','currentStateProof'],path);
   const out={...common(value,path),subject:choice(value.subject,SUBJECTS,`${path}.subject`),aspect:choice(value.aspect,ASPECTS,`${path}.aspect`),
     assertionKind:choice(value.assertionKind,ASSERTIONS,`${path}.assertionKind`),epistemicStatus:choice(value.epistemicStatus,EPISTEMIC,`${path}.epistemicStatus`),
     lifecycle:choice(value.lifecycle||'active',LIFECYCLES,`${path}.lifecycle`)};
@@ -58,12 +58,19 @@ function normalizeClaim(value,path) {
   for(const key of ['validFrom','validUntil'])if(value[key]!==undefined&&value[key]!==null)out[key]=time(value[key],`${path}.${key}`);
   if(out.validFrom&&out.validUntil&&out.validFrom>out.validUntil)invalid(path,'validFrom must not follow validUntil');
   if(value.context!==undefined)out.context=text(value.context,`${path}.context`,500);
+  if(value.activityProof!==undefined||value.currentStateProof!==undefined){
+    if(out.aspect!=='coordination'||!value.activityProof)invalid(path,'activity current-state mode requires coordination and original proof');
+    fields(value.currentStateProof,['status'],`${path}.currentStateProof`);out.currentStateProof={status:choice(value.currentStateProof.status,['invited','accepted','declined','rescheduled','cancelled','unknown'],`${path}.currentStateProof.status`)};
+    out.activityProof=require('./activity-evidence.cjs').normalizeProof(value.activityProof,`${path}.activityProof`);
+    if(out.activityProof.occurrence.basis!=='unknown')invalid(path,'current-state claims have a source as-of time, not an event occurrence clock');
+  }
   return out;
 }
 function normalizeEvent(value,path) {
-  fields(value,['id','expectedVersion','activityKey','eventKind','actor','text','occurredAt','sourceIds','topicKeys','transition'],path);
+  fields(value,['id','expectedVersion','activityKey','eventKind','actor','text','occurredAt','sourceIds','topicKeys','transition','activityProof'],path);
   const out={...common(value,path),activityKey:text(value.activityKey,`${path}.activityKey`,120),eventKind:choice(value.eventKind,EVENT_KINDS,`${path}.eventKind`),actor:choice(value.actor,['self','contact','both','unknown'],`${path}.actor`)};
   if(value.occurredAt!==undefined&&value.occurredAt!==null)out.occurredAt=time(value.occurredAt,`${path}.occurredAt`);
+  if(value.activityProof!==undefined)out.activityProof=require('./activity-evidence.cjs').normalizeProof(value.activityProof,`${path}.activityProof`);
   transition(value,out,path);
   return out;
 }

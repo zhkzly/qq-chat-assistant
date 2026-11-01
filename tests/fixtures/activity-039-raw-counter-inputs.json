@@ -1,0 +1,209 @@
+{
+  "provenance": "Frozen fictional raw inputs only; expected understanding and reviewer criteria are deliberately absent.",
+  "sources": [
+    {
+      "file": "/home/zhkzly/pycodes/qq-chat-assistant/.goal-runs/activity039-raw-counters.jsonl",
+      "sha256": "bc87197057538202702e028d4d8fc23414bc627fd50253be815073dfe8087b9d",
+      "cases": [
+        {
+          "id": "mu-mixed-user-report-after-recall",
+          "initial": {
+            "as_of": "2026-10-03T19:01:00+08:00",
+            "qq_events": [
+              {
+                "id": "invite",
+                "at": "2026-10-01T18:00:00+08:00",
+                "speaker": "self",
+                "text": "10月10日一起去看看那个展吗？",
+                "provenance": "authored_external_qq"
+              },
+              {
+                "id": "accept",
+                "at": "2026-10-01T18:01:00+08:00",
+                "speaker": "contact",
+                "text": "好呀，可以。",
+                "provenance": "authored_external_qq"
+              },
+              {
+                "id": "cancel",
+                "at": "2026-10-03T19:00:00+08:00",
+                "speaker": "contact",
+                "text": "10号这次先不去了，周末临时有别的安排。",
+                "provenance": "authored_external_qq"
+              }
+            ],
+            "private_events": []
+          },
+          "runtime_goal": "和这位朋友保持联系，商量一起看展的安排。",
+          "steps": [
+            {
+              "id": "s1",
+              "as_of": "2026-10-03T19:18:00+08:00",
+              "qq_events": [],
+              "private_events": [],
+              "source_updates": [],
+              "request": {
+                "id": "r-s1",
+                "at": "2026-10-03T19:18:00+08:00",
+                "text": "我们这次看展现在是什么状态？"
+              }
+            },
+            {
+              "id": "s2",
+              "as_of": "2026-10-07T19:18:00+08:00",
+              "qq_events": [],
+              "private_events": [],
+              "source_updates": [
+                {
+                  "channel": "qq",
+                  "operation": "recall",
+                  "id": "cancel",
+                  "at": "2026-10-06T19:00:00+08:00"
+                }
+              ],
+              "request": {
+                "id": "mixed-report-r2",
+                "at": "2026-10-07T19:18:00+08:00",
+                "text": "补充一下：今天18:00我们在语音里重新确认了，10月10日下午两点还是一起看展。这个时候该怎么理解安排，再接她一句比较自然？"
+              }
+            }
+          ]
+        },
+        {
+          "id": "mu-two-activities-one-source-recall",
+          "initial": {
+            "as_of": "2026-10-03T19:01:00+08:00",
+            "qq_events": [
+              {
+                "id": "two-invite",
+                "at": "2026-10-01T18:00:00+08:00",
+                "speaker": "self",
+                "text": "10月10日去看展，10月11日去看电影，你都方便吗？",
+                "provenance": "authored_external_qq"
+              },
+              {
+                "id": "two-accept",
+                "at": "2026-10-01T18:01:00+08:00",
+                "speaker": "contact",
+                "text": "两个都可以。",
+                "provenance": "authored_external_qq"
+              },
+              {
+                "id": "exhibit-cancel",
+                "at": "2026-10-03T19:00:00+08:00",
+                "speaker": "contact",
+                "text": "10号看展临时先取消。",
+                "provenance": "authored_external_qq"
+              }
+            ],
+            "private_events": []
+          },
+          "runtime_goal": "和这位朋友保持联系，商量周末一起出门的安排。",
+          "steps": [
+            {
+              "id": "s1",
+              "as_of": "2026-10-03T19:18:00+08:00",
+              "qq_events": [],
+              "private_events": [],
+              "source_updates": [],
+              "request": {
+                "id": "two-r1",
+                "at": "2026-10-03T19:18:00+08:00",
+                "text": "这两个安排现在分别是什么状态？"
+              }
+            },
+            {
+              "id": "s2",
+              "as_of": "2026-10-06T19:18:00+08:00",
+              "qq_events": [],
+              "private_events": [],
+              "source_updates": [
+                {
+                  "channel": "qq",
+                  "operation": "recall",
+                  "id": "exhibit-cancel",
+                  "at": "2026-10-06T19:00:00+08:00"
+                }
+              ],
+              "request": {
+                "id": "two-r2",
+                "at": "2026-10-06T19:18:00+08:00",
+                "text": "那条临时调整撤回后，看展和电影现在分别能确认到什么程度？"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "file": "/home/zhkzly/pycodes/qq-chat-assistant/.goal-runs/activity039-world-time-counter.jsonl",
+      "sha256": "8b28b27ce23cd50c43b5a0da717c99f5623379ab398e517d9c94d7e6a12ffa4d",
+      "cases": [
+        {
+          "id": "mu-late-newer-world-report-before-withdrawal-time",
+          "initial": {
+            "as_of": "2026-10-03T19:01:00+08:00",
+            "qq_events": [
+              {
+                "id": "invite",
+                "at": "2026-10-01T18:00:00+08:00",
+                "speaker": "self",
+                "text": "10月10日一起去看看那个展吗？",
+                "provenance": "authored_external_qq"
+              },
+              {
+                "id": "accept",
+                "at": "2026-10-01T18:01:00+08:00",
+                "speaker": "contact",
+                "text": "好呀，可以。",
+                "provenance": "authored_external_qq"
+              },
+              {
+                "id": "cancel",
+                "at": "2026-10-03T19:00:00+08:00",
+                "speaker": "contact",
+                "text": "10号这次先不去了，周末临时有别的安排。",
+                "provenance": "authored_external_qq"
+              }
+            ],
+            "private_events": []
+          },
+          "runtime_goal": "和这位朋友保持联系，商量一起看展的安排。",
+          "steps": [
+            {
+              "id": "s1",
+              "as_of": "2026-10-03T19:18:00+08:00",
+              "qq_events": [],
+              "private_events": [],
+              "source_updates": [],
+              "request": {
+                "id": "r-s1",
+                "at": "2026-10-03T19:18:00+08:00",
+                "text": "我们这次看展现在是什么状态？"
+              }
+            },
+            {
+              "id": "s2",
+              "as_of": "2026-10-07T19:18:00+08:00",
+              "qq_events": [],
+              "private_events": [],
+              "source_updates": [
+                {
+                  "channel": "qq",
+                  "operation": "recall",
+                  "id": "cancel",
+                  "at": "2026-10-06T19:00:00+08:00"
+                }
+              ],
+              "request": {
+                "id": "late-newer-report-r2",
+                "at": "2026-10-07T19:18:00+08:00",
+                "text": "我刚想起来补充：我们10月4日18:00（北京时间）已经在语音里重新确认了，10月10日下午两点仍然一起看展。我今天才告诉你。这对现在的安排意味着什么？"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -22,6 +22,24 @@ const {offerEditingReferences,editingReferenceView,bindEditingReferenceChoices}=
 
 function reconcilePlanningViews(payload){
   const sources=new Map(payload.sources.map(source=>[source.id,source])),available=new Set(sources.keys());
+  if(payload.relationshipContext){
+    const relationship=payload.relationshipContext;
+    const complete=(ids,revisions={})=>Array.isArray(ids)&&ids.length>0&&ids.every(id=>{const source=sources.get(id);return source&&source.revision===revisions[id]&&!source.segment&&source.delivery?.status!=='partial';});
+    for(const kind of ['claims','events'])relationship[kind]=(relationship[kind]||[]).filter(record=>!record.activityId||complete(record.sourceIds,record.sourceRevisions));
+    const events=new Set((relationship.events||[]).map(event=>event.id));
+    for(const activity of relationship.activities||[]){
+      if(!activity.activityId)continue;
+      const definition=activity.definitionEvidence;
+      if(!complete(definition?.sourceIds,definition?.sourceRevisions)){activity.activityKey=null;activity.definitionAvailable=false;}
+      for(const field of ['currentReportedState','priorCurrentReportedState'])if(activity[field]&&!complete(activity[field].sourceIds,activity[field].sourceRevisions)){
+        if(field==='currentReportedState'){activity.status='needs_review';activity.authority='context_originals_unavailable';}
+        activity[field]=null;
+      }
+      activity.eventIds=(activity.eventIds||[]).filter(id=>events.has(id));
+      if(!activity.currentReportedState&&activity.latestEventId&&!events.has(activity.latestEventId)){activity.status='needs_review';activity.authority='context_originals_unavailable';activity.occurredAt=null;activity.plannedFor=null;}
+      if(!activity.definitionAvailable){activity.currentReportedState=null;activity.priorCurrentReportedState=null;activity.status='needs_review';activity.authority='activity_definition_unavailable';}
+    }
+  }
   if(payload.materialView){
     payload.materialView.items=payload.materialView.items.flatMap(item=>{
       const original=item.sourceIds||[],kept=original.filter(id=>available.has(id));
@@ -243,6 +261,12 @@ function buildContext(options) {
   const currentRequest=payload.userRequest,position=payload.taskContext;delete payload.userRequest;delete payload.taskContext;
   payload.taskContext=position;payload.userRequest=currentRequest;
   const context=finish(payload, payload.sources, { scope, requestId, companion, coverage }, all, byteBudget, budget);
+  // Qualified stored activity summaries can remain navigation without raw
+  // originals in this request. Bind every original dependency to publication;
+  // these refs are not added to the delivered/reviewed-source receipt.
+  const navigationRefs=[];
+  for(const item of payload.coreMemory?.items||[])if(item.activityId)for(const ref of item.sourceRefs||[]){if(byId.get(ref.sourceId)?.revision!==ref.revision)throw new Error('Stored activity navigation original changed during selection');navigationRefs.push(ref);context.manifest.sourceRevisions[ref.sourceId]=ref.revision;}
+  if(navigationRefs.length)context.manifest.activityNavigationSourceRefs=[...new Map(navigationRefs.map(ref=>[ref.sourceId,ref])).values()];
   attachSelectionManifest(context,{historyPolicy,timeCandidateIds,selected,timeSegments,recentPrivateIds,foldedPrivateIds,coreItems,byId,images,payload,compacted,recentPlan,recentContextPlan,recentPriorityIds,recentInitialAdditionalBytes,optionalRawLimit,optionalRawIds,optionalRetrieved,taskSourceIds:groundedTopic?.sourceIds||[]});
   if(consultationSupport.length)context.manifest.consultationSupport={fragments:consultationSupport,authority:'original_provenance_not_permission'};
   context.manifest.planningViews={workVersion:payload.work?.version||CONVERSATION_WORK_VERSION,materialVersion:payload.materialView?.version||MATERIAL_VERSION,

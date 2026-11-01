@@ -254,7 +254,9 @@ test('an old relative-week claim without an end date reaches the model as unspec
   assert.equal(context.payload.relationshipContext.claims[0].validUntil, undefined);
   assert.match(RELATIONSHIP_PROTOCOL, /anchored to the original source at/);
   assert.equal(SYSTEM.includes(RELATIONSHIP_PROTOCOL),false,'foreground help is not a parallel semantic profile writer');
-  assert.ok(MEMORY_SYSTEM.includes(RELATIONSHIP_PROTOCOL),'the evidence-backed background writer retains the canonical time-grounding rule');
+  const nativeProtocol=require('../src/assistant-model.cjs').relationshipProtocol({activityEvidence:true});
+  assert.ok(MEMORY_SYSTEM.includes(nativeProtocol),'the background writer consumes its explicit native activity contract');
+  assert.match(nativeProtocol,/anchored to the original source at/,'native activity fields preserve the canonical claim time-grounding rule');
 });
 
 test('a source-backed user-reported shared activity reaches context with its reported authority and never becomes a QQ send', t => {

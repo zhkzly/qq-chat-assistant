@@ -1,0 +1,1052 @@
+{
+  "provenance": {
+    "kind": "captured_fictional_038_M4_raw_admission_not_quality_gold",
+    "file": "/home/zhkzly/pycodes/qq-chat-assistant/.goal-runs/memory-v4-observation-04-candidate038-live/mu-late-report-cancellation-and-withdrawal.run.json",
+    "sha256": "3633a6563d5b70bd8166c6e64c1a79cf35d63ba2f5035530f6acaf4b41afcde3",
+    "implementation": "3f32757ba4318c3bd35dc58d7f9dcb7984e0ffdef609cd1af5abecb0e21f6658"
+  },
+  "scope": {
+    "accountUid": "eval_replay_owner",
+    "accountUin": "1111111111",
+    "peerUid": "eval_replay_contact",
+    "peerUin": "3333333333"
+  },
+  "goal": "和这位朋友保持联系，商量一起看展的安排。",
+  "pre": {
+    "asOf": "2026-10-05T11:28:00.000Z",
+    "messages": [
+      {
+        "accountUid": "eval_replay_owner",
+        "accountUin": "1111111111",
+        "peerUid": "eval_replay_contact",
+        "peerUin": "3333333333",
+        "messageId": "72057594049927937001",
+        "sequence": "1",
+        "timestamp": 1790848800000,
+        "direction": "outgoing",
+        "senderUid": "eval_replay_owner",
+        "senderUin": "1111111111",
+        "text": "10月10日一起去看看那个展吗？",
+        "media": [],
+        "recalled": false,
+        "kind": "actual",
+        "source": "desktop-qq-native"
+      },
+      {
+        "accountUid": "eval_replay_owner",
+        "accountUin": "1111111111",
+        "peerUid": "eval_replay_contact",
+        "peerUin": "3333333333",
+        "messageId": "72057594049927937002",
+        "sequence": "2",
+        "timestamp": 1790848860000,
+        "direction": "incoming",
+        "senderUid": "eval_replay_contact",
+        "senderUin": "3333333333",
+        "text": "好呀，可以。",
+        "media": [],
+        "recalled": false,
+        "kind": "actual",
+        "source": "desktop-qq-native"
+      },
+      {
+        "accountUid": "eval_replay_owner",
+        "accountUin": "1111111111",
+        "peerUid": "eval_replay_contact",
+        "peerUin": "3333333333",
+        "messageId": "72057594049927937003",
+        "sequence": "3",
+        "timestamp": 1791025200000,
+        "direction": "incoming",
+        "senderUid": "eval_replay_contact",
+        "senderUin": "3333333333",
+        "text": "10号这次先不去了，周末临时有别的安排。",
+        "media": [],
+        "recalled": false,
+        "kind": "actual",
+        "source": "desktop-qq-native"
+      }
+    ],
+    "sources": [
+      {
+        "id": "qq:72057594049927937001",
+        "type": "qq",
+        "text": "10月10日一起去看看那个展吗？",
+        "at": "2026-10-01T10:00:00.000Z",
+        "role": "user",
+        "direction": "outgoing",
+        "use": "discussion",
+        "messageId": "72057594049927937001",
+        "sequence": "1",
+        "senderUid": "eval_replay_owner",
+        "senderUin": "1111111111",
+        "revision": "0e223520ae13608c3a21dd24a1b33b606b4b28cb05593befe8825e5d72c68aae"
+      },
+      {
+        "id": "qq:72057594049927937002",
+        "type": "qq",
+        "text": "好呀，可以。",
+        "at": "2026-10-01T10:01:00.000Z",
+        "role": "contact",
+        "direction": "incoming",
+        "use": "discussion",
+        "messageId": "72057594049927937002",
+        "sequence": "2",
+        "senderUid": "eval_replay_contact",
+        "senderUin": "3333333333",
+        "revision": "37fa9ea7a676c3f387ef83c3f698720c606b5fbbb215e951818e26c6ab1b35c2"
+      },
+      {
+        "id": "qq:72057594049927937003",
+        "type": "qq",
+        "text": "10号这次先不去了，周末临时有别的安排。",
+        "at": "2026-10-03T11:00:00.000Z",
+        "role": "contact",
+        "direction": "incoming",
+        "use": "discussion",
+        "messageId": "72057594049927937003",
+        "sequence": "3",
+        "senderUid": "eval_replay_contact",
+        "senderUin": "3333333333",
+        "revision": "a7738c9937039b74bc99ea30658a8436650f196715e036c0a0a87f7c1712b40e"
+      },
+      {
+        "id": "private:ff53a342-92fa-449d-856f-6fb86466cfae",
+        "type": "private",
+        "text": "我们这次看展现在是什么状态？",
+        "at": "2026-10-03T11:18:00.000Z",
+        "role": "user",
+        "use": "discussion",
+        "kind": "discussion",
+        "version": 1,
+        "revision": "018691e7bf5d63308ab7be04ffca8c1d98777ccb766b4ac3c6f2714deeae80d7"
+      },
+      {
+        "id": "private:9b6bf8af-f894-4c2f-9ef8-d3017df56e7a",
+        "type": "private",
+        "text": "补充一下：她10月1日曾经答应过10月10日去看展。",
+        "at": "2026-10-05T11:00:00.000Z",
+        "role": "user",
+        "use": "discussion",
+        "kind": "discussion",
+        "version": 1,
+        "revision": "dad549a385892eb939481596af6e1ca208155c4151097b7cfa2ff8f401fc7014"
+      },
+      {
+        "id": "private:0e9c98f4-d744-4cf7-afc9-a3fd2cecdb9c",
+        "type": "private",
+        "text": "补充后，现在的安排应怎么理解？",
+        "at": "2026-10-05T11:18:00.000Z",
+        "role": "user",
+        "use": "discussion",
+        "kind": "discussion",
+        "version": 1,
+        "revision": "ea0e189e9b553e2219b519d35716f773f08faeb6258705daf46486678fde6dba"
+      }
+    ],
+    "event": {
+      "text": "联系人告知这次先不去10月10日的展览，周末临时有其他安排。",
+      "sourceIds": [
+        "qq:72057594049927937003"
+      ],
+      "activityKey": "10月10日看展",
+      "eventKind": "cancellation",
+      "actor": "contact",
+      "occurredAt": "2026-10-03T11:00:00.000Z",
+      "topicKeys": [],
+      "lifecycle": "active",
+      "id": "5cab6d06-55f8-4b47-a7de-be6da8c1afa4",
+      "kind": "relationship_event",
+      "recordType": "relationship_event",
+      "version": 4,
+      "sourceRevisions": {
+        "qq:72057594049927937003": "a7738c9937039b74bc99ea30658a8436650f196715e036c0a0a87f7c1712b40e"
+      },
+      "reviewComplete": true,
+      "evidenceValidity": "valid",
+      "semanticSignature": "66bbb63542d1077f353aeb15d3d1130f9c53072a62e83c4512ff5275f4acf11d",
+      "firstEvidenceAt": "2026-10-03T11:00:00.000Z",
+      "lastEvidenceAt": "2026-10-03T11:00:00.000Z",
+      "at": "2026-10-03T11:00:00.000Z",
+      "reportedAt": "2026-10-03T11:00:00.000Z",
+      "reviewedAt": "2026-10-05T11:28:00.000Z",
+      "semanticReview": {
+        "status": "evidence_reviewed",
+        "reviewedAt": "2026-10-05T11:28:00.000Z",
+        "coverage": {
+          "version": "original-evidence-v1",
+          "scope": {
+            "accountUid": "eval_replay_owner",
+            "accountUin": "1111111111",
+            "peerUid": "eval_replay_contact",
+            "peerUin": "3333333333"
+          },
+          "sourceRevisions": {
+            "private:0e9c98f4-d744-4cf7-afc9-a3fd2cecdb9c": "ea0e189e9b553e2219b519d35716f773f08faeb6258705daf46486678fde6dba",
+            "qq:72057594049927937001": "0e223520ae13608c3a21dd24a1b33b606b4b28cb05593befe8825e5d72c68aae",
+            "qq:72057594049927937002": "37fa9ea7a676c3f387ef83c3f698720c606b5fbbb215e951818e26c6ab1b35c2",
+            "qq:72057594049927937003": "a7738c9937039b74bc99ea30658a8436650f196715e036c0a0a87f7c1712b40e",
+            "private:ff53a342-92fa-449d-856f-6fb86466cfae": "018691e7bf5d63308ab7be04ffca8c1d98777ccb766b4ac3c6f2714deeae80d7",
+            "private:9b6bf8af-f894-4c2f-9ef8-d3017df56e7a": "dad549a385892eb939481596af6e1ca208155c4151097b7cfa2ff8f401fc7014"
+          },
+          "reads": [
+            {
+              "sourceId": "private:0e9c98f4-d744-4cf7-afc9-a3fd2cecdb9c",
+              "revision": "ea0e189e9b553e2219b519d35716f773f08faeb6258705daf46486678fde6dba",
+              "start": 0,
+              "end": 15,
+              "total": 15,
+              "complete": true,
+              "bodyHash": "2beb483d5d7b5578f7ecab5467483fc8c154548106a021baaaa84dbd2794e460"
+            },
+            {
+              "sourceId": "qq:72057594049927937001",
+              "revision": "0e223520ae13608c3a21dd24a1b33b606b4b28cb05593befe8825e5d72c68aae",
+              "start": 0,
+              "end": 16,
+              "total": 16,
+              "complete": true,
+              "bodyHash": "cf86d2cf0c0364bc959639e30cbca5b176b54da0ad8da0e428567e6613ac295d"
+            },
+            {
+              "sourceId": "qq:72057594049927937002",
+              "revision": "37fa9ea7a676c3f387ef83c3f698720c606b5fbbb215e951818e26c6ab1b35c2",
+              "start": 0,
+              "end": 6,
+              "total": 6,
+              "complete": true,
+              "bodyHash": "9a47ad63c30d43a7d1aeede142fde6783ce77d314b15955b3cc5674ccb0b4fc1"
+            },
+            {
+              "sourceId": "qq:72057594049927937003",
+              "revision": "a7738c9937039b74bc99ea30658a8436650f196715e036c0a0a87f7c1712b40e",
+              "start": 0,
+              "end": 20,
+              "total": 20,
+              "complete": true,
+              "bodyHash": "bdf3a78786f5666de9d2366ec9253671682b255bfb70ec3d3f22a890234c39f3"
+            },
+            {
+              "sourceId": "private:ff53a342-92fa-449d-856f-6fb86466cfae",
+              "revision": "018691e7bf5d63308ab7be04ffca8c1d98777ccb766b4ac3c6f2714deeae80d7",
+              "start": 0,
+              "end": 14,
+              "total": 14,
+              "complete": true,
+              "bodyHash": "5f9bc6b826a6c874a40fc4b23c7ccc7eedc42add4de4118dbcfe0de3d7504d9b"
+            },
+            {
+              "sourceId": "private:9b6bf8af-f894-4c2f-9ef8-d3017df56e7a",
+              "revision": "dad549a385892eb939481596af6e1ca208155c4151097b7cfa2ff8f401fc7014",
+              "start": 0,
+              "end": 26,
+              "total": 26,
+              "complete": true,
+              "bodyHash": "c5ba324d3cd71b63ad500c0f4b20b7120086907d4069b2a8ca6203b7e0ea79ab"
+            }
+          ],
+          "completeSourceIds": [
+            "private:0e9c98f4-d744-4cf7-afc9-a3fd2cecdb9c",
+            "qq:72057594049927937001",
+            "qq:72057594049927937002",
+            "qq:72057594049927937003",
+            "private:ff53a342-92fa-449d-856f-6fb86466cfae",
+            "private:9b6bf8af-f894-4c2f-9ef8-d3017df56e7a"
+          ],
+          "requiredSourceIds": [
+            "qq:72057594049927937003",
+            "qq:72057594049927937001",
+            "qq:72057594049927937002"
+          ],
+          "missingSourceIds": [],
+          "partialSourceIds": [],
+          "complete": true
+        }
+      },
+      "knowledgeSchemaVersion": 2,
+      "createdAt": "2026-10-03T11:11:00.000Z",
+      "updatedAt": "2026-10-05T11:28:00.000Z",
+      "occurrenceTimeStatus": "known",
+      "origin": "qq_observation",
+      "revisions": [
+        {
+          "version": 1,
+          "semanticSignature": "2f51aae88f77f1cb6fd50aaa7ee000f006543c71859287cbdfa4f0b440f4f32e",
+          "operation": "revision",
+          "reviewedAt": "2026-10-03T11:28:00.000Z"
+        },
+        {
+          "version": 2,
+          "semanticSignature": "60697684b068856c3f99a95ceb47a5174cbbb70e4354d8f987409c496acf358b",
+          "operation": "reaffirm",
+          "reviewedAt": "2026-10-05T11:10:00.000Z"
+        },
+        {
+          "version": 3,
+          "semanticSignature": "60697684b068856c3f99a95ceb47a5174cbbb70e4354d8f987409c496acf358b",
+          "operation": "revision",
+          "reviewedAt": "2026-10-05T11:28:00.000Z"
+        }
+      ]
+    }
+  },
+  "post": {
+    "asOf": "2026-10-06T11:28:00.000Z",
+    "sources": [
+      {
+        "id": "qq:72057594049927937001",
+        "type": "qq",
+        "text": "10月10日一起去看看那个展吗？",
+        "at": "2026-10-01T10:00:00.000Z",
+        "role": "user",
+        "direction": "outgoing",
+        "use": "discussion",
+        "messageId": "72057594049927937001",
+        "sequence": "1",
+        "senderUid": "eval_replay_owner",
+        "senderUin": "1111111111",
+        "revision": "0e223520ae13608c3a21dd24a1b33b606b4b28cb05593befe8825e5d72c68aae"
+      },
+      {
+        "id": "qq:72057594049927937002",
+        "type": "qq",
+        "text": "好呀，可以。",
+        "at": "2026-10-01T10:01:00.000Z",
+        "role": "contact",
+        "direction": "incoming",
+        "use": "discussion",
+        "messageId": "72057594049927937002",
+        "sequence": "2",
+        "senderUid": "eval_replay_contact",
+        "senderUin": "3333333333",
+        "revision": "37fa9ea7a676c3f387ef83c3f698720c606b5fbbb215e951818e26c6ab1b35c2"
+      },
+      {
+        "id": "private:ff53a342-92fa-449d-856f-6fb86466cfae",
+        "type": "private",
+        "text": "我们这次看展现在是什么状态？",
+        "at": "2026-10-03T11:18:00.000Z",
+        "role": "user",
+        "use": "discussion",
+        "kind": "discussion",
+        "version": 1,
+        "revision": "018691e7bf5d63308ab7be04ffca8c1d98777ccb766b4ac3c6f2714deeae80d7"
+      },
+      {
+        "id": "private:9b6bf8af-f894-4c2f-9ef8-d3017df56e7a",
+        "type": "private",
+        "text": "补充一下：她10月1日曾经答应过10月10日去看展。",
+        "at": "2026-10-05T11:00:00.000Z",
+        "role": "user",
+        "use": "discussion",
+        "kind": "discussion",
+        "version": 1,
+        "revision": "dad549a385892eb939481596af6e1ca208155c4151097b7cfa2ff8f401fc7014"
+      },
+      {
+        "id": "private:0e9c98f4-d744-4cf7-afc9-a3fd2cecdb9c",
+        "type": "private",
+        "text": "补充后，现在的安排应怎么理解？",
+        "at": "2026-10-05T11:18:00.000Z",
+        "role": "user",
+        "use": "discussion",
+        "kind": "discussion",
+        "version": 1,
+        "revision": "ea0e189e9b553e2219b519d35716f773f08faeb6258705daf46486678fde6dba"
+      },
+      {
+        "id": "private:3bca6249-6797-4a0d-8b47-7db5903e5543",
+        "type": "private",
+        "text": "那条消息撤回后，现在能当作还约好了吗？",
+        "at": "2026-10-06T11:18:00.000Z",
+        "role": "user",
+        "use": "discussion",
+        "kind": "discussion",
+        "version": 1,
+        "revision": "2d5385afe31d25a433f4e15cb3395b082e2b71d902ceeb97f93593711a14cd85"
+      }
+    ],
+    "events": [
+      {
+        "text": "A message about the exhibition arrangement was withdrawn; the source does not establish whether the arrangement itself was cancelled.",
+        "sourceIds": [
+          "private:3bca6249-6797-4a0d-8b47-7db5903e5543"
+        ],
+        "activityKey": "看展",
+        "eventKind": "cancellation",
+        "actor": "unknown",
+        "occurredAt": "2026-10-06T11:18:00.000Z",
+        "topicKeys": [],
+        "lifecycle": "active",
+        "id": "8185a2e3-d5d8-4a57-b5a1-a8cb39960d05",
+        "kind": "relationship_event",
+        "recordType": "relationship_event",
+        "version": 1,
+        "sourceRevisions": {
+          "private:3bca6249-6797-4a0d-8b47-7db5903e5543": "2d5385afe31d25a433f4e15cb3395b082e2b71d902ceeb97f93593711a14cd85"
+        },
+        "reviewComplete": true,
+        "evidenceValidity": "valid",
+        "semanticSignature": "06c7ac4f4ae1be6b4f091f3aae4264694776d734188a5ac50e116587d043fd47",
+        "firstEvidenceAt": "2026-10-06T11:18:00.000Z",
+        "lastEvidenceAt": "2026-10-06T11:18:00.000Z",
+        "at": "2026-10-06T11:18:00.000Z",
+        "reportedAt": "2026-10-06T11:18:00.000Z",
+        "reviewedAt": "2026-10-06T11:28:00.000Z",
+        "semanticReview": {
+          "status": "evidence_reviewed",
+          "reviewedAt": "2026-10-06T11:28:00.000Z",
+          "coverage": {
+            "version": "original-evidence-v1",
+            "scope": {
+              "accountUid": "eval_replay_owner",
+              "accountUin": "1111111111",
+              "peerUid": "eval_replay_contact",
+              "peerUin": "3333333333"
+            },
+            "sourceRevisions": {
+              "private:3bca6249-6797-4a0d-8b47-7db5903e5543": "2d5385afe31d25a433f4e15cb3395b082e2b71d902ceeb97f93593711a14cd85",
+              "qq:72057594049927937001": "0e223520ae13608c3a21dd24a1b33b606b4b28cb05593befe8825e5d72c68aae",
+              "qq:72057594049927937002": "37fa9ea7a676c3f387ef83c3f698720c606b5fbbb215e951818e26c6ab1b35c2",
+              "private:ff53a342-92fa-449d-856f-6fb86466cfae": "018691e7bf5d63308ab7be04ffca8c1d98777ccb766b4ac3c6f2714deeae80d7",
+              "private:9b6bf8af-f894-4c2f-9ef8-d3017df56e7a": "dad549a385892eb939481596af6e1ca208155c4151097b7cfa2ff8f401fc7014",
+              "private:0e9c98f4-d744-4cf7-afc9-a3fd2cecdb9c": "ea0e189e9b553e2219b519d35716f773f08faeb6258705daf46486678fde6dba"
+            },
+            "reads": [
+              {
+                "sourceId": "private:3bca6249-6797-4a0d-8b47-7db5903e5543",
+                "revision": "2d5385afe31d25a433f4e15cb3395b082e2b71d902ceeb97f93593711a14cd85",
+                "start": 0,
+                "end": 19,
+                "total": 19,
+                "complete": true,
+                "bodyHash": "dc92b8658fe782f246e61ae6e407683c39d2f8fd31d9fa556d37b38cf70e3f14"
+              },
+              {
+                "sourceId": "qq:72057594049927937001",
+                "revision": "0e223520ae13608c3a21dd24a1b33b606b4b28cb05593befe8825e5d72c68aae",
+                "start": 0,
+                "end": 16,
+                "total": 16,
+                "complete": true,
+                "bodyHash": "cf86d2cf0c0364bc959639e30cbca5b176b54da0ad8da0e428567e6613ac295d"
+              },
+              {
+                "sourceId": "qq:72057594049927937002",
+                "revision": "37fa9ea7a676c3f387ef83c3f698720c606b5fbbb215e951818e26c6ab1b35c2",
+                "start": 0,
+                "end": 6,
+                "total": 6,
+                "complete": true,
+                "bodyHash": "9a47ad63c30d43a7d1aeede142fde6783ce77d314b15955b3cc5674ccb0b4fc1"
+              },
+              {
+                "sourceId": "private:ff53a342-92fa-449d-856f-6fb86466cfae",
+                "revision": "018691e7bf5d63308ab7be04ffca8c1d98777ccb766b4ac3c6f2714deeae80d7",
+                "start": 0,
+                "end": 14,
+                "total": 14,
+                "complete": true,
+                "bodyHash": "5f9bc6b826a6c874a40fc4b23c7ccc7eedc42add4de4118dbcfe0de3d7504d9b"
+              },
+              {
+                "sourceId": "private:9b6bf8af-f894-4c2f-9ef8-d3017df56e7a",
+                "revision": "dad549a385892eb939481596af6e1ca208155c4151097b7cfa2ff8f401fc7014",
+                "start": 0,
+                "end": 26,
+                "total": 26,
+                "complete": true,
+                "bodyHash": "c5ba324d3cd71b63ad500c0f4b20b7120086907d4069b2a8ca6203b7e0ea79ab"
+              },
+              {
+                "sourceId": "private:0e9c98f4-d744-4cf7-afc9-a3fd2cecdb9c",
+                "revision": "ea0e189e9b553e2219b519d35716f773f08faeb6258705daf46486678fde6dba",
+                "start": 0,
+                "end": 15,
+                "total": 15,
+                "complete": true,
+                "bodyHash": "2beb483d5d7b5578f7ecab5467483fc8c154548106a021baaaa84dbd2794e460"
+              }
+            ],
+            "completeSourceIds": [
+              "private:3bca6249-6797-4a0d-8b47-7db5903e5543",
+              "qq:72057594049927937001",
+              "qq:72057594049927937002",
+              "private:ff53a342-92fa-449d-856f-6fb86466cfae",
+              "private:9b6bf8af-f894-4c2f-9ef8-d3017df56e7a",
+              "private:0e9c98f4-d744-4cf7-afc9-a3fd2cecdb9c"
+            ],
+            "requiredSourceIds": [
+              "private:3bca6249-6797-4a0d-8b47-7db5903e5543"
+            ],
+            "missingSourceIds": [],
+            "partialSourceIds": [],
+            "complete": true
+          }
+        },
+        "knowledgeSchemaVersion": 2,
+        "createdAt": "2026-10-06T11:28:00.000Z",
+        "updatedAt": "2026-10-06T11:28:00.000Z",
+        "occurrenceTimeStatus": "known",
+        "origin": "user_report"
+      },
+      {
+        "text": "Contact accepted the invitation to go see the exhibition together on October 10, 2026.",
+        "sourceIds": [
+          "qq:72057594049927937001",
+          "qq:72057594049927937002"
+        ],
+        "activityKey": "看展",
+        "eventKind": "acceptance",
+        "actor": "contact",
+        "occurredAt": "2026-10-01T10:01:00.000Z",
+        "topicKeys": [],
+        "lifecycle": "active",
+        "id": "ac0fa60c-9261-48b8-a273-fb238c574e7a",
+        "kind": "relationship_event",
+        "recordType": "relationship_event",
+        "version": 1,
+        "sourceRevisions": {
+          "qq:72057594049927937001": "0e223520ae13608c3a21dd24a1b33b606b4b28cb05593befe8825e5d72c68aae",
+          "qq:72057594049927937002": "37fa9ea7a676c3f387ef83c3f698720c606b5fbbb215e951818e26c6ab1b35c2"
+        },
+        "reviewComplete": true,
+        "evidenceValidity": "valid",
+        "semanticSignature": "264403f401dcf56211706263578f8e2acb216ec8f63def820f8c53a50d4b0b49",
+        "firstEvidenceAt": "2026-10-01T10:00:00.000Z",
+        "lastEvidenceAt": "2026-10-01T10:01:00.000Z",
+        "at": "2026-10-01T10:01:00.000Z",
+        "reportedAt": "2026-10-01T10:01:00.000Z",
+        "reviewedAt": "2026-10-06T11:28:00.000Z",
+        "semanticReview": {
+          "status": "evidence_reviewed",
+          "reviewedAt": "2026-10-06T11:28:00.000Z",
+          "coverage": {
+            "version": "original-evidence-v1",
+            "scope": {
+              "accountUid": "eval_replay_owner",
+              "accountUin": "1111111111",
+              "peerUid": "eval_replay_contact",
+              "peerUin": "3333333333"
+            },
+            "sourceRevisions": {
+              "private:3bca6249-6797-4a0d-8b47-7db5903e5543": "2d5385afe31d25a433f4e15cb3395b082e2b71d902ceeb97f93593711a14cd85",
+              "qq:72057594049927937001": "0e223520ae13608c3a21dd24a1b33b606b4b28cb05593befe8825e5d72c68aae",
+              "qq:72057594049927937002": "37fa9ea7a676c3f387ef83c3f698720c606b5fbbb215e951818e26c6ab1b35c2",
+              "private:ff53a342-92fa-449d-856f-6fb86466cfae": "018691e7bf5d63308ab7be04ffca8c1d98777ccb766b4ac3c6f2714deeae80d7",
+              "private:9b6bf8af-f894-4c2f-9ef8-d3017df56e7a": "dad549a385892eb939481596af6e1ca208155c4151097b7cfa2ff8f401fc7014",
+              "private:0e9c98f4-d744-4cf7-afc9-a3fd2cecdb9c": "ea0e189e9b553e2219b519d35716f773f08faeb6258705daf46486678fde6dba"
+            },
+            "reads": [
+              {
+                "sourceId": "private:3bca6249-6797-4a0d-8b47-7db5903e5543",
+                "revision": "2d5385afe31d25a433f4e15cb3395b082e2b71d902ceeb97f93593711a14cd85",
+                "start": 0,
+                "end": 19,
+                "total": 19,
+                "complete": true,
+                "bodyHash": "dc92b8658fe782f246e61ae6e407683c39d2f8fd31d9fa556d37b38cf70e3f14"
+              },
+              {
+                "sourceId": "qq:72057594049927937001",
+                "revision": "0e223520ae13608c3a21dd24a1b33b606b4b28cb05593befe8825e5d72c68aae",
+                "start": 0,
+                "end": 16,
+                "total": 16,
+                "complete": true,
+                "bodyHash": "cf86d2cf0c0364bc959639e30cbca5b176b54da0ad8da0e428567e6613ac295d"
+              },
+              {
+                "sourceId": "qq:72057594049927937002",
+                "revision": "37fa9ea7a676c3f387ef83c3f698720c606b5fbbb215e951818e26c6ab1b35c2",
+                "start": 0,
+                "end": 6,
+                "total": 6,
+                "complete": true,
+                "bodyHash": "9a47ad63c30d43a7d1aeede142fde6783ce77d314b15955b3cc5674ccb0b4fc1"
+              },
+              {
+                "sourceId": "private:ff53a342-92fa-449d-856f-6fb86466cfae",
+                "revision": "018691e7bf5d63308ab7be04ffca8c1d98777ccb766b4ac3c6f2714deeae80d7",
+                "start": 0,
+                "end": 14,
+                "total": 14,
+                "complete": true,
+                "bodyHash": "5f9bc6b826a6c874a40fc4b23c7ccc7eedc42add4de4118dbcfe0de3d7504d9b"
+              },
+              {
+                "sourceId": "private:9b6bf8af-f894-4c2f-9ef8-d3017df56e7a",
+                "revision": "dad549a385892eb939481596af6e1ca208155c4151097b7cfa2ff8f401fc7014",
+                "start": 0,
+                "end": 26,
+                "total": 26,
+                "complete": true,
+                "bodyHash": "c5ba324d3cd71b63ad500c0f4b20b7120086907d4069b2a8ca6203b7e0ea79ab"
+              },
+              {
+                "sourceId": "private:0e9c98f4-d744-4cf7-afc9-a3fd2cecdb9c",
+                "revision": "ea0e189e9b553e2219b519d35716f773f08faeb6258705daf46486678fde6dba",
+                "start": 0,
+                "end": 15,
+                "total": 15,
+                "complete": true,
+                "bodyHash": "2beb483d5d7b5578f7ecab5467483fc8c154548106a021baaaa84dbd2794e460"
+              }
+            ],
+            "completeSourceIds": [
+              "private:3bca6249-6797-4a0d-8b47-7db5903e5543",
+              "qq:72057594049927937001",
+              "qq:72057594049927937002",
+              "private:ff53a342-92fa-449d-856f-6fb86466cfae",
+              "private:9b6bf8af-f894-4c2f-9ef8-d3017df56e7a",
+              "private:0e9c98f4-d744-4cf7-afc9-a3fd2cecdb9c"
+            ],
+            "requiredSourceIds": [
+              "qq:72057594049927937001",
+              "qq:72057594049927937002"
+            ],
+            "missingSourceIds": [],
+            "partialSourceIds": [],
+            "complete": true
+          }
+        },
+        "knowledgeSchemaVersion": 2,
+        "createdAt": "2026-10-06T11:28:00.000Z",
+        "updatedAt": "2026-10-06T11:28:00.000Z",
+        "occurrenceTimeStatus": "known",
+        "origin": "qq_observation"
+      }
+    ]
+  },
+  "recall": {
+    "at": "2026-10-06T19:00:00+08:00",
+    "messages": [
+      {
+        "accountUid": "eval_replay_owner",
+        "accountUin": "1111111111",
+        "peerUid": "eval_replay_contact",
+        "peerUin": "3333333333",
+        "messageId": "72057594049927937003",
+        "sequence": "3",
+        "timestamp": 1791025200000,
+        "direction": "incoming",
+        "senderUid": "eval_replay_contact",
+        "senderUin": "3333333333",
+        "text": "[已撤回]",
+        "media": [],
+        "recalled": true,
+        "kind": "actual",
+        "source": "desktop-qq-native"
+      }
+    ]
+  },
+  "batch": {
+    "id": "f0865d4c61fe29f54fb207b91e3e9185fec0298af6598084dfde0c847575d7d7",
+    "scopeKey": "[\"eval_replay_owner\",\"1111111111\",\"eval_replay_contact\",\"3333333333\"]",
+    "baseRevision": 7,
+    "baseMemoryVersion": 13,
+    "baseState": {
+      "version": 2,
+      "focus": ""
+    },
+    "sources": [
+      {
+        "id": "private:3bca6249-6797-4a0d-8b47-7db5903e5543",
+        "type": "private",
+        "text": "那条消息撤回后，现在能当作还约好了吗？",
+        "at": "2026-10-06T11:18:00.000Z",
+        "role": "user",
+        "use": "discussion",
+        "kind": "discussion",
+        "version": 1,
+        "revision": "2d5385afe31d25a433f4e15cb3395b082e2b71d902ceeb97f93593711a14cd85",
+        "scope": {
+          "accountUid": "eval_replay_owner",
+          "accountUin": "1111111111",
+          "peerUid": "eval_replay_contact",
+          "peerUin": "3333333333"
+        }
+      }
+    ],
+    "events": [
+      {
+        "seq": 8,
+        "id": "private:3bca6249-6797-4a0d-8b47-7db5903e5543",
+        "revision": "2d5385afe31d25a433f4e15cb3395b082e2b71d902ceeb97f93593711a14cd85",
+        "operation": "upsert",
+        "offset": 0,
+        "end": 19
+      }
+    ],
+    "priorMemory": {
+      "items": [],
+      "episodes": [],
+      "claims": [],
+      "events": []
+    },
+    "contextSources": [
+      {
+        "id": "qq:72057594049927937001",
+        "type": "qq",
+        "text": "10月10日一起去看看那个展吗？",
+        "at": "2026-10-01T10:00:00.000Z",
+        "role": "user",
+        "direction": "outgoing",
+        "use": "discussion",
+        "messageId": "72057594049927937001",
+        "sequence": "1",
+        "senderUid": "eval_replay_owner",
+        "senderUin": "1111111111",
+        "revision": "0e223520ae13608c3a21dd24a1b33b606b4b28cb05593befe8825e5d72c68aae",
+        "scope": {
+          "accountUid": "eval_replay_owner",
+          "accountUin": "1111111111",
+          "peerUid": "eval_replay_contact",
+          "peerUin": "3333333333"
+        }
+      },
+      {
+        "id": "qq:72057594049927937002",
+        "type": "qq",
+        "text": "好呀，可以。",
+        "at": "2026-10-01T10:01:00.000Z",
+        "role": "contact",
+        "direction": "incoming",
+        "use": "discussion",
+        "messageId": "72057594049927937002",
+        "sequence": "2",
+        "senderUid": "eval_replay_contact",
+        "senderUin": "3333333333",
+        "revision": "37fa9ea7a676c3f387ef83c3f698720c606b5fbbb215e951818e26c6ab1b35c2",
+        "scope": {
+          "accountUid": "eval_replay_owner",
+          "accountUin": "1111111111",
+          "peerUid": "eval_replay_contact",
+          "peerUin": "3333333333"
+        }
+      },
+      {
+        "id": "private:ff53a342-92fa-449d-856f-6fb86466cfae",
+        "type": "private",
+        "text": "我们这次看展现在是什么状态？",
+        "at": "2026-10-03T11:18:00.000Z",
+        "role": "user",
+        "use": "discussion",
+        "kind": "discussion",
+        "version": 1,
+        "revision": "018691e7bf5d63308ab7be04ffca8c1d98777ccb766b4ac3c6f2714deeae80d7",
+        "scope": {
+          "accountUid": "eval_replay_owner",
+          "accountUin": "1111111111",
+          "peerUid": "eval_replay_contact",
+          "peerUin": "3333333333"
+        }
+      },
+      {
+        "id": "private:9b6bf8af-f894-4c2f-9ef8-d3017df56e7a",
+        "type": "private",
+        "text": "补充一下：她10月1日曾经答应过10月10日去看展。",
+        "at": "2026-10-05T11:00:00.000Z",
+        "role": "user",
+        "use": "discussion",
+        "kind": "discussion",
+        "version": 1,
+        "revision": "dad549a385892eb939481596af6e1ca208155c4151097b7cfa2ff8f401fc7014",
+        "scope": {
+          "accountUid": "eval_replay_owner",
+          "accountUin": "1111111111",
+          "peerUid": "eval_replay_contact",
+          "peerUin": "3333333333"
+        }
+      },
+      {
+        "id": "private:0e9c98f4-d744-4cf7-afc9-a3fd2cecdb9c",
+        "type": "private",
+        "text": "补充后，现在的安排应怎么理解？",
+        "at": "2026-10-05T11:18:00.000Z",
+        "role": "user",
+        "use": "discussion",
+        "kind": "discussion",
+        "version": 1,
+        "revision": "ea0e189e9b553e2219b519d35716f773f08faeb6258705daf46486678fde6dba",
+        "scope": {
+          "accountUid": "eval_replay_owner",
+          "accountUin": "1111111111",
+          "peerUid": "eval_replay_contact",
+          "peerUin": "3333333333"
+        }
+      }
+    ],
+    "reviewedSourceIds": [
+      "private:3bca6249-6797-4a0d-8b47-7db5903e5543"
+    ],
+    "evidenceCoverage": {
+      "version": "original-evidence-v1",
+      "rule": "journal_progress_is_not_semantic_review"
+    },
+    "maxBytes": 24000,
+    "inputBytes": 3324
+  },
+  "decoded": {
+    "reviewedSourceIds": [
+      "private:3bca6249-6797-4a0d-8b47-7db5903e5543"
+    ],
+    "items": [],
+    "episodes": [],
+    "retire": [],
+    "relationshipPatch": {
+      "claims": [],
+      "events": [
+        {
+          "text": "Contact accepted the invitation to go see the exhibition together on October 10, 2026.",
+          "sourceIds": [
+            "qq:72057594049927937001",
+            "qq:72057594049927937002"
+          ],
+          "activityKey": "看展",
+          "eventKind": "acceptance",
+          "actor": "contact",
+          "occurredAt": "2026-10-01T10:01:00.000Z"
+        },
+        {
+          "text": "A message about the exhibition arrangement was withdrawn; the source does not establish whether the arrangement itself was cancelled.",
+          "sourceIds": [
+            "private:3bca6249-6797-4a0d-8b47-7db5903e5543"
+          ],
+          "activityKey": "看展",
+          "eventKind": "cancellation",
+          "actor": "unknown",
+          "occurredAt": "2026-10-06T11:18:00.000Z"
+        }
+      ],
+      "retire": []
+    },
+    "originalDelivery": [
+      {
+        "id": "private:3bca6249-6797-4a0d-8b47-7db5903e5543",
+        "type": "private",
+        "text": "那条消息撤回后，现在能当作还约好了吗？",
+        "at": "2026-10-06T11:18:00.000Z",
+        "role": "user",
+        "use": "discussion",
+        "kind": "discussion",
+        "version": 1,
+        "revision": "2d5385afe31d25a433f4e15cb3395b082e2b71d902ceeb97f93593711a14cd85",
+        "scope": {
+          "accountUid": "eval_replay_owner",
+          "accountUin": "1111111111",
+          "peerUid": "eval_replay_contact",
+          "peerUin": "3333333333"
+        }
+      },
+      {
+        "id": "qq:72057594049927937001",
+        "type": "qq",
+        "text": "10月10日一起去看看那个展吗？",
+        "at": "2026-10-01T10:00:00.000Z",
+        "role": "user",
+        "direction": "outgoing",
+        "use": "discussion",
+        "messageId": "72057594049927937001",
+        "sequence": "1",
+        "senderUid": "eval_replay_owner",
+        "senderUin": "1111111111",
+        "revision": "0e223520ae13608c3a21dd24a1b33b606b4b28cb05593befe8825e5d72c68aae",
+        "scope": {
+          "accountUid": "eval_replay_owner",
+          "accountUin": "1111111111",
+          "peerUid": "eval_replay_contact",
+          "peerUin": "3333333333"
+        }
+      },
+      {
+        "id": "qq:72057594049927937002",
+        "type": "qq",
+        "text": "好呀，可以。",
+        "at": "2026-10-01T10:01:00.000Z",
+        "role": "contact",
+        "direction": "incoming",
+        "use": "discussion",
+        "messageId": "72057594049927937002",
+        "sequence": "2",
+        "senderUid": "eval_replay_contact",
+        "senderUin": "3333333333",
+        "revision": "37fa9ea7a676c3f387ef83c3f698720c606b5fbbb215e951818e26c6ab1b35c2",
+        "scope": {
+          "accountUid": "eval_replay_owner",
+          "accountUin": "1111111111",
+          "peerUid": "eval_replay_contact",
+          "peerUin": "3333333333"
+        }
+      },
+      {
+        "id": "private:ff53a342-92fa-449d-856f-6fb86466cfae",
+        "type": "private",
+        "text": "我们这次看展现在是什么状态？",
+        "at": "2026-10-03T11:18:00.000Z",
+        "role": "user",
+        "use": "discussion",
+        "kind": "discussion",
+        "version": 1,
+        "revision": "018691e7bf5d63308ab7be04ffca8c1d98777ccb766b4ac3c6f2714deeae80d7",
+        "scope": {
+          "accountUid": "eval_replay_owner",
+          "accountUin": "1111111111",
+          "peerUid": "eval_replay_contact",
+          "peerUin": "3333333333"
+        }
+      },
+      {
+        "id": "private:9b6bf8af-f894-4c2f-9ef8-d3017df56e7a",
+        "type": "private",
+        "text": "补充一下：她10月1日曾经答应过10月10日去看展。",
+        "at": "2026-10-05T11:00:00.000Z",
+        "role": "user",
+        "use": "discussion",
+        "kind": "discussion",
+        "version": 1,
+        "revision": "dad549a385892eb939481596af6e1ca208155c4151097b7cfa2ff8f401fc7014",
+        "scope": {
+          "accountUid": "eval_replay_owner",
+          "accountUin": "1111111111",
+          "peerUid": "eval_replay_contact",
+          "peerUin": "3333333333"
+        }
+      },
+      {
+        "id": "private:0e9c98f4-d744-4cf7-afc9-a3fd2cecdb9c",
+        "type": "private",
+        "text": "补充后，现在的安排应怎么理解？",
+        "at": "2026-10-05T11:18:00.000Z",
+        "role": "user",
+        "use": "discussion",
+        "kind": "discussion",
+        "version": 1,
+        "revision": "ea0e189e9b553e2219b519d35716f773f08faeb6258705daf46486678fde6dba",
+        "scope": {
+          "accountUid": "eval_replay_owner",
+          "accountUin": "1111111111",
+          "peerUid": "eval_replay_contact",
+          "peerUin": "3333333333"
+        }
+      }
+    ]
+  },
+  "receipt": {
+    "applied": true,
+    "receipt": {
+      "batchId": "f0865d4c61fe29f54fb207b91e3e9185fec0298af6598084dfde0c847575d7d7",
+      "kind": "source_journal",
+      "reviewedSourceIds": [
+        "private:3bca6249-6797-4a0d-8b47-7db5903e5543"
+      ],
+      "sourceRevisions": {
+        "private:3bca6249-6797-4a0d-8b47-7db5903e5543": "2d5385afe31d25a433f4e15cb3395b082e2b71d902ceeb97f93593711a14cd85"
+      },
+      "seqFrom": 8,
+      "seqTo": 8,
+      "segments": [
+        {
+          "sourceId": "private:3bca6249-6797-4a0d-8b47-7db5903e5543",
+          "offset": 0,
+          "end": 19
+        }
+      ],
+      "originalCoverage": {
+        "version": "original-evidence-v1",
+        "scope": {
+          "accountUid": "eval_replay_owner",
+          "accountUin": "1111111111",
+          "peerUid": "eval_replay_contact",
+          "peerUin": "3333333333"
+        },
+        "sourceRevisions": {
+          "private:3bca6249-6797-4a0d-8b47-7db5903e5543": "2d5385afe31d25a433f4e15cb3395b082e2b71d902ceeb97f93593711a14cd85",
+          "qq:72057594049927937001": "0e223520ae13608c3a21dd24a1b33b606b4b28cb05593befe8825e5d72c68aae",
+          "qq:72057594049927937002": "37fa9ea7a676c3f387ef83c3f698720c606b5fbbb215e951818e26c6ab1b35c2",
+          "private:ff53a342-92fa-449d-856f-6fb86466cfae": "018691e7bf5d63308ab7be04ffca8c1d98777ccb766b4ac3c6f2714deeae80d7",
+          "private:9b6bf8af-f894-4c2f-9ef8-d3017df56e7a": "dad549a385892eb939481596af6e1ca208155c4151097b7cfa2ff8f401fc7014",
+          "private:0e9c98f4-d744-4cf7-afc9-a3fd2cecdb9c": "ea0e189e9b553e2219b519d35716f773f08faeb6258705daf46486678fde6dba"
+        },
+        "reads": [
+          {
+            "sourceId": "private:3bca6249-6797-4a0d-8b47-7db5903e5543",
+            "revision": "2d5385afe31d25a433f4e15cb3395b082e2b71d902ceeb97f93593711a14cd85",
+            "start": 0,
+            "end": 19,
+            "total": 19,
+            "complete": true,
+            "bodyHash": "dc92b8658fe782f246e61ae6e407683c39d2f8fd31d9fa556d37b38cf70e3f14"
+          },
+          {
+            "sourceId": "qq:72057594049927937001",
+            "revision": "0e223520ae13608c3a21dd24a1b33b606b4b28cb05593befe8825e5d72c68aae",
+            "start": 0,
+            "end": 16,
+            "total": 16,
+            "complete": true,
+            "bodyHash": "cf86d2cf0c0364bc959639e30cbca5b176b54da0ad8da0e428567e6613ac295d"
+          },
+          {
+            "sourceId": "qq:72057594049927937002",
+            "revision": "37fa9ea7a676c3f387ef83c3f698720c606b5fbbb215e951818e26c6ab1b35c2",
+            "start": 0,
+            "end": 6,
+            "total": 6,
+            "complete": true,
+            "bodyHash": "9a47ad63c30d43a7d1aeede142fde6783ce77d314b15955b3cc5674ccb0b4fc1"
+          },
+          {
+            "sourceId": "private:ff53a342-92fa-449d-856f-6fb86466cfae",
+            "revision": "018691e7bf5d63308ab7be04ffca8c1d98777ccb766b4ac3c6f2714deeae80d7",
+            "start": 0,
+            "end": 14,
+            "total": 14,
+            "complete": true,
+            "bodyHash": "5f9bc6b826a6c874a40fc4b23c7ccc7eedc42add4de4118dbcfe0de3d7504d9b"
+          },
+          {
+            "sourceId": "private:9b6bf8af-f894-4c2f-9ef8-d3017df56e7a",
+            "revision": "dad549a385892eb939481596af6e1ca208155c4151097b7cfa2ff8f401fc7014",
+            "start": 0,
+            "end": 26,
+            "total": 26,
+            "complete": true,
+            "bodyHash": "c5ba324d3cd71b63ad500c0f4b20b7120086907d4069b2a8ca6203b7e0ea79ab"
+          },
+          {
+            "sourceId": "private:0e9c98f4-d744-4cf7-afc9-a3fd2cecdb9c",
+            "revision": "ea0e189e9b553e2219b519d35716f773f08faeb6258705daf46486678fde6dba",
+            "start": 0,
+            "end": 15,
+            "total": 15,
+            "complete": true,
+            "bodyHash": "2beb483d5d7b5578f7ecab5467483fc8c154548106a021baaaa84dbd2794e460"
+          }
+        ],
+        "completeSourceIds": [
+          "private:3bca6249-6797-4a0d-8b47-7db5903e5543",
+          "qq:72057594049927937001",
+          "qq:72057594049927937002",
+          "private:ff53a342-92fa-449d-856f-6fb86466cfae",
+          "private:9b6bf8af-f894-4c2f-9ef8-d3017df56e7a",
+          "private:0e9c98f4-d744-4cf7-afc9-a3fd2cecdb9c"
+        ],
+        "requiredSourceIds": [
+          "private:3bca6249-6797-4a0d-8b47-7db5903e5543",
+          "qq:72057594049927937001",
+          "qq:72057594049927937002",
+          "private:ff53a342-92fa-449d-856f-6fb86466cfae",
+          "private:9b6bf8af-f894-4c2f-9ef8-d3017df56e7a",
+          "private:0e9c98f4-d744-4cf7-afc9-a3fd2cecdb9c"
+        ],
+        "missingSourceIds": [],
+        "partialSourceIds": [],
+        "complete": true
+      },
+      "reviewedAt": "2026-10-06T11:28:00.000Z",
+      "outcome": "updated",
+      "updates": 2
+    }
+  }
+}

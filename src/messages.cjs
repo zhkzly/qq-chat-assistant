@@ -72,6 +72,7 @@ function normalize(raw, scope) {
     else parts.push('[非文本消息]');
   }
   const recalled = !!raw.recallTime && raw.recallTime !== '0';
+  const recallSeconds=Number(raw.recallTime),recalledAt=recalled&&Number.isSafeInteger(recallSeconds)&&recallSeconds>=seconds&&recallSeconds<=8640000000000?recallSeconds*1000:null;
   const references = recalled ? [] : (raw.elements || []).filter(element => element.replyElement)
     .map(element => nativeReplyReference(element.replyElement, scope));
   const distinct = [...new Map(references.map(reference => [JSON.stringify(reference), reference])).values()];
@@ -79,7 +80,7 @@ function normalize(raw, scope) {
   return { ...scope, messageId: raw.msgId, sequence: raw.msgSeq, timestamp: seconds * 1000,
     direction: own ? 'outgoing' : 'incoming', senderUid: raw.senderUid, senderUin: String(raw.senderUin),
     ...(replyTo ? { replyTo } : {}),
-    text: recalled ? '[已撤回]' : parts.join(''), media:recalled?[]:extractMedia(raw.elements), recalled, kind: 'actual', source: 'desktop-qq-native' };
+    text: recalled ? '[已撤回]' : parts.join(''), media:recalled?[]:extractMedia(raw.elements), recalled,...(recalledAt?{recalledAt}:{}), kind: 'actual', source: 'desktop-qq-native' };
 }
 function compare(a, b) {
   if (a.timestamp !== b.timestamp) return a.timestamp - b.timestamp;

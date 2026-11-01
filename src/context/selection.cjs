@@ -434,7 +434,7 @@ function selectPlanningContext({options,snapshot,candidates,view,budget,coreInve
   }
   if (relationshipContext && sameScopeIfPresent(relationshipContext, scope)) {
     payload.relationshipContext = { version: relationshipContext.version, asOf: relationshipContext.asOf,
-      claims: [], events: [], activities: [], coverage: sanitize(relationshipContext.coverage || {}) };
+      claims: [], events: [], activities: [],activityUncertainties:sanitize(relationshipContext.activityUncertainties||[]),activityEvidenceRule:'Historical evidence gaps do not negate a separately supported current-state report. Preserve currentReportedState source/asOf/authority; it is not an event occurrence clock.', coverage: sanitize(relationshipContext.coverage || {}) };
     const common = ['id','version','text','sourceIds','sourceRevisions','evidenceValidity','applicability','currentApplicability','reviewComplete','topicKeys','firstEvidenceAt','lastEvidenceAt','reportedAt','reviewedAt','applicabilityKind','attribution','condition','readCategory'];
     const categories=new Map();
     for(const subject of ['self','contact','dyad'])for(const category of ['knownFacts','recentCircumstances','uncertainties','boundaries'])for(const claim of relationshipContext.understanding?.[subject]?.[category]||[])categories.set(claim.id,category);
@@ -442,17 +442,18 @@ function selectPlanningContext({options,snapshot,candidates,view,budget,coreInve
     let relationshipEvidenceBytes=0;
     const admitRelationship=record=>{const extra=(record.sourceIds||[]).filter(id=>!selected.has(id)).reduce((n,id)=>n+bytes(byId.get(id)||{}),bytes(record));if(!reviewing&&relationshipEvidenceBytes+extra>7000)return false;relationshipEvidenceBytes+=extra;return true;};
     for (const claim of claims.slice(0,reviewing?24:6)) if(admitRelationship(claim))
-      includeGrounded({...claim,...(categories.has(claim.id)?{readCategory:categories.get(claim.id)}:{})}, payload.relationshipContext.claims, [...common,'subject','aspect','assertionKind','epistemicStatus','lifecycle','validFrom','validUntil','context']);
-    const eventKeys=new Set((relationshipContext.events||[]).filter(relevantRecord).map(event=>event.activityKey));
-    for (const event of (relationshipContext.events || []).filter(event=>reviewing||eventKeys.has(event.activityKey)).slice(-24).reverse()) if(admitRelationship(event))
-      includeGrounded(event, payload.relationshipContext.events, [...common,'activityKey','eventKind','actor','occurredAt','occurrenceTimeStatus','lifecycle','assertionKind','epistemicStatus','origin']);
+      includeGrounded({...claim,...(categories.has(claim.id)?{readCategory:categories.get(claim.id)}:{})}, payload.relationshipContext.claims, [...common,'subject','aspect','assertionKind','epistemicStatus','lifecycle','validFrom','validUntil','context','activityId','currentActivityState']);
+    const eventKeys=new Set((relationshipContext.events||[]).filter(relevantRecord).map(event=>event.activityId||event.activityKey));
+    for (const event of (relationshipContext.events || []).filter(event=>reviewing||eventKeys.has(event.activityId||event.activityKey)).slice(-24).reverse()) if(admitRelationship(event))
+      includeGrounded(event, payload.relationshipContext.events, [...common,'activityId','activityKey','identityStatus','activityEvidenceStatus','eventKind','actor','occurredAt','plannedFor','occurrenceTimeStatus','lifecycle','assertionKind','epistemicStatus','origin']);
     payload.relationshipContext.events.sort((a,b)=>String(a.occurredAt||a.lastEvidenceAt||'').localeCompare(String(b.occurredAt||b.lastEvidenceAt||'')));
     const eventIds = new Set(payload.relationshipContext.events.map(event => event.id));
     for (const activity of (relationshipContext.activities || []).slice(0, 8)) {
       const ids = activity.eventIds || activity.events?.map(event => typeof event === 'string' ? event : event.id) || [];
-      if (!ids.length || ids.some(id => !eventIds.has(id))) continue;
-      const compact = sanitize({ ...pick(activity, ['activityKey','status','currentState','latestEventId','occurredAt']), eventIds: ids });
+      if (!activity.activityId&&(!ids.length || ids.some(id => !eventIds.has(id)))) continue;
+      const compact = sanitize({ ...pick(activity, ['activityId','activityKey','status','authority','identityStatus','definitionAvailable','definitionEvidence','historicalEvidenceGap','currentReportedState','priorCurrentReportedState','latestEventId','knowledgeChangedAt','affectedWorldAt','occurredAt','plannedFor','qualified']), eventIds: ids.filter(id=>eventIds.has(id)) });
       payload.relationshipContext.activities.push(compact);
+      reconcilePlanningViews(payload);
       if (!fits(payload)) payload.relationshipContext.activities.pop();
     }
   }
@@ -642,8 +643,9 @@ function selectPlanningContext({options,snapshot,candidates,view,budget,coreInve
   }
   if (payload.relationshipContext) {
     const keptEvents = new Set(payload.relationshipContext.events.map(item => item.id));
-    payload.relationshipContext.activities = payload.relationshipContext.activities.filter(item => item.eventIds.every(id => keptEvents.has(id)));
+    payload.relationshipContext.activities = payload.relationshipContext.activities.filter(item => item.activityId||item.eventIds.every(id => keptEvents.has(id)));
   }
+  reconcilePlanningViews(payload);
   for (const key of ['cases', 'adaptations']) if (payload.experienceContext) payload.experienceContext[key] = payload.experienceContext[key].filter(groundFinal);
   if (payload.feedbackTargets) payload.feedbackTargets = payload.feedbackTargets.filter(item => item.sourceIds?.every(id => selected.has(id) || item.foldedSourceIds?.includes(id) && compacted?.sourceRevisions[id] === byId.get(id)?.revision));
   const privateGroups = []; let currentGroup = null;

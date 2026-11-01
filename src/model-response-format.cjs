@@ -23,8 +23,17 @@ const claim=object({...common,subject:choice(SUBJECTS),aspect:choice(ASPECTS),as
  lifecycle:choice(LIFECYCLES),validFrom:string,validUntil:string,context:string,applicabilityKind:choice(APPLICABILITY),attribution:choice(ATTRIBUTION),condition:string,
  transition:object({operation:choice(TRANSITIONS),targets:array(object({id:string,expectedVersion:integer},['id','expectedVersion']))},['operation','targets'])},['text','sourceIds','subject','aspect','assertionKind','epistemicStatus']);
 const event=object({...common,activityKey:string,eventKind:choice(EVENT_KINDS),actor:choice(['self','contact','both','unknown']),occurredAt:string,transition:claim.properties.transition},['text','sourceIds','activityKey','eventKind','actor']);
+const activityWitness=object({sourceId:string,quote:string},['sourceId','quote']);
+const activityTime=object({basis:choice(['qq_statement','explicit','unknown']),at:string,sourceId:string,quote:string},['basis']);
+const activitySelection=object({ref:{...string,description:'Choose an offered persisted activity ref; NEW requires one exact unique original definition. Display activityKey is not identity.'},definition:activityWitness},['ref']);
+const activityEvidence=object({statement:activityWitness,time:activityTime,plannedFor:object({at:string,sourceId:string,quote:string},['at','sourceId','quote'])},['statement','time']);
+const activityCurrentState=object({status:choice(['invited','accepted','declined','rescheduled','cancelled','unknown']),statement:activityWitness},['status','statement']);
+const memoryEventProperties={...event.properties,activity:activitySelection,evidence:activityEvidence};delete memoryEventProperties.occurredAt;
+const memoryEvent=object(memoryEventProperties,[...event.required,'activity','evidence']);
+const memoryClaim={...claim,properties:{...claim.properties,activity:activitySelection,currentState:activityCurrentState}};
 const retirement=object({id:{...string,description:'Offered prior typed record or legacy item; retire unsupported understanding without inventing a successor.'},expectedVersion:integer,sourceIds:strings,lifecycle:choice(['superseded','withdrawn'])},['id','expectedVersion','sourceIds','lifecycle']);
 const relationshipPatch=object({claims:array(claim),events:array(event),retire:array(retirement)});
+const memoryRelationshipPatch=object({claims:array(memoryClaim),events:array(memoryEvent),retire:array(retirement)});
 const expressionOption=object({label:string,quotes:{...array(quote),description:'Optional historical private fact quotes for THIS option only; with currentFacts combined at most 8.'},currentFacts:{...strings,description:'Optional exact current human fact spans for THIS option only. With quotes combined at most 8; source binding is not disclosure permission.'},style:string},['label']);
 const experienceProposal=object({text:string,applicability:string,methodId:string,sourceIds:strings,caseIds:strings},['text','applicability','methodId','sourceIds','caseIds']);
 const quoteRef=object({turnId:string,role:choice(['user','assistant']),field:choice(['text','discussionExplanation','suggestions','expressionOptions']),index:integer,quoteIndex:integer,text:string,
@@ -58,7 +67,7 @@ const schemas={
  draft_result:object({kind:choice(['draft','discussion','question']),text:{...string,description:'For kind=draft, only the complete outward message body, 1..1200 characters; keep private reasoning in privateExplanation. For kind=question, the blocker owns its canonical body.'},privateExplanation:{...string,description:'Optional FINAL private explanation for kind=draft, at most 6000 characters; omitted or blank means absent. Own its factual reasoning together with the outward message; a primary planning comment is not verified truth.'},deliveryBlocker,suggestions:array(object({style:string,text:string},['style','text'])),methodIds:strings,replyDisposition:choice(['wait','clarify','unavailable'])},['kind','text']),
  fidelity_result:object({checkRef:string,verdict:choice(['allow','reject','uncertain']),factual:array(factualField),issues:array(object({path:string,code:choice(['private_disclosure']),quote:string,sourceIds:strings,evidence:array(evidenceWitness),reason:string},['path','code','quote'])),concerns:array(object({path:string,code:string,quote:string,sourceIds:strings,evidence:array(evidenceWitness),reason:string},['path','code','reason']))},['checkRef','factual','issues']),
  discussion_compaction_result:object({summary:string,reviewedTurnIds:strings,quoteRefs:array(quoteRef)},['summary','reviewedTurnIds','quoteRefs']),
- memory_result:object({batchId:string,reviewedAll:boolean,episodes:array(episode),relationshipPatch},['batchId','reviewedAll','episodes','relationshipPatch'])
+ memory_result:object({batchId:string,reviewedAll:boolean,episodes:array(episode),relationshipPatch:memoryRelationshipPatch},['batchId','reviewedAll','episodes','relationshipPatch'])
 };
 function responseEnvelope(settings,purpose,payload) {
  if(settings.modelResponseMode==='plain_text')return {};
@@ -69,6 +78,12 @@ function responseEnvelope(settings,purpose,payload) {
  if(!useTool)return {response_format:{type:'json_object'}};
  const name=purpose==='fidelity_check'?'fidelity_result':purpose==='draft'?'draft_result':purpose==='discussion_compaction'?'discussion_compaction_result':purpose==='memory'?'memory_result':'assistant_result';
  let schema=schemas[name];
+ if(name==='memory_result'){
+  const input=payload?.originalInput||payload,refs=(input?.activityContext?.activities||[]).map(item=>item.ref),properties={...memoryEvent.properties};
+  properties.activity={...activitySelection,properties:{...activitySelection.properties,ref:{...activitySelection.properties.ref,...(input?{enum:['NEW',...refs]}:{})}}};properties.evidence=activityEvidence;
+  const nativeClaim={...memoryClaim,properties:{...memoryClaim.properties,activity:properties.activity}};
+  schema={...schema,properties:{...schema.properties,relationshipPatch:{...relationshipPatch,properties:{...relationshipPatch.properties,claims:array(nativeClaim),events:array(object(properties,[...event.required,'activity','evidence']))}}}};
+ }
  if(name==='memory_result'&&payload){
   const input=payload.originalInput||payload,targets=(input.priorMemory?.episodes||[]).filter(record=>record.updateAuthority==='requires_original_read_proof').map(record=>record.id);
   const canCreate=input.review?.purpose!=='semantic_recovery'&&(input.sources||[]).some(source=>!source.deleted),ids=[...(canCreate?['NEW']:[]),...targets];
@@ -112,7 +127,7 @@ function responseEnvelope(settings,purpose,payload) {
   if(taskPayload.generationOrigin==='qq_observation')delete properties.actions;
   schema={...schema,properties};
  }
- return {tools:[{type:'function',function:{name,description:name==='assistant_result'?'Select exactly one primary operation and only its active core payload. Optional independently supported proposals are not executed by this inert result tool.':name==='fidelity_result'?'Report only concrete source-bound defects in this exact candidate. No exhaustive proposition census or global pass certificate. Read-only; cannot rewrite, execute or grant facts/permission.':'Return readable kind/text for this phase, with only useful optional data. This function is not executed and performs no external action. Follow source and phase rules.',parameters:schema}}],
+ return {tools:[{type:'function',function:{name,description:name==='assistant_result'?'Select exactly one primary operation and only its active core payload. Optional independently supported proposals are not executed by this inert result tool.':name==='fidelity_result'?'Report only concrete source-bound defects in this exact candidate. No exhaustive proposition census or global pass certificate. Read-only; cannot rewrite, execute or grant facts/permission.':name==='memory_result'?'Return the captured batch receipt, original-backed logical understanding and explicit navigation choices. Historical knowledge gaps permit completed no-change; world events require their activity, statement and time evidence. This inert tool performs no external action.':'Return readable kind/text for this phase, with only useful optional data. This function is not executed and performs no external action. Follow source and phase rules.',parameters:schema}}],
   tool_choice:{type:'function',function:{name}},parallel_tool_calls:false};
 }
 function normalizeResultPadding(value,name) {

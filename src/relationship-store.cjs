@@ -4,11 +4,12 @@ const {rank}=require('./memory-search.cjs');
 const {normalizeRelationshipPatch}=require('./relationship-schema.cjs');
 const {sourceClosure,assertPreferenceAuthority}=require('./provenance.cjs');
 const {requireOriginals}=require('./original-evidence.cjs');
+const activityEvidence=require('./activity-evidence.cjs');
 const PROCESSOR_VERSION='evidence-backed-understanding-2026-10-31.2';
 const hash=value=>createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const typed=r=>r.recordType==='claim'||r.recordType==='relationship_event';
 const decisionRevisions=record=>record.transition?.sourceRevisions||{};
-const dependencyRevisions=record=>({...record.sourceRevisions,...decisionRevisions(record)});
+const dependencyRevisions=record=>({...record.sourceRevisions,...decisionRevisions(record),...activityEvidence.activityReferences(record)});
 function decisionEvidence(record,byId){
   const sourceRevisions=decisionRevisions(record);
   if(record.transition?.evidenceValidity==='unavailable')return {sourceRevisions,available:false};
@@ -71,11 +72,12 @@ function repairRelationshipTransitions(store,scope){
   if(changed)store.db.prepare('UPDATE memory_meta SET version=version+1 WHERE scope_key=?').run(key);
   return changed;
 }
-const meaningFields={claim:['text','subject','aspect','assertionKind','epistemicStatus','lifecycle','applicabilityKind','attribution','condition','context','validFrom','validUntil'],relationship_event:['text','activityKey','eventKind','actor','occurredAt']};
+const meaningFields={claim:['text','subject','aspect','assertionKind','epistemicStatus','lifecycle','applicabilityKind','attribution','condition','context','validFrom','validUntil'],relationship_event:['text','activityKey','eventKind','actor','occurredAt','plannedFor']};
 function prepareRelationshipPatch(store,scope,input,options={}) {
   const patch=normalizeRelationshipPatch(input),raw=new Map(store._rawMemorySources(scope).map(s=>[s.id,s]));
   const allowed=new Set(options.sourceIds||[]),records=store._memoryRecords(scope),existing=records.filter(typed),byId=new Map(existing.map(r=>[r.id,r])),transitionById=new Map(records.filter(record=>typed(record)||record.recordType==='item').map(record=>[record.id,record]));
   const checked=[];
+  const activityState=activityEvidence.storedState(store,scope,raw),mintedActivities=new Map();
   const build=(value,type,retiring=false)=>{
     if(value.sourceIds.some(id=>!allowed.has(id)||!raw.has(id)))throw new Error('Unavailable or undelivered relationship evidence');
     if(options.sourceRevisions&&value.sourceIds.some(id=>options.sourceRevisions[id]!==raw.get(id).revision))throw new Error('Stale relationship source');
@@ -84,6 +86,16 @@ function prepareRelationshipPatch(store,scope,input,options={}) {
     if(old&&old.recordType!==type)throw new Error('Relationship record type cannot change');
     if(old&&value.expectedVersion!==undefined&&old.version!==value.expectedVersion)throw new Error('Stale relationship object version');
     if(old&&options.previousIds&&!options.previousIds.has(old.id))throw new Error('Relationship update target was not delivered');
+    const nativeActivity=(type==='relationship_event'||type==='claim'&&value.currentStateProof)&&!retiring?activityEvidence.resolveProof(store,scope,value,{raw,delivered:options.deliveredSources||options.batchSources||[],old,state:activityState,minted:mintedActivities,offeredIds:options.activityContext?new Set(options.activityContext.activities.map(item=>item.id)):undefined}):null;
+    if(old?.activityId&&!retiring&&!nativeActivity)throw new Error('Anchored activity updates require their original statement and activity identity proof');
+    if(nativeActivity){
+      const fields={...nativeActivity.fields};
+      if(type==='claim'){
+        if(nativeActivity.origin==='user_report'&&(value.assertionKind!=='reported'||value.attribution!=='user_report'))throw Object.assign(new Error('Activity current-state reports from private originals must retain reported/user_report attribution'),{code:'invalid_activity_event',field:'relationshipPatch.claims'});
+        delete fields.occurredAt;delete fields.timeEvidence;fields.currentActivityState={status:value.currentStateProof.status,asOf:nativeActivity.statementAt,origin:nativeActivity.origin};
+      }
+      value={...value,...fields};delete value.activityProof;delete value.currentStateProof;
+    }
     const transitionTargets=(value.transition?.targets||[]).map(target=>{
       const prior=transitionById.get(target.id);if(!prior||prior.version!==target.expectedVersion||options.previousIds&&!options.previousIds.has(prior.id))throw new Error('Stale or unavailable understanding transition target');return prior;
     });
@@ -91,15 +103,17 @@ function prepareRelationshipPatch(store,scope,input,options={}) {
     const targets=[...new Map([old,...transitionTargets].filter(Boolean).map(target=>[target.id,target])).values()];
     const decisions=new Map(targets.map(target=>[target.id,decisionEvidence(target,transitionById)]));
     if(targets.some(target=>options.readOnlyIds?.has(target.id)||!decisions.get(target.id).available))throw new Error('Understanding target is read-only until its necessary original decision evidence is available');
-    if(targets.some(target=>Object.entries({...target.sourceRevisions,...decisions.get(target.id).sourceRevisions}).some(([id,revision])=>raw.get(id)?.revision!==revision)))throw new Error('Stale understanding target original evidence');
+    if(targets.some(target=>Object.entries({...target.sourceRevisions,...decisions.get(target.id).sourceRevisions,...activityEvidence.activityReferences(target)}).some(([id,revision])=>raw.get(id)?.revision!==revision)))throw new Error('Stale understanding target original evidence');
     for(const prior of transitionTargets)if(prior.recordType!==type&&prior.recordType!=='item')throw new Error('Understanding transitions cannot change record type');
     if(old&&transitionTargets.length&&(transitionTargets.length!==1||transitionTargets[0].id!==old.id))throw new Error('An existing relationship update must target only itself; omit outer id for a distinct successor');
     const reaffirm=value.transition?.operation==='reaffirm';
     if(reaffirm){
       if(transitionTargets.length!==1||transitionTargets[0].recordType!==type)throw new Error('Reaffirm exactly one same-type understanding');
       const prior=transitionTargets[0];
+      if(prior.currentActivityState&&(prior.activityId!==value.activityId||prior.currentActivityState.status!==value.currentActivityState?.status))throw new Error('Reaffirm preserves the same associated activity/current-state assertion');
+      if(type==='relationship_event'&&prior.activityId&&value.plannedFor===undefined&&prior.plannedFor!==undefined){value={...value,plannedFor:prior.plannedFor,plannedEvidence:prior.plannedEvidence};}
       if(value.expectedVersion!==undefined&&value.expectedVersion!==prior.version)throw new Error('Stale relationship object version');
-      if(prior.lifecycle!=='active'||meaningFields[type].some(field=>field!=='text'&&(prior[field]??null)!==(value[field]??null)))throw new Error('Reaffirm requires the same entity, applicability and temporal scope; use an explicit revision transition for changes');
+      if(prior.lifecycle!=='active'||meaningFields[type].some(field=>field!=='text'&&!(type==='relationship_event'&&prior.activityId&&field==='activityKey')&&(prior[field]??null)!==(value[field]??null)))throw new Error('Reaffirm requires the same entity, applicability and temporal scope; use an explicit revision transition for changes');
       // Reaffirming is one versioned reread of the same understanding, even
       // when the writer supplies only the transition target and no outer id.
       old=prior;
@@ -107,7 +121,7 @@ function prepareRelationshipPatch(store,scope,input,options={}) {
     const inPlaceTransition=!!old&&transitionTargets.length===1&&transitionTargets[0].id===old.id;
     if(inPlaceTransition&&!reaffirm&&(value.transition.operation!=='supersede'||value.lifecycle!=='superseded'))throw new Error('An in-place transition must reaffirm or explicitly supersede the existing understanding; omit outer id for a distinct successor');
     const historicalRevision=inPlaceTransition&&!reaffirm;
-    const required=[...new Set([...value.sourceIds,...targets.flatMap(target=>[...target.sourceIds,...Object.keys(decisions.get(target.id).sourceRevisions)])])];
+    const required=[...new Set([...value.sourceIds,...(nativeActivity?.identitySourceIds||[]),...targets.flatMap(target=>[...target.sourceIds,...Object.keys(decisions.get(target.id).sourceRevisions),...Object.keys(activityEvidence.activityReferences(target))])])];
     const originalRoots=sourceClosure(raw,required).map(source=>source.id);
     const delivered=options.deliveredSources||options.batchSources||[];
     const readCoverage=requireOriginals(raw,delivered,scope,originalRoots,{complete:!!old||retiring||transitionTargets.length>0});
@@ -134,7 +148,7 @@ function prepareRelationshipPatch(store,scope,input,options={}) {
     if(!retiring&&type==='claim'&&value.subject==='self'&&value.aspect==='stated_preference')assertPreferenceAuthority(raw,refs);
     if(!retiring&&type==='claim'&&value.applicabilityKind==='recurring')assertPreferenceAuthority(raw,refs);
     if(type==='claim'&&value.assertionKind==='stated'&&value.subject==='contact'&&!closure.some(s=>s.type==='qq'&&s.role==='contact'))throw new Error('Contact statements require actual contact messages; use reported for user reports');
-    const dates=refs.map(id=>raw.get(id).at).sort();
+    const dates=nativeActivity&&!retiring?(reaffirm?[old.firstEvidenceAt,[old.lastEvidenceAt,nativeActivity.statementAt].sort().at(-1)]:[nativeActivity.statementAt]):refs.map(id=>raw.get(id).at).sort();
     if(old&&dates.at(-1)<old.lastEvidenceAt)throw new Error('Older backfill cannot replace newer relationship evidence');
     if(old&&options.reviewedSourceIds){const fresh=value.sourceIds.filter(id=>options.reviewedSourceIds.includes(id));const freshAt=fresh.map(id=>raw.get(id).at).sort().at(-1);const completing=old.reviewComplete===false&&fresh.some(id=>old.sourceIds.includes(id));if(freshAt&&freshAt<old.lastEvidenceAt&&!completing)throw new Error('Older newly reviewed evidence cannot retire or replace a later interpretation');}
     const {id,expectedVersion,topicKeys:inputTopics,transition:requestedTransition,...proposedSemantic}=value;
@@ -182,7 +196,7 @@ function prepareRelationshipPatch(store,scope,input,options={}) {
       for(const field of ['firstEvidenceAt','lastEvidenceAt','at','reportedAt'])if(old[field]!==undefined)result[field]=old[field];
       if(old.reportedAt===undefined)delete result.reportedAt;
     }
-    if(type==='relationship_event') {result.occurredAt=retiring||inPlaceTransition?old.occurredAt??null:value.occurredAt||null;result.occurrenceTimeStatus=retiring||inPlaceTransition?old.occurrenceTimeStatus||'unknown':value.occurredAt?'known':'unknown';result.origin=retiring||inPlaceTransition?old.origin:closure.every(s=>s.type==='qq')?'qq_observation':'user_report';}
+    if(type==='relationship_event') {result.occurredAt=retiring||inPlaceTransition?old.occurredAt??null:value.occurredAt||null;result.occurrenceTimeStatus=retiring||inPlaceTransition?old.occurrenceTimeStatus||'unknown':value.occurredAt?'known':'unknown';result.origin=retiring||inPlaceTransition?old.origin:nativeActivity?.origin||(closure.every(s=>s.type==='qq')?'qq_observation':'user_report');}
     if(old)result.revisions=[...(old.revisions||[]),{version:old.version,semanticSignature:old.semanticSignature,operation:retiring?value.lifecycle:value.transition?.operation||'revision',reviewedAt:result.reviewedAt}];
     if(transitionTargets.length){
       result.transition={...value.transition,reviewedAt:result.reviewedAt,...(inPlaceTransition?{
@@ -225,24 +239,25 @@ function relationshipView(store,scope,{query='',limit=24,asOf}={}) {
   const raw=new Map(store._rawMemorySources(scope).map(s=>[s.id,s]));
   const all=store._memoryRecords(scope).filter(typed).filter(r=>Object.entries(r.sourceRevisions||{}).every(([id,rev])=>raw.get(id)?.revision===rev&&(!historical||Date.parse(raw.get(id).at)<=now)));
   const selected=rank(all,String(query),{limit:Math.max(1,Math.min(100,Number(limit)||24))});
-  const keys=new Set(selected.filter(r=>r.recordType==='relationship_event').map(r=>r.activityKey));
+  const keys=new Set(selected.filter(r=>r.recordType==='relationship_event'&&!r.activityId).map(r=>r.activityKey));
   // An activity is read with its entire current milestone chain, not an isolated
   // old acceptance. The caller still budgets the resulting context as a unit.
   const eventClock=event=>event.occurredAt||event.lastEvidenceAt;
-  const events=all.filter(r=>r.recordType==='relationship_event'&&keys.has(r.activityKey)).map(event=>event.occurrenceTimeStatus==='legacy_unverified'?{...event,occurredAt:null}:event).sort((a,b)=>eventClock(a).localeCompare(eventClock(b))||a.id.localeCompare(b.id));
-  const claims=selected.filter(r=>r.recordType==='claim').map(r=>({...r,applicability:r.lifecycle!=='active'?'inactive':!r.reviewComplete?'needs_review':r.validUntil&&Date.parse(r.validUntil)<now?'expired':r.validFrom&&Date.parse(r.validFrom)>now?'not_yet_valid':r.applicabilityKind==='conditional'?'conditional':r.validUntil?'current':r.applicabilityKind==='recurring'?'recurring':r.applicabilityKind==='local'?'local':r.applicabilityKind==='temporary'?'dated_context':'unspecified'}));
+  const events=all.filter(r=>r.recordType==='relationship_event'&&(r.activityId||keys.has(r.activityKey))).map(event=>({...activityEvidence.evidenceViewRecord(event),...(!event.activityId?{identityStatus:'legacy_unbound',activityEvidenceStatus:'canonical_api_compatibility_not_native_identity_proof'}:{}),...(event.occurrenceTimeStatus==='legacy_unverified'?{occurredAt:null}:{})})).sort((a,b)=>eventClock(a).localeCompare(eventClock(b))||a.id.localeCompare(b.id));
+  const claims=selected.filter(r=>r.recordType==='claim').map(r=>({...activityEvidence.evidenceViewRecord(r),applicability:r.lifecycle!=='active'?'inactive':!r.reviewComplete?'needs_review':r.validUntil&&Date.parse(r.validUntil)<now?'expired':r.validFrom&&Date.parse(r.validFrom)>now?'not_yet_valid':r.applicabilityKind==='conditional'?'conditional':r.validUntil?'current':r.applicabilityKind==='recurring'?'recurring':r.applicabilityKind==='local'?'local':r.applicabilityKind==='temporary'?'dated_context':'unspecified'}));
   const gaps=store.db.prepare('SELECT record FROM memory_gaps WHERE scope_key=?').all(store.scopeKey(scope)).map(row=>JSON.parse(row.record));
   const activities=[...keys].map(activityKey=>{
-    const milestones=events.filter(e=>e.activityKey===activityKey&&e.lifecycle==='active');
+    const milestones=events.filter(e=>!e.activityId&&e.activityKey===activityKey&&e.lifecycle==='active');
     const statuses={invitation:'invited',acceptance:'accepted',decline:'declined',reschedule:'rescheduled',cancellation:'cancelled',occurred:'occurred'};
     const current=milestones.filter(e=>statuses[e.eventKind]).at(-1)||milestones.at(-1);
     const laterGap=gaps.some(gap=>gap.activityDigest===hash(activityKey)&&(!current||gap.orderAt>eventClock(current)));
     const unknownOrder=milestones.some(event=>statuses[event.eventKind]&&!event.occurredAt&&event.occurrenceTimeStatus!=='legacy_unverified');
-    return {activityKey,status:laterGap||current&&!current.reviewComplete||unknownOrder?'needs_review':statuses[current?.eventKind]||'observed',authority:laterGap?'withdrawn_evidence_gap':current?.origin==='user_report'?'user_reported':'source_backed_statement',eventIds:milestones.map(e=>e.id),sourceIds:[...new Set(milestones.flatMap(e=>e.sourceIds))],lastEvidenceAt:current?.lastEvidenceAt||null};
+    return {activityKey,identityStatus:'legacy_unbound',qualified:true,status:laterGap||current&&!current.reviewComplete||unknownOrder?'needs_review':statuses[current?.eventKind]||'observed',authority:laterGap?'withdrawn_evidence_gap':current?.origin==='user_report'?'legacy_user_reported':'legacy_source_statement',eventIds:milestones.map(e=>e.id),sourceIds:[...new Set(milestones.flatMap(e=>e.sourceIds))],lastEvidenceAt:current?.lastEvidenceAt||null};
   });
+  const anchored=activityEvidence.publicActivities(all,gaps,raw);activities.push(...anchored.activities);
   const meta=store.db.prepare('SELECT version,processor_version FROM memory_meta WHERE scope_key=?').get(store.scopeKey(scope));
   const pending=store.db.prepare("SELECT count(*) n FROM memory_journal WHERE scope_key=? AND status='pending'").get(store.scopeKey(scope)).n;
-  return {scope:{...scope},version:meta?.version||0,asOf:new Date(now).toISOString(),claims,events,self:claims.filter(r=>r.subject==='self'),contact:claims.filter(r=>r.subject==='contact'),dyad:claims.filter(r=>r.subject==='dyad'),activities,
+  return {scope:{...scope},version:meta?.version||0,asOf:new Date(now).toISOString(),claims,events,self:claims.filter(r=>r.subject==='self'),contact:claims.filter(r=>r.subject==='contact'),dyad:claims.filter(r=>r.subject==='dyad'),activities,activityUncertainties:anchored.activityUncertainties,
     coverage:{pending,semanticPending:all.filter(record=>record.reviewComplete===false).length,processorVersion:meta?.processor_version||null,bootstrapPending:meta?.processor_version!==PROCESSOR_VERSION||!!store.db.prepare("SELECT 1 FROM memory_journal WHERE scope_key=? AND status='pending' AND operation='reindex' LIMIT 1").get(store.scopeKey(scope)),history:store.coverage(scope),semanticCertainty:false}};
 }
 function personUnderstanding(store,scope,options={}){

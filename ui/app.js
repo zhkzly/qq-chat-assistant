@@ -510,7 +510,7 @@ async function experienceAction(path,args){
  }catch(err){if(expected===scopeKey&&epoch===historyEpoch)companionError(err.message);return null}
 }
 function renderRelationship(){
- const view=state.relationship||{},understanding=view.understanding,key=JSON.stringify([understanding,view.claims,view.events,view.activities,view.coverage]);if(key===relationshipViewKey)return;relationshipViewKey=key;const opened=new Set([...$('relationship-view').querySelectorAll('details[data-subject][open]')].map(el=>el.dataset.subject)),fragment=document.createDocumentFragment(),expected=scopeKey,epoch=historyEpoch;
+ const view=state.relationship||{},understanding=view.understanding,key=JSON.stringify([understanding,view.claims,view.events,view.activities,view.activityUncertainties,view.coverage]);if(key===relationshipViewKey)return;relationshipViewKey=key;const opened=new Set([...$('relationship-view').querySelectorAll('details[data-subject][open]')].map(el=>el.dataset.subject)),fragment=document.createDocumentFragment(),expected=scopeKey,epoch=historyEpoch;
  const labels={stated:'明确说过',reported:'用户补述',observed:'行为观察',hypothesis:'暂定解释',tentative:'暂定解释',inferred:'暂定解释',expired:'已过期',needs_review:'需要核查',inactive:'已停用',legacy_unreviewed:'旧记录，尚待原文核查',partial_originals:'原文尚未读全',pending:'尚待核查'};
  const cardFor=claim=>{const card=document.createElement('article');card.className='relationship-claim';card.dataset.claimId=claim.id;card.append(paragraph(claim.text||claim.statement||String(claim.value||'')),paragraph([labels[claim.assertionKind]||claim.assertionKind,labels[claim.applicability]||'',({tentative:'仍是暂定理解',contested:'存在不同说法',undetermined:'尚未确定'})[claim.epistemicStatus]||'',labels[claim.semanticReview?.status]||''].filter(Boolean).join(' · '),'muted'));
   if(claim.condition)card.append(paragraph(`适用条件：${claim.condition}`,'muted'));
@@ -525,14 +525,23 @@ function renderRelationship(){
   if(!count)section.append(paragraph('暂无可核对的认识。可以直接在对话中补充，不必先填写档案。','muted'));
   for(const group of groups)if(group.claims.length){if(group.label)section.append(paragraph(group.label,'state-heading'));section.append(...group.claims.map(cardFor));}fragment.append(section);
  }
- for(const activity of view.activities||[])fragment.append(paragraph(`共同事项：${(view.events||[]).filter(event=>event.activityKey===activity.activityKey).at(-1)?.text||'已有相关记录'} · ${{invited:'已提出邀请',accepted:'对这次活动表示愿意',declined:'已拒绝',rescheduled:'时间有变更',cancelled:'已取消',occurred:'有发生过的报告',needs_review:'需要核查'}[activity.status]||'有相关记录'}`,'muted'));
+ for(const activity of view.activities||[]){
+  const latest=(view.events||[]).filter(event=>activity.activityId?event.activityId===activity.activityId:event.activityKey===activity.activityKey).at(-1);
+  const label=activity.activityId?activity.activityKey||'活动身份待确认':latest?.text||'已有相关记录';
+  const report=activity.currentReportedState,wording=report?`${report.origin==='user_report'?'用户当前报告':'当前原话'}：${{accepted:'又约好了',cancelled:'已取消',declined:'已拒绝',invited:'已邀请',rescheduled:'已调整',unknown:'仍待确认'}[report.status]||'有新情况'}（截至${new Date(report.asOf).toLocaleString('zh-CN')}）`:
+   {invited:'已提出邀请',accepted:'现有记录曾答应',declined:'已拒绝',rescheduled:'时间有变更',cancelled:'已取消',occurred:'有发生过的报告',needs_review:'既有证据不足，仍待确认'}[activity.status]||'有相关记录';
+  fragment.append(paragraph(`共同事项：${label} · ${wording}${report&&activity.historicalEvidenceGap?'；旧证据缺口仍保留':''}${activity.qualified?'；按既有记录理解，未新增核对':''}`,'muted'));
+ }
+ if(view.activityUncertainties?.length)fragment.append(paragraph(`另有${view.activityUncertainties.length}项旧活动的证据已失去，身份未能恢复，仍待确认。`,'muted'));
  $('relationship-view').replaceChildren(fragment);
 }
 function openExperienceReview(item=null,review=null){experienceReviewTarget=review?{feedbackId:review.id,expectedVersion:review.version}:null;experienceReviewClientId=crypto.randomUUID();$('experience-review-id').value=item?.id||'';$('experience-review-text').value=review?.text||'';$('experience-review-target').textContent=review?'更正这段回顾；依赖旧内容的认识会重新核查。':item?'记录这次实际交流或活动的感受，不会把回应自动算作方法成功。':'可以记录独立交流、语音、见面或自己的决定。';$('experience-review-form').hidden=false;$('experiences-panel').open=true;showWorkspace('background');$('experience-review-text').focus()}
 function renderExperiences(){
  const experience=state.experience||{cases:[],adaptations:[]},key=JSON.stringify([experience.cases,experience.adaptations]);if(key===experienceViewKey)return;experienceViewKey=key;
  const opened=new Set([...$('experiences-list').querySelectorAll('details[data-experience-id][open]')].map(el=>el.dataset.experienceId)),cases=document.createDocumentFragment(),guidance=document.createDocumentFragment(),expected=scopeKey,epoch=historyEpoch;
- for(const item of experience.cases||[]){const card=document.createElement('details');card.className='experience-card';card.dataset.experienceId=item.id;card.open=opened.has(item.id);const title=document.createElement('summary');title.textContent=item.activityId?`共同事项：${item.observations?.filter(observation=>observation.kind==='activity_event').at(-1)?.text||'有相关经历'}`:item.actualActions?.length?`实际交流 · ${new Date(item.eventAt).toLocaleDateString('zh-CN')}`:'你补充的一次经历';card.append(title);
+ for(const item of experience.cases||[]){const card=document.createElement('details');card.className='experience-card';card.dataset.experienceId=item.id;card.open=opened.has(item.id);const title=document.createElement('summary');title.textContent=item.activityId?`共同事项：${item.activityLabel||item.observations?.filter(observation=>observation.kind==='activity_event').at(-1)?.text||'活动证据待确认'}`:item.actualActions?.length?`实际交流 · ${new Date(item.eventAt).toLocaleDateString('zh-CN')}`:'你补充的一次经历';card.append(title);
+  if(item.activityState?.currentReportedState)card.append(paragraph(`当前${item.activityState.currentReportedState.origin==='user_report'?'用户报告':'原话'}：${{accepted:'又约好了',cancelled:'已取消',declined:'已拒绝',invited:'已邀请',rescheduled:'已调整',unknown:'仍待确认'}[item.activityState.status]||'有新情况'}；截至${new Date(item.activityState.currentReportedState.asOf).toLocaleString('zh-CN')}，不代表活动已经发生。`,'muted'));
+  else if(item.activityState?.status==='needs_review')card.append(paragraph('这项活动的旧证据存在缺口，仍待确认。','muted'));
   if(item.status==='invalidated')card.append(paragraph('相关来源已有变化，这段经验暂不作为当前依据。','muted'));
   for(const actual of item.actualActions||[])card.append(paragraph(`${actual.kind==='qq_message'?'实际发出':'用户报告'}：${actual.text||'内容当前不可用'}`));
   if(!item.links?.length)card.append(paragraph('没有已确认的 AI 建议关联；可以是你独立进行的交流。','muted'));

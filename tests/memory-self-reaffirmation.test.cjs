@@ -86,6 +86,7 @@ for(const sequence of [14,15])test(`captured HTTP${sequence} mixed reaffirm and 
  // its eligible current-batch navigation creation explicit on the new wire.
  const producer=structuredClone(captured['later'+sequence]);
  for(const episode of producer.episodes)episode.id='NEW';
+ for(const event of producer.relationshipPatch.events){event.activity={ref:'NEW',definition:{sourceId:'s10',quote:'跑了一次'}};event.evidence={statement:{sourceId:'s10',quote:wire.sources.find(source=>source.id==='s10').text},time:{basis:'unknown'}};}
  const decoded=decode(prepared,producer),applied=store.applyMemoryBatch(scope,batch,decoded);
  retain('captured-http'+sequence,store,batch,prepared,before,decoded,applied);
  assert.equal(applied.applied,true,JSON.stringify(applied));

@@ -102,7 +102,8 @@ test('typed relationship updates still accept expectedVersion and reject missing
     const batch=s.memoryBatch(scope),request=prepareMemoryRequest({...settings,modelResponseMode:mode},batch),p=JSON.parse(JSON.parse(request.serialized).messages[1].content);
     assert.ok(p.priorMemory.claims.length&&p.priorMemory.events.length);
     const claim={id:p.priorMemory.claims[0].id,expectedVersion:p.priorMemory.claims[0].version,subject:'self',aspect:'recent_context',text:'用户说按标题查找自己的读书摘录已经可用',assertionKind:'stated',epistemicStatus:'supported',sourceIds:['s1']};
-    const event={id:p.priorMemory.events[0].id,expectedVersion:p.priorMemory.events[0].version,activityKey:'reading-notes-page',eventKind:'sharing',actor:'self',text:'用户私下补充网页按标题查找已能使用',sourceIds:['s1']};
+    const definition=p.contextSources.find(source=>source.text===old[0].text),statement=p.sources.find(source=>source.id==='s1');
+    const event={id:p.priorMemory.events[0].id,expectedVersion:p.priorMemory.events[0].version,activity:{ref:'NEW',definition:{sourceId:definition.id,quote:definition.text}},activityKey:'reading-notes-page',eventKind:'sharing',actor:'self',text:'用户私下补充网页按标题查找已能使用',sourceIds:['s1'],evidence:{statement:{sourceId:'s1',quote:statement.text},time:{basis:'unknown'}}};
     for(const version of [undefined,0,'1'])assert.throws(()=>request.decode({...noop(p),relationshipPatch:{claims:[{...claim,expectedVersion:version}]}}),/expectedVersion/);
     const stale=request.decode({...noop(p),relationshipPatch:{claims:[{...claim,expectedVersion:claim.expectedVersion+1}]}});
     assert.equal(s.applyMemoryBatch(scope,batch,stale).applied,false);assert.equal(s.memoryStatus(scope).pending,1);

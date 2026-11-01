@@ -100,8 +100,9 @@ test('the background result declares logical knowledge semantics without revivin
  assert.ok(claim.condition);assert.ok(claim.validFrom);assert.ok(claim.validUntil);
  assert.deepEqual(claim.transition.properties.operation.enum,['reaffirm','supersede','change_over_time','contest','merge']);
  assert.deepEqual(claim.transition.properties.targets.items.required,['id','expectedVersion']);
- assert.ok(properties.relationshipPatch.properties.events.items.properties.occurredAt);
- assert.equal(properties.relationshipPatch.properties.events.items.required.includes('occurredAt'),false,'unknown occurrence is omitted, never mechanically copied from report time');
+ const event=properties.relationshipPatch.properties.events.items;
+ assert.equal(event.properties.occurredAt,undefined);assert.ok(event.required.includes('activity'));assert.ok(event.required.includes('evidence'));
+ assert.deepEqual(event.properties.evidence.properties.time.properties.basis.enum,['qq_statement','explicit','unknown'],'native occurrence basis is explicit; private report time is never an occurrence default');
  for(const purpose of ['discussion','reply','draft_prepare','review']){
   const schema=responseEnvelope({model:'gpt-6-luna'},purpose,{purpose,experienceProposalPolicy:{enabled:true}}).tools[0].function.parameters;
   assert.equal(schema.properties.relationshipPatch,undefined,purpose+' cannot advertise parallel active-profile writes');

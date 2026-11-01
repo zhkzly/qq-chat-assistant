@@ -76,13 +76,14 @@ function coreCatalog(inventory,byId,scope,{queryText='',asOf=''}={}){
     ordered.push(...group.filter(({item})=>{const key=`${item.subject||'self'}:${item.aspect||item.kind||'memory'}`;if(seen.has(key))return false;seen.add(key);return true;}));
     ordered.push(...group.filter(entry=>!ordered.includes(entry)));
   }
-  for(const {item} of ordered){
+  for(const entry of ordered){
+    const item=require('../activity-evidence.cjs').evidenceViewRecord(entry.item);
     if(result.length>=6)break;
     const typed=!!item.subject;
     const stable=typed?item.lifecycle==='active'&&item.assertionKind==='stated'&&item.epistemicStatus==='supported':
       ['fact','preference'].includes(item.kind)&&item.status==='active'&&['stated','supported'].includes(item.certainty||'stated');
     if(!stable||item.reviewComplete===false||!supportedByAvailable(item,byId,scope)||coreSeen.has(item.id))continue;
-    const summary=sanitize(pick(item,['id','version','kind','recordType','status','certainty','lifecycle','reviewComplete','subject','aspect','text','assertionKind','epistemicStatus','sourceIds','firstEvidenceAt','lastEvidenceAt','reportedAt','reviewedAt','validFrom','validUntil','context','applicability','currentApplicability','applicabilityKind','condition','attribution']));
+    const summary=sanitize(pick(item,['id','version','kind','recordType','activityId','status','certainty','lifecycle','reviewComplete','subject','aspect','text','assertionKind','epistemicStatus','sourceIds','firstEvidenceAt','lastEvidenceAt','reportedAt','reviewedAt','validFrom','validUntil','context','applicability','currentApplicability','applicabilityKind','condition','attribution']));
     summary.authority='validated_historical_summary_originals_available_by_lookup';
     summary.sourceRefs=item.sourceIds.map(sourceId=>({sourceId,revision:byId.get(sourceId).revision}));
     summary.currentStatus=summary.currentApplicability||summary.applicability||'not_established_by_old_evidence';

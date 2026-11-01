@@ -9,6 +9,7 @@ const { PROCESSOR_VERSION, prepareRelationshipPatch, writeRelationshipRecords, r
 const { emptyTopics, pruneTopics, topicView, prepareTopicPatch, normalizeTopicPatch } = require('./topic-store.cjs');
 const { DiscussionCompactionStore, validateDiscussionTurnFingerprints } = require('./discussion-compaction-store.cjs');
 const {readOriginalEvidence,coverageFor,requireOriginals}=require('./original-evidence.cjs');
+const activityEvidence=require('./activity-evidence.cjs');
 const hash = value => createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const { DatabaseSync } = require('node:sqlite');
 const {publicRecord}=require('./media.cjs');
@@ -720,16 +721,21 @@ class Store {
       const affected=this.db.prepare('SELECT id FROM memory_dependencies WHERE scope_key=? AND source_id=?').all(key,source.id);
       for(const {id} of affected){
         const row=this.db.prepare('SELECT record FROM memory_records WHERE scope_key=? AND id=?').get(key,id),prior=row&&JSON.parse(row.record);
-        if(prior&&decisionRevisions(prior)[source.id]&&!prior.sourceRevisions?.[source.id]){
+        if(prior&&decisionRevisions(prior)[source.id]&&!prior.sourceRevisions?.[source.id]&&!activityEvidence.activityReferences(prior)[source.id]){
           const next=invalidateRelationshipDecision(prior);
           this.db.prepare('UPDATE memory_records SET record=? WHERE scope_key=? AND id=?').run(JSON.stringify(next),key,id);
           this.db.prepare('DELETE FROM memory_dependencies WHERE scope_key=? AND id=?').run(key,id);
-          for(const [sourceId,revision] of Object.entries(next.sourceRevisions||{}))this.db.prepare('INSERT INTO memory_dependencies VALUES(?,?,?,?)').run(key,id,sourceId,revision);
+          for(const [sourceId,revision] of Object.entries({...next.sourceRevisions,...activityEvidence.activityReferences(next)}))this.db.prepare('INSERT INTO memory_dependencies VALUES(?,?,?,?)').run(key,id,sourceId,revision);
           continue;
         }
         // A withdrawn milestone leaves an uncertainty barrier, never its body.
         // Otherwise removing a cancellation could resurrect an older acceptance.
-        if(prior?.recordType==='relationship_event')this.db.prepare('INSERT OR REPLACE INTO memory_gaps VALUES(?,?,?)').run(key,id,JSON.stringify({id,activityDigest:hash(prior.activityKey),orderAt:prior.occurredAt||prior.lastEvidenceAt,reason:'support_changed_or_withdrawn'}));
+        if(prior?.recordType==='relationship_event'||prior?.currentActivityState&&prior.activityId){
+          const recalled=source.id.startsWith('qq:')&&this.messages(scope).find(message=>`qq:${message.messageId}`===source.id&&message.recalled),stamp=recalled?.recalledAt;
+          const exact=Number.isSafeInteger(stamp)&&stamp>=recalled.timestamp&&stamp<=Date.now();
+          const gap=activityEvidence.makeGap(prior,{changedAt:exact?new Date(stamp).toISOString():new Date().toISOString(),basis:exact?'native_recall_time':'detected_source_change',legacyDigest:hash(prior.activityKey||prior.activityId)});
+          this.db.prepare('INSERT OR REPLACE INTO memory_gaps VALUES(?,?,?)').run(key,id,JSON.stringify(gap));
+        }
         this.db.prepare('DELETE FROM memory_records WHERE scope_key=? AND id=?').run(key,id);this.db.prepare('DELETE FROM memory_dependencies WHERE scope_key=? AND id=?').run(key,id);
       }
       for(const row of this.db.prepare('SELECT id,record FROM memory_pending_proposals WHERE scope_key=?').all(key))if(JSON.parse(row.record).sourceIds.includes(source.id))this.db.prepare('DELETE FROM memory_pending_proposals WHERE scope_key=? AND id=?').run(key,row.id);
@@ -865,7 +871,9 @@ class Store {
     const pending=this.db.prepare("SELECT j.*,s.record FROM memory_journal j JOIN memory_sources s ON s.scope_key=j.scope_key AND s.source_id=j.source_id AND s.revision=j.revision WHERE j.scope_key=? AND j.status='pending' ORDER BY j.seq LIMIT ?").all(key,count);
     if(!pending.length)return this._semanticRecoveryBatch(scope,{size,count,record,recoveryPolicy,recoveryLimit});
     const meta=this.db.prepare('SELECT version FROM memory_meta WHERE scope_key=?').get(key);
-    const core={scopeKey:key,baseRevision:record.revision,baseMemoryVersion:meta.version,baseState:{version:record.state.version,focus:record.state.focus.slice(0,500)},sources:[],events:[],priorMemory:{items:[],episodes:[],claims:[],events:[]},contextSources:[],reviewedSourceIds:[],evidenceCoverage:{version:'original-evidence-v1',rule:'journal_progress_is_not_semantic_review'}};
+    const originals=new Map(this._rawMemorySources(scope).map(source=>[source.id,source]));
+    const activityContext=activityEvidence.memoryContext(this,scope,originals);
+    const core={scopeKey:key,baseRevision:record.revision,baseMemoryVersion:meta.version,baseState:{version:record.state.version,focus:record.state.focus.slice(0,500)},sources:[],events:[],priorMemory:{items:[],episodes:[],claims:[],events:[]},contextSources:[],reviewedSourceIds:[],evidenceCoverage:{version:'original-evidence-v1',rule:'journal_progress_is_not_semantic_review'},...(activityContext.activities.length||activityContext.legacyUncertainties.length?{activityContext}:{})};
     const bytes=()=>Buffer.byteLength(JSON.stringify(core),'utf8')+150;
     for(const row of pending) {
       const original=JSON.parse(row.record),source={...original,scope:{...scope}},offset=row.cursor||0;
@@ -887,7 +895,6 @@ class Store {
       if(offset)source.segment={offset,end:original.text.length,total:original.text.length};
     }
     const prior=this._memoryRecords(scope),byId=new Map(prior.map(item=>[item.id,item])),query=core.sources.map(s=>s.text.slice(0,300)).join(' ');
-    const originals=new Map(this._rawMemorySources(scope).map(source=>[source.id,source]));
     // A bare 'cancel it' needs the preceding exchange, not lexical topic overlap.
     // Choose the bounded original window before resolving dependent update
     // targets. Summary language and topic keywords cannot decide their identity.
@@ -936,6 +943,11 @@ class Store {
       const previousLength=core.contextSources.length;
       try{addOriginals(sourceClosure(originals,[source.id]));if(bytes()>size)core.contextSources.length=previousLength;}catch{core.contextSources.length=previousLength;}
     }
+    for(const activity of core.activityContext?.activities||[]){
+      const definition=activity.definition,source=definition&&originals.get(definition.sourceId);if(!source||source.revision!==definition.revision)continue;
+      const previousLength=core.contextSources.length;
+      try{addOriginals(sourceClosure(originals,[source.id]));if(bytes()>size)core.contextSources.length=previousLength;}catch{core.contextSources.length=previousLength;}
+    }
     core.contextSources.sort((a,b)=>a.at.localeCompare(b.at)||a.id.localeCompare(b.id));
     const deliveredIds=new Set([...core.sources,...core.contextSources].filter(source=>!source.deleted).map(source=>source.id));
     for(const row of this.db.prepare('SELECT record FROM memory_pending_proposals WHERE scope_key=? ORDER BY rowid LIMIT 4').all(key)){
@@ -949,7 +961,8 @@ class Store {
   _semanticRecoveryBatch(scope,{size,count,record,recoveryPolicy,recoveryLimit}) {
     if(recoveryPolicy)this.setMemoryReviewBudget(scope,recoveryPolicy);
     else this.setMemoryReviewBudget(scope,{...(this._memoryReviewBudgets?.get(scopeKey(scope))||{}),sourceBytes:size});
-    const key=scopeKey(scope),state=this._semanticReviewState(scope),core={kind:'semantic_recovery',scopeKey:key,baseRevision:record.revision,baseMemoryVersion:0,baseState:{version:record.state.version,focus:record.state.focus.slice(0,500)},sources:[],events:[],priorMemory:{items:[],episodes:[],claims:[],events:[]},contextSources:[],reviewedSourceIds:[],recoveryTargets:[],recoveryBudgetKey:state.policy.key,evidenceCoverage:{version:'original-evidence-v1',rule:'semantic_original_reread_does_not_advance_journal'}};
+    const activityContext=activityEvidence.memoryContext(this,scope,new Map(this._rawMemorySources(scope).map(source=>[source.id,source])));
+    const key=scopeKey(scope),state=this._semanticReviewState(scope),core={kind:'semantic_recovery',scopeKey:key,baseRevision:record.revision,baseMemoryVersion:0,baseState:{version:record.state.version,focus:record.state.focus.slice(0,500)},sources:[],events:[],priorMemory:{items:[],episodes:[],claims:[],events:[]},contextSources:[],reviewedSourceIds:[],recoveryTargets:[],recoveryBudgetKey:state.policy.key,evidenceCoverage:{version:'original-evidence-v1',rule:'semantic_original_reread_does_not_advance_journal'},...(activityContext.activities.length||activityContext.legacyUncertainties.length?{activityContext}:{})};
     const bytes=()=>Buffer.byteLength(JSON.stringify(core),'utf8')+150;let deferred=false;
     for(const target of state.ready){
       if(core.recoveryTargets.length>=Math.max(1,Math.min(8,count,Number(recoveryLimit)||8)))break;
@@ -1038,7 +1051,7 @@ class Store {
         const old=previous.get(retirement.id);if(!['item','episode'].includes(old.recordType))throw new Error('Typed records require relationshipPatch retirement');checked.push(build({id:old.id,kind:old.kind,text:old.text,sourceIds:[...new Set([...old.sourceIds,...sourceList(retirement.sourceIds)])],topicKeys:old.topicKeys,status:retirement.status,certainty:old.certainty},old.recordType,{retiring:true}));
       }
       if(new Set(checked.map(c=>c.id)).size!==checked.length)throw new Error('Duplicate memory update');
-      const relationships=result.relationshipPatch?prepareRelationshipPatch(this,scope,result.relationshipPatch,{sourceIds:[...allowed],sourceRevisions:Object.fromEntries([...raw].map(([id,s])=>[id,s.revision])),previousIds:new Set(previous.keys()),readOnlyIds:new Set([...previous.values()].filter(item=>item.evidenceOffer?.authority==='read_only').map(item=>item.id)),reviewedSourceIds:batch.reviewedSourceIds,journalSourceIds:batch.events.map(event=>event.id),deliveredSources:actualDelivery}):[];
+      const relationships=result.relationshipPatch?prepareRelationshipPatch(this,scope,result.relationshipPatch,{sourceIds:[...allowed],sourceRevisions:Object.fromEntries([...raw].map(([id,s])=>[id,s.revision])),previousIds:new Set(previous.keys()),readOnlyIds:new Set([...previous.values()].filter(item=>item.evidenceOffer?.authority==='read_only').map(item=>item.id)),reviewedSourceIds:batch.reviewedSourceIds,journalSourceIds:batch.events.map(event=>event.id),deliveredSources:actualDelivery,activityContext:batch.activityContext}):[];
       if(relationships.some(record=>checked.some(legacy=>legacy.id===record.id)))throw new Error('One memory record cannot receive competing legacy and typed transition writes');
       for(const item of checked) {
         this.db.prepare('INSERT INTO memory_records VALUES(?,?,?,?) ON CONFLICT(scope_key,id) DO UPDATE SET kind=excluded.kind,record=excluded.record').run(key,item.id,item.recordType,JSON.stringify(item));
