@@ -15,6 +15,7 @@ const { sourceSnapshot } = require('../src/context/source-snapshot.cjs');
 const { compileContext, selectPlanningContext, declarationsView, markerView, tierSizesFor, LADDER,
   continuationRanges, RETRIEVAL_RANGE_LIMITS, DEFAULT_CONTINUATION_CHARS } = require('../src/context/admission-compiler.cjs');
 const { BudgetAuthority, CallBudgets, TIER_RANK } = require('../src/context/budget-authority.cjs');
+const { bytes } = require('../src/context/shared.cjs');
 const mqa = require('../src/context/mqa-registry.cjs');
 const { scope, raw } = require('./fixtures/native.cjs');
 
@@ -451,7 +452,20 @@ test('the selectPlanningContext shim compiles against the legacy dependency shap
   assert.ok(result.payload.sources.length >= 1);
   assert.equal(result.payload.contextRequest.intentClass, 'invitation_arrangement');
   assert.ok(result.admission.version);
-  // The oversized declaration source degrades instead of blocking.
-  const oversized = result.admission.admissions.find(admission => admission.id !== snapshot.current.id);
-  assert.ok(oversized && oversized.tier !== 'verbatim');
+  // The oversized declaration-bearing source reaches evidence instead of
+  // blocking: under the roomy default budget it is delivered whole, and under
+  // a tight budget it degrades on the ladder while its declaration still
+  // reaches the payload (mandatory material, never a silent drop).
+  const note = snapshot.all.find(source => source.id !== snapshot.current.id && bytes(source) > 10000);
+  assert.ok(note, 'fixture contains the oversized declaration source');
+  assert.ok(['verbatim', 'declarations'].includes(result.admission.admissions.find(admission => admission.id === note.id)?.tier));
+  const tight = selectPlanningContext({
+    options: { asOf, purpose: 'discussion', byteBudget: 9000, budget: { measure: () => 0, requestByteBudget: 256000 },
+      replyMessageIds: [9000], feedbackTargets: [] },
+    snapshot, candidates: { intentSource: snapshot.current } });
+  const tightNote = tight.admission.admissions.find(admission => admission.id === note.id);
+  assert.ok(tightNote && tightNote.tier !== 'verbatim', 'the oversized source degrades under a tight budget');
+  assert.ok(tight.payload.mandatoryMaterials.some(material => material.sourceId === note.id) ||
+    tight.payload.sources.some(source => source.id === note.id && JSON.stringify(source).includes('周六三点半')),
+    'the declaration sentence still reaches the tight payload');
 });
