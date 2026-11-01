@@ -2,7 +2,14 @@
 const {editable,parseDeliveryBlocker,clarificationBody}=require('./request-delivery.cjs');
 const {validationError}=require('./validation-issues.cjs');
 const {parseWholeAnswer}=require('./whole-answer-fidelity.cjs');
+// Operation choices and the lookup selector allowlist are compiled from the
+// versioned wire contract (src/contracts/assistant-result.contract.json +
+// lookup.contract.json), so this module cannot drift from the deep validator
+// or the prompt protocol line.
+const {compile}=require('./wire/compile.cjs');
+const {lookupFieldNames}=require('./wire/lookup.cjs');
 
+const assistantContract=compile('assistant-result').contract;
 const VERSION='primary-operation-v2';
 const plain=value=>value&&typeof value==='object'&&!Array.isArray(value);
 const own=(value,key)=>Object.hasOwn(value,key);
@@ -10,7 +17,7 @@ const clone=value=>value===undefined?undefined:structuredClone(value);
 const freeze=value=>{if(value&&typeof value==='object'){for(const child of Object.values(value))freeze(child);Object.freeze(value);}return value;};
 const excluded=new Set(['draft','memory','discussion_compaction','plain_help_recovery','plain_draft_recovery','fidelity_check']);
 const auxiliary=['methodIds','actions','stateReview','statePatch','topicPatch','relationshipPatch','experienceProposals','expressionOptions'];
-const lookupFields=new Set(['query','discussionTurnIds','sourceIds','offset','maxChars','methodIds','discover','before','after','types']);
+const lookupFields=new Set(lookupFieldNames);
 const receipts=new WeakMap();
 const fail=(field,code,message)=>validationError(field,code,`${field}: ${message}`);
 
@@ -30,8 +37,8 @@ function projectPrimaryOperationInput(payload){
 function normalizePrimaryOperation(raw,payload={}){
  if(!plain(raw))throw fail('operation','primary_operation_shape_invalid','return one operation object');
  const operation=raw.operation;
- if(!['advise','prepare_message','lookup','clarify'].includes(operation))
-  throw fail('operation','primary_operation_invalid','choose advise, prepare_message, lookup or clarify');
+ if(!assistantContract.operations.includes(operation))
+  throw fail('operation','primary_operation_invalid','choose '+assistantContract.operations.slice(0,-1).join(', ')+' or '+assistantContract.operations.at(-1));
  const allowed=new Set(['operation']);
  if(operation==='advise'||operation==='lookup')allowed.add('text');
  for(const key of auxiliary)allowed.add(key);
@@ -53,6 +60,12 @@ function normalizePrimaryOperation(raw,payload={}){
   if(!plain(raw.lookup))throw fail('lookup','primary_operation_lookup_invalid','lookup requires a lookup object');
   for(const key of Object.keys(raw.lookup))if(!lookupFields.has(key))
    throw fail(`lookup.${key}`,'primary_operation_lookup_invalid','only lookup selectors are active');
+  // B9: when this request already requires a message artifact, the only
+  // legal continuation is prepare_message -- program knowledge, completed
+  // here instead of failing the delivery and burning a repair call.
+  const completed=require('./wire/rules.cjs').RULES['continuation-completion'].apply(raw,
+   {requestState:{requiredArtifact:editable(payload.requestDeliveryPolicy?.obligation)}});
+  if(completed)raw.continuation=completed.continuation;
   if(!['advise','prepare_message'].includes(raw.continuation))
    throw fail('continuation','primary_operation_continuation_invalid','declare advise or prepare_message as the lookup continuation');
  }

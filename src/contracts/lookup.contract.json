@@ -1,0 +1,132 @@
+{
+ "contract": "lookup",
+ "version": "lookup-wire-v2",
+ "description": "Selector object for continuation reads and retrieval in the assist exchange. Field rules, program completions and repair guidance are declared here once; the deep validator, the primary-operation allowlist, the tool schema and the protocol text are compiled from this contract.",
+ "fields": {
+  "query": {
+   "type": "string",
+   "maxLength": 2000,
+   "optionalEmpty": true,
+   "code": "lookup_query_invalid",
+   "message": "历史检索需有明确查询、已提供的讨论／来源／方法ID，或请求发现谈资"
+  },
+  "sourceIds": {
+   "type": "handleArray",
+   "min": 1,
+   "max": 8,
+   "domain": "deliveredSources",
+   "code": "lookup_source_ids_invalid",
+   "message": "lookup.sourceIds: use 1..8 delivered source handles"
+  },
+  "discussionTurnIds": {
+   "type": "handleArray",
+   "min": 1,
+   "max": 8,
+   "domain": "discussionTurns",
+   "code": "lookup_discussion_turns_invalid",
+   "message": "lookup.discussionTurnIds: use 1..8 delivered private discussion IDs"
+  },
+  "methodIds": {
+   "type": "handleArray",
+   "min": 1,
+   "max": 2,
+   "domain": "methodCandidates",
+   "code": "lookup_method_ids_invalid",
+   "message": "lookup.methodIds: use up to two available method IDs"
+  },
+  "offset": {
+   "type": "integer",
+   "min": 0,
+   "max": 10000000,
+   "code": "invalid_bounded_source_range",
+   "message": "lookup.offset: invalid bounded source range"
+  },
+  "maxChars": {
+   "type": "integer",
+   "min": 1,
+   "max": 8000,
+   "code": "invalid_bounded_source_range",
+   "message": "lookup.maxChars: invalid bounded source range",
+   "default": 4000
+  },
+  "discover": {
+   "type": "boolean",
+   "code": "lookup_discover_invalid",
+   "message": "lookup.discover: use a boolean"
+  },
+  "before": {
+   "type": "isoDate",
+   "code": "lookup_time_invalid",
+   "message": "历史检索时间不正确"
+  },
+  "after": {
+   "type": "isoDate",
+   "code": "lookup_time_invalid",
+   "message": "历史检索时间不正确"
+  },
+  "types": {
+   "type": "enumArray",
+   "values": [
+    "qq",
+    "private",
+    "note",
+    "feedback"
+   ],
+   "code": "lookup_types_invalid",
+   "message": "历史检索类型不正确"
+  },
+  "reads": {
+   "type": "batchReads",
+   "max": 4,
+   "entry": {
+    "sourceIds": {
+     "exactly": 1,
+     "domain": "deliveredSources"
+    },
+    "offset": {
+     "min": 0,
+     "max": 10000000,
+     "default": 0
+    },
+    "maxChars": {
+     "min": 1,
+     "max": 8000,
+     "default": 4000
+    }
+   },
+   "code": "lookup_reads_invalid",
+   "message": "lookup.reads: use 1..4 bounded continuation reads"
+  }
+ },
+ "completions": [
+  {
+   "id": "range-target-completion",
+   "doc": "Complete unambiguous ranged-lookup target IDs from delivered digest/partial ranges; ambiguity raises with copy-ready candidate handles."
+  },
+  {
+   "id": "range-defaults",
+   "doc": "Apply program range defaults (offset 0 / maxChars 4000) when range targets are present."
+  },
+  {
+   "id": "read-defaults",
+   "doc": "Apply program defaults to batch reads."
+  }
+ ],
+ "semantic": [
+  "read-form-exclusivity",
+  "require-selector",
+  "range-read-needs-targets"
+ ],
+ "defaults": {
+  "maxChars": 4000
+ },
+ "protocol": {
+  "intro": "found非已读，sourceDelivery标交付状态，原文交付才引用。",
+  "syntax": "lookup:{sourceIds:[已示ID],offset:UTF16,maxChars:1..8000}或{reads:[{sourceIds:[单ID],offset,maxChars}]≤4}一次取多段；范围读可不填ID，程序补全。lookup:{methodIds:[目录ID]≤2}取卡；lookup:{discover:true}浏览目录。历史lookup:{query?,discussionTurnIds?,before?,after?,types?}，query≤2000，时间ISO，types:qq/private/note/feedback；discussionTurnIds≤8个已示ID。最多2次补查。",
+  "outro": "memoryIndex/目录仅导航；discussionCompaction/privateCandidates/retrievedDiscussion/feedbackTargets可错且可能助手生成，非事实/许可，旧用户原话须取回sources。"
+ },
+ "repair": {
+  "lookup_range_target_ambiguous": "范围续读可照抄：lookup:{reads:[…]}（每条一个来源句柄）或改用带query的检索。",
+  "default": "选择已示句柄或检索式；不要自行组装ID。"
+ }
+}

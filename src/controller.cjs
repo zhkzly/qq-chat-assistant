@@ -10,6 +10,7 @@ const {focusSourceOffset}=require('./memory-search.cjs');
 const { randomUUID, createHash } = require('node:crypto');
 const {TaskLedger}=require('./request-budget.cjs');
 const {maintenanceDecision}=require('./memory-scheduler.cjs');
+const {envelope:userTextEnvelope}=require('./wire/user-text-envelope.cjs');
 const fingerprint=value=>createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const FORGOTTEN_REQUEST='所选来源已从助手参考中移除。仅使用仍可用的信息继续本次帮助，不复述已移除内容。';
 const {SourceHandleOwner}=require('./source-handles.cjs');
@@ -114,7 +115,7 @@ class Controller extends EventEmitter {
       discussionCompaction:this.scope&&sameScope(this.discussionCompaction?.scope,this.scope)?this.discussionCompaction:null,
       requestUsage:this.scope?this.usage.recent(this.scope,8):[],maintenanceSchedule:this.scope?this.memorySchedule():null,
       activeModelProfileId: this.settings.activeModelProfileId, replyFocus: replyFocusFor(messages, this.replyMessageIds),
-      instruction: this.instruction, auto: this.auto, autoImages:this.autoImages,imageContext:this.visionStatus(),automaticImageConsent:this.hasImageConsent({automatic:true}), model: this.settings.model, modelReady: this.modelReady, modelConsent:this.hasModelConsent(), modelBaseUrl:this.settings.baseUrl || '',imageSelection:this.selectedImages,modelVisionEnabled:!!this.settings.visionEnabled,imageConsent:this.hasImageConsent(),qqDraftFillAvailable:!!this.features.qqDraftFill };
+      instruction: this.instruction, instructionTruncated: this.instructionTruncated === true, auto: this.auto, autoImages:this.autoImages,imageContext:this.visionStatus(),automaticImageConsent:this.hasImageConsent({automatic:true}), model: this.settings.model, modelReady: this.modelReady, modelConsent:this.hasModelConsent(), modelBaseUrl:this.settings.baseUrl || '',imageSelection:this.selectedImages,modelVisionEnabled:!!this.settings.visionEnabled,imageConsent:this.hasImageConsent(),qqDraftFillAvailable:!!this.features.qqDraftFill };
   }
   async bind(uin) {
     this.invalidateAssistant();
@@ -225,8 +226,27 @@ class Controller extends EventEmitter {
         this.replyMessageIds = nextIds; this.abort?.abort(); this.advice = null; clearTimeout(this.timer);
       }
     }
-    if (typeof instruction === 'string' && instruction.slice(0,2000)!==this.instruction) { this.invalidateAssistant(); this.instruction = instruction.slice(0, 2000); this.abort?.abort(); this.advice = null; }
-    if(typeof instruction==='string')this.settings.instruction = this.instruction;
+    // B7 no-silent-loss envelope: the standing instruction is stored whole
+    // and delivered bounded with an explicit truncation marker; the state
+    // exposes instructionTruncated so the UI can warn instead of discovering
+    // an invisible 2000-character clamp later. Re-submitting the identical
+    // delivered text stays idempotent (no invalidation), as before.
+    if (typeof instruction === 'string') {
+      const roundTrip = this.instructionTruncated === true && instruction === this.instruction;
+      const wrapped = userTextEnvelope(instruction, { limit: 2000 });
+      if (wrapped.mode !== 'rejected') {
+        const delivered = roundTrip ? instruction : wrapped.delivered;
+        if (delivered !== this.instruction) {
+          this.invalidateAssistant();
+          this.instructionSource = roundTrip ? this.instructionSource : instruction;
+          this.instruction = delivered;
+          this.instructionTruncated = roundTrip || wrapped.mode === 'truncated';
+          this.settings.instruction = this.instruction;
+          if (!roundTrip) this.settings.instructionFull = instruction;
+          this.abort?.abort(); this.advice = null;
+        }
+      }
+    }
     if(Array.isArray(images)) {
       const selected=images.slice(0,3).filter(i=>typeof i.messageId==='string'&&/^\d+$/.test(i.messageId)&&Number.isInteger(i.index));
       if(JSON.stringify(selected)!==JSON.stringify(this.selectedImages)){this.invalidateAssistant();this.selectedImages=selected;this.abort?.abort();this.advice=null;}
@@ -721,19 +741,34 @@ class Controller extends EventEmitter {
           }
           const found=result.lookup.query?this.store.searchMemory(scope,result.lookup.query,{limit:24,before:result.lookup.before,after:result.lookup.after,types:result.lookup.types}):{sources:[],coverage:{retrieval:'exact-private-discussion-ids',complete:false}};
           const liveSources=new Map(this.store.memorySources(scope).map(source=>[source.id,source]));
-          const exactIds=[...new Set([...(result.lookup.sourceIds||[]),...requestedTurns.filter(id=>liveSources.has(`private:${id}`)).map(id=>`private:${id}`)])];
+          // B9 batched continuation reads: one lookup round trip may request
+          // several bounded ranges (wire contract reads form). Reads of the
+          // same source merge into one envelope entry so downstream consumers
+          // keep their one-entry-per-source expectation.
+          const readList=result.lookup.reads?.length
+            ?result.lookup.reads
+            :[{sourceIds:result.lookup.sourceIds||[],offset:result.lookup.offset||0,maxChars:result.lookup.maxChars||4000}];
+          const readRanges=new Map();
+          for(const read of readList)for(const id of read.sourceIds||[]){
+            const range=readRanges.get(id)||{offset:read.offset||0,end:(read.offset||0)+(read.maxChars||4000)};
+            range.offset=Math.min(range.offset,read.offset||0);
+            range.end=Math.max(range.end,(read.offset||0)+(read.maxChars||4000));
+            readRanges.set(id,range);
+          }
+          const exactIds=[...new Set([...readRanges.keys(),...requestedTurns.filter(id=>liveSources.has(`private:${id}`)).map(id=>`private:${id}`)])];
           const direct=exactIds.map(id=>{
             const original=liveSources.get(id);
             if(!original||original.deleted||original.excluded||original.use==='disabled')throw new Error('要读取的来源已变化或不在当前会话中，请重新核对。');
-            const projected=boundedSourceView({...original,text:redact(original.text)},{offset:result.lookup.offset||0,maxChars:result.lookup.maxChars||4000,maxBytes:Number(settings.assistantContextBytes)||48000});
+            const range=readRanges.get(id),requested=range?{offset:range.offset,maxChars:Math.max(1,range.end-range.offset)}:{offset:0,maxChars:4000};
+            const projected=boundedSourceView({...original,text:redact(original.text)},{offset:requested.offset,maxChars:requested.maxChars,maxBytes:Number(settings.assistantContextBytes)||48000});
             if(!projected)throw new Error('来源片段超出本次可读范围，请选择有效位置。');
-            return {...projected,requestedRange:{offset:result.lookup.offset||0,maxChars:result.lookup.maxChars||4000}};
+            return {...projected,requestedRange:requested,...(result.lookup.reads?.length?{requestedReads:result.lookup.reads.length}:{})};
           });
           const queryReads=found.sources.map(source=>({...source,focusOffset:focusSourceOffset(redact(source.text),result.lookup.query)}));
           retrievedSources=[...new Map([...retrievedSources,...queryReads,...direct].map(source=>[source.id,source])).values()];
           if(result.lookup.methodIds?.length)methodLookupIds=[...result.lookup.methodIds];
           if(result.lookup.discover)discoveryRequested=true;
-          lookupHistory.push({query:result.lookup.query,found:found.sources.length+direct.length,discussionTurns:requestedTurns.length,sourceIds:direct.map(source=>source.id),...(direct.length?{requestedRange:{offset:result.lookup.offset||0,maxChars:result.lookup.maxChars||4000}}:{}),methodIds:result.lookup.methodIds||[],coverage:found.coverage,delivery:'check_sourceDelivery_not_found_count'});if(result.lookup.query)query=result.lookup.query;
+          lookupHistory.push({query:result.lookup.query,found:found.sources.length+direct.length,discussionTurns:requestedTurns.length,sourceIds:direct.map(source=>source.id),...(result.lookup.reads?.length?{batchedReads:result.lookup.reads.length}:direct.length?{requestedRange:{offset:result.lookup.offset||0,maxChars:result.lookup.maxChars||4000}}:{}),methodIds:result.lookup.methodIds||[],coverage:found.coverage,delivery:'check_sourceDelivery_not_found_count'});if(result.lookup.query)query=result.lookup.query;
           reviewRange={before:result.lookup.before,after:result.lookup.after,types:result.lookup.types};lookups++;continue;
         }
         break;

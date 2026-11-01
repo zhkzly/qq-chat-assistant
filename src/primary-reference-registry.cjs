@@ -218,6 +218,20 @@ class PrimaryReferenceOwner{
     if(!source?.available||!sameScope(source.source,this.#scope)||source.source.deleted||source.source.excluded||source.source.use==='disabled'||source.source.type!=='qq'||source.source.revision!==material.revision)return undefined;
     return [...offeredAuthorities.values()].find(authority=>authority.kind==='PROGRAM_SOURCE_AUTHORITY'&&authority.targetSourceId===material.sourceId&&authority.targetRevision===material.revision&&authority.start===undefined)?.authorityRef;
    },
+   // Offered ORIGINALUSERSTATEMENTCANDIDATE authorities applicable to one
+   // exact material choice (whole-original candidates bound to the same
+   // source, or the candidate bound to this exact materialRef). Powers the
+   // deterministic authorityRef completion and copy-ready repair quoting.
+   authorityCandidates:(materialRef,material)=>{
+    requireCommit();const bound=material&&materialBindings.get(material);
+    if(!bound||bound.snapshot!==snapshot)return [];
+    return [...offeredAuthorities.values()].filter(authority=>authority.kind==='ORIGINALUSERSTATEMENTCANDIDATE'&&
+     (authority.materialRef===materialRef||authority.wholeOriginal&&authority.sourceId===material.sourceId&&authority.revision===material.revision));
+   },
+   singleAuthority:(materialRef,material)=>{
+    const refs=[...new Set(snapshot.authorityCandidates(materialRef,material).map(authority=>authority.authorityRef))];
+    return refs.length===1?refs[0]:undefined;
+   },
    authority:(ref,material,path='authorityRef',permissionQuote)=>{
     requireCommit();const found=typeof ref==='string'&&offeredAuthorities.get(ref),bound=material&&materialBindings.get(material);
     if(!found)throw fail(path,'unknown_authority_reference','choose only an exact authorityRef offered in this HTTP request');
