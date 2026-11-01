@@ -50,9 +50,14 @@ test('an oversized pasted request degrades to an explicit range with a continuat
   assert.ok(request.delivery.end < request.delivery.originalCharLength, 'the undelivered remainder stays explicit');
   assert.equal(request.delivery.lookup.sourceId, request.id);
   assert.ok(context.manifest.userRequestDelivery.status === 'partial');
-  const entry = context.manifest.degradation.find(item => item.step === 'ranged_excerpt' && item.appliedTo === request.id);
+  // Structural adaptation (CC1 switchover): floor degradation is owned by the
+  // admission compiler, whose ledger step is degraded_to_ranged with the
+  // universal plural lookup handle; the legacy ranged_excerpt step remains
+  // for legacy-owned shrink passes. Both vocabularies satisfy the same
+  // guarantee: the step is explainable and its handle reaches the original.
+  const entry = context.manifest.degradation.find(item => ['ranged_excerpt', 'degraded_to_ranged'].includes(item.step) && item.appliedTo === request.id);
   assert.ok(entry, 'the request degradation is explainable on the manifest');
-  assert.ok(entry.lookupHandle && entry.lookupHandle.sourceId === request.id);
+  assert.ok(entry.lookupHandle && (entry.lookupHandle.sourceId === request.id || entry.lookupHandle.sourceIds?.[0] === request.id));
   assert.ok(context.manifest.inputBytes <= context.manifest.byteBudget);
   assert.ok(context.manifest.serializedTextRequestBytes <= context.manifest.requestByteBudget);
 });
@@ -70,7 +75,10 @@ test('an oversized bound intent source degrades to an explicit range instead of 
   const view = context.payload.sources.find(source => source.id === 'private:' + prior.id);
   assert.equal(view.delivery.status, 'partial');
   assert.equal(view.text, longText.slice(view.delivery.start, view.delivery.end));
-  assert.ok(context.manifest.degradation.some(entry => entry.appliedTo === view.id && entry.step === 'ranged_excerpt'));
+  // Structural adaptation (CC1 switchover): the compiler's floor ledger
+  // vocabulary (degraded_to_ranged) carries the same guarantee as the legacy
+  // ranged_excerpt step for the bound intent source.
+  assert.ok(context.manifest.degradation.some(entry => entry.appliedTo === view.id && ['ranged_excerpt', 'degraded_to_ranged'].includes(entry.step)));
   assert.equal(context.payload.userRequest.text, '帮我回一下。', 'the short current question itself stays exact');
 });
 

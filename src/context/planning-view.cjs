@@ -10,6 +10,7 @@ const {modelTopic,relevantTo,currentCandidateAnchor}=require('./catalog.cjs');
 const {requiredQuoteSources,planRecentContext,recentExchange,recentHistoryPolicy,recentHistorySegments}=require('./policy.cjs');
 const {contextBudget,finish,attachSelectionManifest}=require('./budget-manifest.cjs');
 const {selectPlanningContext}=require('./selection.cjs');
+const {selectPlanningContext:compileAdmissionCore,ADMISSION_COMPILER_VERSION}=require('./admission-compiler.cjs');
 const {digestSource}=require('./evidence-digest.cjs');
 const {SourceHandleOwner}=require('../source-handles.cjs');
 const {bindSelectedDirectionControl}=require('./selected-direction-control.cjs');
@@ -275,7 +276,47 @@ function buildContext(options) {
   if(implicitAnchor)preferredCandidateTurnIds.add(implicitAnchor.turnId);
   const candidates={selected,automaticTurn,eligibleTurns,explicitTurnIds,inRecentWindow,validQQ,foldedPrivateIds,essentialIds,recentPlan,timeSegments,timeCandidateIds,timePriorityIds,recentPrivateIds,reviewing,privateRequest,relevantRecord,queryText,protectedPendingIds,selectedProposal,proposals,intentSource,topicView,compacted,coveredTurnIds,candidatePool,preferredCandidateTurnIds};
   const coreInventory=[...(options.coreMemory||options.store?._memoryRecords?.(scope)||[]),...(memoryResult?.items||[]),...memoryIndex,...(relationshipContext?.claims||[])];
-  const {coreItems,optionalRawLimit,optionalRawIds,optionalRetrieved,recentContextPlan,recentPriorityIds,recentInitialAdditionalBytes,degradation,consultationSupport}=selectPlanningContext({options:{...options,asOf,viewerTimeZone},snapshot,candidates,view:{payload,state,methodSelection,restrictions},budget,coreInventory,projectPlanningViews,reconcilePlanningViews,compactPlanningViews});
+  // CC1 admission core (integration switchover): the requirement-driven
+  // compiler chain (request analyzer -> MQA registry -> admission compiler
+  // -> budget authority) owns the never-refuse core of this request — the
+  // current-interaction floor, MQA-mandatory materials (declared
+  // arrangements, contact statements, feedback targets), explicit lookup
+  // reads and their ladder settlement under one Budget Authority. Its
+  // admitted views replace the gathered whole-source seeds for exactly the
+  // governed ids, so a declaration buried in an oversized source reaches
+  // evidence at its material-true tier (B4/B5) before any optional layer
+  // competes for room. Optional layers (discovery, methods, private-
+  // conversation groups, relationship/memory projections) remain owned by
+  // the legacy selection engine below until compiler parity is proven —
+  // the integration boundary recorded in the CC1 delivery report.
+  const admission=compileAdmissionCore({options:{...options,asOf,viewerTimeZone},snapshot,candidates});
+  const admissionEntries=new Map();
+  for(const entry of admission.admission?.plan?.admissions||[]){
+    // Only governed kinds (floor, MQA-mandatory, guaranteed) replace the
+    // gathered seeds: the compiler owns their tier. Background admissions
+    // are advisory here — the legacy engine already gathered better whole
+    // views for the exchange and manages background admission itself.
+    if(entry.kind==='background'||entry.tier==='marker'||!entry.view)continue;
+    admissionEntries.set(entry.id,entry);
+    // A compiler-governed admission is user-intent floor or MQA-mandatory
+    // material: later optional-layer eviction must not silently drop it.
+    essentialIds.add(entry.id);
+    selected.set(entry.id,entry.view);
+  }
+  payload.sources=[...selected.values()];
+  // MQA consumption contract and material outcomes travel with the payload
+  // so the response validator can enforce arrangementHandling (B5). Each
+  // field rides only when it carries content: a generic consultation without
+  // anchors or wants adds no decision information and must not pay a fixed
+  // byte tax for empty MQA scaffolding under tight budgets.
+  const compiledRequest=admission.payload.contextRequest;
+  if(compiledRequest&&(compiledRequest.intentClass!=='generic_consultation'||compiledRequest.anchors?.length||Object.values(compiledRequest.wants||{}).some(Boolean)))payload.contextRequest=compiledRequest;
+  if(admission.payload.materialRequirements?.outcomes?.length)payload.materialRequirements=admission.payload.materialRequirements;
+  if(admission.payload.mandatoryMaterials?.length)payload.mandatoryMaterials=admission.payload.mandatoryMaterials;
+  if(admission.payload.consumptionContract?.fields?.length)payload.consumptionContract=admission.payload.consumptionContract;
+  if(admission.payload.negativeControls?.length)payload.negativeControls=admission.payload.negativeControls;
+  const {coreItems,optionalRawLimit,optionalRawIds,optionalRetrieved,recentContextPlan,recentPriorityIds,recentInitialAdditionalBytes,degradation:selectionDegradation,consultationSupport}=selectPlanningContext({options:{...options,asOf,viewerTimeZone},snapshot,candidates,view:{payload,state,methodSelection,restrictions},budget,coreInventory,projectPlanningViews,reconcilePlanningViews,compactPlanningViews});
+  const degradation=[...admission.degradation,...selectionDegradation];
   const editingReferences=offerEditingReferences({payload,companion,sourceTurnIds,currentCandidateRef:implicitAnchor?currentCandidateRef:undefined,store:options.store,scope});
   if(editingReferences.length){payload.editingReferences=editingReferenceView(editingReferences);if(!fits(payload)){delete payload.editingReferences;if(editingReferences.some(item=>item.selection.startsWith('explicit_')))throw new Error('选定改稿原句超过上下文预算；没有静默截断');}}
   const currentRequest=payload.userRequest,position=payload.taskContext;delete payload.userRequest;delete payload.taskContext;
@@ -284,6 +325,11 @@ function buildContext(options) {
   // Explainable degradation: every applied ladder step stays visible on the
   // manifest together with the handle that still reaches the complete original.
   if(degradation.length)context.manifest.degradation=degradation.map(entry=>({...entry}));
+  // CC1 admission receipt: the compiler's plan (governed ids, tiers, material
+  // outcomes) is part of the explainable manifest, not only internal state.
+  context.manifest.admission={version:ADMISSION_COMPILER_VERSION,
+    admissions:[...admissionEntries.values()].map(({id,kind,tier})=>({id,kind,tier})),
+    materialRequirements:admission.payload.materialRequirements};
   // The latest-private digest bridge is a ladder step applied before
   // selection; keep it as visible and reviewable as the in-selection tiers.
   const bridgedDigest=(payload.sources||[]).find(source=>source.id===latestPrivateSource?.id&&source.digest?.declarations);
