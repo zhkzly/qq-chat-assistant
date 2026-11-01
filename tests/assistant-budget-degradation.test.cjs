@@ -196,6 +196,24 @@ test('a ranged lookup without explicit IDs is completed from the digest handle i
   assert.equal(result.lookup.maxChars, 2000);
 });
 
+test('a query-form lookup may carry maxChars as a result-size bound without source IDs', () => {
+  // Exact recorded shapes from the live 002d candidate-live-4 failure: the
+  // model bounded its SEARCH results with maxChars, which the range-read rule
+  // misread as a source range; once the single delivery repair was spent, the
+  // second identical shape died as request_delivery_repair_exhausted.
+  const input = { payload: { purpose: 'discussion', sources: [], methodCards: [],
+    methodSelection: { candidates: [] }, userRequest: { sourceId: 'private:x', text: 'q' } } };
+  const first = parseAssistant({ kind: 'discussion', text: '查历史。', lookup: { query: '小网页 读书笔记 三点 周六 变更', types: ['private'], maxChars: 8000 } },
+    'discussion', input, {});
+  assert.equal(first.lookup.query, '小网页 读书笔记 三点 周六 变更');
+  const second = parseAssistant({ kind: 'discussion', text: '查历史。', lookup: { query: '小网页 读书笔记 十月三日 周六 下午 三点 改动 时间', types: ['private'], after: '2026-08-31T10:00:00.000Z', maxChars: 8000 } },
+    'discussion', input, {});
+  assert.equal(second.lookup.after, '2026-08-31T10:00:00.000Z');
+  // A pure range read (no query) still requires completed or explicit IDs.
+  assert.throws(() => parseAssistant({ kind: 'discussion', text: 'r。', lookup: { maxChars: 4000 } },
+    'discussion', input, {}), /lookup ranges require explicit sourceIds/);
+});
+
 test('an ambiguous ranged lookup without IDs still fails, naming the copy-ready candidates', () => {
   const first = digestSource({ id: 'private:cand-a', type: 'private', role: 'user', use: 'discussion',
     at: new Date().toISOString(), revision: 'ra', text: handNote(8, '候选甲') });
