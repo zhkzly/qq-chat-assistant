@@ -79,7 +79,18 @@ test('canonical feedback and its derived note cannot launder a local complaint i
   const n=s.saveNote(scope,{text:'这次正式语气不合适',use:'discussion',evidenceSourceIds:[`private:feedback-${f.id}`]});
   const b=s.memoryBatch(scope);
   const result=s.applyMemoryBatch(scope,b,complete(b,{items:[{kind:'preference',text:'以后永远不用正式表达',sourceIds:[`note:${n.id}`],explicitPreference:true}]}));
-  assert.equal(result.applied,false);
+  // Structural reason (B1 decision-split): preference classification is outside
+  // the model write scope. The batch commits (the journal advances), but the
+  // preference proposal is a quarantined candidate, never a stable record; the
+  // user-attestation channel still refuses the feedback-backed upgrade.
+  assert.equal(result.applied,true,JSON.stringify(result));
+  assert.ok(result.receipt.quarantinedRecords?.some(entry=>entry.code==='preference_candidate'),'the preference proposal is filed as a candidate receipt');
+  assert.ok(!s.searchMemory(scope,'正式表达').items.some(item=>item.kind==='preference'),'no preference memory record is committed');
+  const proposals=s.preferenceUpgradeProposals(scope,{status:'pending'});
+  assert.ok(proposals.length===1,'a pending upgrade proposal surfaces to the user');
+  const upgrade=s.resolvePreferenceUpgrade(scope,{id:proposals[0].id,decision:'authorize'});
+  assert.equal(upgrade.applied,false,'feedback-backed evidence still cannot authorize a durable preference');
+  assert.equal(s.relationshipView(scope).claims.filter(c=>c.applicabilityKind==='recurring').length,0);
 });
 
 test('legacy reviewed sources become eligible once for typed bootstrap without changing source revisions',t=>{
@@ -121,8 +132,19 @@ test('user corrects a derived understanding with a user report while original QQ
   assert.equal(s.getCompanion(scope).turns.length,count);
   const result=s.correctRelationshipClaim(scope,{id:old.id,expectedVersion:old.version,operation:'correct',text:'我刚才理解错了，她是在忙工作'});
   assert.equal(result.applied,true,JSON.stringify(result));
-  const view=s.relationshipView(scope);assert.equal(view.claims.find(c=>c.id===old.id).lifecycle,'withdrawn');
-  const replacement=view.claims.find(c=>c.id===result.claimId);assert.equal(replacement.assertionKind,'reported');assert.ok(replacement.sourceIds.every(id=>id.startsWith('private:')));
+  // Structural reason (M2 overlay corrections): a correction no longer rewrites
+  // or replaces the claim. The stored record keeps its identity, version,
+  // evidence and original wording; an additive overlay corrects the view.
+  assert.equal(result.claimId,old.id,'the corrected understanding keeps its record identity');
+  const stored=s._memoryRecords(scope).find(r=>r.id===old.id);
+  assert.equal(stored.version,old.version,'a correction never bumps the stored record');
+  assert.equal(stored.text,'她忙于考试','the stored wording is not rewritten');
+  const view=s.relationshipView(scope),corrected=view.claims.find(c=>c.id===old.id);
+  assert.equal(corrected.text,'我刚才理解错了，她是在忙工作','the view renders the corrected text');
+  assert.equal(corrected.originalText,'她忙于考试','the original wording stays retrievable');
+  assert.ok(corrected.correctedByOverlay,'the correction provenance is visible');
+  assert.equal(corrected.lifecycle,'active');
+  assert.ok(s.correctionOverlays(scope,{activeOnly:true}).some(o=>o.targetRecordId===old.id));
   assert.equal(s.messages(scope)[0].text,m.text);assert.equal(s.getCompanion(scope).goal.text,'希望建立双方愿意的恋爱关系');
 });
 
@@ -178,7 +200,9 @@ test('structural migration is atomic and future schema versions are rejected wit
   db.exec("CREATE TABLE schema_migrations(version INTEGER PRIMARY KEY,applied_at TEXT NOT NULL,description TEXT NOT NULL); CREATE TRIGGER migration_failure BEFORE INSERT ON schema_migrations BEGIN SELECT RAISE(ABORT,'synthetic migration failure'); END;");db.close();
   assert.throws(()=>new Store(filename),/synthetic migration failure/);db=new DatabaseSync(filename);
   assert.equal(db.prepare("SELECT name FROM sqlite_master WHERE name='memory_records'").get(),undefined);assert.equal(db.prepare('PRAGMA user_version').get().user_version,0);db.exec('DROP TRIGGER migration_failure');db.close();
-  let s=new Store(filename);assert.equal(s.db.prepare('PRAGMA user_version').get().user_version,2);s.close();
+  // Structural reason: schema 3 adds the observation log, speaker-fingerprinted
+  // revisions and M2 quarantine/overlay/upgrade storage (D1).
+  let s=new Store(filename);assert.equal(s.db.prepare('PRAGMA user_version').get().user_version,3);s.close();
   const future=path.join(dir,'future.db');db=new DatabaseSync(future);db.exec('PRAGMA user_version=99');db.close();
   assert.throws(()=>new Store(future),/newer|unsupported/i);db=new DatabaseSync(future);assert.equal(db.prepare("SELECT count(*) n FROM sqlite_master WHERE type='table'").get().n,0);db.close();
 });

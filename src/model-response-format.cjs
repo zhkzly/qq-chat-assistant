@@ -49,7 +49,8 @@ const experienceProposal=object({text:string,applicability:string,methodId:strin
 const quoteRef=object({turnId:string,role:choice(['user','assistant']),field:choice(['text','discussionExplanation','suggestions','expressionOptions']),index:integer,quoteIndex:integer,text:string,
  artifactRef:object({artifactId:string,version:integer},['artifactId','version']),sourceIds:strings},['turnId','role','text']);
 const memoryItem=object({id:string,kind:choice(['fact','preference','commitment','uncertainty']),text:string,sourceIds:strings,topicKeys:strings,
- status:choice(['active','resolved','cancelled','superseded']),certainty:choice(['stated','tentative']),explicitPreference:{...boolean,description:'Required true for EVERY kind=preference proposal, including existing id updates. Attest recurring user intent from original source evidence; never inherit this flag from prior memory. Otherwise reclassify or omit the proposal.'}},['kind','text','sourceIds','status','certainty']);
+ status:choice(['active','resolved','cancelled','superseded']),certainty:choice(['stated','tentative']),
+ explicitPreference:{...boolean,description:'Deprecated no-op. Preference classification is program/user-owned: a kind=preference proposal is filed as a candidate pending user attestation, never committed as a stable record. Prefer a sourced fact/uncertainty.'}},['kind','text','sourceIds','status','certainty']);
 const episode=object({id:{...string,description:'Choose NEW for a genuine new navigation record with eligible reviewed evidence, or an offered writable episode m# for that exact existing target. Use [] for no episode change.'},text:string,sourceIds:strings,topicKeys:strings},['id','text','sourceIds']);
 const memoryRetirement=object({id:string,sourceIds:strings,status:choice(['resolved','cancelled','superseded'])},['id','sourceIds','status']);
 // Wire admission shares these producer-declared legacy field sets. Typed

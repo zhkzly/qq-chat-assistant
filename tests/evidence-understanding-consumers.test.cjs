@@ -83,7 +83,13 @@ test('a real legacy unknown event date remains unverified across public profile,
  const view=store.relationshipView(scope),experience=store.experiences.list(scope).cases[0];assert.equal(view.events[0].occurredAt,null);assert.equal(view.events[0].occurrenceTimeStatus,'legacy_unverified');
  assert.equal(experience.id,caseId);assert.equal(experience.eventAt,null);assert.equal(experience.reportedAt,original.at);assert.equal(experience.actualActions[0].eventAt,null);assert.equal(experience.actualActions[0].occurrenceTimeStatus,'legacy_unverified');assert.equal(experience.observations[0].eventAt,null);
  assert.equal(store.experiences.context(scope).cases[0].actualActions[0].eventAt,null);const stored=store._memoryRecords(scope).find(record=>record.id===oldRecord.id);assert.equal(stored.occurredAt,oldRecord.occurredAt,'preserve old bytes as unverified audit history');assert.equal(stored.reviewComplete,false);
- const batch=store.memoryBatch(scope),p=JSON.parse(JSON.parse(prepareMemoryRequest({model:'synthetic'},batch).serialized).messages[1].content);assert.equal(p.priorMemory.events[0].occurredAt,null);assert.equal(store.memorySources(scope).find(source=>source.id===id).revision,original.revision);
+ // Structural reason (D1 speaker-fingerprint cutover): the upgraded store
+ // re-hashes revisions by design; the invariant is that every live pointer
+ // (record sourceRevisions, wire priorMemory) follows the same new hash.
+ const batch=store.memoryBatch(scope),p=JSON.parse(JSON.parse(prepareMemoryRequest({model:'synthetic'},batch).serialized).messages[1].content);assert.equal(p.priorMemory.events[0].occurredAt,null);
+ const upgradedRevision=store.memorySources(scope).find(source=>source.id===id).revision;
+ assert.notEqual(upgradedRevision,original.revision,'the fingerprint cutover re-hashes the revision');
+ assert.equal(store._memoryRecords(scope).find(record=>record.id===oldRecord.id).sourceRevisions[id],upgradedRevision,'record pointers follow the cutover');
 });
 
 async function application(t,producer){

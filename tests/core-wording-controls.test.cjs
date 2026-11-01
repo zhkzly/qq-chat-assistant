@@ -6,7 +6,7 @@ const {assistModel,prepareAssistantRequest}=require('./fixtures/assistant-protoc
 const {scope,raw}=require('./fixtures/native.cjs'),{withCurrentDraftControls}=require('./fixtures/draft-controls.cjs');
 const DECLARATION='以后给我的参考回复用短句，不用表情，因为PRIVATE_CORE_REASON我担心显得太急。';
 const SUMMARY='参考回复优先用短句，不用表情。';
-function fixture(t,{text=DECLARATION,summary=SUMMARY,kind='preference',actor='user',claim={},legacy=false}={}){
+function fixture(t,{text=DECLARATION,summary=SUMMARY,kind='preference',actor='user',claim={},legacy=false,attest=true}={}){
  const store=new Store(':memory:');t.after(()=>store.close());const asOf=new Date(Date.now()+4*86400000).toISOString();let sourceId,sourceIds=[];
  if(actor==='contact'){const m=normalize(raw('58001',false,{msgTime:String(Math.floor(Date.now()/1000)),elements:[{textElement:{content:text}}]}),scope);store.add(scope,[m]);sourceId=`qq:${m.messageId}`;}
  else if(actor==='unknown_note'){const note=store.saveNote(scope,{kind:'material',use:'discussion',text});sourceId=`note:${note.id}`;}
@@ -15,7 +15,11 @@ function fixture(t,{text=DECLARATION,summary=SUMMARY,kind='preference',actor='us
  const batch=store.memoryBatch(scope),result={reviewedSourceIds:batch.reviewedSourceIds,items:[],episodes:[],retire:[]};
  if(kind==='claim'||kind==='preference'&&actor==='user'&&!legacy)result.relationshipPatch={claims:[{subject:'self',aspect:'stated_preference',text:summary,assertionKind:'stated',epistemicStatus:'supported',applicabilityKind:'recurring',sourceIds,...claim}]};
  else result.items=[{kind,text:summary,sourceIds,...(kind==='preference'?{explicitPreference:true}:{})}];
- const applied=store.applyMemoryBatch(scope,batch,result);assert.equal(applied.applied,true,JSON.stringify(applied));
+  // Structural reason (B1 decision-split): a model-proposed durable preference
+  // degrades to a candidate; the user's explicit attestation (simulated here
+  // exactly as the UI flow would confirm it) is what opens the durable lane.
+  const applied=store.applyMemoryBatch(scope,batch,result);assert.equal(applied.applied,true,JSON.stringify(applied));
+  if(!legacy&&actor==='user'&&attest){const proposals=store.preferenceUpgradeProposals(scope,{status:'pending'});if(proposals.length)assert.equal(store.resolvePreferenceUpgrade(scope,{id:proposals[0].id,decision:'authorize'}).applied,true,'the explicit declaration is user-attested');}
  store.add(scope,[normalize(raw('58002',false,{msgTime:String(Math.floor(Date.parse(asOf)/1000)-60),elements:[{textElement:{content:'窗台的小苗又长出两片叶子。'}}]}),scope)]);
  const args={scope,store,records:store.messages(scope),availableSources:store.memorySources(scope),companion:store.getCompanion(scope),
   turn:{id:'core-wording-observation',role:'user',kind:'reply',text:'根据实际来信给完整参考。',transient:true},purpose:'reply',generationOrigin:'qq_observation',
@@ -25,10 +29,16 @@ function fixture(t,{text=DECLARATION,summary=SUMMARY,kind='preference',actor='us
 }
 for(const [name,original]of [['recurring','以后给我的参考回复用短句，不用表情。'],['conditional','只有讨论工作时才用短句，其他时候不用照这个习惯。'],['one-off','仅这一次回复短一点，以后不要固定这样。']])test(`legacy ${name} classification rehydrates the complete original without trusting or applying its old summary`,t=>{
  const {store,prepared,draft,sourceId}=fixture(t,{text:original,summary:SUMMARY,legacy:true});
- const record=store._memoryRecords(scope).find(record=>record.recordType==='item');assert.equal(record.reviewComplete,false);assert.equal(record.semanticReview.status,'legacy_unreviewed');
- assert.equal(prepared.payload.sources.find(source=>source.id===sourceId).text,original);assert.ok(!prepared.payload.coreMemory?.items.some(item=>item.id===record.id));
- const request=prepareAssistantRequest({},prepared.payload).request,wire=JSON.parse(request.messages[1].content);assert.ok([...(wire.taskContext.priorHumanDirections||[]),...(wire.taskContext.recentHumanContext||[])].some(reference=>reference.text===original&&reference.status==='needs_current_interpretation'));
- assert.ok(!draft().payload.wordingControls?.items.some(item=>item.sourceIds.includes(sourceId)),'the old model classification is not an unconditional instruction');assert.equal(store._memoryRecords(scope).find(item=>item.id===record.id).reviewComplete,false);
+  // Structural reason (B1): a model-classified preference never commits a
+  // record at all any more; it can only be a candidate receipt. The complete
+  // original is preserved by the observation log (identity authority), and
+  // the old summary is neither trusted nor applied as an instruction.
+  const record=store._memoryRecords(scope).find(item=>item.recordType==='item');assert.equal(record,undefined,'no item record is committed for a model preference classification');
+  const candidate=store.quarantinedProposals(scope,{status:'candidate'}).find(entry=>entry.code==='preference_candidate');
+  assert.ok(candidate&&candidate.evidenceSourceIds.includes(sourceId),'the candidate receipt binds to the original declaration');
+  assert.equal(store.observationLog.observationById(scope,sourceId).text,original,'the complete original survives in the observation log');
+  assert.ok(!prepared.payload.coreMemory?.items.some(item=>item.sourceIds?.includes(sourceId)));
+  assert.ok(!draft().payload.wordingControls?.items.some(item=>item.sourceIds.includes(sourceId)),'the old model classification is not an unconditional instruction');
 });
 test('the user recurring request to avoid blunt wording survives a synonymous core summary',t=>{
  const {draft,sourceId}=fixture(t,{text:'以后给我的参考回复别太直白，因为PRIVATE_CORE_BLUNT_REASON我怕显得急。',summary:'参考表达委婉一点。'});
@@ -61,12 +71,12 @@ for(const entry of [
  {name:'a third-party report whose subject carries across commas',text:'我听她说，回复用短句，不用表情，因为PRIVATE_REPORT_REASON她觉得这样好。'},
  {name:'a personal preference unrelated to expression',text:'我以后更喜欢自然风景和轻松的徒步。',summary:'用户更喜欢自然风景和轻松的徒步。'},
  {name:'a factual memory',kind:'fact',text:'我以前用过短句介绍自然风景。',summary:'用户用短句介绍过自然风景。'},
- {name:'a conditional preference',text:'如果她忙的时候，回复用短句。',summary:'如果她忙的时候，回复用短句。'},
- {name:'a contact typed preference',kind:'claim',actor:'contact',claim:{subject:'contact'}},
- {name:'an expired typed preference',kind:'claim',claim:{validUntil:new Date(Date.now()+86400000).toISOString()}},
- {name:'a contextual typed preference',kind:'claim',claim:{context:'只在她说很忙的时候适用'}},
+ {name:'a conditional preference',text:'如果她忙的时候，回复用短句。',summary:'如果她忙的时候，回复用短句。',attest:false},
+ {name:'a contact typed preference',kind:'claim',actor:'contact',claim:{subject:'contact'},attest:false},
+ {name:'an expired typed preference',kind:'claim',claim:{validUntil:new Date(Date.now()+86400000).toISOString()},attest:false},
+ {name:'a contextual typed preference',kind:'claim',claim:{context:'只在她说很忙的时候适用'},attest:false},
  {name:'a structurally conditional typed preference with a short unqualified summary',kind:'claim',text:'工作讨论用短句，闲聊不必照此。',summary:'参考回复用短句。',claim:{applicabilityKind:'conditional',condition:'Only in work discussions.'}},
- {name:'an unspecified-duration typed preference',kind:'claim',claim:{applicabilityKind:'unspecified'}}
+ {name:'an unspecified-duration typed preference',kind:'claim',claim:{applicabilityKind:'unspecified'},attest:false}
 ])test(`${entry.name} cannot become an unconditional user wording control`,t=>{
  const {draft,sourceId}=fixture(t,entry);assert.ok(!draft().payload.wordingControls?.items.some(item=>item.sourceIds.includes(sourceId)));
 });
@@ -78,7 +88,9 @@ for(const operation of ['withdraw','correct'])test(`wording rejects source ${ope
 });
 test('retiring a core preference prevents a frozen prepared snapshot from restoring the old instruction',t=>{
  const {store,args,prepared,sourceId}=fixture(t),correction=store.appendTurn(scope,{role:'user',kind:'discussion',text:'更正：以后不要求短句，之前那条表达偏好停用。'}),batch=store.memoryBatch(scope);
- const previous=batch.priorMemory.claims.find(item=>item.subject==='self'&&item.aspect==='stated_preference');assert.ok(previous);
+  // Structural reason (B1): the model's degraded non-durable claim coexists
+  // with the user-attested recurring claim by design; retire the durable one.
+  const previous=batch.priorMemory.claims.find(item=>item.subject==='self'&&item.aspect==='stated_preference'&&item.applicabilityKind==='recurring');assert.ok(previous);
  assert.equal(store.applyMemoryBatch(scope,batch,{reviewedSourceIds:batch.reviewedSourceIds,items:[],episodes:[],retire:[],relationshipPatch:{retire:[{id:previous.id,expectedVersion:previous.version,lifecycle:'superseded',sourceIds:[`private:${correction.id}`]}]}}).applied,true);
  const wording=buildDraftContext(prepared,withCurrentDraftControls({intent:'reply',quotes:[]},prepared.payload),{...args,availableSources:store.memorySources(scope)});
  assert.ok(!wording.payload.wordingControls?.items.some(item=>item.sourceIds.includes(sourceId)));

@@ -68,7 +68,11 @@ const capturedScope=Object.fromEntries(['accountUid','accountUin','peerUid','pee
 function seedCaptured(t,{Ctor=Store,filename=':memory:'}={}){
  t.mock.timers.enable({apis:['Date'],now:Date.parse('2026-10-03T11:01:00Z')});const store=new Ctor(filename);store.setGoal(capturedScope,'和这位朋友保持联系，商量一起看展的安排。');
  for(const source of capture.batch.sources){assert.equal(source.type,'qq');store.add(capturedScope,[normalize({chatType:1,peerUid:capturedScope.peerUid,peerUin:capturedScope.peerUin,senderUid:source.senderUid,senderUin:source.senderUin,msgId:source.messageId,msgSeq:source.sequence,msgTime:String(Date.parse(source.at)/1000),sendStatus:2,recallTime:'0',elements:[{textElement:{content:source.text}}]},capturedScope)]);}
- const actual=new Map(store.memorySources(capturedScope).map(source=>[source.id,source]));for(const source of capture.batch.sources)for(const key of ['id','text','at','revision'])assert.equal(actual.get(source.id)[key],source[key]);return store;
+ // Structural reason (D1 speaker-fingerprint cutover): the live revision is
+ // re-hashed by design; content fields compare literally, and the revision is
+ // asserted against the observation-log projection (the identity authority).
+ const actual=new Map(store.memorySources(capturedScope).map(source=>[source.id,source]));
+ for(const source of capture.batch.sources){const live=actual.get(source.id);for(const key of ['id','text','at'])assert.equal(live[key],source[key]);assert.notEqual(live.revision,source.revision,'the fingerprint cutover re-hashes the revision');assert.equal(live.revision,store.observationLog.observationById(capturedScope,live.id).revision,'the projection owns the revision');}return store;
 }
 for(const mode of ['body','revision','scope','withdrawal','CAS'])test(`accepting rich echoes does not weaken Store ${mode} authority or atomicity`,t=>{
  const store=seedCaptured(t);t.after(()=>store.close());const batch=store.memoryBatch(capturedScope),request=prepareMemoryRequest(settings,batch),decoded=request.decode(bound(request));
@@ -80,5 +84,10 @@ test('a frozen039 echo-failed pending database reopens under the new contract wi
  const old=require('./fixtures/clock-baseline-039.cjs')(),directory=fs.mkdtempSync(path.join(os.tmpdir(),'qq-clock040-')),filename=path.join(directory,'pending039.sqlite');t.after(()=>fs.rmSync(directory,{recursive:true,force:true}));const restored=old.restore(filename),before=restored.expected,sources=before.sources;
  assert.equal(restored.oldStateVerifiedBeforeCurrent,true);assert.deepEqual(before.scope,capturedScope);assert.equal(before.scriptedRequests,2);assert.equal(before.baselineResult.status,'error');assert.equal(before.baselineResult.pending,3);t.mock.timers.enable({apis:['Date'],now:Date.parse(before.testAsOf)});
  const store=new Store(filename);t.after(()=>store.close());let calls=0,newInput;const result=await maintainMemory({store,scope:capturedScope,settings,maxBatches:1,model:(configured,batch,signal)=>consolidateMemory(configured,batch,signal,async(_url,args)=>{calls++;newInput=JSON.parse(JSON.parse(args.body).messages[1].content);const value=copy(capture.proposal);value.batchId=newInput.batchId;return new Response(JSON.stringify({choices:[{message:{content:JSON.stringify(value)}}]}),{status:200});})});
- assert.equal(calls,1);assert.notEqual(newInput.version,before.oldInputVersion);assert.notEqual(newInput.batchId,before.oldInputBatchId);assert.equal(result.pending,0);assert.equal(result.errors.length,0);assert.equal(store.relationshipView(capturedScope).activities[0].status,'cancelled');assert.deepEqual(store.memorySources(capturedScope),sources);
+ assert.equal(calls,1);assert.notEqual(newInput.version,before.oldInputVersion);assert.notEqual(newInput.batchId,before.oldInputBatchId);assert.equal(result.pending,0);assert.equal(result.errors.length,0);assert.equal(store.relationshipView(capturedScope).activities[0].status,'cancelled');
+  // Structural reason (D1 speaker-fingerprint cutover): raw bodies/ids/times
+  // survive; revisions are re-hashed consistently with the live projection.
+  assert.deepEqual(store.memorySources(capturedScope).map(({revision,...rest})=>rest),sources.map(({revision,...rest})=>rest));
+  const upgraded=new Map(store.memorySources(capturedScope).map(source=>[source.id,source.revision]));
+  assert.ok(upgraded.size>0&&store.memorySources(capturedScope).every(source=>source.revision===store.observationLog.observationById(capturedScope,source.id).revision));
 });
