@@ -6,7 +6,7 @@
 // (arrangementHandling) become registry rows the compiler and the draft
 // validator both read, so a declared arrangement can no longer be shadowed by
 // a confirmation question without an explicit stated reason.
-const { declarationSentences } = require('./evidence-digest.cjs');
+const { declarationSentences, timeWindowTokens, normalizedTimeText } = require('./evidence-digest.cjs');
 
 const MQA_VERSION = 'mqa-registry-v1';
 
@@ -164,12 +164,53 @@ function declaredArrangementMaterials(sources, { asOf = null, freshnessMs = DECL
   return materials;
 }
 
+// Reconstruct delivered declaration materials from delivered source views:
+// the declarations tier rides on digest views (digest.declarations) even when
+// the mandatoryMaterials metadata itself was evicted under budget pressure,
+// so the response validator can still see what the model actually received.
+function deliveredDeclarationMaterials(sources, { asOf = null, freshnessMs = DECLARATION_FRESHNESS_MS } = {}) {
+  const materials = [];
+  for (const source of sources || []) {
+    const declarations = source?.digest?.declarations;
+    if (!Array.isArray(declarations)) continue;
+    const age = asOf && source.at ? Math.abs(Date.parse(asOf) - Date.parse(source.at)) : null;
+    for (const found of declarations) {
+      if (!found || typeof found.sentence !== 'string' || !Number.isSafeInteger(found.start) || !Number.isSafeInteger(found.end)) continue;
+      materials.push(Object.freeze({
+        materialClass: 'declared_arrangement', sourceId: source.id, revision: found.revision || source.revision,
+        at: source.at || null, sentence: found.sentence, start: found.start, end: found.end,
+        current: age == null ? null : age <= freshnessMs,
+        lookup: Object.freeze({ sourceIds: Object.freeze([source.id]), offset: found.start,
+          maxChars: Math.max(1, found.end - found.start) })
+      }));
+    }
+  }
+  return materials;
+}
+
+// Adoption-completeness check (sv-001 blind review Gap-s1): when a response
+// claims adoption of a delivered current declaration, the outbound adoption
+// must carry the declaration's scheduling constraint. A "yes" that drops the
+// declared time window accepted the invitation but is not a usable adoption.
+// Pure containment over normalized day/clock tokens; deterministic, no model
+// call. Returns null when every token is present.
+function arrangementTimeWindowGap(materials, outboundTexts) {
+  const joined = normalizedTimeText((outboundTexts || []).filter(text => typeof text === 'string').join('\n'));
+  for (const material of materials || []) {
+    if (!material || typeof material.sentence !== 'string') continue;
+    const missing = timeWindowTokens(material.sentence).filter(token => !joined.includes(token));
+    if (missing.length) return { sourceId: material.sourceId, sentence: material.sentence,
+      missingTimeWindows: missing, lookup: material.lookup };
+  }
+  return null;
+}
+
 // Draft-validator-side enforcement of the arrangementHandling consumption
 // field. `delivered` = declaration materials actually present in the compiled
 // context (from declaredArrangementMaterials); `handling` = the model's
 // arrangementHandling output. Returns {ok, code?, message?} — deterministic,
 // no model call.
-function validateArrangementHandling({ intentClass, delivered = [], handling = null, asOf = null, freshnessMs = DECLARATION_FRESHNESS_MS }) {
+function validateArrangementHandling({ intentClass, delivered = [], handling = null, asOf = null, freshnessMs = DECLARATION_FRESHNESS_MS, outboundTexts = null }) {
   const fields = CONSUMPTION_FIELDS[intentClass] || [];
   if (!fields.some(field => field.name === 'arrangementHandling')) return { ok: true, applicable: false };
   if (!handling || typeof handling !== 'object')
@@ -190,6 +231,18 @@ function validateArrangementHandling({ intentClass, delivered = [], handling = n
   // only by stating why the declaration cannot be adopted.
   if (current.length && handling.disposition !== 'used' && !(typeof handling.reason === 'string' && handling.reason.trim()))
     return { ok: false, code: 'arrangement_handling_reason_required', message: 'a current declared arrangement was delivered but not used; a concrete reason is mandatory' };
+  // Time-window adoption completeness: a used claim must carry the declared
+  // scheduling constraint inside the outward candidate text. The repair
+  // guidance quotes the copy-ready original sentence and its lookup handle
+  // (same copy-ready pattern as the lookup repair guides).
+  if (handling.disposition === 'used' && Array.isArray(outboundTexts) && outboundTexts.some(text => typeof text === 'string' && text.trim())) {
+    const cited = current.filter(item => handling.evidenceRefs.includes(item.sourceId));
+    const gap = arrangementTimeWindowGap(cited.length ? cited : current, outboundTexts);
+    if (gap) return { ok: false, code: 'arrangement_time_window_missing',
+      message: 'disposition used requires the declared time window inside the adopted outward text',
+      missingTimeWindows: gap.missingTimeWindows,
+      copyReady: [{ sentence: gap.sentence, lookup: gap.lookup }] };
+  }
   return { ok: true };
 }
 
@@ -197,5 +250,6 @@ module.exports = {
   MQA_VERSION, INTENT_CLASSES, MATERIAL_CLASSES, AUTHORIZATION_TIERS, POLICY, FLOORS, ROWS, DEFAULT_ROW,
   ARRANGEMENT_DISPOSITIONS, ARRANGEMENT_HANDLING_VERSION, DECLARATION_FRESHNESS_MS,
   isIntentClass, isMaterialClass, tierAtLeast, tierFromCode, policyFor, requirementsFor,
-  consumptionContractFor, declaredArrangementMaterials, validateArrangementHandling
+  consumptionContractFor, declaredArrangementMaterials, deliveredDeclarationMaterials,
+  arrangementTimeWindowGap, validateArrangementHandling
 };

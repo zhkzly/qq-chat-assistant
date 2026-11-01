@@ -70,6 +70,7 @@ const schemas={
  text:{...string,description:'Complete private coaching for advise; optional lookup audit note. Forbidden for prepare_message: answer.privateExplanation is the sole private explanation.'},
  currentFacts:{...strings,description:'Only actually used private facts, including task dates/items or personal events: exact spans from this current complete human statement, not control/reasons. currentFacts plus materials total at most 8. Binding is NOT blanket sharing permission; interpret full negation, quotations and conditions.'},
  editingReference:object({choice:string},['choice']),
+ arrangementHandling:{...object({disposition:choice(['used','conflict','stale','missing']),evidenceRefs:strings,reason:string},['disposition','evidenceRefs']),description:'Only prepare_message with delivered declared arrangements: report the disposition. used must carry the declared time window (day/clock words from the declaration) inside the outward suggestions and cite declaration sourceIds in evidenceRefs; conflict/stale/missing need a concrete reason.'},
  draftPlan:{...draftPlan,description:'Only prepare_message: material choices and proposed controls; no clarification.'},
  lookup:{...lookupSchemaShape,description:'Continuation reads and retrieval. Range reads may omit target IDs when exactly one delivered range covers them; batch reads fetch several ranges in one round trip.'},
  continuation:{...choice(['advise','prepare_message']),description:'Only lookup: workflow to continue after reading.'},

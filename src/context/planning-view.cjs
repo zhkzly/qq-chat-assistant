@@ -311,7 +311,7 @@ function buildContext(options) {
   // byte tax for empty MQA scaffolding under tight budgets.
   const compiledRequest=admission.payload.contextRequest;
   if(compiledRequest&&(compiledRequest.intentClass!=='generic_consultation'||compiledRequest.anchors?.length||Object.values(compiledRequest.wants||{}).some(Boolean)))payload.contextRequest=compiledRequest;
-  if(admission.payload.materialRequirements?.outcomes?.length)payload.materialRequirements=admission.payload.materialRequirements;
+  if(admission.payload.materialRequirements?.outcomes?.length||admission.payload.materialRequirements?.retrievedMaterials?.length)payload.materialRequirements=admission.payload.materialRequirements;
   if(admission.payload.mandatoryMaterials?.length)payload.mandatoryMaterials=admission.payload.mandatoryMaterials;
   if(admission.payload.consumptionContract?.fields?.length)payload.consumptionContract=admission.payload.consumptionContract;
   if(admission.payload.negativeControls?.length)payload.negativeControls=admission.payload.negativeControls;
