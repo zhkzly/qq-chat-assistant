@@ -207,6 +207,14 @@ function selectPlanningContext({options,snapshot,candidates,view,budget,coreInve
       }
     }
   }
+  // MQA scaffolding yields before the early hard failure too: outcome
+  // diagnostics, the consumption protocol and the analyzer summary are
+  // navigation, while the delivered declaration sentences live on in the
+  // source views. A feasible request must not die on scaffolding bytes.
+  if(!fits(payload)&&payload.materialRequirements){delete payload.materialRequirements;refresh();}
+  if(!fits(payload)&&payload.consumptionContract){delete payload.consumptionContract;refresh();}
+  if(!fits(payload)&&payload.contextRequest){delete payload.contextRequest;refresh();}
+  if(!fits(payload)&&payload.mandatoryMaterials){delete payload.mandatoryMaterials;refresh();}
   // A configured budget below the serialized envelope cannot deliver any
   // request at all; report that configuration honestly instead of blaming
   // the current question.
@@ -710,12 +718,21 @@ function selectPlanningContext({options,snapshot,candidates,view,budget,coreInve
     else if (optional.length) { selected.delete(optional[0]); refresh(); }
     else if (payload.privateConversation.length) {
       const index = payload.privateConversation.findIndex(entry => entry.role === 'user' && !requiredPrivateTurnIds.has(entry.id));
-      if (index < 0) {if(!compactedPlanningViews&&compactPlanningViews(payload)){compactedPlanningViews=true;continue;}if(payload.work||payload.materialView){delete payload.work;delete payload.materialView;continue;}break;}
+      if (index < 0) {if(!compactedPlanningViews&&compactPlanningViews(payload)){compactedPlanningViews=true;continue;}if(payload.work||payload.materialView){delete payload.work;delete payload.materialView;continue;}if(payload.contextRequest){delete payload.contextRequest;continue;}break;}
       let end = index + 1; while (end < payload.privateConversation.length && payload.privateConversation[end].role === 'assistant') end++;
       payload.privateConversation.splice(index, end - index);
     }
     else if(!compactedPlanningViews&&compactPlanningViews(payload)){compactedPlanningViews=true;continue;}
     else if(payload.work||payload.materialView){delete payload.work;delete payload.materialView;continue;}
+    // MQA scaffolding yields before the honest budget error, coarsest first:
+    // outcome diagnostics, then the consumption protocol, then the analyzer
+    // summary, then the material list. The delivered declaration sentences
+    // themselves live in the source views — evidence outranks scaffolding,
+    // and a hard failure helps nobody.
+    else if(payload.materialRequirements){delete payload.materialRequirements;continue;}
+    else if(payload.consumptionContract){delete payload.consumptionContract;continue;}
+    else if(payload.contextRequest){delete payload.contextRequest;continue;}
+    else if(payload.mandatoryMaterials){delete payload.mandatoryMaterials;continue;}
     else break;
   }
   // Late budget eviction and chronology checks must also change the authority
@@ -775,11 +792,16 @@ function selectPlanningContext({options,snapshot,candidates,view,budget,coreInve
   for(const id of quotedIds){
     const prior=selected.get(id),original=byId.get(id);
     if(!original||!rangedDelivery(prior)||explicitLookupIds.includes(id))continue;
-    const saved={cards:payload.methodCards,selection:structuredClone(payload.methodSelection),material:payload.materialView,work:payload.work};
+    const saved={cards:payload.methodCards,selection:structuredClone(payload.methodSelection),material:payload.materialView,work:payload.work,request:payload.contextRequest};
     selected.set(id,original);refresh();
     if(!fits(payload)){payload.methodCards=[];delete payload.methodSelection.selectionRule;delete payload.methodSelection.feedbackRule;refresh();}
     if(!fits(payload)){delete payload.materialView;refresh();}
     if(!fits(payload)){delete payload.work;refresh();}
+    // MQA scaffolding yields before direct evidence: the analyzer summary is
+    // navigation, the quoted original is evidence.
+    if(!fits(payload)){delete payload.contextRequest;refresh();}
+    if(!fits(payload)){delete payload.materialRequirements;refresh();}
+    if(!fits(payload)){delete payload.consumptionContract;refresh();}
     if(!fits(payload)){
       selected.set(id,prior);payload.methodCards=saved.cards;payload.methodSelection=saved.selection;
       if(saved.material)payload.materialView=saved.material;if(saved.work)payload.work=saved.work;refresh();

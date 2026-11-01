@@ -140,7 +140,7 @@ test('canonical feedback continuation is authoritative without duplicating its b
   const { store, args, request, guidance } = fixture(t);
   const evaluated = store.appendTurn(scope, { role: 'assistant', kind: 'draft', requestId: 'synthetic-evaluated', text: '参考表达', sourceIds: [`private:${request.id}`],
     suggestions: [{ style: '自然', text: '周末有空一起走走吗？' }] });
-  const feedback = store.addFeedback(scope, { targetRef: { kind: 'artifact', artifactRef: evaluated.suggestions[0].artifactRef }, text: '这次直接表达我的好感，给我具体一句。' });
+  const feedback = store.addFeedback(scope, { targetRef: { kind: 'artifact', artifactRef: evaluated.suggestions[0].artifactRef }, text: '这次直接表达我的好感，给我具体一句。' , expectedDigest: store.experiences.artifact(scope, evaluated.suggestions[0].artifactRef).bodyDigest});
   const turn = store.appendTurn(scope, { role: 'user', kind: 'feedback_continue', requestId: 'synthetic-feedback-continue', text: '结合我选中的这条反馈，继续商量并给出相应帮助。' });
   Object.assign(args, { turn, companion: store.getCompanion(scope), availableSources: store.memorySources(scope), intentSourceId: feedback.sourceId,
     feedbackTargets: [store.experiences.hydrateFeedback(scope, feedback.id)], byteBudget: 12000 });

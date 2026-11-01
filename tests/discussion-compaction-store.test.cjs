@@ -124,7 +124,7 @@ test('excluded user groups and canonical feedback aliases are not original compa
   const f=fixture(t);f.store.markTurnControl(scope,f.first.id);
   const remaining=eligibleDiscussionTurns(f.store.getCompanion(scope));assert.equal(remaining.some(t=>t.id===f.first.id||t.id===f.firstAnswer.id),false);
   assert.throws(()=>discussionCompactionEvidence(f.store,scope,[f.first.id]),/turn|excluded|coverage/i);
-  const evaluated=f.store.appendTurn(scope,{role:'assistant',kind:'discussion',text:'Feedback target',requestId:'target-only'}),feedback=f.store.addFeedback(scope,{requestId:evaluated.requestId,text:'Local complaint'});
+  const evaluated=f.store.appendTurn(scope,{role:'assistant',kind:'discussion',text:'Feedback target',requestId:'target-only'}),feedback=f.store.addFeedback(scope,{targetRef:{kind:'artifact',artifactRef:evaluated.artifactRef},expectedDigest:f.store.experiences.artifact(scope,evaluated.artifactRef).bodyDigest,text:'Local complaint'});
   const alias=f.store.getCompanion(scope).turns.find(t=>t.feedbackId===feedback.id);assert.equal(eligibleDiscussionTurns(f.store.getCompanion(scope)).some(t=>t.id===alias.id),false);
   assert.throws(()=>discussionCompactionEvidence(f.store,scope,[alias.id]),/turn|excluded|coverage/i);
 });
@@ -146,7 +146,8 @@ test('deleting an original summarized assistant invalidates dependent answers an
   f.store.appendTurn(scope,{role:'user',kind:'discussion',text:'Continue this explanation.',requestId:'derived-follow-up'});
   const childRefs={...cache.turnFingerprints,[answer.id]:discussionTurnFingerprint(answer)};
   const child=f.store.appendTurn(scope,{role:'assistant',kind:'discussion',text:'Later dependent explanation.',requestId:'derived-child',sourceIds:Object.keys(cache.sourceRevisions),artifactMetadata:{inputSourceRefs:refs,discussionTurnFingerprints:childRefs}});
-  f.store.addFeedback(scope,{requestId:child.requestId,text:'A local response evaluation.'});
+  // F1: explicit artifact binding with digest pinning
+  f.store.addFeedback(scope,{targetRef:{kind:'artifact',artifactRef:child.artifactRef},expectedDigest:f.store.experiences.artifact(scope,child.artifactRef).bodyDigest,text:'A local response evaluation.'});
   assert.equal(f.store.deleteTurn(scope,f.answer.id),true);
   const current=f.store.getCompanion(scope);
   assert.equal(current.turns.some(turn=>turn.id===answer.id||turn.id===child.id),false);

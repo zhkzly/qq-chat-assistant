@@ -131,7 +131,7 @@ test('feedback context hydrates the exact full evaluated artifact without creati
   const { store, args } = fixture(t);
   const artifactText = `PRIVATE_EVALUATED_PROPOSAL ${'完整的被评价建议。'.repeat(80)}`;
   const output = store.appendTurn(scope, { role: 'assistant', kind: 'discussion', text: artifactText, requestId: 'old-evaluated-request', sourceIds: [`private:${args.turn.id}`] });
-  const feedback = store.addFeedback(scope, { text: '这次建议太像采访了，我想直接表达喜欢。', targetRef: { kind: 'artifact', artifactRef: output.artifactRef }, requestId: 'old-evaluated-request' });
+  const feedback = store.addFeedback(scope, { text: '这次建议太像采访了，我想直接表达喜欢。', targetRef: { kind: 'artifact', artifactRef: output.artifactRef }, requestId: 'old-evaluated-request' , expectedDigest: store.experiences.artifact(scope, output.artifactRef).bodyDigest});
   const contextArgs = { ...args, companion: store.getCompanion(scope), availableSources: store.memorySources(scope),
     experienceContext: store.experiences.context(scope, { query: '采访', limit: 4 }) };
   const prepared = buildContext(contextArgs), evaluation = prepared.payload.feedbackTargets[0];
@@ -161,7 +161,7 @@ test('real-message feedback keeps actual QQ attribution rather than labeling the
 test('only an explicitly enabled review can propose inactive local guidance from delivered canonical feedback', t => {
   const { store, args } = fixture(t, '回顾一下上次参考表达，怎样更像我自己？');
   const output = store.appendTurn(scope, { role: 'assistant', kind: 'discussion', text: '合成的被评价表达', requestId: 'proposal-target', sourceIds: [`private:${args.turn.id}`] });
-  const feedback = store.addFeedback(scope, { text: '这次连续三个问题让我觉得像采访。', targetRef: { kind: 'artifact', artifactRef: output.artifactRef } });
+  const feedback = store.addFeedback(scope, { text: '这次连续三个问题让我觉得像采访。', targetRef: { kind: 'artifact', artifactRef: output.artifactRef } , expectedDigest: store.experiences.artifact(scope, output.artifactRef).bodyDigest});
   const options = { ...args, companion: store.getCompanion(scope), availableSources: store.memorySources(scope), experienceContext: store.experiences.context(scope, { query: '采访' }) };
   const review = buildContext({ ...options, purpose: 'review', allowExperienceProposals: true, methodLookupIds: ['respond'] });
   const proposal = { text: '在相似分享情境中先接住具体内容，减少连续追问。', applicability: '用户正在回应个人近况、且已有足够内容可以回应时', methodId: 'respond', sourceIds: [feedback.sourceId], caseIds: [] };
@@ -204,7 +204,7 @@ test('recorded feedback output promotes a candidate only after loading its actua
   const answer = store.appendTurn(scope, { role: 'assistant', kind: 'discussion', text: '原建议：你今天考了什么？感觉难不难？晚上准备做什么？', requestId: 'recorded-old-target', sourceIds: [`private:${earlier.id}`] });
   store.saveRun(scope, { id: 'recorded-old-target', status: 'complete', replyId: answer.id });
   for (let index = 0; index < 14; index++) store.saveRun(scope, { id: `recorded-later-${index}`, status: 'complete' });
-  const feedback = store.addFeedback(scope, { text: '这条建议连续问了三个问题，让我感觉像采访。我希望对她分享的事情先有具体回应。', targetRef: { kind: 'artifact', artifactRef: answer.artifactRef } });
+  const feedback = store.addFeedback(scope, { text: '这条建议连续问了三个问题，让我感觉像采访。我希望对她分享的事情先有具体回应。', targetRef: { kind: 'artifact', artifactRef: answer.artifactRef } , expectedDigest: store.experiences.artifact(scope, answer.artifactRef).bodyDigest});
   const result = structuredClone(recorded.response);
   for (const proposal of result.experienceProposals) proposal.sourceIds = proposal.sourceIds.map(id => id.startsWith('private:feedback-') ? feedback.sourceId : `private:${earlier.id}`);
   const controller = new Controller({ store, settings: { ...settings, auto: false,

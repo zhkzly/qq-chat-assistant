@@ -64,7 +64,7 @@ test('projection parity: the fold equals the ingest-store derivation after every
   const turn=user(store,'parity turn');
   const note=store.saveNote(scope,{text:'parity note',use:'discussion'});
   const answer=store.appendTurn(scope,{role:'assistant',kind:'discussion',text:'answer',requestId:'parity-run'});
-  store.addFeedback(scope,{text:'parity feedback',targetRef:{kind:'artifact',artifactRef:answer.artifactRef}});
+  store.addFeedback(scope,{text:'parity feedback',targetRef:{kind:'artifact',artifactRef:answer.artifactRef}, expectedDigest: store.experiences.artifact(scope, answer.artifactRef).bodyDigest});
   store.updateTurn(scope,turn.id,'parity turn revised');
   store.forgetSource(scope,'note:'+note.id);
   const derived=store._deriveSources(scope).map(({revision,...source})=>source);

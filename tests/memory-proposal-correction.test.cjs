@@ -121,7 +121,9 @@ test('invalid JSON gets only one correction; a preference-bearing corrected prop
 test('feedback, copied or wrapped local evidence can never authorize a durable preference',async t=>{
   for(const source of ['canonical','copy','wrapper'])await t.test(source,async t=>{
     const s=storeFor(t);s.saveRun(scope,{id:'fixture-run'});
-    const f=s.addFeedback(scope,{requestId:'fixture-run',text:'这一次太正式',kind:'local'});
+    // F1: bind feedback explicitly to the retained answer artifact
+    const evaluated=s.appendTurn(scope,{role:'assistant',kind:'discussion',text:'先前那句建议',requestId:'fixture-run'});
+    const f=s.addFeedback(scope,{targetRef:{kind:'artifact',artifactRef:evaluated.artifactRef},expectedDigest:s.experiences.artifact(scope,evaluated.artifactRef).bodyDigest,text:'这一次太正式',kind:'local'});
     const id=`private:feedback-${f.id}`;
     if(source!=='canonical'){
       const copy=s.saveNote(scope,{text:'只因这一次太正式',use:'discussion',evidenceSourceIds:[id]});

@@ -30,7 +30,13 @@ test('private streams persist and are isolated by all four scope fields; exports
   assert.deepEqual(initial.turns, []); store.setGoal(scope, 'Develop mutual understanding');
   const { ids } = sources(store); derive(store, ids);
   const revision = store.getCompanion(scope).revision;
-  store.addFeedback(scope, { requestId: 'request-1', text: 'Too formal', kind: 'local' });
+  // Structural adaptation (F1 switchover): store-level candidate feedback needs
+  // an explicit digest-pinned artifact reference; requestId-only legacy
+  // resolution is removed by design (B8). The retained assistant turn carries
+  // the artifact the feedback binds to.
+  const retained = store.getCompanion(scope).turns.find(turn => turn.role === 'assistant' && turn.artifactRef);
+  store.addFeedback(scope, { targetRef: { kind: 'artifact', artifactRef: retained.artifactRef },
+    expectedDigest: store.experiences.artifact(scope, retained.artifactRef).bodyDigest, text: 'Too formal', kind: 'local' });
   assert.ok(store.getCompanion(scope).revision >= revision);
   const exported = JSON.parse(store.export(scope, 'json').data);
   assert.equal(exported.messages.length, 1); assert.equal(exported.messages[0].kind, 'actual');
@@ -172,14 +178,21 @@ test('feedback must reference a retained run or assistant response in this scope
   const other = { ...scope, peerUid: 'other-peer' };
   store.saveRun(other, { id: 'foreign-request' });
   store.appendTurn(scope, { role: 'user', kind: 'discussion', text: 'A user request', requestId: 'user-only' });
+  // Structural adaptation (F1 switchover): requestId-only legacy resolution is
+  // removed — the same no-silent-binding guarantee now surfaces as the F1
+  // contract error (server-minted presentation or explicit pinned reference).
   for (const requestId of ['missing', 'foreign-request', 'user-only']) {
-    assert.throws(() => store.addFeedback(scope, { requestId, text: 'Cannot bind' }), /feedback request/i);
+    assert.throws(() => store.addFeedback(scope, { requestId, text: 'Cannot bind' }), /presentationId|explicit target reference/i);
   }
+  // Positive path: each retained in-scope assistant artifact binds explicitly
+  // with its current digest (three distinct retained responses).
+  const bindRetained = text => {
+    const turn = store.appendTurn(scope, { role: 'assistant', kind: 'discussion', text });
+    store.addFeedback(scope, { targetRef: { kind: 'artifact', artifactRef: turn.artifactRef },
+      expectedDigest: store.experiences.artifact(scope, turn.artifactRef).bodyDigest, text: 'Bound to a retained response' });
+  };
   store.saveRun(scope, { id: 'run-id', requestId: 'retained-request' });
-  store.addFeedback(scope, { requestId: 'retained-request', text: 'Too formal' });
-  store.addFeedback(scope, { requestId: 'run-id', text: 'Too long' });
-  store.appendTurn(scope, { role: 'assistant', kind: 'discussion', text: 'A retained response', requestId: 'older-response' });
-  store.addFeedback(scope, { requestId: 'older-response', text: 'This was useful' });
+  bindRetained('A retained response'); bindRetained('A second retained response'); bindRetained('A third retained response');
   assert.equal(store.getCompanion(scope).feedback.length, 3);
 });
 

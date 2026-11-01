@@ -56,8 +56,8 @@ for (const primaryRepairMetadata of [false, true]) test(`explicit primary explan
 });
 test('whole-response feedback evaluates the displayed explanation, while draft feedback evaluates wording alone', async t => {
   const { store, controller } = setup(t), reply = await controller.assist({ text: '解释依据，也给一句接话', purpose: 'discussion' });
-  const responseFeedback = store.experiences.addFeedback(scope, { text: '这段依据有帮助', targetRef: { kind: 'artifact', artifactRef: reply.artifactRef }, clientEventId: 'synthetic-response-explanation-feedback' });
-  const draftFeedback = store.experiences.addFeedback(scope, { text: '这句表达自然', targetRef: { kind: 'artifact', artifactRef: reply.suggestions[0].artifactRef }, clientEventId: 'synthetic-draft-wording-feedback' });
+  const responseFeedback = store.experiences.addFeedback(scope, { text: '这段依据有帮助', targetRef: { kind: 'artifact', artifactRef: reply.artifactRef }, clientEventId: 'synthetic-response-explanation-feedback' , expectedDigest: store.experiences.artifact(scope, reply.artifactRef).bodyDigest});
+  const draftFeedback = store.experiences.addFeedback(scope, { text: '这句表达自然', targetRef: { kind: 'artifact', artifactRef: reply.suggestions[0].artifactRef }, clientEventId: 'synthetic-draft-wording-feedback' , expectedDigest: store.experiences.artifact(scope, reply.suggestions[0].artifactRef).bodyDigest});
   assert.equal(store.experiences.hydrateFeedback(scope, responseFeedback.id).target.body, explanation);
   assert.equal(store.experiences.hydrateFeedback(scope, draftFeedback.id).target.body, wording);
 });
@@ -101,7 +101,7 @@ test('deletion and source withdrawal remove private explanation bodies and their
   for (const operation of ['delete_output', 'forget_source']) {
     const { store, controller, message } = setup(t), reply = await controller.assist({ text: '解释依据，也给一句接话', purpose: 'discussion' });
     assert.equal(reply.discussionExplanation.text, explanation);
-    const feedback = store.experiences.addFeedback(scope, { text: '依据太笼统', targetRef: { kind: 'artifact', artifactRef: reply.artifactRef }, clientEventId: `synthetic-${operation}-feedback` });
+    const feedback = store.experiences.addFeedback(scope, { text: '依据太笼统', targetRef: { kind: 'artifact', artifactRef: reply.artifactRef }, clientEventId: `synthetic-${operation}-feedback` , expectedDigest: store.experiences.artifact(scope, reply.artifactRef).bodyDigest});
     if (operation === 'delete_output') store.deleteTurn(scope, reply.id); else store.forgetSource(scope, `qq:${message.messageId}`);
     assert.ok(!store.getCompanion(scope).turns.some(turn => turn.id === reply.id));
     assert.equal(store.experiences.artifact(scope, reply.artifactRef).availability, 'redacted');

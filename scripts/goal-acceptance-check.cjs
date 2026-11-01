@@ -75,7 +75,7 @@ function seed(store,scope,definition){
  if(!definition.experience)return [];
  const source=store.appendTurn(scope,{role:'user',kind:'discussion',text:definition.contrary?'以前这类工作分享我希望先回应，不追加问题。':'她分享工作近况时，我希望具体接住内容，不连续追问。'}),sourceId=`private:${source.id}`;
  const output=store.appendTurn(scope,{role:'assistant',kind:'discussion',text:'先回应她分享的具体事情，给她表达的空间。',sourceIds:[sourceId],methodIds:['respond']});
- const feedback=store.addFeedback(scope,{text:definition.contrary?'这种先接住分享、暂时不追加问题的帮助适合我。':'这种先接住分享、不连续追问的帮助适合我。',targetRef:{kind:'artifact',artifactRef:output.artifactRef},clientEventId:'fictional-guidance-feedback'});
+ const feedback=store.addFeedback(scope,{text:definition.contrary?'这种先接住分享、暂时不追加问题的帮助适合我。':'这种先接住分享、不连续追问的帮助适合我。',targetRef:{kind:'artifact',artifactRef:output.artifactRef},expectedDigest:store.experiences.artifact(scope,output.artifactRef).bodyDigest,clientEventId:'fictional-guidance-feedback'});
  const proposals=[
   {label:'approved_applicable',text:definition.contrary?'回应具体工作近况时，先接住分享，不追加问题。':'回应具体近况时，先接住分享，避免连续追问。',
    applicability:definition.contrary?'对方分享工作近况时；这是此前商量的方式，可由最新明确请求调整。':'对方分享日常经历且用户希望自然回应时，不强制禁止必要问题或邀请。',activate:true},

@@ -16,7 +16,7 @@ function actual(store,id,body,own=true){const message=normalize(raw(id,own,{msgT
 
 test('exact artifacts and feedback targets survive twelve-run eviction and target a specific candidate',t=>{
  const store=setup(t),{turn,refs}=publish(store);const e=store.experiences;
- const feedback=e.addFeedback(scope,{requestId:turn.requestId,targetRef:{kind:'artifact',artifactRef:refs.suggestionRefs[0]},text:'这一句不像我，太正式。',clientEventId:'feedback-one'});
+ const feedback=e.addFeedback(scope,{requestId:turn.requestId,targetRef:{kind:'artifact',artifactRef:refs.suggestionRefs[0]},text:'这一句不像我，太正式。',clientEventId:'feedback-one', expectedDigest: e.artifact(scope, refs.suggestionRefs[0]).bodyDigest});
  for(let n=0;n<20;n++)store.saveRun(scope,{id:`later-${n}`,requestId:`later-${n}`,payload:{example:n}});
  assert.equal(store.getCompanion(scope).runs.length,12);
  const hydrated=e.hydrateFeedback(scope,feedback.id);assert.equal(hydrated.target.body,'周末一起玩一局吗？');assert.deepEqual(hydrated.target.artifactRef,refs.suggestionRefs[0]);
@@ -26,7 +26,8 @@ test('exact artifacts and feedback targets survive twelve-run eviction and targe
 
 test('canonical feedback is idempotent, scoped, and never becomes recurring through a caller kind flag',t=>{
  const store=setup(t),{refs}=publish(store),e=store.experiences;
- const args={targetRef:{kind:'artifact',artifactRef:refs.responseRef},text:'这次太长',kind:'recurring',clientEventId:'same-op'};
+ // F1: explicit artifact feedback pins its version by digest
+ const args={targetRef:{kind:'artifact',artifactRef:refs.responseRef},text:'这次太长',kind:'recurring',clientEventId:'same-op',expectedDigest:e.artifact(scope,refs.responseRef).bodyDigest};
  const a=e.addFeedback(scope,args),b=e.addFeedback(scope,args);assert.equal(a.id,b.id);assert.equal(e.listFeedback(scope).length,1);assert.equal(a.kind,'local');
  assert.throws(()=>e.addFeedback({...scope,peerUid:'other'},args),/unavailable/);
  assert.throws(()=>e.addFeedback(scope,{...args,text:'换一段内容'}),/reused/);
@@ -71,7 +72,7 @@ test('independent actual messages and user-reported activities need no AI draft'
 
 test('source correction keeps a stale evaluation target, while forget purges all derived text and rejects late adoption',t=>{
  const store=setup(t),{refs,user}=publish(store,'SENSITIVE_REFERENCE_旧素材'),e=store.experiences;
- const f=e.addFeedback(scope,{targetRef:{kind:'artifact',artifactRef:refs.suggestionRefs[0]},text:'SENSITIVE_REFERENCE_旧素材不适合',clientEventId:'feedback'});
+ const f=e.addFeedback(scope,{targetRef:{kind:'artifact',artifactRef:refs.suggestionRefs[0]},text:'SENSITIVE_REFERENCE_旧素材不适合',clientEventId:'feedback', expectedDigest: e.artifact(scope, refs.suggestionRefs[0]).bodyDigest});
  e.recordInteraction(scope,{clientEventId:'adopt',type:'draft_adopted',text:'SENSITIVE_REFERENCE_旧素材',artifactRefs:refs.suggestionRefs});
  e.recordInteraction(scope,{clientEventId:'copy',type:'clipboard_write',text:'SENSITIVE_REFERENCE_旧素材',artifactRefs:refs.suggestionRefs});
  e.invalidateSources(scope,[`private:${user.id}`],{mode:'correct'});
@@ -132,7 +133,7 @@ test('whole-response artifact includes visible explanation while drafts/options 
  assert.equal(e.artifact(scope,refs.responseRef).body,turn.text,'the older artifact version remains unchanged');
  const {visibleResponseText}=require('../src/experience-store.cjs');
  assert.equal(visibleResponseText(turn),turn.text);assert.equal(visibleResponseText({...turn,discussionExplanation:{kind:'discussion',text:turn.text}}),turn.text);
- const feedback=e.addFeedback(scope,{targetRef:{kind:'artifact',artifactRef:newRefs.responseRef},text:'这段分析和稿子一起更清楚。'});
+ const feedback=e.addFeedback(scope,{targetRef:{kind:'artifact',artifactRef:newRefs.responseRef},text:'这段分析和稿子一起更清楚。', expectedDigest: e.artifact(scope, newRefs.responseRef).bodyDigest});
  assert.equal(e.hydrateFeedback(scope,feedback.id).target.body,visibleResponseText(value));
 });
 
@@ -160,7 +161,7 @@ test('identical advice alternatives stay separate candidates rather than crediti
 
 test('model-derived personal guidance requires delivered canonical feedback and remains inactive',t=>{
  const store=setup(t),{turn,refs}=publish(store),e=store.experiences;
- const f=store.addFeedback(scope,{requestId:turn.requestId,targetRef:{kind:'artifact',artifactRef:refs.suggestionRefs[0]},text:'只回应具体细节更像我。'});
+ const f=store.addFeedback(scope,{requestId:turn.requestId,targetRef:{kind:'artifact',artifactRef:refs.suggestionRefs[0]},text:'只回应具体细节更像我。', expectedDigest: store.experiences.artifact(scope, refs.suggestionRefs[0]).bodyDigest});
  const proposal={text:'先回应具体细节。',applicability:'对方分享近况时',methodId:'respond',sourceIds:[f.sourceId],caseIds:[]};
  const options={allowedSourceIds:[f.sourceId],allowedCaseIds:[],deliveredMethods:[{id:'respond',version:'1'}]};
  const before=store.contextGeneration?.(scope),p=e.proposeFromModel(scope,proposal,options);
@@ -173,7 +174,7 @@ test('model-derived personal guidance requires delivered canonical feedback and 
 
 test('feedback alias migration changes authority references without deleting retained evaluation text',t=>{
  const store=setup(t),{refs,user}=publish(store,'需要评价的旧建议'),e=store.experiences;
- const f=store.addFeedback(scope,{targetRef:{kind:'artifact',artifactRef:refs.responseRef},text:'这是局部反馈。'}),source=store.memorySources(scope).find(s=>s.id===f.sourceId);
+ const f=store.addFeedback(scope,{targetRef:{kind:'artifact',artifactRef:refs.responseRef},text:'这是局部反馈。', expectedDigest: store.experiences.artifact(scope, refs.responseRef).bodyDigest}),source=store.memorySources(scope).find(s=>s.id===f.sourceId);
  e.remapSources(scope,[{from:`private:${user.id}`,to:f.sourceId,revision:source.revision}]);
  const artifact=e.artifact(scope,refs.suggestionRefs[0]);assert.equal(artifact.availability,'stale');assert.equal(artifact.body,'需要评价的旧建议');assert.deepEqual(artifact.sourceIds,[f.sourceId]);
 });
@@ -182,7 +183,7 @@ test('deep evaluated-answer dependency chains are invalidated atomically and the
  const store=setup(t),e=store.experiences,root=store.appendTurn(scope,{role:'user',kind:'discussion',text:'DEEP_PRIVATE_SOURCE'});let sourceId=`private:${root.id}`;const refs=[];
  for(let index=0;index<14;index++){
   const reply=store.appendTurn(scope,{role:'assistant',kind:'discussion',requestId:`chain-${index}`,text:`DEEP_PRIVATE_SOURCE derived ${index}`,sourceIds:[sourceId]});
-  refs.push(reply.artifactRef);const feedback=store.addFeedback(scope,{targetRef:{kind:'artifact',artifactRef:reply.artifactRef},text:`DEEP_PRIVATE_SOURCE feedback ${index}`});sourceId=feedback.sourceId;
+  refs.push(reply.artifactRef);const feedback=store.addFeedback(scope,{targetRef:{kind:'artifact',artifactRef:reply.artifactRef},text:`DEEP_PRIVATE_SOURCE feedback ${index}`, expectedDigest: store.experiences.artifact(scope, reply.artifactRef).bodyDigest});sourceId=feedback.sourceId;
  }
  store.updateTurn(scope,root.id,'CORRECTED_SOURCE');assert.ok(refs.every(r=>e.artifact(scope,r).availability==='stale'));
  store.deleteTurn(scope,root.id);assert.equal(e.listFeedback(scope).length,0);assert.ok(refs.every(r=>e.artifact(scope,r).availability==='redacted'));

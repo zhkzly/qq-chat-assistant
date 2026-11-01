@@ -3,7 +3,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { randomUUID, createHash } = require('node:crypto');
 const { rank } = require('./memory-search.cjs');
-const { ExperienceStore } = require('./experience-store.cjs');
+const { FeedbackBindingStore } = require('./feedback/feedback-binding-store.cjs');
 const { assertPreferenceAuthority, sourceClosure } = require('./provenance.cjs');
 const { PROCESSOR_VERSION, prepareRelationshipPatch, writeRelationshipRecords, relationshipView, decisionRevisions, decisionEvidence, repairRelationshipTransitions, invalidateRelationshipDecision } = require('./relationship-store.cjs');
 const { emptyTopics, pruneTopics, topicView, prepareTopicPatch, normalizeTopicPatch } = require('./topic-store.cjs');
@@ -121,7 +121,12 @@ class Store {
     if(!this.db.prepare('PRAGMA table_info(memory_journal)').all().some(c=>c.name==='cursor'))this.db.exec('ALTER TABLE memory_journal ADD COLUMN cursor INTEGER NOT NULL DEFAULT 0');
     if(!this.db.prepare('PRAGMA table_info(memory_journal)').all().some(c=>c.name==='queued_at')){this.db.exec('ALTER TABLE memory_journal ADD COLUMN queued_at TEXT');this.db.prepare('UPDATE memory_journal SET queued_at=? WHERE queued_at IS NULL').run(new Date().toISOString());}
     if(!this.db.prepare('PRAGMA table_info(memory_meta)').all().some(c=>c.name==='processor_version'))this.db.exec('ALTER TABLE memory_meta ADD COLUMN processor_version TEXT');
-    this.experiences = new ExperienceStore(this, {scopeKey});
+    // F1 feedback binding (B8): the store's experience surface is the
+    // FeedbackBindingStore, so candidate feedback resolves through the
+    // server-minted presentation identity instead of client requestId data.
+    // The shared presentation ledger lives on the store (controller sessions
+    // mint into the same ledger the binding store resolves from).
+    this.experiences = new FeedbackBindingStore(this, {scopeKey});
     this.discussionCompactions = new DiscussionCompactionStore(this);
     this.observationLog = new ObservationLog(this.db, {scopeKey});
     this.db.exec('CREATE TABLE IF NOT EXISTS schema_migrations(version INTEGER PRIMARY KEY,applied_at TEXT NOT NULL,description TEXT NOT NULL)');
@@ -484,9 +489,29 @@ class Store {
       this._writeCompanion(scope, record); return saved;
     });
   }
+  // B11 residue marking: a process crash between saveRun('pending') and
+  // completion leaves the companion run mirror in 'pending' forever. The
+  // durable task ledger marks its rows at startup (TaskLedger.recoverInterrupted);
+  // this applies the same marking to the mirrored runs so diagnostics never
+  // present a crashed round as still in progress. Content is untouched.
+  markInterruptedRuns() {
+    return this._atomic(()=>{
+      let marked=0;
+      for(const row of this.db.prepare('SELECT scope_key, record FROM companion').all()){
+        let record;try{record=JSON.parse(row.record);}catch{continue;}
+        if(!Array.isArray(record.runs)||!record.runs.some(run=>run&&run.status==='pending'))continue;
+        for(const run of record.runs)if(run&&run.status==='pending'){run.status='interrupted';run.interruptedBy='process_restart';marked++;}
+        this.db.prepare('UPDATE companion SET record=? WHERE scope_key=?').run(this._serializeCompanion(record),row.scope_key);
+      }
+      return {marked};
+    });
+  }
   addFeedback(scope, feedback) {
     return this._atomic(()=>{
       const record=this._getCompanion(scope),saved=this.experiences.addFeedback(scope,feedback);
+      // An F1 stale/unknown-presentation notice is a structured response, not
+      // a saved record: pass it through without touching the companion.
+      if(saved&&saved.staleFeedbackTarget)return saved;
       if(record.feedback.some(f=>f.id===saved.id)&&record.turns.some(t=>t.feedbackId===saved.id))return saved;
       if(!record.turns.some(t=>t.feedbackId===saved.id))record.turns.push({id:randomUUID(),role:'user',kind:'feedback_ref',feedbackId:saved.id,requestId:saved.requestId,createdAt:saved.createdAt});
       changedSource(record);record.feedback=this.experiences.listFeedback(scope);this._writeCompanion(scope,record);return saved;

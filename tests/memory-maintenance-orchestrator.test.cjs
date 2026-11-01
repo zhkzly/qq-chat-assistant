@@ -29,7 +29,7 @@ function grounded(store){
 // episodes for the repetition counter) on a shared store.
 function addCorrection(store,day,index){
   const answer=store.appendTurn(scope,{id:'answer-'+index,role:'assistant',kind:'discussion',text:'一份过于正式的参考表达。',requestId:'run-'+index});
-  const feedback=store.addFeedback(scope,{text:CORRECTION,targetRef:{kind:'artifact',artifactRef:answer.artifactRef},clientEventId:'feedback-'+index});
+  const feedback=store.addFeedback(scope,{text:CORRECTION,targetRef:{kind:'artifact',artifactRef:answer.artifactRef},clientEventId:'feedback-'+index, expectedDigest: store.experiences.artifact(scope, answer.artifactRef).bodyDigest});
   const row=store.db.prepare('SELECT record FROM experience_objects WHERE scope_key=? AND kind=? AND id=?').get(store.scopeKey(scope),'feedback',feedback.id);
   const record=JSON.parse(row.record);record.createdAt=day;
   store.db.prepare('UPDATE experience_objects SET record=? WHERE scope_key=? AND kind=? AND id=?').run(JSON.stringify(record),store.scopeKey(scope),'feedback',feedback.id);
@@ -174,7 +174,7 @@ test('runToCompletion drains the journal through the gated engine without touchi
   const declaration=store.appendTurn(scope,{id:'stable-declaration',role:'user',kind:'discussion',text:STABLE_DECLARATION});
   const declarationId='private:'+declaration.id;
   const answer=store.appendTurn(scope,{id:'assistant-answer',role:'assistant',kind:'discussion',text:'一份过于正式的参考表达。',requestId:'local-correction-run'});
-  const feedback=store.addFeedback(scope,{text:CORRECTION,targetRef:{kind:'artifact',artifactRef:answer.artifactRef},clientEventId:'local-correction-feedback'});
+  const feedback=store.addFeedback(scope,{text:CORRECTION,targetRef:{kind:'artifact',artifactRef:answer.artifactRef},clientEventId:'local-correction-feedback', expectedDigest: store.experiences.artifact(scope, answer.artifactRef).bodyDigest});
   const gated=createGatedStore(store);
   const settings={model:'synthetic-replay-only',anonymous:true,baseUrl:'http://fixture.invalid/v1'};
   const model=async(_settings,batch)=>{

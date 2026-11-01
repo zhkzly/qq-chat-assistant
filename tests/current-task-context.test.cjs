@@ -139,7 +139,8 @@ test('saved generation-stage and feedback lineage distinguish catalog methods fr
  assert.equal(refs.size,stage.deliveredMethodRefs.length);assert.equal(refs.get(selected.id).guidanceLevel,'catalog');assert.equal(refs.get(selected.id).version,selected.version);
  for(const method of delivered){assert.equal(refs.get(method.id).guidanceLevel,'full_card');assert.equal(refs.get(method.id).version,method.version);}
  assert.ok(stage.reportedUsedMethodRefs.some(m=>m.methodId===selected.id&&m.version===selected.version));
- const feedback=store.addFeedback(scope,{text:'Synthetic local feedback',targetRef:{kind:'artifact',artifactRef:answer.artifactRef}}),hydrated=store.experiences.hydrateFeedback(scope,feedback.id);
+ // F1: explicit artifact feedback pins its version by digest
+  const feedback=store.addFeedback(scope,{text:'Synthetic local feedback',targetRef:{kind:'artifact',artifactRef:answer.artifactRef},expectedDigest:store.experiences.artifact(scope,answer.artifactRef).bodyDigest}),hydrated=store.experiences.hydrateFeedback(scope,feedback.id);
  const visible=hydrated.target.generationStages[0].deliveredMethodRefs;
  assert.equal(visible.find(m=>m.methodId===selected.id).guidanceLevel,'catalog');assert.ok(visible.every(m=>m.guidanceLevel==='catalog'),'ordinary consultation starts with neutral method navigation');
 });

@@ -46,7 +46,7 @@ for(const targetKind of ['private-explanation','message'])test(`actual feedback 
 
 test('withdrawing the final parent response invalidates both its feedback target and message leaf',async t=>{
  const app=await application(t,complete),reply=await app.assist(),leaf=reply.suggestions[0].artifactRef;
- const saved=app.store.addFeedback(scope,{requestId:reply.requestId,targetRef:{kind:'artifact',artifactRef:reply.artifactRef},text:'解释还需要核对。',clientEventId:'whole-withdrawn-feedback'});
+ const saved=app.store.addFeedback(scope,{requestId:reply.requestId,targetRef:{kind:'artifact',artifactRef:reply.artifactRef},text:'解释还需要核对。',clientEventId:'whole-withdrawn-feedback', expectedDigest: app.store.experiences.artifact(scope, reply.artifactRef).bodyDigest});
  assert.equal(app.store.experiences.hydrateFeedback(scope,saved.id).target.body,WHY);app.store.deleteTurn(scope,reply.id);
  assert.equal(app.store.experiences.hydrateFeedback(scope,saved.id)?.target==null,true);assert.throws(()=>app.store.experiences.resolveMessageCandidate(scope,{turnId:reply.id,suggestionIndex:0,artifactRef:leaf}),/reference|artifact/i);
  assert.equal(app.store.getCompanion(scope).turns.some(turn=>turn.id===reply.id),false);
