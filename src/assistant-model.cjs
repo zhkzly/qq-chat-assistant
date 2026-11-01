@@ -341,7 +341,11 @@ function parseAssistantStrict(value, purpose, input,issues,{auxiliaryOnly=false,
     // exists or exactly one covers the requested offset, the identifier is
     // program knowledge, never a model guess. Genuinely ambiguous requests
     // keep the explicit error, now naming the copy-ready candidate IDs.
-    if((q.offset!==undefined||q.maxChars!==undefined)&&!q.sourceIds?.length&&!q.discussionTurnIds?.length){
+    // maxChars on a query/discover/method lookup is a result-size bound, not
+    // a range read: only an explicit offset, or maxChars on a lookup carrying
+    // no query, addresses a particular source and therefore requires IDs.
+    const rangeRead=q.offset!==undefined||q.maxChars!==undefined&&!q.query&&!q.discover&&!q.methodIds?.length;
+    if(rangeRead&&!q.sourceIds?.length&&!q.discussionTurnIds?.length){
       const candidates=new Map();
       for(const source of payload?.sources||[]){
         if(source.digest?.entries?.length){const covered=source.digest.coveredCharRange;
@@ -352,11 +356,11 @@ function parseAssistantStrict(value, purpose, input,issues,{auxiliaryOnly=false,
       const covering=[...candidates].filter(([,range])=>offset===undefined||offset>=range.start&&offset<range.end);
       if(candidates.size===1)q.sourceIds=[...candidates.keys()];
       else if(covering.length===1)q.sourceIds=covering.map(([id])=>id);
-      else throw new Error(`lookup ranges require explicit sourceIds or discussionTurnIds${candidates.size?`；可照抄已交付范围的来源句柄：${[...candidates.keys()].join('、')}`:''}`);
+      else throw new Error(`lookup ranges require explicit sourceIds or discussionTurnIds${candidates.size?`；可照抄已交付范围的来源句柄：${[...candidates.keys()].join('、')}`:''}；或改用带query的检索，无需范围参数`);
     }
     if(q.sourceIds!==undefined&&(!Array.isArray(q.sourceIds)||!q.sourceIds.length||q.sourceIds.length>8||q.sourceIds.some(id=>typeof id!=='string'||!handles.has(id))))throw new Error('lookup.sourceIds: use 1..8 delivered source handles');
     for(const [key,maximum]of [['offset',10000000],['maxChars',8000]])if(q[key]!==undefined&&(!Number.isSafeInteger(q[key])||q[key]<(key==='offset'?0:1)||q[key]>maximum))throw new Error(`lookup.${key}: invalid bounded source range`);
-    if((q.offset!==undefined||q.maxChars!==undefined)&&!q.sourceIds?.length&&!q.discussionTurnIds?.length)throw new Error('lookup ranges require explicit sourceIds or discussionTurnIds');
+    if(rangeRead&&!q.sourceIds?.length&&!q.discussionTurnIds?.length)throw new Error('lookup ranges require explicit sourceIds or discussionTurnIds');
     if(q.methodIds!==undefined&&(!Array.isArray(q.methodIds)||!q.methodIds.length||q.methodIds.length>2||q.methodIds.some(id=>!methodFor(id)||payload?.methodSelection?.candidates&&!payload.methodSelection.candidates.includes(id))))throw new Error('lookup.methodIds: use up to two available method IDs');
     if(q.discover!==undefined&&typeof q.discover!=='boolean')throw new Error('lookup.discover: use a boolean');
     const allowedTurns = new Set([...(payload?.discussionCompaction?.sourceTurnIds || []), ...(payload?.discussionCompaction?.coveredTurnIds || []),
