@@ -143,6 +143,89 @@ test('a small latest private source is still admitted verbatim, digest bridge un
   assert.equal(delivered.digest, undefined);
 });
 
+
+// --- Replay-pipeline shape -------------------------------------------------
+// The live divergence (goal round 001d candidate-live-3b): prefix memory
+// preparation commits relationship claims grounded on the oversized private
+// note; includeGrounded then replaced the declaration digest with a head
+// range (0-1810/15617), so the declaration never reached the model. These
+// tests drive the real replay session (memory rebuild + assist) instead of
+// calling buildContext directly.
+const { createReplaySession, makeSyntheticTransport } = require('../scripts/eval-runtime-session.cjs');
+const path = require('node:path');
+
+function replayPacket(settings, result) {
+  return new Response(JSON.stringify({ model: settings.model,
+    choices: [{ finish_reason: 'stop', message: { content: JSON.stringify(result) } }] }), { status: 200 });
+}
+async function replayScenario(t, { noteText }) {
+  const settings = { model: 'synthetic-replay-only', baseUrl: 'http://fixture.invalid/v1', anonymous: true, auto: false };
+  const captured = [];
+  const fixture = makeSyntheticTransport();
+  const transport = async (url, args) => {
+    const body = JSON.parse(args.body);
+    const content = body.messages && body.messages[1] && body.messages[1].content;
+    const parsed = typeof content === 'string' ? JSON.parse(content) : {};
+    const input = parsed.originalInput || parsed;
+    if (input.batchId) {
+      // Mirror the observed live memory model: grounded claims exist for the
+      // note either way; the availability claim only when it was declared.
+      const claims = [];
+      for (const source of input.sources || []) if (source.type === 'private') {
+        claims.push({ subject: 'self', aspect: 'recent_context', text: '用户自述整理过一批物件说明。',
+          assertionKind: 'reported', epistemicStatus: 'supported', applicabilityKind: 'unspecified', attribution: 'user_report',
+          sourceIds: [source.id], topicKeys: ['旧物展'] });
+        if ((source.text || '').includes('周六三点半以后我有空'))
+          claims.push({ subject: 'self', aspect: 'coordination', text: '用户表示，原消息所说的这周末，周六三点半以后有空。',
+            assertionKind: 'stated', epistemicStatus: 'supported', applicabilityKind: 'temporary', attribution: 'speaker',
+            context: '2026-09-30的私下说明；这是用户的可用时间，不是双方已经确认的约定。', sourceIds: [source.id], topicKeys: ['周末安排', '旧物展'] });
+      }
+      return replayPacket(settings, { batchId: input.batchId, reviewedAll: true,
+        relationshipPatch: { claims, events: [], retire: [] }, episodes: [] });
+    }
+    if (['discussion', 'reply', 'draft', 'draft_prepare'].includes(input.purpose)) captured.push(input);
+    return fixture(url, args);
+  };
+  const session = await createReplaySession({ sourceRoot: path.resolve(__dirname, '..'), asOf: '2026-10-01T18:05:00+08:00',
+    history: [{ id: 'q1', at: '2026-10-01T18:00:00+08:00', speaker: 'contact', text: '你前阵子说帮旧物展录了点什么？周六下午能一起去看看吗？' }],
+    goal: '和她自然交流，分享自己的真实近况，也找到双方愿意做的事。', settings, transport });
+  t.after(() => session.close());
+  await session.restorePrivate([{ id: 'ls-u1', at: '2026-09-30T18:00:00+08:00', role: 'user', text: noteText }]);
+  for (let batch = 0; session.snapshot().memoryStatus && session.snapshot().memoryStatus.pending > 0; batch++) {
+    assert.ok(batch < 16, 'prefix memory preparation must finish within the declared checkpoints');
+    await session.post('/api/memory-maintain');
+  }
+  await session.post('/api/assistant', { text: '她问到这些了，帮我回一下。', purpose: 'discussion', taskId: 'declared-arrangement-replay' });
+  return { captured };
+}
+
+test('replay pipeline: memory-prepared claims keep the declared arrangement in assist evidence', async t => {
+  const { captured } = await replayScenario(t, { noteText: declarationNote(180) });
+  assert.ok(captured.length >= 1, 'the assist call reached the model');
+  const planning = captured.find(payload => (payload.sources || []).some(source => source.type === 'private' && (source.digest || source.delivery)));
+  assert.ok(planning, 'a planning payload carried the private note');
+  const note = planning.sources.find(source => source.type === 'private');
+  // Before the wiring fix this was a 0-~1860 head range: the memory-grounding
+  // admission replaced the digest, hiding the mid-document declaration.
+  assert.equal(note.delivery.status, 'digest', 'the oversized note stays a digest, not a head range');
+  const declaration = (note.digest.declarations || []).find(item => item.sentence.includes('周六三点半以后我有空'));
+  assert.ok(declaration, 'the declared Saturday availability reaches the model verbatim');
+  assert.ok(JSON.stringify(planning).includes('declarationRule'), 'the adoption rule rides with the declarations');
+  const invitation = planning.sources.find(source => source.type === 'qq');
+  assert.equal(invitation.text, '你前阵子说帮旧物展录了点什么？周六下午能一起去看看吗？');
+});
+
+test('replay pipeline: grounding without declarations still degrades to a bounded head range', async t => {
+  const { captured } = await replayScenario(t, { noteText: plainNote(180) });
+  const planning = captured.find(payload => (payload.sources || []).some(source => source.type === 'private' && (source.digest || source.delivery)));
+  assert.ok(planning, 'a planning payload carried the private note');
+  const note = planning.sources.find(source => source.type === 'private');
+  assert.equal(note.delivery.status, 'partial', 'the unchanged grounding path still delivers an explicit range');
+  assert.equal(note.delivery.start, 0);
+  assert.ok(note.delivery.end < note.delivery.originalCharLength, 'the oversized original stays honestly partial with a continuation handle');
+  assert.equal(JSON.stringify(planning).includes('declarationRule'), false, 'no adoption rule appears without declarations');
+});
+
 test('the adoption rule travels with the declarations, not as free-floating guidance', () => {
   const { digestSource } = require('../src/context/evidence-digest.cjs');
   const view = digestSource({ id: 'private:rule', type: 'private', role: 'user', use: 'discussion',

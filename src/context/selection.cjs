@@ -71,7 +71,9 @@ function selectPlanningContext({options,snapshot,candidates,view,budget,coreInve
       const directory=options.memoryDiscovery?.directory,originals=Array.isArray(directory)?directory:directory?.items||directory?.entries||[];
       for(const entry of payload.memoryDiscovery.directory){
         const original=originals.find(item=>item.id===entry.id),text=original?.text;
-        const duplicate=text&&(entry.sourceIds||[]).find(id=>selected.get(id)?.text===text||entry.kind==='raw_source'&&selected.get(id)?.text.startsWith(text));
+        // A digest view carries no delivered text; only a text-bearing view can
+      // answer a raw-source prefix check.
+      const duplicate=text&&(entry.sourceIds||[]).find(id=>selected.get(id)?.text===text||entry.kind==='raw_source'&&selected.get(id)?.text?.startsWith(text));
         if(duplicate){delete entry.text;entry.textFromSource=duplicate;}else{delete entry.textFromSource;if(text)entry.text=redact(text);}
       }
       const ids=[...new Set([...discoveryPriorityIds,...(options.memoryDiscovery?.sources||[]).map(source=>source.id)])];
@@ -320,7 +322,12 @@ function selectPlanningContext({options,snapshot,candidates,view,budget,coreInve
     const before = new Map(selected);
     // Grounding evidence degrades to bounded ranges rather than entering whole;
     // the revision still witnesses the complete original for later lookup.
+    // A declaration-bearing digest is already the ladder's bounded, honest
+    // view of an oversized source: replacing it with a head range would hide
+    // mid-document declared arrangements (the exact reviewed failure), so the
+    // digest with its per-declaration lookup handles stays the grounding view.
     for (const id of record.sourceIds) if (!foldedPrivateIds.has(id)) {
+      if (selected.get(id)?.digest?.declarations?.length) continue;
       const original=byId.get(id);
       selected.set(id, original&&bytes(original)>6000?boundedSource(original,{start:0,maxBytes:6000})||original:original);
     }
