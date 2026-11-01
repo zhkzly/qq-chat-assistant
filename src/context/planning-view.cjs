@@ -10,6 +10,7 @@ const {modelTopic,relevantTo,currentCandidateAnchor}=require('./catalog.cjs');
 const {requiredQuoteSources,planRecentContext,recentExchange,recentHistoryPolicy,recentHistorySegments}=require('./policy.cjs');
 const {contextBudget,finish,attachSelectionManifest}=require('./budget-manifest.cjs');
 const {selectPlanningContext}=require('./selection.cjs');
+const {digestSource}=require('./evidence-digest.cjs');
 const {SourceHandleOwner}=require('../source-handles.cjs');
 const {bindSelectedDirectionControl}=require('./selected-direction-control.cjs');
 const {buildConversationWork,CONVERSATION_WORK_VERSION}=require('../conversation-work.cjs');
@@ -124,7 +125,21 @@ function buildContext(options) {
   const latestPrivateSource=latestPriorUser&&byId.get(`private:${latestPriorUser.id}`);
   const latestPrivateIsCurrent=latestPrivateSource&&(generationOrigin!=='qq_observation'||inRecentWindow(latestPrivateSource.at)||
     relevantTo(recentExchange([...actualById.values()]).map(m=>m.text).join('\n'),latestPrivateSource));
-  if(latestPrivateIsCurrent&&bytes(latestPrivateSource)<=6000&&!foldedPrivateIds.has(latestPrivateSource.id))selected.set(latestPrivateSource.id,latestPrivateSource);
+  if(latestPrivateIsCurrent&&!foldedPrivateIds.has(latestPrivateSource.id)){
+    if(bytes(latestPrivateSource)<=6000)selected.set(latestPrivateSource.id,latestPrivateSource);
+    else{
+      // M2 digest bridge for the latest private declaration source: too large
+      // for verbatim admission, it still contributes its deterministic digest
+      // when that digest carries declared arrangements (availability or
+      // willingness tied to a near time) with exact lookup handles, instead of
+      // dropping the declaration out of evidence until a model lookup happens
+      // to read the right range. Sources without declared arrangements keep
+      // the whole-source lookup contract; the selection layer replaces this
+      // digest whenever the complete original fits.
+      const digested=digestSource(latestPrivateSource);
+      if(digested?.digest?.declarations?.length)selected.set(latestPrivateSource.id,digested);
+    }
+  }
   const validQQ = records.filter(m => eligibleQQ(m) && sameScope(m,scope) && byId.has(`qq:${m.messageId}`));
   const protectedImageIds=[...new Set([...imageMessageIds,...(images||[]).map(image=>image.messageId)])];
   // Preserve one bounded actual exchange. Source ranges disclose oversized
@@ -269,6 +284,12 @@ function buildContext(options) {
   // Explainable degradation: every applied ladder step stays visible on the
   // manifest together with the handle that still reaches the complete original.
   if(degradation.length)context.manifest.degradation=degradation.map(entry=>({...entry}));
+  // The latest-private digest bridge is a ladder step applied before
+  // selection; keep it as visible and reviewable as the in-selection tiers.
+  const bridgedDigest=(payload.sources||[]).find(source=>source.id===latestPrivateSource?.id&&source.digest?.declarations);
+  if(bridgedDigest)context.manifest.degradation=[...(context.manifest.degradation||[]),{step:'deterministic_digest',appliedTo:bridgedDigest.id,
+    recoveredBytes:bytes(bridgedDigest),remainingNeed:bytes(byId.get(bridgedDigest.id))-bytes(bridgedDigest),
+    lookupHandle:{sourceId:bridgedDigest.id,revision:bridgedDigest.revision,offset:0}}];
   if(payload.userRequest?.delivery)context.manifest.userRequestDelivery={version:'source-delivery-v1',
     status:payload.userRequest.delivery.status,requestSourceId:payload.userRequest.sourceId,
     deliveredRange:{start:payload.userRequest.delivery.start,end:payload.userRequest.delivery.end,originalCharLength:payload.userRequest.delivery.originalCharLength},
