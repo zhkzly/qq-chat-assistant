@@ -63,3 +63,20 @@ _delivery_provenance dp-sw2 ACCEPTED 已在上方记录（B15 验证 live，2 �
 ## dp-sw3 结果（23:59）
 
 inconclusive：40 usable + 2 minor + 2 insuff，零硬失败，7 候选偏好。**B15 composer 修复有效但 observed 通道冗余仍在（投影层架构）→ B16 入档**。delivery 验收推迟至投影修复后。
+
+
+## dp-sw5 ACCEPTED（01:15）—— delivery 阶段完美验收
+
+**44/44 全 usable、零 minor、零 insuff、零硬失败**——goal 史上首个完美轮。
+全部修复链一次验证：B15/B16 通道冲突解决 + invitation s1 分支补全 + null-output 正确判定。
+1 目标改进（invitation s2）+ 3 守卫偏好 + 18 等价 + 0 落败。
+
+## Delivery 证据链完整闭环（5 轮因果）
+
+| 轮 | 发现 | 修复 |
+|---|---|---|
+| dp-sw1 | 通道冗余 | B15 |
+| dp-sw2 | 验证 composer 修复 | STATED_FACT_GUARD |
+| dp-sw3 | 定位真因（投影/合规） | 反例强化守卫 |
+| dp-sw4 | invitation 分支缺口 | GENERATED_VS_ACTUAL_GUARD |
+| **dp-sw5** | **全部通过 · ACCEPTED** | — |
