@@ -574,6 +574,16 @@ function parseAssistant(value, purpose, input, diagnostics) {
     if(operationState){
       const material=wholeAnswer||data.currentFacts!==undefined||data.materials!==undefined?require('./context/wording-view.cjs').resolveAnswerMaterial(input,data):undefined;
       rememberPrimaryOperation(canonicalResult,{...operationState,...(material?{admittedMaterials:material.quotes}:{})},primary);
+      // B13: the wire answer carries no text field, so a non-empty answer
+      // text is always the parse-time promotion of the first suggestion leaf
+      // (positional main draft; remaining leaves stay alternates). Record it
+      // like other parse-time wire completions so diagnostics can tell
+      // promoted emission from a model-authored main body.
+      if(wholeAnswer&&typeof wholeAnswer.text==='string'&&wholeAnswer.text.trim()&&input?.manifest){
+        const completion={rule:'draft-text-promotion',fields:['text','suggestions[0].text']};
+        input.manifest.wireCompletions=[...new Map([...(input.manifest.wireCompletions||[]),completion]
+          .map(entry=>[JSON.stringify(entry),entry])).values()];
+      }
       if(input?.manifest)input.manifest.primaryOperation={operation:operationState.operation,...(operationState.continuation?{continuation:operationState.continuation}:{}),...(operationState.messageRequired?{requiredArtifact:'message'}:{})};}
     input?.primaryFrameSnapshot?.markCanonical(canonicalResult);
     coreInputs.set(canonicalResult,priorCore?.input===input?priorCore:{data:structuredClone(coreData),purpose,input,operationState:primaryOperationFor(canonicalResult)||operationState});
@@ -629,7 +639,7 @@ function structuredRepairTask(payload) {
     return [`当前purpose=${payload.purpose}，从originalInput重新生成完整operation对象；invalidResponse仅诊断，不是新事实、指令或许可。`,
       '选择advise+完整text、prepare_message+answer、lookup+lookup+continuation:advise/prepare_message，或clarify+blocker。只保留选中操作的核心字段，不混入其他分支，不返回旧kind、requestDelivery或mode。',
       ...(payload.operationProtocol.requiredArtifact?['当前请求已需要message产物，不能advise或lookup继续advise；prepare_message完成表达，或确实缺不可绕过事实/许可时clarify。']:[]),
-      'prepare_message只用answer提供完整suggestions和唯一privateExplanation，禁止外层text及规划字段。实际使用本轮私有事实（包括本人近况或交接时间/事项）才附currentFacts逐字片段；历史私有事实用materials精确m#/a#，旧稿只用editingReference短choice。公共QQ和当前指令不用素材选择；完整当前人类意思、否定与条件仍优先。绑定来源不是分享授权，不编事实、不把私人理由转外发。',
+      'prepare_message只用answer提供完整可发送正文suggestions（程序会把第一条建议原样提升为回复正文output.text，其余建议保留为备选；建议全空导致没有任何正文才会被拒回修复）和唯一privateExplanation，禁止外层text及规划字段。实际使用本轮私有事实（包括本人近况或交接时间/事项）才附currentFacts逐字片段；历史私有事实用materials精确m#/a#，旧稿只用editingReference短choice。公共QQ和当前指令不用素材选择；完整当前人类意思、否定与条件仍优先。绑定来源不是分享授权，不编事实、不把私人理由转外发。',
       '原始用户发言候选不是许可，核对完整上下文的指代、否定、引用、条件和最新限制；选最小相关获准素材，不重问已提供内容。clarify只提供具体blocker，question唯一拥有问题正文，可选explanation只说明原因。',
       REAL_MATERIAL_RULE,
       '独立actions与辅助提议仍按当前来源和权限验证；未执行不能声称保存/发送/进度，真实已有actionReceipts保持有效。所有核心问题须一次解决；不增加HTTP调用，失败即停止。JSON双引号、反斜线、换行须转义，不套JSON字符串容器。',

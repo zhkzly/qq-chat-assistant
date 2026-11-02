@@ -30,8 +30,19 @@ function visibleCandidate(result,options=result?.expressionOptions||[]){
 }
 function parseWholeAnswer(answer){
  if(!plain(answer)||Object.keys(answer).some(key=>!['privateExplanation','suggestions'].includes(key))||
-  !Array.isArray(answer.suggestions)||answer.suggestions.length<1||answer.suggestions.length>3)
+  !Array.isArray(answer.suggestions)||answer.suggestions.length>3)
   throw fail('answer','whole_answer_invalid','prepare_message requires answer with 1..3 complete suggestions and optional privateExplanation');
+ // B13 positional main-draft gate: the wire contract forbids an outer
+ // prepare_message text, so without promotion the reply envelope's main text
+ // would always reach the visible layer empty. Whenever the answer offers at
+ // least one complete suggestion the composer always promotes
+ // suggestions[0].text into that main text, regardless of the suggestion
+ // count; the remaining leaves stay adoptable alternates and keep their own
+ // withdrawal semantics. Only an answer whose suggestions are all empty or
+ // whitespace — truly no body anywhere — is rejected into the bounded repair
+ // round with an executable instruction.
+ if(!answer.suggestions.some(item=>plain(item)&&typeof item.text==='string'&&item.text.trim()))
+  throw fail('answer','whole_answer_primary_text_missing','prepare_message must carry the send-ready body: return answer.suggestions with at least one complete non-empty outward text; the program promotes the first suggestion into the reply main text (把要发送的正文写入 output.text：作为 answer.suggestions 首条完整可发送正文，程序会原样提升为回复正文), so an all-empty suggestion list cannot be emitted as an empty-body draft');
  const suggestions=answer.suggestions.map((item,index)=>{
   if(!plain(item)||Object.keys(item).some(key=>!['style','text'].includes(key))||typeof item.text!=='string'||!item.text.trim()||item.text.length>1200||
    item.style!==undefined&&(typeof item.style!=='string'||!item.style.trim()||item.style.length>40))
@@ -41,10 +52,14 @@ function parseWholeAnswer(answer){
  const why=answer.privateExplanation;
  if(why!=null&&typeof why!=='string'||typeof why==='string'&&why.length>6000)
   throw fail('answer.privateExplanation','whole_answer_invalid','Final privateExplanation is optional text of at most 6000 characters');
- // Outward bodies belong to their individually revocable suggestion leaves.
- // The parent has only independently authored private explanation, never a
- // second copy of the first leaf that could outlive that leaf's withdrawal.
- return {kind:'draft',text:'',suggestions,
+ // The promoted text is the exact alias of the first leaf, never a second
+ // independently authored body. Suggestion leaves stay the adoptable,
+ // individually revocable carriers; the store's generated-turn projection
+ // owns the exact text alias, so withdrawing the first leaf clears the
+ // promoted main text from every readable view while the remaining alternates
+ // survive with their own artifacts. The parent keeps only the independently
+ // authored private explanation.
+ return {kind:'draft',text:suggestions[0].text,suggestions,
   ...(typeof why==='string'&&why.trim()?{discussionExplanation:{kind:'discussion',text:why}}:{})};
 }
 

@@ -117,7 +117,10 @@ test('failed and pending diagnostic runs cannot expose stale generated reads or 
  const common={...options,turn:request,companion,availableSources:store.memorySources(scope),requestId:'diagnostic-read'};
  const compacted=buildContext({...common,discussionCompaction:saved.record});
  const read=buildContext({...common,retrievedDiscussion:[original]});
- const valid=buildContext(common);
+ // B13: a plain captured context embeds the promoted draft body through its
+ // recent exchange, so it goes stale with that leaf too. The inspectable
+ // contrast is a run whose captured inputs never contained the withdrawn body.
+ const valid=buildContext({...common,companion:{...companion,turns:companion.turns.filter(t=>!(t.role==='assistant'&&t.kind==='draft'))}});
  assert.ok(compacted.payload.discussionCompaction?.summary.includes(SECRET));
  assert.ok(read.payload.retrievedDiscussion?.some(item=>item.text?.includes(SECRET)));
  for(const input of [compacted,read])assert.equal(JSON.stringify(input.payload).includes(original.suggestions[0].artifactRef.artifactId),false,'the guard must inspect generated witnesses, not rely on a duplicate leaf artifact ref');

@@ -61,7 +61,7 @@ async function application(t,producer,{noteText,noteUse='discussion'}={}){
 
 test('pure current control needs no outward material, dead draft plan or additional composer call',async t=>{
  const why='先接住她实际分享的小变化，私下说明到这里即可。',app=await application(t,p=>p.purpose==='fidelity_check'?{checkRef:p.checkRef,auditProtocol:'sparse-defects-v1',issues:[]}:primary(undefined,{why})),reply=await app.assist();
- assert.equal(reply.kind,'draft');assert.equal(reply.text,'');assert.equal(reply.suggestions[0].text,'这两片新叶看着挺精神。');assert.equal(reply.discussionExplanation.text,why);
+ assert.equal(reply.kind,'draft');assert.equal(reply.text,'这两片新叶看着挺精神。','the promoted sole suggestion is the reply main text (B13)');assert.equal(reply.suggestions[0].text,'这两片新叶看着挺精神。');assert.equal(reply.discussionExplanation.text,why);
  assert.equal(app.calls.length,1);assert.equal(app.calls[0].p.purpose,'discussion');assert.deepEqual(app.run().payload.outboundQuotes,[]);assert.equal(app.calls.some(call=>call.p.purpose==='draft'),false);
  const schema=app.calls[0].request.tools[0].function.parameters;
  assert.equal(schema.properties.draftPlan,undefined);assert.equal(schema.properties.guidance,undefined);assert.equal(schema.required.includes('draftPlan'),false);
@@ -126,12 +126,13 @@ for(const [name,declare,message,human]of [
  assert.equal(app.controller.usage.get(scope,'thin-answer-boundaries').requests.filter(item=>item.purpose==='delivery_repair').length,0);
 });
 
-test('only the complete answer owns one visible private explanation and individually revocable message leaves',async t=>{
+test('only the complete answer owns one visible private explanation, its promoted primary leaf and independent alternates',async t=>{
  const why='PRIVATE_FINAL_OWNER：先接住她分享的花盆近况。',first='这两片新叶看着挺精神。',second='窗边的光线看起来很适合它。',app=await application(t,p=>p.purpose==='fidelity_check'?{checkRef:p.checkRef,auditProtocol:'sparse-defects-v1',issues:[]}:{operation:'prepare_message',answer:{privateExplanation:why,suggestions:[{text:first},{text:second}]}}),reply=await app.assist();
- assert.equal(app.calls.length,1);assert.equal(reply.text,'');assert.equal(reply.discussionExplanation.text,why);assert.equal(visibleResponseText(reply),why);assert.equal(projectVisibleTurn(reply).text,why);assert.equal(uiBody(reply),why);
- assert.equal(app.store.experiences.artifact(scope,reply.artifactRef).body,why);assert.deepEqual(projectVisibleTurn(reply).suggestions.map(item=>item.text),[first,second]);
+ const body=[why,first].join('\n\n');
+ assert.equal(app.calls.length,1);assert.equal(reply.text,first,'the promoted first suggestion is the reply main text (B13)');assert.equal(reply.discussionExplanation.text,why);assert.equal(visibleResponseText(reply),body);assert.equal(projectVisibleTurn(reply).text,body);assert.equal(uiBody(reply),body);
+ assert.equal(app.store.experiences.artifact(scope,reply.artifactRef).body,body);assert.deepEqual(projectVisibleTurn(reply).suggestions.map(item=>item.text),[first,second],'the second leaf stays an adoptable alternate');
  const rawBefore=JSON.stringify(app.store._getCompanion(scope).turns);app.store.experiences.invalidateArtifacts(scope,[reply.suggestions[0].artifactRef]);
- const saved=app.store.getCompanion(scope).turns.at(-1);assert.equal(JSON.stringify(saved).includes(first),false);assert.equal(saved.suggestions[1].text,second);assert.equal(visibleResponseText(saved),why);assert.equal(projectVisibleTurn(saved).text,why);assert.equal(uiBody(saved),why);
+ const saved=app.store.getCompanion(scope).turns.at(-1);assert.equal(JSON.stringify(saved).includes(first),false);assert.equal(saved.text,'','the promoted main-text alias clears with its withdrawn leaf');assert.equal(saved.suggestions[1].text,second,'the alternate leaf survives an independent withdrawal');assert.equal(visibleResponseText(saved),why);assert.equal(projectVisibleTurn(saved).text,why);assert.equal(uiBody(saved),why);
  assert.equal(JSON.stringify(app.controller.snapshot()).includes(first),false);assert.equal(JSON.stringify(app.store._getCompanion(scope).turns),rawBefore,'raw preserved evidence is separate from readable revoked output');
  assert.equal(app.store.messages(scope).some(item=>item.direction==='outgoing'),false);
 });

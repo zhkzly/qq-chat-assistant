@@ -44,13 +44,13 @@ for (const primaryRepairMetadata of [false, true]) test(`explicit primary explan
   const reply = await controller.assist({ text: '先接吐槽，暂时不直接问游戏名；给我一句，也解释为什么这样接', purpose: 'discussion' });
   assert.deepEqual(inputs.map(input => input.purpose), ['discussion']);
   assert.deepEqual(reply.discussionExplanation, { kind: 'discussion', text: explanation });
-  assert.equal(reply.text, ''); assert.equal(reply.suggestions[0].text, wording);
+  assert.equal(reply.text, wording, 'the promoted sole suggestion is the reply main text (B13)'); assert.equal(reply.suggestions[0].text, wording);
   assert.equal(controller.assistantContext().run.manifest.publicationSeal.semanticCheck,false);
   assert.equal(reply.semanticReview,undefined,'there is no automatic semantic badge on a normal reply');
   assert.ok(!JSON.stringify(controller.assistantContext().run.payload.outboundQuotes).includes(explanation));
   const saved = store.getCompanion(scope).turns.find(turn => turn.id === reply.id);
   assert.deepEqual(saved.discussionExplanation, reply.discussionExplanation);
-  assert.equal(store.experiences.artifact(scope, reply.artifactRef).body, explanation);
+  assert.equal(store.experiences.artifact(scope, reply.artifactRef).body, [explanation, wording].join('\n\n'), 'the response artifact body owns explanation plus the promoted main text');
   assert.equal(store.experiences.artifact(scope, reply.suggestions[0].artifactRef).body, wording);
   assert.equal(store.messages(scope).length, 1, 'assistant explanation and wording create no actual QQ messages');
 });
@@ -58,7 +58,7 @@ test('whole-response feedback evaluates the displayed explanation, while draft f
   const { store, controller } = setup(t), reply = await controller.assist({ text: '解释依据，也给一句接话', purpose: 'discussion' });
   const responseFeedback = store.experiences.addFeedback(scope, { text: '这段依据有帮助', targetRef: { kind: 'artifact', artifactRef: reply.artifactRef }, clientEventId: 'synthetic-response-explanation-feedback' , expectedDigest: store.experiences.artifact(scope, reply.artifactRef).bodyDigest});
   const draftFeedback = store.experiences.addFeedback(scope, { text: '这句表达自然', targetRef: { kind: 'artifact', artifactRef: reply.suggestions[0].artifactRef }, clientEventId: 'synthetic-draft-wording-feedback' , expectedDigest: store.experiences.artifact(scope, reply.suggestions[0].artifactRef).bodyDigest});
-  assert.equal(store.experiences.hydrateFeedback(scope, responseFeedback.id).target.body, explanation);
+  assert.equal(store.experiences.hydrateFeedback(scope, responseFeedback.id).target.body, [explanation, wording].join('\n\n'), 'the response body owns the explanation plus the promoted main text (B13)');
   assert.equal(store.experiences.hydrateFeedback(scope, draftFeedback.id).target.body, wording);
 });
 test('a later private discussion can retrieve the explanation as generated help, never as an original factual source', async t => {
@@ -90,10 +90,11 @@ test('a legacy clarification records only its canonical question without promoti
 test('QQ reply advice exposes the same full help text while only wording remains adoptable', async t => {
   const { store, controller } = setup(t);
   const reply = await controller.assist({ text: '接住吐槽，暂时不邀请；解释依据，也给一句接话', purpose: 'reply' });
-  assert.equal(controller.advice.analysis, explanation);
+  const body = [explanation, wording].join('\n\n');
+  assert.equal(controller.advice.analysis, body, 'the candidate analysis owns the explanation plus the promoted main text (B13)');
   assert.equal(controller.advice.suggestions[0].text, wording);
   await controller.suggest();
-  assert.equal(controller.advice.analysis, explanation);
+  assert.equal(controller.advice.analysis, body);
   assert.equal(controller.advice.suggestions[0].text, wording);
   assert.equal(store.messages(scope).length, 1);
 });

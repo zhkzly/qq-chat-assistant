@@ -30,7 +30,7 @@ async function until(check,label){for(let n=0;n<120;n++){if(await check())return
    return {operation:'prepare_message',answer:{privateExplanation:explanation,suggestions:[{style:'自然',text:wording}]},methodIds:['respond']};
   }
   assert.equal(requests.length,2,'one complete primary and one read-only fidelity check');assert.equal(input.payload.purpose,'fidelity_check');
-  assert.equal(input.payload.candidate.discussionExplanation.text,explanation);assert.equal(input.payload.candidate.text,'');
+  assert.equal(input.payload.candidate.discussionExplanation.text,explanation);assert.equal(input.payload.candidate.text,wording,'the promoted sole suggestion is the candidate main text (B13)');
   assert.equal(JSON.stringify(input.payload.admittedFragments).includes('PRIVATE_PLANNER_SENTINEL'),false,'private explanation is not outward material');
   return {checkRef:input.payload.checkRef,factual:factualReview(input.payload,{}),verdict:'allow',issues:[]};
  },memoryModel:null});
@@ -55,7 +55,7 @@ async function until(check,label){for(let n=0;n<120;n++){if(await check())return
   await until(()=>requests.length===1&&!!releasePlanner,'planning stage');await ui.fill('#assistant-input',nextPrivateInput);releasePlanner();releasePlanner=null;
   await until(()=>cdp.evaluate('!assistantPending&&!state?.assistantBusy&&state?.companion.turns.some(turn=>turn.role==="assistant")'),'draft with private explanation');
   const answer=store.getCompanion(scope).turns.filter(turn=>turn.role==='assistant').at(-1),selector=`[data-turn-id="${answer.id}"]`;
-  assert.equal(answer.discussionExplanation?.text,explanation,'the real controller displays only the explicit primary explanation');assert.equal(answer.text,'','outward text belongs only to the leaf');assert.equal(answer.suggestions[0].text,wording);
+  assert.equal(answer.discussionExplanation?.text,explanation,'the real controller displays the explicit primary explanation');assert.equal(answer.text,wording,'the promoted sole suggestion is the reply main text (B13)');assert.equal(answer.suggestions[0].text,wording);
   assert.equal(await cdp.evaluate(`document.querySelector(${JSON.stringify(selector+' [data-discussion-explanation]')})?.textContent`),explanation);
   assert.equal(await cdp.evaluate(`(()=>{const turn=document.querySelector(${JSON.stringify(selector)}),r=turn.querySelector('[data-discussion-explanation]'),draft=turn.querySelector('.assistant-suggestion');return !!r&&!!draft&&!!(r.compareDocumentPosition(draft)&Node.DOCUMENT_POSITION_FOLLOWING)})()`),true,'independent rationale is displayed before the leaf-owned suggestion');
   assert.equal(await cdp.evaluate(`document.querySelectorAll(${JSON.stringify(selector+' [data-discussion-explanation] button')}).length`),0,'rationale has no adoption controls');
