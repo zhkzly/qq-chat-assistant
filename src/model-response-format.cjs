@@ -8,6 +8,28 @@ const {auxiliaryReview}=require('./help-behavior.cjs');
 const {compile}=require('./wire/compile.cjs');
 const lookupSchemaShape=compile('lookup').schema();
 const {candidatePaths}=require('./candidate-field-paths.cjs');
+const {deliveredDeclarationMaterials}=require('./context/mqa-registry.cjs');
+// B12: which declared-arrangement materials actually reached this payload
+// (mandatory materials plus the declarations riding on delivered digest
+// views), as sourceIds. Works on canonical payloads and their wire
+// projections alike: both keep the ids (handles on the wire) and the
+// declaration sentences, which is all the conditional exposure needs.
+function deliveredDeclarationSourceIds(payloadLike){
+ const current=[],rest=[],seen=new Set();
+ for(const root of [payloadLike,payloadLike?.originalInput]){
+  if(!root||typeof root!=='object')continue;
+  const asOf=root.asOf||null;
+  for(const material of Array.isArray(root.mandatoryMaterials)?root.mandatoryMaterials:[]){
+   if(!material||typeof material.sentence!=='string'||!material.sentence||typeof material.sourceId!=='string'||seen.has(material.sourceId))continue;
+   seen.add(material.sourceId);(material.current===false?rest:current).push(material.sourceId);
+  }
+  for(const material of deliveredDeclarationMaterials(root.sources,{asOf})){
+   if(seen.has(material.sourceId))continue;
+   seen.add(material.sourceId);(material.current===false?rest:current).push(material.sourceId);
+  }
+ }
+ return [...current,...rest];
+}
 const string={type:'string'},integer={type:'integer'},boolean={type:'boolean'};
 const array=items=>({type:'array',items}),strings=array(string),choice=values=>({type:'string',enum:values});
 const object=(properties,required=[])=>({type:'object',properties,...(required.length?{required}:{}),additionalProperties:false});
@@ -70,7 +92,7 @@ const schemas={
  text:{...string,description:'Complete private coaching for advise; optional lookup audit note. Forbidden for prepare_message: answer.privateExplanation is the sole private explanation.'},
  currentFacts:{...strings,description:'Only actually used private facts, including task dates/items or personal events: exact spans from this current complete human statement, not control/reasons. currentFacts plus materials total at most 8. Binding is NOT blanket sharing permission; interpret full negation, quotations and conditions.'},
  editingReference:object({choice:string},['choice']),
- arrangementHandling:{...object({disposition:choice(['used','conflict','stale','missing']),evidenceRefs:strings,reason:string},['disposition','evidenceRefs']),description:'Only prepare_message with delivered declared arrangements: report the disposition. used must carry the declared time window (day/clock words from the declaration) inside the outward suggestions and cite declaration sourceIds in evidenceRefs; conflict/stale/missing need a concrete reason.'},
+ arrangementHandling:{...object({disposition:choice(['used','conflict','stale','missing']),evidenceRefs:strings,reason:string},['disposition','evidenceRefs']),description:'Only prepare_message with delivered declared arrangements: report the disposition. used must carry the declared time window (day/clock words from the declaration) inside the outward suggestions and cite the delivered declaration sourceIds in evidenceRefs, copied exactly as they appear with the delivered declaration; conflict/stale/missing need a concrete reason. Copy-ready used form: {"disposition":"used","evidenceRefs":["<delivered declaration sourceId>"]}'},
  draftPlan:{...draftPlan,description:'Only prepare_message: material choices and proposed controls; no clarification.'},
  lookup:{...lookupSchemaShape,description:'Continuation reads and retrieval. Range reads may omit target IDs when exactly one delivered range covers them; batch reads fetch several ranges in one round trip.'},
  continuation:{...choice(['advise','prepare_message']),description:'Only lookup: workflow to continue after reading.'},
@@ -137,6 +159,16 @@ function responseEnvelope(settings,purpose,payload) {
   delete properties.relationshipPatch;
   if(taskPayload.experienceProposalPolicy?.enabled!==true)delete properties.experienceProposals;
   if(taskPayload.generationOrigin==='qq_observation')delete properties.actions;
+  // B12: the consumption field rides only when declared arrangements were
+  // actually delivered; non-arrangement contexts never see it. When it is
+  // offered, the description carries a copy-ready example citing this
+  // request's exact delivered declaration sourceIds (wire handles on the
+  // wire, canonical ids on canonical payloads).
+  const declarationIds=deliveredDeclarationSourceIds(payload);
+  if(!declarationIds.length)delete properties.arrangementHandling;
+  else properties.arrangementHandling={...schema.properties.arrangementHandling,
+   description:schema.properties.arrangementHandling.description
+    +` Copy-ready used form for this request: {"disposition":"used","evidenceRefs":[${declarationIds.slice(0,3).map(id=>JSON.stringify(id)).join(',')}]}.`};
   schema={...schema,properties};
  }
  return {tools:[{type:'function',function:{name,description:name==='assistant_result'?'Select exactly one primary operation and only its active core payload. Optional independently supported proposals are not executed by this inert result tool.':name==='fidelity_result'?'Report only concrete source-bound defects in this exact candidate. No exhaustive proposition census or global pass certificate. Read-only; cannot rewrite, execute or grant facts/permission.':name==='memory_result'?'Return the captured batch receipt, original-backed logical understanding and explicit navigation choices. Historical knowledge gaps permit completed no-change; world events require their activity, statement and time evidence. This inert tool performs no external action.':'Return readable kind/text for this phase, with only useful optional data. This function is not executed and performs no external action. Follow source and phase rules.',parameters:schema}}],
