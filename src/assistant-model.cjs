@@ -663,6 +663,7 @@ function structuredRepairTask(payload) {
     ...(payload.requestDeliveryPolicy?[`${referenceFirst?'requestDelivery仅填写mode和可选blocker，当前输入身份由程序绑定，不复制sourceId/quote':'requestDelivery为核心必需字段：先引用当前intentSourceId原文'}解释本轮要private_help/editable_message/both；不能用API purpose、旧话题或方法代替本次意思。已有obligation不得降级；editable_message/both须给通过核对的draftPlan，或实际lookup，或kind:question及blocker:{kind:missing_fact/missing_authorization,missing:具体缺项,question:对应私下核对问题}。只有策略不能代替表达；blocker不能假称缺少已经提供的素材或授权。`]:[]),
     REAL_MATERIAL_RULE,
     'OBJECT_AMBIGUITY_GUARD: 她的拒绝或"没兴趣"没说明对象时，读取保持对象歧义——最多按"这次提议的活动被拒"处理，不得收窄成对整类活动或整个邀约的拒绝，也不得回退成等她再给一次机会；第一轮回应里保留可继续聊的余地（例如接受这次不参加，但不宣布以后都不参加），对象澄清要等她自己的新原话。',
+    'GENERATED_VS_ACTUAL_GUARD: 判断参考草稿是否已实际发送时，覆盖两个分支——记录里没有发送证据时，既说明"目前没有已发送的记录"，也提示"如果你已经发出、只是这里没记录到，可以告诉我"；不得只说一半而遗漏已发送但未记录的可能。',
     'SAME_REQUEST_ANSWER_GUARD: 当手动请求或来信已经回答了此前的待问事项（如口味、安排），回复不得同时包含使用该答案的草稿和重新询问同一事项的澄清——两者不可并存。反面例子（禁止）：请求说"我自己更喜欢桂花，不怎么喜欢红枣味"，draft 写"我更喜欢桂花…你呢？"，而 discussion/可见澄清却写"现有聊天里还看不出你更喜欢哪一种，不宜替你选。你平时更喜欢桂花还是红枣？"——这就是矛盾。正确做法：discussion 只说明"按你刚说的口味成稿"，不重问、不声称信息缺失。',
     'STATED_FACT_GUARD: 手动请求文本与用户实际发送的消息都是已陈述事实。其中的口味、安排、经历、偏好等陈述必须按已知信息使用——draft/discussionExplanation/可见澄清均不得再问同一问题，也不得声称"聊天里还没有这点信息"。若该陈述与旧记录冲突，以用户最新陈述为准，可注明以最新为准。',
     'PRESUPPOSITION_GUARD: 草稿里表示"再次/又/还是像上次/总算像之前"一类的时间或关系预设词，必须以originalInput或已交付素材中真实存在的前例为依据；没有先例就删掉预设词，直接陈述当下内容（例如没有她说过教你的记录，就不要写"别又选成给自己上课了"）。',
