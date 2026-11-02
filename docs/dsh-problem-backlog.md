@@ -1,4 +1,7 @@
 # DSH Problem Backlog — Read-Only Cross-Component Audit
+
+### B12 — arrangementHandling emission quality: disposition=used without evidence refs survives bounded repair — P1 (live, 2026-11-02)
+On replay-job-change-later-recall s2 the live adoption validator correctly rejected a response claiming disposition=used whose evidenceRefs cited no delivered declaration sourceId (mqa-registry.cjs:227), and the repair guide named the fix — but the bounded repair round did not recover (arrangement_handling_evidence_missing, step failed). Root: the model emits arrangementHandling on non-arrangement contexts without understanding the evidence contract; the wire schema description alone is insufficient. Levers: (1) copy-ready example in the schema description showing used+evidenceRefs citing the declaration sourceId; (2) parse-time completion — when exactly one declaration was delivered and the response's evidenceRefs are empty but content matches the declaration, auto-fill the ref like the lookup completion pattern; (3) only surface the field when a declaration was actually delivered (deliveredDeclarationMaterials gate) so non-arrangement contexts never see it.
 ## Live user-reported additions (2026-11-01 evening, real desktop usage)
 
 ### B10 — QQ-local deletions never propagate to stored sources — P1
