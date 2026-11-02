@@ -67,7 +67,11 @@ function createAdapterFactory(options={}){
  if(options.prefixPreparation!==undefined&&options.prefixPreparation!=='controlled_rebuild')throw Error('Use the explicitly identified supplemental condition instead of normal-host identity');
  const selected=live?selectedSettings(options.settingsFile||path.join(MAIN_ROOT,'data/settings.json')):null;
  const settings=selected?.settings||{model:'synthetic-replay-only',baseUrl:'http://fixture.invalid/v1',anonymous:true};
- const cap=options.maxHttp??16,ceiling=live?64:512;if(!Number.isSafeInteger(cap)||cap<1||cap>ceiling)throw Error(`Replay HTTP cap must be 1..${ceiling} across all selected episodes`);
+ // Live ceiling raised from 64 to 512 (matching the synthetic ceiling) by user
+ // authorization: stage-sweep rounds need whole-stage arms in one invocation, and
+ // the 64 cap only fragmented them into unattachable fragments. Usage is still
+ // budget-accounted per round via goal-round max_http.
+ const cap=options.maxHttp??16,ceiling=512;if(!Number.isSafeInteger(cap)||cap<1||cap>ceiling)throw Error(`Replay HTTP cap must be 1..${ceiling} across all selected episodes`);
  let attempts=0,blockedAttempts=0;const requests=[],implementationHash=sourceIdentity(sourceRoot);
  const destination=new URL(settings.baseUrl);
  const metadata={name:'qq-assistant-public-api',version:'2',implementation_hash:implementationHash,source_root:sourceRoot,
