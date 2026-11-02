@@ -49,3 +49,12 @@ cq-sw2/sw6b 因代理 503 中断如实 inconclusive；cq-sw7 双臂 fresh 已执
 - 4 ACCEPTED 轮（002d/sv-002/sw1i/cq-sw14）
 - B1-B15 全部定位→修复/入档（B12/B13/B14/B15 当日发现当日闭环）
 - 三阶段全盲评覆盖；1939+ 测试绿；冻结数据集哈希全程不变
+
+
+## mc-sw15 结果补录（23:00）
+
+| 轮 | 覆盖 | 结果 |
+|---|---|---|
+| mc-sw15 | MC 全 16 案例 | 如实 inconclusive：12 共享案例 64/64 全 usable 全等价（完美 parity）；4 重案例基线结构性不可用（sw1i 已记录并验收改进证据）|
+
+_delivery_provenance dp-sw2 ACCEPTED 已在上方记录（B15 验证 live，2 目标改进 + 守卫全净）。_
