@@ -160,19 +160,31 @@ class BudgetAuthority {
       admissions.push({ id: requirement.id, kind: requirement.kind, tier: requirement.floorTier, bytes: requirement.floorSize.bytes, view: requirement.floorSize.view });
       used += requirement.floorSize.bytes;
     }
-    // Pass 2: upgrade in priority order to the highest tier that fits.
+    // Pass 2: upgrade in priority order to the highest rank that fits.
     if (deliverable) {
       for (const admission of admissions) {
         const requirement = list.find(item => item.id === admission.id);
+        // Tier rungs are rank-ordered by representation faithfulness, NOT by
+        // bytes across tiers: a source's marker/digest metadata can outweigh
+        // a small verbatim body. Comparing candidate bytes against the held
+        // admission would therefore skip the verbatim rung of a short source
+        // and mis-deliver it as a larger structural digest (observed on the
+        // parity harness: marker 452B held, verbatim 172B skipped, digest
+        // 926B taken, plus a bogus degraded_to_digest ledger entry). Scan the
+        // rank-descending rungs once: the first fitting rung of the highest
+        // reachable rank wins — within one rank the first rung is the largest
+        // (same-tier enlargement of a ranged floor stays valid), and once a
+        // rank fits, lower ranks can never win.
+        let best = null;
         for (const size of requirement.sizes) {
-          // Same-tier upgrades (progressively smaller ranged excerpts) are as
-          // valid as cross-tier upgrades: take the first fitting size in rank
-          // order, which is also the largest within the highest fitting tier.
-          if (rankOf(size.tier) < rankOf(admission.tier) || size.bytes <= admission.bytes) continue;
-          const delta = size.bytes - admission.bytes;
-          if (used + delta > budget) continue;
-          admission.bytes += delta; admission.tier = size.tier; if (size.view !== undefined) admission.view = size.view;
+          const rank = rankOf(size.tier), held = rankOf(admission.tier);
+          if (rank < held) break; // rungs are rank-descending; pass 2 only upgrades
+          if (best && rank < rankOf(best.tier)) break; // a higher rank already fits
+          if (rank === held && size.bytes <= admission.bytes) continue; // same tier: enlargement only
+          if (used + size.bytes - admission.bytes > budget) continue; // rung unfit; try a smaller rung of this rank
+          if (!best) best = size;
         }
+        if (best) { admission.bytes += best.bytes - admission.bytes; admission.tier = best.tier; if (best.view !== undefined) admission.view = best.view; }
         const top = requirement.sizes[0];
         if (rankOf(admission.tier) < rankOf(top.tier))
           degradation.push({ step: `degraded_to_${admission.tier}`, appliedTo: requirement.id,

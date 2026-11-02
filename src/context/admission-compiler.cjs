@@ -256,15 +256,20 @@ function compileContext(options = {}) {
       lookupHandle: { sourceIds: [source.id], revision: source.revision, offset: 0 },
       tierSizes: sizes });
   }
-  // feedback_target (feedback_continue): selected feedback sources.
+  // feedback_target (feedback_continue): selected feedback sources. The
+  // resolved list also feeds the material-outcome report in assemble(), so a
+  // feedback target that was actually admitted can never be misreported as
+  // 'missing' in materialRequirements (B5 explainability surface).
+  const feedbackSources = [];
   if (requirements.mandatory.some(row => row.materialClass === 'feedback_target'))
     for (const target of request.feedbackTargets || []) {
-      const source = byId.get(target.sourceId || target.id);
-      if (source && !required.has(source.id)) {
-        const sizes = tierSizesFor(source);
-        addRequirement(source.id, { id: source.id, kind: 'mandatory', floorTier: rangedFloor(sizes), note: 'feedback_target material',
-          lookupHandle: { sourceIds: [source.id], revision: source.revision, offset: 0 }, tierSizes: sizes });
-      }
+      const source = byId.get(typeof target === 'string' ? target : target.sourceId || target.id);
+      if (!source) continue;
+      if (!feedbackSources.some(item => item.id === source.id)) feedbackSources.push(source);
+      if (required.has(source.id)) continue;
+      const sizes = tierSizesFor(source);
+      addRequirement(source.id, { id: source.id, kind: 'mandatory', floorTier: rangedFloor(sizes), note: 'feedback_target material',
+        lookupHandle: { sourceIds: [source.id], revision: source.revision, offset: 0 }, tierSizes: sizes });
     }
 
   // Explicit range reads are user intent: mandatory at ranged floor.
@@ -425,7 +430,9 @@ function compileContext(options = {}) {
         ? materialSources.map(source => ({ sourceId: source.id, tier: tierOf(source) }))
         : row.materialClass === 'contact_statement'
           ? contactSources.map(source => ({ sourceId: source.id, tier: tierOf(source) }))
-          : [];
+          : row.materialClass === 'feedback_target'
+            ? feedbackSources.map(source => ({ sourceId: source.id, tier: tierOf(source) }))
+            : [];
       const status = isDeclarationRow
         ? (declarationMaterials.length ? (deliveredDeclarations.length ? 'delivered' : 'degraded') : 'missing')
         : sources.some(item => TIER_RANK[item.tier] >= TIER_RANK[row.floor]) ? 'delivered' : sources.length ? 'degraded' : 'missing';
@@ -446,7 +453,12 @@ function compileContext(options = {}) {
         current: material.current, lookup: material.lookup })),
       consumptionContract: consumptionContractFor(context.intentClass),
       negativeControls, derivedFragments: renderedFragments,
-      degradation,
+      // The degradation ledger travels on the compiler RESULT and the
+      // manifest, never inside the measured payload: the ledger grows with
+      // every settlement step, so measuring it here feeds a loop (more
+      // degradation → larger measured request → more degradation) and it does
+      // not ride the integrated serialized request either — planning-view
+      // attaches it to context.manifest.
       admissionPolicy: { version: ADMISSION_COMPILER_VERSION, ladder: LADDER, rule: ADMISSION_RULE } };
   };
 
