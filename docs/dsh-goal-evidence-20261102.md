@@ -58,3 +58,8 @@ cq-sw2/sw6b 因代理 503 中断如实 inconclusive；cq-sw7 双臂 fresh 已执
 | mc-sw15 | MC 全 16 案例 | 如实 inconclusive：12 共享案例 64/64 全 usable 全等价（完美 parity）；4 重案例基线结构性不可用（sw1i 已记录并验收改进证据）|
 
 _delivery_provenance dp-sw2 ACCEPTED 已在上方记录（B15 验证 live，2 目标改进 + 守卫全净）。_
+
+
+## dp-sw3 结果（23:59）
+
+inconclusive：40 usable + 2 minor + 2 insuff，零硬失败，7 候选偏好。**B15 composer 修复有效但 observed 通道冗余仍在（投影层架构）→ B16 入档**。delivery 验收推迟至投影修复后。
