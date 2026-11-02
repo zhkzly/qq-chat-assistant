@@ -47,7 +47,7 @@ for(const primary of [WRONG,CORRECT])test(`primary audit rationale is never fabr
 
 test('the complete raw primary owns its explicit explanation and individually stored outward message',async t=>{
  const app=await application(t,{final:()=>({kind:'draft',text:MESSAGE,privateExplanation:FINAL_WHY})}),reply=await app.assist(),saved=app.store.getCompanion(scope).turns.find(turn=>turn.id===reply.id);
- assert.deepEqual(reply.discussionExplanation,{kind:'discussion',text:FINAL_WHY});assert.equal(reply.suggestions[0].text,MESSAGE);assertVisible(reply,FINAL_WHY);assertVisible(saved,FINAL_WHY);
+ assert.deepEqual(reply.discussionExplanation,{kind:'discussion',text:FINAL_WHY});assert.equal(reply.suggestions[0].text,MESSAGE);assertVisible(reply,[FINAL_WHY,MESSAGE].join('\n\n'),'explanation plus the promoted main text (B13)');assertVisible(saved,[FINAL_WHY,MESSAGE].join('\n\n'));
  assert.equal(JSON.stringify(reply).includes(WRONG),false);assert.equal(app.calls.length,1);assert.equal(app.calls[0].request.tools[0].function.name,'assistant_result');
  const schema=app.calls[0].request.tools[0].function.parameters.properties.answer;assert.equal(schema.properties.privateExplanation.type,'string');assert.equal(schema.properties.message,undefined);
  assert.deepEqual(app.run().manifest.preparedResponse,{owner:'primary_answer',message:'provided',privateBodyOwner:'answer.privateExplanation',privateExplanation:'provided'});

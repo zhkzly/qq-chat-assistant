@@ -27,7 +27,7 @@ const complete=p=>p.purpose==='fidelity_check'?allow(p):prepare(p);
 
 test('the final private-explanation artifact and its outward message candidate have separate bodies, kinds and scope/version fences',async t=>{
  const app=await application(t,complete),reply=await app.assist(),parent=app.store.experiences.artifact(scope,reply.artifactRef),leaf=app.store.experiences.artifact(scope,reply.suggestions[0].artifactRef);
- assert.equal(parent.kind,'response');assert.equal(parent.body,WHY);assert.equal(parent.body.includes(MESSAGE),false);assert.equal(reply.text,'');assert.equal(parent.body.includes(PRIMARY),false);assert.equal(leaf.kind,'message_candidate');assert.equal(leaf.body,MESSAGE);assert.equal(leaf.body.includes(WHY),false);assert.deepEqual(leaf.parentRef,parent.ref);
+ assert.equal(parent.kind,'response');assert.equal(parent.body,[WHY,MESSAGE].join('\n\n'),'the response artifact owns the explanation plus the promoted main text (B13)');assert.equal(reply.text,MESSAGE);assert.equal(parent.body.includes(PRIMARY),false);assert.equal(leaf.kind,'message_candidate');assert.equal(leaf.body,MESSAGE);assert.equal(leaf.body.includes(WHY),false);assert.deepEqual(leaf.parentRef,parent.ref);
  const selection={turnId:reply.id,suggestionIndex:0,artifactRef:leaf.ref};assert.equal(app.store.experiences.resolveMessageCandidate(scope,selection).text,MESSAGE);
  assert.throws(()=>app.store.experiences.resolveMessageCandidate(scope,{...selection,artifactRef:parent.ref}),/reference|artifact/i,'a generated explanation/whole-help target is not an outgoing leaf');
  assert.throws(()=>app.store.experiences.resolveMessageCandidate({...scope,peerUid:'foreign-contact'},selection),/reference|artifact/i);assert.throws(()=>app.store.experiences.resolveMessageCandidate(scope,{...selection,artifactRef:{...leaf.ref,version:leaf.ref.version+1}}),/reference|artifact/i);
@@ -39,7 +39,7 @@ for(const targetKind of ['private-explanation','message'])test(`actual feedback 
  const reference=targetKind==='private-explanation'?reply.artifactRef:reply.suggestions[0].artifactRef,feedbackText=targetKind==='private-explanation'?'请再解释这个帮助中的日期理由，先不要改写消息。':'请解释给对方这句表达的口吻，先不要改写消息。';
  const result=await app.controller.continueFeedback({taskId:'whole-feedback-'+targetKind,clientEventId:'whole-feedback-event-'+targetKind,requestId:reply.requestId,targetRef:{kind:'artifact',artifactRef:reference},text:feedbackText});
  assert.equal(result.feedbackContinuation.status,'complete');assert.equal(app.calls.length,2);const targets=app.calls[1].p.feedbackTargets,target=targets.find(item=>item.target?.artifactRef?.artifactId===reference.artifactId).target;
- assert.equal(target.authority,'generated_evaluation_target_not_factual_evidence');assert.equal(target.kind,targetKind==='private-explanation'?'response':'message_candidate');assert.equal(target.body,targetKind==='private-explanation'?WHY:MESSAGE);assert.equal(target.body.includes(PRIMARY),false);
+ assert.equal(target.authority,'generated_evaluation_target_not_factual_evidence');assert.equal(target.kind,targetKind==='private-explanation'?'response':'message_candidate');assert.equal(target.body,targetKind==='private-explanation'?[WHY,MESSAGE].join('\n\n'):MESSAGE);assert.equal(target.body.includes(PRIMARY),false);
  const input=app.contexts.at(-1).payload,current=input.sources.find(source=>source.id===input.intentAuthority.sourceId);assert.equal(current.type,'feedback');assert.equal(current.text,feedbackText);assert.equal(input.sources.some(source=>source.id==='private:'+reply.id),false);
  assert.equal(app.calls[1].p.operationProtocol.requiredArtifact,undefined);assert.equal(app.store.messages(scope).some(message=>message.direction==='outgoing'),false);assert.equal(app.store.experiences.draft(scope),null);
 });
@@ -47,7 +47,7 @@ for(const targetKind of ['private-explanation','message'])test(`actual feedback 
 test('withdrawing the final parent response invalidates both its feedback target and message leaf',async t=>{
  const app=await application(t,complete),reply=await app.assist(),leaf=reply.suggestions[0].artifactRef;
  const saved=app.store.addFeedback(scope,{requestId:reply.requestId,targetRef:{kind:'artifact',artifactRef:reply.artifactRef},text:'解释还需要核对。',clientEventId:'whole-withdrawn-feedback', expectedDigest: app.store.experiences.artifact(scope, reply.artifactRef).bodyDigest});
- assert.equal(app.store.experiences.hydrateFeedback(scope,saved.id).target.body,WHY);app.store.deleteTurn(scope,reply.id);
+ assert.equal(app.store.experiences.hydrateFeedback(scope,saved.id).target.body,[WHY,MESSAGE].join('\n\n'));app.store.deleteTurn(scope,reply.id);
  assert.equal(app.store.experiences.hydrateFeedback(scope,saved.id)?.target==null,true);assert.throws(()=>app.store.experiences.resolveMessageCandidate(scope,{turnId:reply.id,suggestionIndex:0,artifactRef:leaf}),/reference|artifact/i);
  assert.equal(app.store.getCompanion(scope).turns.some(turn=>turn.id===reply.id),false);
 });

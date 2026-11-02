@@ -123,7 +123,7 @@ test('continuing consultation reuses only admitted original facts independently 
 test('known QQ response and one private material question can be delivered together without an invented self event',async t=>{
  const app=await application(t,p=>p.purpose==='fidelity_check'?{checkRef:p.checkRef,auditProtocol:'sparse-defects-v1',issues:[]}:{operation:'prepare_message',answer:{suggestions:[{text:'The shelf sounds like a satisfying little project.'}],privateExplanation:'I can respond to the shelf already mentioned. What real recent detail would you like to share about yourself?'}});
  const reply=await app.controller.assist({text:'Respond to her shelf and help me share something real; I have not supplied my own recent detail.',taskId:'partial-help'});
- assert.equal(app.calls.length,1);assert.equal(reply.text,'');assert.equal(reply.suggestions.length,1);assert.match(reply.discussionExplanation.text,/What real recent detail/);assert.deepEqual(app.store.getCompanion(scope).runs.at(-1).payload.outboundQuotes,[]);
+ assert.equal(app.calls.length,1);assert.equal(reply.text,'The shelf sounds like a satisfying little project.','the promoted sole suggestion is the reply main text (B13)');assert.equal(reply.suggestions.length,1);assert.match(reply.discussionExplanation.text,/What real recent detail/);assert.deepEqual(app.store.getCompanion(scope).runs.at(-1).payload.outboundQuotes,[]);
 });
 
 test('an actual factual report survives a bad optional source handle without automatic regeneration',async t=>{

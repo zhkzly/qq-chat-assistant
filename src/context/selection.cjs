@@ -12,6 +12,7 @@ const {trimEmptyNavigation}=require('./budget-manifest.cjs');
 const {digestSource}=require('./evidence-digest.cjs');
 const {LOSS_RULE}=require('../activity-evidence.cjs');
 const {holderBasis}=require('../speaker-identity.cjs');
+const {discussionTurnFingerprint}=require('../discussion-compaction-store.cjs');
 
 function selectPlanningContext({options,snapshot,candidates,view,budget,coreInventory,projectPlanningViews,reconcilePlanningViews,compactPlanningViews}){
   const {scope,records,companion,turn,purpose='discussion',coverage,memoryResult,memoryIndex=[],retrievedSources=[],
@@ -478,7 +479,11 @@ function selectPlanningContext({options,snapshot,candidates,view,budget,coreInve
         generatedReadRef:{turnId:read.originalTurnId,turnFingerprint:read.turnFingerprint,bodyView:read.bodyView},availability:read.delivery.status,
         authority:'assistant_discussion_not_factual_evidence'};
       if(coveredTurnIds.has(t.id)&&!sourceTurnIds.includes(t.id)&&!sourceLookupIds.includes(t.id))return {id:t.id,role:t.role,kind:t.kind,compacted:true,authority:'derived_private_discussion_needs_sources'};
-      return {id:t.id,role:t.role,kind:t.kind,...(t.artifactAvailability?{artifactAvailability:t.artifactAvailability}:{}),text:redact(t.text),...(t.discussionExplanation?{discussionExplanation:{kind:t.discussionExplanation.kind,text:redact(t.discussionExplanation.text)}}:{}),
+      // B13: a draft's promoted text is the outward body. Bind that embedded
+      // body to the current projected turn so a cached context cannot recover
+      // it after the leaf's withdrawal (same witness rule as generated reads).
+      // Discussion-kind turns keep their legacy witness-free shape.
+      return {id:t.id,role:t.role,kind:t.kind,...(t.kind==='draft'?{turnFingerprint:discussionTurnFingerprint(t)}:{}),...(t.artifactAvailability?{artifactAvailability:t.artifactAvailability}:{}),text:redact(t.text),...(t.discussionExplanation?{discussionExplanation:{kind:t.discussionExplanation.kind,text:redact(t.discussionExplanation.text)}}:{}),
         at:t.createdAt,requestId:t.requestId||null,authority:'assistant_discussion_not_factual_evidence'};
     }).concat(previousTurns);
     for (const t of group) if (t.role === 'user' && !foldedPrivateIds.has(`private:${t.id}`)&&!(explicitLookupIds.includes(`private:${t.id}`)&&selected.has(`private:${t.id}`))) selected.set(`private:${t.id}`, byId.get(`private:${t.id}`));
