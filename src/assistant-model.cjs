@@ -46,12 +46,26 @@ function arrangementDeliveryState(payload) {
   return { delivered: delivered.filter(material => material.current !== false),
     contract: fields.some(field => field && field.name === 'arrangementHandling') ? payload.consumptionContract : null };
 }
-function arrangementValidationError(checked) {
+function arrangementValidationError(checked, { delivered = [], toHandle = null } = {}) {
   const repairLines = [];
+  // Guidance quotes the wire handle, never the canonical sourceId: repair
+  // responses are decoded against the offered-handle set, so a canonical ID
+  // copied from guidance text would fail decode and burn the bounded round
+  // (B12). Without a wire snapshot the canonical id is the best available.
+  const handleOf = sourceId => {
+    if (!toHandle) return sourceId;
+    try { return toHandle({ sourceIds: [sourceId] }).sourceIds[0]; } catch { return sourceId; }
+  };
   for (const ready of checked.copyReady || []) {
     repairLines.push('补全采纳时间窗可照抄的原句：' + ready.sentence);
-    repairLines.push('需要完整上下文时把这条lookup整条照抄：' + JSON.stringify(ready.lookup));
+    repairLines.push('需要完整上下文时把这条lookup整条照抄：' + JSON.stringify({ ...ready.lookup,
+      sourceIds: (ready.lookup.sourceIds || []).map(handleOf) }));
   }
+  // Copy-ready citation guidance for the evidence-missing family (B12): name
+  // the delivered declarations and their wire handles so the bounded repair
+  // round can fix the citation in one step.
+  if ((checked.code === 'arrangement_handling_evidence_missing' || checked.code === 'arrangement_handling_used_without_evidence') && delivered.length)
+    repairLines.push('可照抄的已交付声明来源：' + delivered.map(material => handleOf(material.sourceId) + '（' + material.sentence + '）').join('；'));
   const missing = Array.isArray(checked.missingTimeWindows) && checked.missingTimeWindows.length
     ? '缺失的时间窗词：' + checked.missingTimeWindows.join('、') : '';
   const lead = checked.code === 'arrangement_time_window_missing'
@@ -74,20 +88,39 @@ function arrangementOutboundTexts(value, purpose, wholeAnswer) {
   }
   return texts.filter(text => typeof text === 'string' && !!text.trim());
 }
-function validateArrangementConsumption(value, payload, { purpose, wholeAnswer, manifest }) {
+function validateArrangementConsumption(value, payload, { purpose, wholeAnswer, manifest, projectHandles = null }) {
+  const { delivered, contract } = arrangementDeliveryState(payload);
+  if (!delivered.length) {
+    // B12: no delivered declaration means no consumption contract, and the
+    // wire schema never offered the field. A stray claim is inert metadata,
+    // never a blocking validation; strip it so the canonical result never
+    // carries an unverified disposition.
+    if (value && typeof value === 'object' && !Array.isArray(value) && value.arrangementHandling !== undefined)
+      delete value.arrangementHandling;
+    return;
+  }
   const outboundTexts = arrangementOutboundTexts(value, purpose, wholeAnswer);
   if (!outboundTexts.length) return;
-  const { delivered, contract } = arrangementDeliveryState(payload);
-  if (!delivered.length) return;
   const handling = value && typeof value === 'object' && !Array.isArray(value) && value.arrangementHandling !== undefined
     ? value.arrangementHandling : null;
   if (handling && typeof handling === 'object' && !Array.isArray(handling)) {
     // A present claim runs the full registry contract (existing disposition
     // and reason rules plus the time-window adoption rule), whether or not
     // the consumption-contract metadata itself survived budget eviction.
+    // Parse-time completion (B12, the wire lookup-completion pattern): a
+    // used claim over exactly one delivered current declaration whose
+    // outward text already adopts the declared window has exactly one legal
+    // evidenceRef; the program fills it instead of spending a repair call.
+    if (handling.disposition === 'used' && Array.isArray(handling.evidenceRefs) && !handling.evidenceRefs.length
+      && delivered.length === 1 && !arrangementTimeWindowGap(delivered, outboundTexts)) {
+      handling.evidenceRefs = [delivered[0].sourceId];
+      if (manifest) manifest.wireCompletions = [...(manifest.wireCompletions || []),
+        { rule: 'arrangement-evidence-ref-completion', fields: ['arrangementHandling.evidenceRefs'],
+          sourceIds: [delivered[0].sourceId] }];
+    }
     const intentClass = (contract && contract.intentClass) || 'invitation_arrangement';
     const checked = validateArrangementHandling({ intentClass, delivered, handling, outboundTexts });
-    if (!checked.ok) throw arrangementValidationError(checked);
+    if (!checked.ok) throw arrangementValidationError(checked, { delivered, toHandle: projectHandles });
     return;
   }
   // No arrangementHandling claim: the response gate adds no new blocking
@@ -296,7 +329,8 @@ function parseAssistantStrict(value, purpose, input,issues,{auxiliaryOnly=false,
   const payload = input?.payload || input;
   const checkDisposition=()=>{if(value.replyDisposition!==undefined&&!['wait','clarify','unavailable'].includes(value.replyDisposition))throw new Error('replyDisposition: use wait, clarify, or unavailable; a reply candidate uses draftPlan/suggestions instead');};
   if(issues)issues.check('replyDisposition','reply_disposition_invalid',checkDisposition);else checkDisposition();
-  validateArrangementConsumption(value, payload, { purpose, wholeAnswer, manifest: input?.manifest });
+  validateArrangementConsumption(value, payload, { purpose, wholeAnswer, manifest: input?.manifest,
+    projectHandles: input?.sourceWireSnapshot ? sourceRef => input.sourceWireSnapshot.project(sourceRef) : null });
   // Planning and lookup are control envelopes, but their readable explanation
   // remains private help for the user. Legacy pure envelopes stay compatible.
   const readableStep = ['discussion','question','options','review','acknowledgment'].includes(value.kind) &&
@@ -506,6 +540,13 @@ function parseAssistant(value, purpose, input, diagnostics) {
       semanticPayload={...payload,requestDeliveryPolicy:{version:1}};
       if(!active.requestDelivery)active={...active,requestDelivery:{mode:'editable_message',...(operationState.blocker?{blocker:operationState.blocker}:{})}};
     }
+  // B12: the consumption contract exists only when a declared arrangement
+  // was actually delivered (and the wire schema offered the field). Strip a
+  // stray claim before typed-reference decode so an inert field can never
+  // reject an otherwise legitimate response on an unoffered handle, and it
+  // never rides into the canonical result.
+  if(!arrangementDeliveryState(payload).delivered.length && active && typeof active==='object' && !Array.isArray(active)
+    && active.arrangementHandling!==undefined) delete active.arrangementHandling;
   const fields=['statePatch','stateReview','topicPatch','relationshipPatch','experienceProposals'],wireAuxiliaryErrors=[];
   const bestEffort=payload?.taskContext?.auxiliaryPolicy==='best_effort'&&purpose!=='draft'&&raw&&typeof raw==='object'&&!Array.isArray(raw)&&!active.lookup;
   const sourceDecoded=sourceWire?sourceWire.decode(active,{isolateFields:bestEffort?fields:[],onRejected:(field,error)=>wireAuxiliaryErrors.push({field,code:'invalid_auxiliary_metadata',message:String(error.message).slice(0,500)})}):active;
