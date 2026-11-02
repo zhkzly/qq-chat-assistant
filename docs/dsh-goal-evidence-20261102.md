@@ -31,3 +31,21 @@ cq-sw2/sw6b 因代理 503 中断如实 inconclusive；cq-sw7 双臂 fresh 已执
 3. 生命周期条款：白天桌面验证（需用户操作）
 4. 可选层退役（parity §6 路线图）
 5. UI 两轮重设计已合入 main，待实际使用反馈
+
+
+## 通宵 mega-run 计划（22:00 启动）
+
+| 轮 | 覆盖 | 目的 |
+|---|---|---|
+| dp-sw2 | delivery 10 案例 | B15 修复（STATED_FACT_GUARD）后验收重试 |
+| mc-sw15 | memory_continuity 全 16 案例 | 阶段完成度冲顶（全案例单轮配对）|
+| cq-sw16 | CQ 全 32 案例 | 阶段完成度冲顶（含 hard-v1 扩展）|
+
+每轮完成后：组装 → attach → 盲评 → check → decide → main 同步。
+守卫全部通过 + 目标改进注册 = 阶段验收；仅 parity 则如实 inconclusive。
+
+## 当日最终账本（截至 22:00）
+
+- 4 ACCEPTED 轮（002d/sv-002/sw1i/cq-sw14）
+- B1-B15 全部定位→修复/入档（B12/B13/B14/B15 当日发现当日闭环）
+- 三阶段全盲评覆盖；1939+ 测试绿；冻结数据集哈希全程不变
