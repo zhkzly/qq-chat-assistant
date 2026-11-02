@@ -1,5 +1,8 @@
 # DSH Problem Backlog — Read-Only Cross-Component Audit
 
+### B14 — unsupported presupposition in draft wording ("别又…了" implies absent past events) — P2 (live, 2026-11-02)
+cq-sw9 guard s3: candidate draft added "别又选成给自己上课了" presupposing a past lecture event absent from all evidence; blind reviewer correctly preferred the baseline draft (lower unsupported-fact risk). Same class as B2 attribution risks: temporal/relational presuppositions ("又/再/还是像上次") smuggle unverified history into sendable text. Lever: instruction line in composer guidance (presupposition words require an in-evidence antecedent) + optional parse-level check flagging presupposition markers without antecedent matches. Small, wording-level; blocks CQ acceptance only via the non-regression gate.
+
 ### B13 — guard-case output.text empty string on stable-preference (CQ guard regression) — P1 (live, 2026-11-02)
 cq-sw8 blind review: candidate output.text was EMPTY STRING on cm-stable-preference-quoted-wish s1 and s3 (suggestion lines visible, main reply text missing), and s2 draft misframed her comedy-vs-documentary dilemma as "哪两部". Guard grade regressed all 3 steps, blocking CQ acceptance despite 2 registered target improvements. Diagnosis queue: product emission defect (suggestion-only response emitted as final) vs capture artifact; check assistant_result contract emission path for empty-text guard at composer level.
 
