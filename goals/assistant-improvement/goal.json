@@ -1,7 +1,7 @@
 {
  "schema_version": 1,
  "id": "qq-assistant-improvement",
- "version": "2026-11-02.3",
+ "version": "2026-11-02.4",
  "baseline": {
   "commit": "009b4aa",
   "evidence": "docs/eval-fidelity-v2-verification_CN.md",
@@ -34,7 +34,17 @@
   "cases": 38,
   "steps": 81,
   "visibility": "fictional_visible_development_cases",
-  "inventory_command": "npm run eval:replay:list"
+  "inventory_command": "npm run eval:replay:list",
+  "extensions": [
+   {
+    "id": "hard-v1",
+    "file": "evals/assistant/replay/hard-v1.jsonl",
+    "cases": 5,
+    "hash": "7a5a1151268cced8b0c8b88961225cc1492bf43fbf2d1bd262de6617f1a384bd",
+    "registered_at": "2026-11-02T16:10:00+08:00",
+    "reason": "user-authorized independent extension targeting live-observed weaknesses; frozen 38-case competition dataset untouched (hash 80bd56e2...)"
+   }
+  ]
  },
  "outcome": {
   "product": "Improve the actual whole QQ Assistant as a purpose-driven long-term helper: understand the user's situation and intent, help choose next steps and real talking material, initiate and continue conversation, support authentic self-sharing and shared experiences, and maintain continuity through memory and feedback.",
@@ -258,6 +268,11 @@
    "at": "2026-11-02T16:10:00+08:00",
    "change": "communication_quality.target_cases += 5 hard-v1 cases (hd-*)",
    "reason": "user-authorized independent dataset extension targeting live-observed weaknesses (speaker attribution, post-deletion reference, superseded declaration, stale fact, thread survival); frozen 38-case dataset hash unchanged (hard-v1.jsonl separate file)"
+  },
+  {
+   "at": "2026-11-02T19:30:00+08:00",
+   "change": "replay_dataset.extensions declared (hard-v1, 5 cases, hash 7a5a1151268c...); version 2026-11-02.4",
+   "reason": "codify the two-dataset model: frozen competition core (80bd56e2..., 38 cases) unchanged; extension cases are registered stage targets with their own content hash"
   }
  ]
 }
