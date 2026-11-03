@@ -37,6 +37,11 @@
 const VERSION = 1;
 // At most the last 3 pending clarifications per contact, LRU eviction.
 const MAX_PENDING_PER_CONTACT = 3;
+// Questions the user has already answered (consumed superseded matchers)
+// keep stripping assistant re-asks and are never re-recorded as pending;
+// LRU-bounded so a genuinely new topic with similar wording eventually
+// asks freely again.
+const MAX_ANSWERED_PER_CONTACT = 3;
 // Defense in depth for long-lived processes: the registry is contact-scoped,
 // so the number of tracked contacts is bounded as well (LRU by last contact
 // activity). The per-contact bound above always applies first.
@@ -85,7 +90,7 @@ function clarificationQuestionsIn(text) {
 
 function contactRecord(registry, scopeKey) {
   let contact = registry.contacts.get(scopeKey);
-  if (!contact) { contact = { entries: [], touchedAt: 0 }; registry.contacts.set(scopeKey, contact); }
+  if (!contact) { contact = { entries: [], answered: [], touchedAt: 0 }; registry.contacts.set(scopeKey, contact); }
   contact.touchedAt = Date.now();
   if (registry.contacts.size > MAX_CONTACTS) {
     let oldest = null;
@@ -123,16 +128,21 @@ function recordPendingClarifications(registry, { scopeKey, questions, turnId, re
   const parts = questionParts(questions);
   if (!parts.length) return null;
   const contact = contactRecord(registry, scopeKey);
+  // A question the user already answered is never re-recorded as pending:
+  // the answer channel closed it, and re-asking it is the echo this module
+  // exists to prevent.
+  const fresh = parts.filter(part => !answeredMatcher(contact, part.normalized));
+  if (!fresh.length) return null;
   for (const entry of contact.entries) {
     if (entry.status !== 'pending') continue;
     const known = entry.questions.map(question => question.normalized);
-    if (parts.some(part => known.some(existing => questionsMatch(existing, part.normalized)))) {
+    if (fresh.some(part => known.some(existing => questionsMatch(existing, part.normalized)))) {
       touchEntry(contact, entry);
       return entry;
     }
   }
   registry.seq++;
-  const entry = { id: `pending-${registry.seq}`, status: 'pending', questions: parts,
+  const entry = { id: `pending-${registry.seq}`, status: 'pending', questions: fresh,
     ...(typeof turnId === 'string' ? { turnId } : {}), ...(typeof requestId === 'string' ? { requestId } : {}),
     recordedAt: at || new Date().toISOString() };
   contact.entries.push(entry);
@@ -170,6 +180,23 @@ function supersededMatchers(contact) {
   return matchers;
 }
 
+// Answered questions strip assistant re-asks exactly like superseded ones;
+// they additionally block re-recording (see recordPendingClarifications).
+function answeredMatchers(contact) {
+  return (contact.answered || []).map(question => ({ entry: null, question }));
+}
+
+function touchAnswered(contact, question) {
+  const index = contact.answered.indexOf(question);
+  if (index >= 0) contact.answered.splice(index, 1);
+  contact.answered.push(question);
+  while (contact.answered.length > MAX_ANSWERED_PER_CONTACT) contact.answered.shift();
+}
+
+function answeredMatcher(contact, normalized) {
+  return (contact.answered || []).find(question => question.normalized === normalized) || null;
+}
+
 // Removes every visible sentence that normalized-matches one of the
 // superseded questions; reports which matchers actually stripped content so
 // the caller can consume them.
@@ -192,6 +219,10 @@ function stripMatchingQuestions(text, matchers) {
 // matched question inside a multi-question entry) is dropped once used.
 function consumeMatchers(contact, matched) {
   for (const matcher of matched) {
+    // The answered question keeps stripping later re-asks and never returns
+    // to pending; move it to the answered memory instead of dropping it.
+    touchAnswered(contact, matcher.question);
+    if (!matcher.entry) continue;
     const index = contact.entries.indexOf(matcher.entry);
     if (index < 0) continue;
     matcher.entry.questions = matcher.entry.questions.filter(question => question !== matcher.question);
@@ -237,7 +268,7 @@ function projectAssistantTurn(registry, { scopeKey, kind, text, discussionExplan
   const explanation = discussionExplanation && typeof discussionExplanation.text === 'string'
     ? { kind: discussionExplanation.kind, text: discussionExplanation.text } : null;
   const contact = registry && registry.contacts && registry.contacts.get(scopeKey) || null;
-  const matchers = contact ? supersededMatchers(contact) : [];
+  const matchers = contact ? supersededMatchers(contact).concat(answeredMatchers(contact)) : [];
   // Outbound draft bodies are wording for the peer, never a clarification to
   // the user; every other visible body and the explanation address the user.
   const outboundBody = kindText.includes('draft');

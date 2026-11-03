@@ -158,3 +158,18 @@ test('companion wiring: without an observed user send the same re-asking draft k
   assert.equal(second.discussionExplanation.text,REASK,'no user send means the visible clarification is kept whole');
   app.close();
 });
+test('a later re-ask after the superseded match was consumed still strips and never re-records (echo path)',()=>{
+  const registry=projection.createPendingClarificationRegistry(),key='contact-a';
+  projection.recordPendingClarifications(registry,{scopeKey:key,questions:[QUESTION]});
+  projection.supersedePendingClarifications(registry,{scopeKey:key});
+  // First automatic turn strips the re-ask and consumes the superseded matcher.
+  const first=projection.projectAssistantTurn(registry,{scopeKey:key,kind:'discussion',text:REASK});
+  assert.equal(first.text,STRIPPED_REMAINDER);
+  assert.equal(first.detectedQuestions.length,0);
+  // A LATER turn re-asks the same question again (the consume-then-echo path):
+  // answered memory keeps stripping it and it is never re-recorded as pending.
+  const second=projection.projectAssistantTurn(registry,{scopeKey:key,kind:'discussion',text:'上次还没说完：'+QUESTION});
+  assert.equal(second.text.includes(QUESTION),false,'the echo is stripped again by answered memory');
+  assert.equal(second.detectedQuestions.length,0,'the echo never becomes a new pending clarification');
+  assert.equal(projection.pendingClarificationsFor(registry,key).filter(item=>item.status==='pending').length,0);
+});
