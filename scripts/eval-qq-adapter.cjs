@@ -65,6 +65,14 @@ function createAdapterFactory(options={}){
  const supplemental=options.condition===OBSERVATION_CONDITION;
  if(options.condition!==undefined&&!supplemental)throw Error('Unknown supplemental observation condition');
  if(options.prefixPreparation!==undefined&&options.prefixPreparation!=='controlled_rebuild')throw Error('Use the explicitly identified supplemental condition instead of normal-host identity');
+ // Adapter-fidelity tests may inject a scripted synthetic transport to drive
+ // nontrivial model content through the unchanged adapter protocol. Only the
+ // fictional model boundary is scripted; human sends and every QQ event still
+ // enter through the session's controller ingest path and all product routes
+ // stay real. Live replay evidence must keep its declared real transport, so
+ // the override and live mode are mutually exclusive.
+ const scriptedTransport=!live&&typeof options.transport==='function'?options.transport:null;
+ if(options.transport!==undefined&&!scriptedTransport)throw Error('A scripted transport override is only allowed for synthetic (non-live) replay episodes');
  const selected=live?selectedSettings(options.settingsFile||path.join(MAIN_ROOT,'data/settings.json')):null;
  const settings=selected?.settings||{model:'synthetic-replay-only',baseUrl:'http://fixture.invalid/v1',anonymous:true};
  // Live ceiling raised from 64 to 512 (matching the synthetic ceiling) by user
@@ -78,12 +86,13 @@ function createAdapterFactory(options={}){
   adapter_runtime_hash:hash(fs.readFileSync(path.join(__dirname,'eval-runtime-session.cjs'),'utf8')),
   evidence:live?'live_model_synthetic_events_product_integration':'synthetic_transport_product_integration',desktop_qq:false,
   prefix_preparation:supplemental?'scheduled_only_no_forced_prefix':'controlled_current_product_memory_rebuild',preparation_is_scheduler_test:false,
+  ...(scriptedTransport?{transport:'scripted_synthetic_test_override'}:{}),
   ...(supplemental?{condition:OBSERVATION_CONDITION,native_idle_deadline_ms:65000,idle_outer_headroom_ms:2000,foreground_wall_timeout_ms:300000,ordinary_actions_wait:'foreground_only',idle_wait:'declared_scheduled_work_only',clock:'virtual_source_events_native_provider_elapsed'}:{}),
   model:settings.model,destination:{origin:destination.origin,path:destination.pathname},settings_hash:selected?.digest||null,max_http:cap};
  const redact=value=>typeof value==='string'&&settings.apiKey?value.split(settings.apiKey).join('[redacted]'):value;
  const clean=value=>JSON.parse(JSON.stringify(value,(_key,v)=>redact(v)));
  const {createReplaySession,makeSyntheticTransport}=require('./eval-runtime-session.cjs');
- const offline=makeSyntheticTransport();
+ const offline=scriptedTransport||makeSyntheticTransport();
  const transport=async(url,args)=>{
   if(attempts>=cap){blockedAttempts++;const error=Error('Global replay HTTP limit reached');error.code='replay_http_limit';throw error;}
   if(new URL(url).origin!==destination.origin)throw Error('Replay model destination changed');
