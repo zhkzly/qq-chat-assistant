@@ -6,11 +6,11 @@ const sourceRoot=require('node:path').resolve(__dirname,'..'),asOf='2026-10-29T1
 
 // Field shapes and labels derive from ui/app.js assistantVisibleBody and thread rendering.
 test('visible projection retains explanation, labeled wording, choices and notices without internal metadata',()=>{
- const turn={id:'actual-reply',role:'assistant',kind:'draft',text:'参考表达，请核对',
+ const turn={id:'actual-reply',role:'assistant',kind:'draft',createdAt:'2026-11-03T00:00:00.000Z',text:'参考表达，请核对',
   discussionExplanation:{kind:'discussion',text:'先回应她的问题，再说自己的真实情况。'},
   suggestions:[{style:'自然',text:'这是用户看见的参考。'}],expressionOptions:[{label:'先接她的近况'},{intent:'分享自己的日常'}],
   metadataReviewPending:{reasonCode:'auxiliary_metadata_rejected'},artifactMetadata:{secret:'internal'},sourceIds:['private:internal']};
- assert.deepEqual(projectVisibleTurn(turn),{reply_id:'actual-reply',text:'先回应她的问题，再说自己的真实情况。\n\n参考表达，请核对',
+ assert.deepEqual(projectVisibleTurn(turn),{reply_id:'actual-reply',created_at:'2026-11-03T00:00:00.000Z',text:'先回应她的问题，再说自己的真实情况。\n\n参考表达，请核对',
   suggestions:[{label:'自然',text:'这是用户看见的参考。'}],options:[{label:'先接她的近况'},{label:'分享自己的日常'}],
   notices:[{text:'建议已保留；这次背景整理待复核。'}],disposition:'draft'});
  assert.equal(projectVisibleTurn({...turn,text:turn.discussionExplanation.text}).text,turn.discussionExplanation.text);

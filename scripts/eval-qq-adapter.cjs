@@ -22,7 +22,7 @@ function projectVisibleTurn(turn){
  if(turn.method)references.push({label:'模型标记的方法',text:typeof turn.method==='string'?turn.method:turn.method.label||turn.method.id||''});
  if(recovery&&turn.responseRecovery.metadataApplied===false)notices.push({text:recovery==='private_help'?'已先给出建议；部分背景整理未完成。':'表达参考 · 请核对'});
  else if(turn.metadataReviewPending?.reasonCode==='auxiliary_metadata_rejected')notices.push({text:'建议已保留；这次背景整理待复核。'});
- return {reply_id:turn.id,text:[...new Set([turn.discussionExplanation?.text,turn.text].filter(text=>typeof text==='string'&&text.length))].join('\n\n'),suggestions,
+ return {reply_id:turn.id,created_at:turn.createdAt,text:[...new Set([turn.discussionExplanation?.text,turn.text].filter(text=>typeof text==='string'&&text.length))].join('\n\n'),suggestions,
   ...(options.length?{options}:{}),...(notices.length?{notices}:{}),...(references.length?{references}:{}),
   disposition:suggestions.length?'draft':turn.kind==='question'||turn.replyDisposition==='clarify'?'clarification':turn.replyDisposition==='wait'?'wait':turn.replyDisposition==='unavailable'?'unavailable':'discussion'};
 }
