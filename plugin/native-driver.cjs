@@ -2,6 +2,14 @@
 const { EventEmitter } = require('node:events');
 
 const READ_COMMANDS = Object.freeze(['status', 'bind', 'latest', 'older']);
+// A native read whose callback is lost must fail fast so the caller can fall
+// back instead of hanging the whole read bridge until the worker times out.
+const DEFAULT_NATIVE_READ_TIMEOUT_MS = 6000;
+class NativeReadTimeout extends Error { }
+function nativeReadTimeoutMs() {
+  const parsed = Number(process.env.CHAT_ASSISTANT_NATIVE_READ_TIMEOUT_MS);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_NATIVE_READ_TIMEOUT_MS;
+}
 function opaque(value, field) {
   if (typeof value !== 'string' || !value || value.length > 128) throw new Error(`Invalid ${field}`);
   return value;
@@ -21,6 +29,9 @@ class NativeDriver extends EventEmitter {
     this.listenerSession = null;
     this.binding = 0;
     this.readinessUnsubscribe = null;
+    // Newest cached msgId per scope, anchoring the fallback latest-read when
+    // getAioFirstViewLatestMsgs hangs outside the active AIO view.
+    this.newestMsgIdByScope = new Map();
   }
   capture(session) {
     this.readinessUnsubscribe?.();
@@ -97,12 +108,46 @@ class NativeDriver extends EventEmitter {
     if (!this.account || !this.selected || this.phase !== 'ready') return;
     const scope = this.scope();
     const filtered = messages.map(m=>this.withIdentity(m,scope)).filter(Boolean);
-    if (filtered.length) this.emit('messages', { scope, messages: filtered });
+    if (filtered.length) { this.trackNewestMsgId(scope, filtered); this.emit('messages', { scope, messages: filtered }); }
   }
   scope() {
     if (!this.account || !this.selected) throw new Error('Select a logged-in private conversation first');
     return { accountUid: this.account.uid, accountUin: this.account.uin,
       peerUid: this.selected.uid, peerUin: this.selected.uin };
+  }
+  scopeKey(scope) {
+    return `${scope.accountUid}|${scope.peerUid}`;
+  }
+  trackNewestMsgId(scope, messages) {
+    let newest = this.newestMsgIdByScope.get(this.scopeKey(scope));
+    for (const message of messages || []) {
+      const id = message?.msgId;
+      if (typeof id !== 'string' || !/^\d+$/.test(id) || id === '0') continue;
+      if (!newest || BigInt(id) > BigInt(newest)) newest = id;
+    }
+    if (newest) this.newestMsgIdByScope.set(this.scopeKey(scope), newest);
+    return newest;
+  }
+  raceTimeout(promise, label) {
+    const timeoutMs = nativeReadTimeoutMs();
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new NativeReadTimeout(`QQ native read timed out after ${timeoutMs}ms: ${label}`)), timeoutMs);
+      // Promise.resolve keeps non-promise service results working, and the
+      // handlers stay attached after a timeout so a late native rejection
+      // cannot become an unhandled rejection.
+      Promise.resolve(promise).then(value => { clearTimeout(timer); resolve(value); },
+        error => { clearTimeout(timer); reject(error); });
+    });
+  }
+  finishRead(name, scope, epoch, result, source, cursor) {
+    this.assertScope(scope);
+    if (epoch !== this.epoch) throw new Error('QQ session changed during history read');
+    if (result.result !== undefined && result.result !== 0) throw new Error(`QQ history failed (${result.result}): ${result.errMsg || ''}`);
+    if (!Array.isArray(result.msgList)) throw new Error('QQ history response has no msgList');
+    this.emit('read-stat', { command:name, rawCount:result.msgList.length, senderOwner:result.msgList.filter(m=>m.senderUid===scope.accountUid).length, senderPeer:result.msgList.filter(m=>m.senderUid===scope.peerUid).length, peerUIDMatches:result.msgList.filter(m=>m.peerUid===scope.peerUid).length, peerUINMatches:result.msgList.filter(m=>String(m.peerUin)===scope.peerUin).length, olderThanCursor:cursor?result.msgList.filter(m=>typeof m.msgId==='string'&&/^\d+$/.test(m.msgId)&&BigInt(m.msgId)<BigInt(cursor)).length:null });
+    this.trackNewestMsgId(scope, result.msgList);
+    const messages = result.msgList.map(m=>this.withIdentity(m,scope)).filter(Boolean);
+    return { scope, messages, source };
   }
   async command(name, args = {}) {
     if (!READ_COMMANDS.includes(name)) throw new Error('Read-only command rejected');
@@ -126,15 +171,22 @@ class NativeDriver extends EventEmitter {
     const epoch = this.epoch;
     const service = this.session.getMsgService();
     const peer = { chatType: 1, peerUid: scope.peerUid, guildId: '' };
-    const result = name === 'latest' ? await service.getAioFirstViewLatestMsgs(peer, 50) :
-      await service.getMsgsIncludeSelf(peer, opaque(args.cursor, 'history cursor'), 50, false);
-    this.assertScope(scope);
-    if (epoch !== this.epoch) throw new Error('QQ session changed during history read');
-    if (result.result !== undefined && result.result !== 0) throw new Error(`QQ history failed (${result.result}): ${result.errMsg || ''}`);
-    if (!Array.isArray(result.msgList)) throw new Error('QQ history response has no msgList');
-    this.emit('read-stat', { command:name, rawCount:result.msgList.length, senderOwner:result.msgList.filter(m=>m.senderUid===scope.accountUid).length, senderPeer:result.msgList.filter(m=>m.senderUid===scope.peerUid).length, peerUIDMatches:result.msgList.filter(m=>m.peerUid===scope.peerUid).length, peerUINMatches:result.msgList.filter(m=>String(m.peerUin)===scope.peerUin).length, olderThanCursor:name==='older'?result.msgList.filter(m=>typeof m.msgId==='string'&&/^\d+$/.test(m.msgId)&&BigInt(m.msgId)<BigInt(args.cursor)).length:null });
-    const messages = result.msgList.map(m=>this.withIdentity(m,scope)).filter(Boolean);
-    return { scope, messages, source: 'desktop-qq-native' };
+    try {
+      const result = name === 'latest' ? await this.raceTimeout(service.getAioFirstViewLatestMsgs(peer, 50), 'latest') :
+        await this.raceTimeout(service.getMsgsIncludeSelf(peer, opaque(args.cursor, 'history cursor'), 50, false), 'older');
+      return this.finishRead(name, scope, epoch, result, 'desktop-qq-native', name === 'older' ? args.cursor : null);
+    } catch (error) {
+      // Only a hung read falls back; real native failures keep their errors.
+      if (name !== 'latest' || !(error instanceof NativeReadTimeout)) throw error;
+      this.assertScope(scope);
+      if (epoch !== this.epoch) throw new Error('QQ session changed during history read');
+      const anchor = this.newestMsgIdByScope.get(this.scopeKey(scope));
+      // No cached anchor yet: report an empty fallback page rather than
+      // issuing another read that could hang the same way.
+      if (!anchor) return { scope, messages: [], source: 'desktop-qq-native-fallback' };
+      const fallback = await this.raceTimeout(service.getMsgsIncludeSelf(peer, anchor, 50, true), 'latest-fallback');
+      return this.finishRead('latest-fallback', scope, epoch, fallback, 'desktop-qq-native-fallback', null);
+    }
   }
 }
 

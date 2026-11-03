@@ -41,6 +41,7 @@ const { methodFor } = require('./help-methods.cjs');
 const {CandidateSession}=require('./candidate-session.cjs');
 const {PresentationCandidateSession}=require('./feedback/presentation-candidate-session.cjs');
 const {PresentationLedger,canonicalScopeKey}=require('./feedback/presentation-ledger.cjs');
+const {createPendingClarificationRegistry,projectAssistantTurn,recordPendingClarifications,supersedePendingClarifications}=require('./response-projection.cjs');
 const {createGatedStore}=require('./memory/write-gate.cjs');
 class Controller extends EventEmitter {
   constructor({ store, read, settings, model = generate, assistantModel = assistModel, memoryModel = null, compactionModel = assistDiscussionCompaction,
@@ -70,6 +71,9 @@ class Controller extends EventEmitter {
     this.usage=new TaskLedger(store);this.memoryLastActivityAt=0;this.memoryDraining=false;
     this.feedbackContinuations=new Map();
     this.discussionCompaction=null;
+    // B16 pending-question projection state, scoped per contact; see
+    // ./response-projection.cjs for the deterministic supersede/strip rule.
+    this.pendingClarifications=createPendingClarificationRegistry();
   }
   // Compatibility for existing local API consumers; CandidateSession owns all
   // current output, validity, input sequencing and automatic reuse state.
@@ -153,6 +157,11 @@ class Controller extends EventEmitter {
     const normalized = raw.map(m => normalize(m, scope)).filter(Boolean);
     const count = this.store.add(scope, normalized);
     if (count) {
+      // B16: any observed human send (an outgoing actual QQ message)
+      // supersedes ALL pending clarifications for this contact. Deterministic
+      // on purpose — no semantic matching; the user's own send is the answer
+      // channel, so no later visible turn may keep the question open.
+      if(normalized.some(message=>message.direction==='outgoing'&&message.kind==='actual'))supersedePendingClarifications(this.pendingClarifications,{scopeKey:canonicalScopeKey(scope)});
       const pending=this.activeAssist||this.pendingAssist,automatic=pending?.args?.origin==='automatic';
       const requirement=inFlightMessageRequirement(pending,this.scope);
       if(requirement)pending.args={...pending.args,requestDeliveryObligation:requirement};
@@ -881,6 +890,12 @@ class Controller extends EventEmitter {
         sourceRevisions:context.manifest.sourceRevisions,replyDisposition:result.replyDisposition});
       if(!this.candidateSession.bindPlan(candidateTicket,validatedPlanDigest))return;
       context.manifest.candidateSession={qqRevision:revision,privateInputSeq:candidateTicket.privateInputSeq,validatedPlanDigest};
+      // B16: project the visible companion turn — strip clarification
+      // portions a later human send already superseded, keep draft and
+      // suggestion content untouched, and detect new pending clarifications
+      // in what remains visible. Recording happens only after the turn is
+      // actually saved below, so the registry never describes an invisible turn.
+      const projected=projectAssistantTurn(this.pendingClarifications,{scopeKey:canonicalScopeKey(scope),kind:result.kind,text:result.text,discussionExplanation});
       const reply=this.store._atomic(()=>{
         if(!current())return null;
         publication.assert(result,expressionOptions);
@@ -928,11 +943,12 @@ class Controller extends EventEmitter {
         publication.assert(result,expressionOptions);
         assertDraftSourcesCurrent(publication.context,Object.keys(publication.context.manifest.sourceRevisions),{scope,store:this.store});
         assertArtifactInputs(publication.context);
-        const saved=this.store.appendTurn(scope,{role:'assistant',kind:result.kind,text:result.text,discussionExplanation,requestId,suggestions:result.suggestions,origin:invocation.origin,replyDisposition:result.replyDisposition||(purpose==='reply'&&!result.suggestions?.length?'unavailable':undefined),
+        const saved=this.store.appendTurn(scope,{role:'assistant',kind:result.kind,text:projected.text,discussionExplanation:projected.discussionExplanation,requestId,suggestions:result.suggestions,origin:invocation.origin,replyDisposition:result.replyDisposition||(purpose==='reply'&&!result.suggestions?.length?'unavailable':undefined),
           sourceIds:publication.context.manifest.sourceIds,expressionOptions,methodIds,actionReceipts:receipts,generationStages,responseRecovery,privateReviewReceipt,metadataReviewPending,
           artifactMetadata:{generationStages,goalVersion:companion.goal.version,inputArtifactRefs:assertArtifactInputs(publication.context),inputEvidenceLossRefs:[...new Map([...capturedRequests.flatMap(request=>request.manifest?.inputEvidenceLossRefs||[]),...(publication.context.manifest.inputEvidenceLossRefs||[])].map(ref=>[`${ref.lossRef}:${ref.fingerprint}`,ref])).values()],inputSourceRefs:
             Object.entries(publication.context.manifest.sourceRevisions).filter(([sourceId])=>/^(qq|private|note):/.test(sourceId)).map(([sourceId,revision])=>({sourceId,revision})),
             discussionTurnFingerprints:Object.assign({},...capturedRequests.map(request=>({...request.manifest?.discussionCompaction?.turnFingerprints,...Object.fromEntries((request.manifest?.discussionReads||[]).filter(read=>['delivered','partial'].includes(read.delivery?.status)&&read.turnFingerprint).map(read=>[read.turnId,read.turnFingerprint]))}))),model:settings.model,promptVersion:context.payload.promptVersion}});
+        if(projected.detectedQuestions.length)recordPendingClarifications(this.pendingClarifications,{scopeKey:canonicalScopeKey(scope),questions:projected.detectedQuestions,turnId:saved.id,requestId,at:saved.createdAt});
         if(requestDelivery)context.manifest.requestDelivery.status=deliveryStatus(requestDelivery,result,{restricted:context.payload.purpose==='draft'});
         this.store.saveRun(scope,{id:requestId,baseRevision,purpose:context.payload.purpose,status:'complete',payload:context.payload,manifest:context.manifest,
           requests:capturedRequests,replyId:saved.id,patchReceipt,relationshipReceipt,topicReceipt,actionReceipts:receipts,privateReviewReceipt:saved.privateReviewReceipt,

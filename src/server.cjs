@@ -180,13 +180,26 @@ function run() {
     baseUrl: process.env.MODEL_BASE_URL || 'http://127.0.0.1:8317/v1',
     apiKey: process.env.MODEL_API_KEY || '', model: process.env.MODEL_NAME || 'gpt-6.1-sol' };
   const pending = new Map(); let next = 0;
+  // A stuck native read is retried once before surfacing the stable timeout
+  // text; each attempt carries its own reply id and stale replies are
+  // dropped by the pending map. Env overrides exist for focused tests only.
+  const readAttempts = Math.max(1, Number(process.env.CHAT_ASSISTANT_READ_ATTEMPTS) || 2);
+  const readTimeoutMs = Math.max(1, Number(process.env.CHAT_ASSISTANT_READ_TIMEOUT_MS) || 12000);
+  const readRetryGapMs = Math.max(0, Number(process.env.CHAT_ASSISTANT_READ_RETRY_GAP_MS) || 800);
   function read(command, args) {
     if (!process.send) return Promise.reject(new Error('请用项目启动器打开 QQ，助手才能读取当前客户端'));
     return new Promise((resolve, reject) => {
-      const id = ++next;
-      const timer = setTimeout(() => { pending.delete(id); reject(new Error(`QQ 读取超时：${command}`)); }, 25000);
-      pending.set(id, { resolve, reject, timer });
-      process.send({ type: 'read', id, command, args });
+      const attempt = remaining => {
+        const id = ++next;
+        const timer = setTimeout(() => {
+          pending.delete(id);
+          if (remaining > 1) setTimeout(() => attempt(remaining - 1), readRetryGapMs);
+          else reject(new Error(`QQ 读取超时：${command}`));
+        }, readTimeoutMs);
+        pending.set(id, { resolve, reject, timer });
+        process.send({ type: 'read', id, command, args });
+      };
+      attempt(readAttempts);
     });
   }
   const store = new Store(path.join(data, 'messages.sqlite'));
