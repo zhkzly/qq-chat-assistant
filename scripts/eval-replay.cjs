@@ -57,7 +57,7 @@ async function runEpisode({plan,adapter,timeoutMs=60000,identity={},onRecord=()=
     if(!adapter.drainOutputs)return;
     const outputs=await bounded(()=>adapter.drainOutputs());
     if(!Array.isArray(outputs))throw Error('Adapter drainOutputs() must return an array');
-    for(const output of outputs)entry.observed_outputs.push({at,phase,output:visibleOutput(output)});
+    for(const output of outputs)entry.observed_outputs.push({at,phase,created_at:output&&typeof output==='object'?output.created_at:undefined,output:visibleOutput(output)});
    };
    try{
     let reference;

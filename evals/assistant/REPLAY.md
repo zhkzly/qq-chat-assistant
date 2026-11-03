@@ -34,7 +34,8 @@ with `create()` for a new isolated episode. An episode exposes:
 | `respond(request)` | Return the actual answer; an optional `reference.reply_id` binds an actually observed earlier answer. |
 | `configure({automatic?, goal?})` | Optional explicit user controls, including a changed long-term purpose. |
 | `withdrawSources(events)` | Apply observed source deletion, exclusion or QQ recall, without executing any real QQ message action. |
-| `drainOutputs()` | Return newly generated observable outputs, including automatic advice preceding a manual request. |
+| `drainOutputs()` | Return newly generated observable outputs, including automatic advice preceding a manual request; each entry carries `created_at` (the product-side creation/display time), which may precede the drain/step time. |
+| Channel semantics | At a request step, the step's `output` IS the product's visible answer displayed for that request; `observed_outputs` are automatic outputs generated BEFORE the request (their `created_at` is the product-side display time, their `at` is the drain time). An automatic output generated before a later request must not be read as the visible result of that request. |request. |
 | `currentOutput()` | Return the currently displayed candidate, or null. |
 | `diagnostics()` | Optional versioned internal evidence; errors do not determine conversational quality. |
 | `close()` | Release episode resources. |
