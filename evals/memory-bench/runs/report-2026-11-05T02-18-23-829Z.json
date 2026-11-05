@@ -1,0 +1,25 @@
+{
+ "model": "gpt-6-luna",
+ "generated": "2026-11-05T02:18:23.829Z",
+ "totals": {
+  "pass": 1
+ },
+ "byCategory": {
+  "single-hop": {
+   "pass": 1,
+   "partial": 0,
+   "fail": 0,
+   "pass_weak": 0,
+   "fail_fabricated": 0
+  }
+ },
+ "rows": [
+  {
+   "ask": "我之前跟你说过我最喜欢吃的东西是什么来着？",
+   "category": "single-hop",
+   "verdict": "pass",
+   "answer": "你之前说最喜欢吃螺蛳粉，还说一直把螺蛳粉当作 first choice。"
+  }
+ ],
+ "drainedPreRequest": 0
+}

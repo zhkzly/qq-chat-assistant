@@ -1,0 +1,100 @@
+{
+ "model": "gpt-6-luna",
+ "generated": "2026-11-05T02:23:04.047Z",
+ "totals": {
+  "pass": 11,
+  "partial": 0,
+  "fail": 0,
+  "pass_weak": 0,
+  "fail_fabricated": 0
+ },
+ "byCategory": {
+  "single-hop": {
+   "pass": 2
+  },
+  "temporal": {
+   "pass": 1
+  },
+  "correction": {
+   "pass": 2
+  },
+  "multi-hop": {
+   "pass": 2
+  },
+  "user-life": {
+   "pass": 2
+  },
+  "abstention": {
+   "pass": 2
+  }
+ },
+ "rows": [
+  {
+   "ask": "我之前跟你说过我最喜欢吃的东西是什么来着？",
+   "category": "single-hop",
+   "verdict": "pass",
+   "answer": "你之前说过最喜欢吃的是螺蛳粉，还说一直把螺蛳粉当作 first choice。"
+  },
+  {
+   "ask": "她养的猫叫什么名字？",
+   "category": "single-hop",
+   "verdict": "pass",
+   "answer": "她的猫叫煤球。她在 11 月 3 日说“煤球听到口琴就竖耳朵，真的”，之前也明确提过猫名。"
+  },
+  {
+   "ask": "她的生日聚会是哪天、在哪个咖啡馆办的来着？",
+   "category": "temporal",
+   "verdict": "pass",
+   "answer": "她的生日聚会定在10月18日（周日下午），地点是转角咖啡馆。"
+  },
+  {
+   "ask": "我不是说过我开始跑步锻炼了吗？最近跑得咋样帮我总结一下？",
+   "category": "correction",
+   "verdict": "pass",
+   "answer": "你确实提过开始跑步锻炼。能从现有记录总结到的是：8月24日你说，那阵子晨跑了一阵子，后来改成傍晚散步，因为跑得太多膝盖抗议。记录没有更近的跑步情况，所以不能据此判断你现在跑得怎么样。"
+  },
+  {
+   "ask": "我在学的乐器是什么来着？",
+   "category": "correction",
+   "verdict": "pass",
+   "answer": "你在学的是口琴。你之前说尤克里里不学了，改学口琴；11月3日还说已经会吹三首。"
+  },
+  {
+   "ask": "阿杰是我什么时期的同学？她婚礼在哪个区办？",
+   "category": "multi-hop",
+   "verdict": "pass",
+   "answer": "阿杰是她的初中同学，也就是你问的时期是初中。她的婚礼在城东的花园酒店；现有记录没有说具体是哪个区，所以不能确定区名。"
+  },
+  {
+   "ask": "生日聚会上我说要表演什么乐器？在哪家咖啡馆办的？",
+   "category": "multi-hop",
+   "verdict": "pass",
+   "answer": "你说要在生日聚会上吹口琴，地点是转角咖啡馆。更具体地说，你后来表示会连续吹三首口琴；聚会日期记录为10月18日周日下午。"
+  },
+  {
+   "ask": "我跟你提过的志愿工作是什么内容？",
+   "category": "user-life",
+   "verdict": "pass",
+   "answer": "你之前提过是在做历史档案数字化志愿工作。现有记录没有更具体的工作内容，不能确定具体数字化哪些档案或怎么做的。"
+  },
+  {
+   "ask": "她家猫打过疫苗之后躲哪了？",
+   "category": "user-life",
+   "verdict": "pass",
+   "answer": "她之前说煤球打完疫苗回来躲在床底下。"
+  },
+  {
+   "ask": "我生日是几月几号来着？你跟我说过的。",
+   "category": "abstention",
+   "verdict": "pass",
+   "answer": "我这边现有的聊天记录里没有你的生日日期，所以没法确定是几月几号。"
+  },
+  {
+   "ask": "我记得我跟你说过我在哪家公司上班，是哪家？",
+   "category": "abstention",
+   "verdict": "pass",
+   "answer": "我这边目前能核对到的聊天记录里没有你在哪家公司上班的信息，所以没法确定是哪家。"
+  }
+ ],
+ "drainedPreRequest": 0
+}

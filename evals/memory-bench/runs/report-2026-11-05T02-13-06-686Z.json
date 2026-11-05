@@ -1,0 +1,21 @@
+{
+ "model": "gpt-6-luna",
+ "generated": "2026-11-05T02:13:06.686Z",
+ "totals": {
+  "pass": 1
+ },
+ "byCategory": {
+  "single-hop": {
+   "pass": 1
+  }
+ },
+ "rows": [
+  {
+   "ask": "我之前跟你说过我最喜欢吃的东西是什么来着？",
+   "category": "single-hop",
+   "verdict": "pass",
+   "answer": "我这边目前能看到的聊天记录里，没有你提过最喜欢吃什么，所以没法确定。"
+  }
+ ],
+ "drainedPreRequest": 0
+}

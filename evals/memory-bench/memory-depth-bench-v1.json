@@ -1,0 +1,486 @@
+{
+ "id": "memory-depth-bench-v1",
+ "initial": {
+  "as_of": "2026-08-01T09:00:00+08:00",
+  "qq_events": [],
+  "private_events": []
+ },
+ "runtime_goal": "好友的私聊助手：记住用户与联系人共享过的长期事实，辅助持续对话。",
+ "steps": [
+  {
+   "id": "S1-session",
+   "as_of": "2026-08-10T20:00:00+08:00",
+   "qq_events": [
+    {
+     "id": "S1-e0",
+     "at": "2026-08-10T10:10:00+08:00",
+     "speaker": "contact",
+     "text": "周末去了趟青云夜市，人多到走不动，但吃到一家超好吃的螺蛳粉摊。",
+     "provenance": "authored_external_qq"
+    },
+    {
+     "id": "S1-e1",
+     "at": "2026-08-10T11:11:00+08:00",
+     "speaker": "self",
+     "text": "螺蛳粉确实是那个味道一闻就忘不掉的东西，我也一直把螺蛳粉当 first choice。",
+     "provenance": "authored_external_qq"
+    },
+    {
+     "id": "S1-e2",
+     "at": "2026-08-10T12:12:00+08:00",
+     "speaker": "contact",
+     "text": "原来你也爱螺蛳粉！对了，我家的猫“煤球”今天把我桌上的水杯扒拉下去了。",
+     "provenance": "authored_external_qq"
+    },
+    {
+     "id": "S1-e3",
+     "at": "2026-08-10T13:13:00+08:00",
+     "speaker": "self",
+     "text": "煤球这个名字太贴切了，黑猫都是物理学家，专推桌面物体做自由落体实验。",
+     "provenance": "authored_external_qq"
+    },
+    {
+     "id": "S1-e4",
+     "at": "2026-08-10T14:14:00+08:00",
+     "speaker": "contact",
+     "text": "哈哈哈它确实是黑猫。我朋友阿杰说下周带他去试那个新开的攀岩馆。",
+     "provenance": "authored_external_qq"
+    },
+    {
+     "id": "S1-e5",
+     "at": "2026-08-10T15:15:00+08:00",
+     "speaker": "self",
+     "text": "阿杰我们认识吗？下次你可以问问阿杰攀岩馆累不累，我去大概只挂墙上。",
+     "provenance": "authored_external_qq"
+    },
+    {
+     "id": "S1-e6",
+     "at": "2026-08-10T16:10:00+08:00",
+     "speaker": "contact",
+     "text": "阿杰是我初中同学呀，关系很好的那种。你说要开始学尤克里里了，学得咋样？",
+     "provenance": "authored_external_qq"
+    },
+    {
+     "id": "S1-e7",
+     "at": "2026-08-10T17:11:00+08:00",
+     "speaker": "self",
+     "text": "刚开始，和弦按得手疼，等我练会一首再汇报。",
+     "provenance": "authored_external_qq"
+    }
+   ],
+   "private_events": [],
+   "request": null
+  },
+  {
+   "id": "S2-session",
+   "as_of": "2026-08-24T20:00:00+08:00",
+   "qq_events": [
+    {
+     "id": "S2-e0",
+     "at": "2026-08-24T10:10:00+08:00",
+     "speaker": "contact",
+     "text": "最近在忙啥？",
+     "provenance": "authored_external_qq"
+    },
+    {
+     "id": "S2-e1",
+     "at": "2026-08-24T11:11:00+08:00",
+     "speaker": "self",
+     "text": "在做历史档案数字化的志愿工作，把老县志一页页扫进数据库，浩大但治愈。",
+     "provenance": "authored_external_qq"
+    },
+    {
+     "id": "S2-e2",
+     "at": "2026-08-24T12:12:00+08:00",
+     "speaker": "contact",
+     "text": "这个工作听着就好有使命感！对了你说开始跑步锻炼了？",
+     "provenance": "authored_external_qq"
+    },
+    {
+     "id": "S2-e3",
+     "at": "2026-08-24T13:13:00+08:00",
+     "speaker": "self",
+     "text": "对，那阵子晨跑了一阵子，最近换成了傍晚散步，跑太多了膝盖抗议。",
+     "provenance": "authored_external_qq"
+    },
+    {
+     "id": "S2-e4",
+     "at": "2026-08-24T14:14:00+08:00",
+     "speaker": "contact",
+     "text": "散步好，改天一起。我们咖啡馆“转角”周中人都少。",
+     "provenance": "authored_external_qq"
+    },
+    {
+     "id": "S2-e5",
+     "at": "2026-08-24T15:15:00+08:00",
+     "speaker": "self",
+     "text": "转角这家我是不是还没去过？改天打卡，你请客我带尤克里里表演砸琴。",
+     "provenance": "authored_external_qq"
+    },
+    {
+     "id": "S2-e6",
+     "at": "2026-08-24T16:10:00+08:00",
+     "speaker": "contact",
+     "text": "哈哈欢迎。说起来我打算 10 月中旬办个生日小聚，到时候叫上你。",
+     "provenance": "authored_external_qq"
+    },
+    {
+     "id": "S2-e7",
+     "at": "2026-08-24T17:11:00+08:00",
+     "speaker": "self",
+     "text": "收到，10 月中旬的生日局先记下了，礼物保密。",
+     "provenance": "authored_external_qq"
+    }
+   ],
+   "private_events": [],
+   "request": null
+  },
+  {
+   "id": "S3-session",
+   "as_of": "2026-09-14T20:00:00+08:00",
+   "qq_events": [
+    {
+     "id": "S3-e0",
+     "at": "2026-09-14T10:10:00+08:00",
+     "speaker": "contact",
+     "text": "生日聚会定在 10 月 18 号周日下午，就在转角咖啡馆包了个角落。",
+     "provenance": "authored_external_qq"
+    },
+    {
+     "id": "S3-e1",
+     "at": "2026-09-14T11:11:00+08:00",
+     "speaker": "self",
+     "text": "10 月 18 号转角，日历已圈。礼物也备好了。",
+     "provenance": "authored_external_qq"
+    },
+    {
+     "id": "S3-e2",
+     "at": "2026-09-14T12:12:00+08:00",
+     "speaker": "contact",
+     "text": "尤克里里学得怎么样啦，生日聚上来一段？",
+     "provenance": "authored_external_qq"
+    },
+    {
+     "id": "S3-e3",
+     "at": "2026-09-14T13:13:00+08:00",
+     "speaker": "self",
+     "text": "跟你说实话：尤克里里弃了，改学口琴了——口袋乐器适合我这种懒人。",
+     "provenance": "authored_external_qq"
+    },
+    {
+     "id": "S3-e4",
+     "at": "2026-09-14T14:14:00+08:00",
+     "speaker": "contact",
+     "text": "口琴也行啊！生日聚上来吹一段。",
+     "provenance": "authored_external_qq"
+    },
+    {
+     "id": "S3-e5",
+     "at": "2026-09-14T15:15:00+08:00",
+     "speaker": "self",
+     "text": "到时候《生日快乐》保底，别的翻车不负责。",
+     "provenance": "authored_external_qq"
+    },
+    {
+     "id": "S3-e6",
+     "at": "2026-09-14T16:10:00+08:00",
+     "speaker": "contact",
+     "text": "对了煤球昨天去医院打了疫苗，回来躲床底下不理我。",
+     "provenance": "authored_external_qq"
+    },
+    {
+     "id": "S3-e7",
+     "at": "2026-09-14T17:11:00+08:00",
+     "speaker": "self",
+     "text": "煤球记仇小本本+1。让它冷静，晚饭罐头贿赂一下就好。",
+     "provenance": "authored_external_qq"
+    }
+   ],
+   "private_events": [],
+   "request": null
+  },
+  {
+   "id": "S4-session",
+   "as_of": "2026-10-20T20:00:00+08:00",
+   "qq_events": [
+    {
+     "id": "S4-e0",
+     "at": "2026-10-20T10:10:00+08:00",
+     "speaker": "contact",
+     "text": "生日聚太开心了！谢谢你吹的口琴，煤球都被吸引出床底了。",
+     "provenance": "authored_external_qq"
+    },
+    {
+     "id": "S4-e1",
+     "at": "2026-10-20T11:11:00+08:00",
+     "speaker": "self",
+     "text": "口琴首秀成功就是最大褒奖。煤球肯出来说明我吹得不如罐头吓人。",
+     "provenance": "authored_external_qq"
+    },
+    {
+     "id": "S4-e2",
+     "at": "2026-10-20T12:12:00+08:00",
+     "speaker": "contact",
+     "text": "阿杰下周结婚，在城东的花园酒店，我去做伴娘啦！",
+     "provenance": "authored_external_qq"
+    },
+    {
+     "id": "S4-e3",
+     "at": "2026-10-20T13:13:00+08:00",
+     "speaker": "self",
+     "text": "初中同学都要结婚了，时间过得真快。伴娘服选好了吗？",
+     "provenance": "authored_external_qq"
+    },
+    {
+     "id": "S4-e4",
+     "at": "2026-10-20T14:14:00+08:00",
+     "speaker": "contact",
+     "text": "选好了！对了我上次说想学做蛋糕，报了个烘焙班，周六第一课。",
+     "provenance": "authored_external_qq"
+    },
+    {
+     "id": "S4-e5",
+     "at": "2026-10-20T15:15:00+08:00",
+     "speaker": "self",
+     "text": "烘焙班第一课通常连面粉都能翻车，祝你旗开得胜。",
+     "provenance": "authored_external_qq"
+    },
+    {
+     "id": "S4-e6",
+     "at": "2026-10-20T16:10:00+08:00",
+     "speaker": "contact",
+     "text": "你最近工作那么忙，志愿数字化做完那一批了吗？",
+     "provenance": "authored_external_qq"
+    },
+    {
+     "id": "S4-e7",
+     "at": "2026-10-20T17:11:00+08:00",
+     "speaker": "self",
+     "text": "做完两箱了，还剩一箱。做完这批我打算请自己去看场摄影展。",
+     "provenance": "authored_external_qq"
+    }
+   ],
+   "private_events": [],
+   "request": null
+  },
+  {
+   "id": "S5-session",
+   "as_of": "2026-11-03T20:00:00+08:00",
+   "qq_events": [
+    {
+     "id": "S5-e0",
+     "at": "2026-11-03T10:10:00+08:00",
+     "speaker": "contact",
+     "text": "烘焙班第二课我烤了戚风，这次没塌！",
+     "provenance": "authored_external_qq"
+    },
+    {
+     "id": "S5-e1",
+     "at": "2026-11-03T11:11:00+08:00",
+     "speaker": "self",
+     "text": "从翻车到戚风不塌，烘焙之路里程碑。下次样品给我留一块。",
+     "provenance": "authored_external_qq"
+    },
+    {
+     "id": "S5-e2",
+     "at": "2026-11-03T12:12:00+08:00",
+     "speaker": "contact",
+     "text": "一定。对了阿杰婚礼我当伴娘回来了，累但感动。",
+     "provenance": "authored_external_qq"
+    },
+    {
+     "id": "S5-e3",
+     "at": "2026-11-03T13:13:00+08:00",
+     "speaker": "self",
+     "text": "伴娘 + 烘焙 + 养猫，你最近生活浓度很高啊。",
+     "provenance": "authored_external_qq"
+    },
+    {
+     "id": "S5-e4",
+     "at": "2026-11-03T14:14:00+08:00",
+     "speaker": "contact",
+     "text": "哈哈是。你口琴还在练吗？",
+     "provenance": "authored_external_qq"
+    },
+    {
+     "id": "S5-e5",
+     "at": "2026-11-03T15:15:00+08:00",
+     "speaker": "self",
+     "text": "在练，已经会三首了，下次见面吹给你和煤球听。",
+     "provenance": "authored_external_qq"
+    },
+    {
+     "id": "S5-e6",
+     "at": "2026-11-03T16:10:00+08:00",
+     "speaker": "contact",
+     "text": "煤球听到口琴就竖耳朵，真的。那周末转角见？",
+     "provenance": "authored_external_qq"
+    },
+    {
+     "id": "S5-e7",
+     "at": "2026-11-03T17:11:00+08:00",
+     "speaker": "self",
+     "text": "周末转角见，口琴三首连播。",
+     "provenance": "authored_external_qq"
+    }
+   ],
+   "private_events": [],
+   "request": null
+  },
+  {
+   "id": "qa-0-single-hop",
+   "as_of": "2026-11-04T10:00:00+08:00",
+   "qq_events": [],
+   "private_events": [],
+   "request": {
+    "id": "rq-0",
+    "at": "2026-11-04T10:00:00+08:00",
+    "text": "我之前跟你说过我最喜欢吃的东西是什么来着？"
+   },
+   "user_controls": {
+    "automatic": false
+   }
+  },
+  {
+   "id": "qa-1-single-hop",
+   "as_of": "2026-11-05T10:00:00+08:00",
+   "qq_events": [],
+   "private_events": [],
+   "request": {
+    "id": "rq-1",
+    "at": "2026-11-05T10:00:00+08:00",
+    "text": "她养的猫叫什么名字？"
+   },
+   "user_controls": {
+    "automatic": false
+   }
+  },
+  {
+   "id": "qa-2-temporal",
+   "as_of": "2026-11-06T10:00:00+08:00",
+   "qq_events": [],
+   "private_events": [],
+   "request": {
+    "id": "rq-2",
+    "at": "2026-11-06T10:00:00+08:00",
+    "text": "她的生日聚会是哪天、在哪个咖啡馆办的来着？"
+   },
+   "user_controls": {
+    "automatic": false
+   }
+  },
+  {
+   "id": "qa-3-correction",
+   "as_of": "2026-11-07T10:00:00+08:00",
+   "qq_events": [],
+   "private_events": [],
+   "request": {
+    "id": "rq-3",
+    "at": "2026-11-07T10:00:00+08:00",
+    "text": "我不是说过我开始跑步锻炼了吗？最近跑得咋样帮我总结一下？"
+   },
+   "user_controls": {
+    "automatic": false
+   }
+  },
+  {
+   "id": "qa-4-correction",
+   "as_of": "2026-11-08T10:00:00+08:00",
+   "qq_events": [],
+   "private_events": [],
+   "request": {
+    "id": "rq-4",
+    "at": "2026-11-08T10:00:00+08:00",
+    "text": "我在学的乐器是什么来着？"
+   },
+   "user_controls": {
+    "automatic": false
+   }
+  },
+  {
+   "id": "qa-5-multi-hop",
+   "as_of": "2026-11-09T10:00:00+08:00",
+   "qq_events": [],
+   "private_events": [],
+   "request": {
+    "id": "rq-5",
+    "at": "2026-11-09T10:00:00+08:00",
+    "text": "阿杰是我什么时期的同学？她婚礼在哪个区办？"
+   },
+   "user_controls": {
+    "automatic": false
+   }
+  },
+  {
+   "id": "qa-6-multi-hop",
+   "as_of": "2026-11-10T10:00:00+08:00",
+   "qq_events": [],
+   "private_events": [],
+   "request": {
+    "id": "rq-6",
+    "at": "2026-11-10T10:00:00+08:00",
+    "text": "生日聚会上我说要表演什么乐器？在哪家咖啡馆办的？"
+   },
+   "user_controls": {
+    "automatic": false
+   }
+  },
+  {
+   "id": "qa-7-user-life",
+   "as_of": "2026-11-11T10:00:00+08:00",
+   "qq_events": [],
+   "private_events": [],
+   "request": {
+    "id": "rq-7",
+    "at": "2026-11-11T10:00:00+08:00",
+    "text": "我跟你提过的志愿工作是什么内容？"
+   },
+   "user_controls": {
+    "automatic": false
+   }
+  },
+  {
+   "id": "qa-8-user-life",
+   "as_of": "2026-11-12T10:00:00+08:00",
+   "qq_events": [],
+   "private_events": [],
+   "request": {
+    "id": "rq-8",
+    "at": "2026-11-12T10:00:00+08:00",
+    "text": "她家猫打过疫苗之后躲哪了？"
+   },
+   "user_controls": {
+    "automatic": false
+   }
+  },
+  {
+   "id": "qa-9-abstention",
+   "as_of": "2026-11-13T10:00:00+08:00",
+   "qq_events": [],
+   "private_events": [],
+   "request": {
+    "id": "rq-9",
+    "at": "2026-11-13T10:00:00+08:00",
+    "text": "我生日是几月几号来着？你跟我说过的。"
+   },
+   "user_controls": {
+    "automatic": false
+   }
+  },
+  {
+   "id": "qa-10-abstention",
+   "as_of": "2026-11-14T10:00:00+08:00",
+   "qq_events": [],
+   "private_events": [],
+   "request": {
+    "id": "rq-10",
+    "at": "2026-11-14T10:00:00+08:00",
+    "text": "我记得我跟你说过我在哪家公司上班，是哪家？"
+   },
+   "user_controls": {
+    "automatic": false
+   }
+  }
+ ],
+ "policy_version": "observed-history-replay-v2"
+}

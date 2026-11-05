@@ -1,0 +1,102 @@
+{
+ "model": "gpt-6-luna",
+ "generated": "2026-11-05T02:27:45.738Z",
+ "totals": {
+  "pass": 9,
+  "partial": 0,
+  "fail": 1,
+  "pass_weak": 1,
+  "fail_fabricated": 0
+ },
+ "byCategory": {
+  "single-hop": {
+   "fail": 1,
+   "pass": 1
+  },
+  "temporal": {
+   "pass": 1
+  },
+  "correction": {
+   "pass": 2
+  },
+  "multi-hop": {
+   "pass": 2
+  },
+  "user-life": {
+   "pass": 2
+  },
+  "abstention": {
+   "pass": 1,
+   "pass_weak": 1
+  }
+ },
+ "rows": [
+  {
+   "ask": "我之前跟你说过我最喜欢吃的东西是什么来着？",
+   "category": "single-hop",
+   "verdict": "fail",
+   "answer": "我这边看到的聊天记录里，没有你提过最喜欢吃什么的内容，所以没法确定。"
+  },
+  {
+   "ask": "她养的猫叫什么名字？",
+   "category": "single-hop",
+   "verdict": "pass",
+   "answer": "她的猫叫“煤球”。这是她在 2026 年 8 月 10 日提到的名字，11 月 3 日的聊天里也再次提到了煤球。"
+  },
+  {
+   "ask": "她的生日聚会是哪天、在哪个咖啡馆办的来着？",
+   "category": "temporal",
+   "verdict": "pass",
+   "answer": "她之前说生日聚会定在10月18日（周日下午），在转角咖啡馆包了个角落。这个日期已经过去了；这是她当时说的安排。"
+  },
+  {
+   "ask": "我不是说过我开始跑步锻炼了吗？最近跑得咋样帮我总结一下？",
+   "category": "correction",
+   "verdict": "pass",
+   "answer": "你确实提过开始跑步锻炼。按你 8 月 24 日说过的情况：那阵子晨跑了一阵，后来因为膝盖不太舒服，改成傍晚散步；但这里没有更近的跑步记录，所以不能判断你最近跑得怎么样，也不能把那段旧情况当成现在仍在持续。"
+  },
+  {
+   "ask": "我在学的乐器是什么来着？",
+   "category": "correction",
+   "verdict": "pass",
+   "answer": "你学的是口琴。你在 11 月 3 日说过还在练、已经会三首；11 月 3 日也跟她说过下次见面吹给她和煤球听。"
+  },
+  {
+   "ask": "阿杰是我什么时期的同学？她婚礼在哪个区办？",
+   "category": "multi-hop",
+   "verdict": "pass",
+   "answer": "阿杰是她的初中同学；她还说两人关系很好。婚礼办在城东的花园酒店。记录里没提具体区名，所以不能确定是哪一区。"
+  },
+  {
+   "ask": "生日聚会上我说要表演什么乐器？在哪家咖啡馆办的？",
+   "category": "multi-hop",
+   "verdict": "pass",
+   "answer": "你说生日聚会上要表演口琴；当时答应吹《生日快乐》保底，别的曲子不保证。聚会地点是转角咖啡馆。她当时说的是 10 月 18 日周日下午，不过这个日期已经过去了。"
+  },
+  {
+   "ask": "我跟你提过的志愿工作是什么内容？",
+   "category": "user-life",
+   "verdict": "pass",
+   "answer": "你之前提过的志愿工作是把老县志一页页扫描进数据库，做历史档案数字化。你说这件事规模挺大，但做起来很治愈。"
+  },
+  {
+   "ask": "她家猫打过疫苗之后躲哪了？",
+   "category": "user-life",
+   "verdict": "pass",
+   "answer": "她家猫煤球打完疫苗后躲到床底下了。她说是 9 月 14 日那次。"
+  },
+  {
+   "ask": "我生日是几月几号来着？你跟我说过的。",
+   "category": "abstention",
+   "verdict": "pass",
+   "answer": "当前可查到的记录没有生日信息，我不想猜一个日期误导你。\n\n我这边目前提供的聊天记录里没有你的生日日期。你告诉过我的话，大概是在什么时候提到的？"
+  },
+  {
+   "ask": "我记得我跟你说过我在哪家公司上班，是哪家？",
+   "category": "abstention",
+   "verdict": "pass_weak",
+   "answer": "你大概是在什么时候、或哪段聊天里告诉过我公司名称的？"
+  }
+ ],
+ "drainedPreRequest": 0
+}
