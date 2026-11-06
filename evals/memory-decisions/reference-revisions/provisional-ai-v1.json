@@ -1,0 +1,550 @@
+{
+  "reference_revision": "provisional-ai-v1",
+  "dataset_hash": "05cef7cb73a0519f4d1f25e21283332098b610e4be291c214c4697745b3b00e0",
+  "contract_hash": "f767a5c261a9ea9f55ef1c3881058332f6fb94a5da169a54665905a5acaa4979",
+  "contract": {
+    "version": "raw-evidence-relations-v1",
+    "axes": {
+      "same_subject": [
+        "yes",
+        "no",
+        "uncertain",
+        "not_applicable"
+      ],
+      "time_scope": [
+        "same",
+        "different",
+        "unknown",
+        "not_applicable"
+      ],
+      "relationships": [
+        "duplicate",
+        "compatible_addition",
+        "correction",
+        "change_over_time",
+        "contradiction",
+        "uncertain",
+        "not_applicable"
+      ],
+      "evidence_sufficiency": [
+        "sufficient",
+        "insufficient",
+        "unavailable",
+        "mixed"
+      ]
+    },
+    "fields": [
+      "axes",
+      "evidence_ids",
+      "reason",
+      "confidence"
+    ],
+    "output_schema": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "$id": "urn:qq-assistant:raw-evidence-relations-v1:output",
+      "title": "Controlled memory evidence relation diagnostic output",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "axes",
+        "evidence_ids",
+        "reason"
+      ],
+      "properties": {
+        "axes": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "same_subject",
+            "time_scope",
+            "relationships",
+            "evidence_sufficiency"
+          ],
+          "properties": {
+            "same_subject": {
+              "enum": [
+                "yes",
+                "no",
+                "uncertain",
+                "not_applicable"
+              ]
+            },
+            "time_scope": {
+              "enum": [
+                "same",
+                "different",
+                "unknown",
+                "not_applicable"
+              ]
+            },
+            "relationships": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {
+                "enum": [
+                  "duplicate",
+                  "compatible_addition",
+                  "correction",
+                  "change_over_time",
+                  "contradiction",
+                  "uncertain",
+                  "not_applicable"
+                ]
+              }
+            },
+            "evidence_sufficiency": {
+              "enum": [
+                "sufficient",
+                "insufficient",
+                "unavailable",
+                "mixed"
+              ]
+            }
+          }
+        },
+        "evidence_ids": {
+          "type": "array",
+          "maxItems": 128,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[su][1-9][0-9]*$"
+          }
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4000,
+          "pattern": "\\S"
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    },
+    "relationships": "Choose one or more nonexclusive labels; other axes use one value each.",
+    "same_subject": "Compare the subjects of the propositions or activities, not merely the people uttering the words.",
+    "time_scope": "Compare the described occurrence/validity context, not just observation arrival times. Unknown is permitted.",
+    "evidence_sufficiency": "Judge whether these supplied observations resolve their relationship. Do not infer a missing event date or authority.",
+    "evidence_ids": "Only delivered s# evidence or u# availability-update aliases. An empty list is valid if evidence is insufficient.",
+    "reason": "Brief source-grounded explanation, at most 4000 characters; it is not a product write command.",
+    "confidence": "Optional number in [0,1]; a self-reported hint, not a calibrated guarantee."
+  },
+  "runtime_hashes": {
+    "md-temporary-or-stable-temporary": "a77bb19c0e85884167658798972bb6fed46d6ce7c22cd027ff88d6ee152e30f7",
+    "md-temporary-or-stable-changed": "b897660d3c13f20aecfb9cb95bd30c5a13e6ee34cd4f289d2d2c03d1aaee3a46",
+    "md-local-or-recurring-local": "34c9f0e0102bd6a06d1069afd3e593441936dd85eccdcc423c29af032d9e389b",
+    "md-local-or-recurring-conditional-recurring": "4793d9ec141184ce1f50407b1637e38c700ab594ebbc9b24487936b4c3ab8c5b",
+    "md-quotation-subject-third-party": "936bb32c65520334cf87b38e4e2d51bd9d6df5d71446270e07e5ec1564a0ca41",
+    "md-quotation-subject-contact-self": "e4f065e9a46fc71ec6658f429c30bd1b47a3cebfae364e99be9345c60f9057d6",
+    "md-correction-or-change-correction": "1587fafb70df49602b3621a2dfdd040f36259e7540dadbc3c2272e0f6feb40ca",
+    "md-correction-or-change-time-change": "c3df768caecd5401c6e253331c54fb515e1b24fd0cf3b1cd010abf0d39e60bb4",
+    "md-duplicate-or-addition-duplicate": "baac47741e96b5bacc77f8da0edceff41ba0ce387243ff17c3037be3b1300726",
+    "md-duplicate-or-addition-addition": "e53bc7b3752cf426f052c32f1047f48e44a404d46901a39ccd1e47453f9db4df",
+    "md-conflict-or-time-same-time": "c6b27a9fb4a09b87e0d3535d6790e660dd1824752f84ac49eb7149fe2d80cebe",
+    "md-conflict-or-time-different-time": "af275da1b4050e653ce931a544b9b837cceb6ed6890dd9ebd365ddcfeacfef4d",
+    "md-withdrawal-or-cancel-withdrawal": "5d397f104168322fc5261069140afa3a5d586266d8f4ab9a53d2a367a72b19f2",
+    "md-withdrawal-or-cancel-cancellation": "457102b6dba59c25bf5f3c334b16f10c2dd3cd0e90be339f5b58c0a0ecdd29ab",
+    "md-unknown-or-known-time-unknown": "a678417b39f884bc764b2ae4ed842326067898e907d8e3414256f85016ee2d98",
+    "md-unknown-or-known-time-explicit-time": "cdfeb3128e75d378cc2e1c2a4c80cbd236da34f1baa4734dd3c4201db03dab38"
+  },
+  "references": {
+    "md-temporary-or-stable-temporary": {
+      "reference_status": "provisional_ai_reference",
+      "axis_expectations": {
+        "same_subject": [
+          "yes"
+        ],
+        "time_scope": [
+          "same"
+        ],
+        "relationships": [
+          "duplicate",
+          "compatible_addition"
+        ],
+        "evidence_sufficiency": [
+          "sufficient"
+        ]
+      },
+      "notes": [
+        "Temporary availability and interest can coexist. Do not retire the interest.",
+        "Both statements refer to the same week; later report arrival is not itself change_over_time."
+      ],
+      "critical_failures": [
+        "Do not invent absent facts, authorize disclosure, or treat an evidence-availability operation as a world event."
+      ],
+      "review_status": "not_run"
+    },
+    "md-temporary-or-stable-changed": {
+      "reference_status": "provisional_ai_reference",
+      "axis_expectations": {
+        "same_subject": [
+          "yes"
+        ],
+        "time_scope": [
+          "different"
+        ],
+        "relationships": [
+          "change_over_time"
+        ],
+        "evidence_sufficiency": [
+          "sufficient"
+        ]
+      },
+      "notes": [
+        "Explicitly changed preference can update current understanding while preserving history."
+      ],
+      "critical_failures": [
+        "Do not invent absent facts, authorize disclosure, or treat an evidence-availability operation as a world event."
+      ],
+      "review_status": "not_run"
+    },
+    "md-local-or-recurring-local": {
+      "reference_status": "provisional_ai_reference",
+      "axis_expectations": {
+        "same_subject": [
+          "yes"
+        ],
+        "time_scope": [
+          "same"
+        ],
+        "relationships": [
+          "compatible_addition",
+          "duplicate"
+        ],
+        "evidence_sufficiency": [
+          "sufficient"
+        ]
+      },
+      "notes": [
+        "Another local request does not by itself attest a universal recurring preference. Multiple content labels may be defensible."
+      ],
+      "critical_failures": [
+        "Do not invent absent facts, authorize disclosure, or treat an evidence-availability operation as a world event."
+      ],
+      "review_status": "not_run"
+    },
+    "md-local-or-recurring-conditional-recurring": {
+      "reference_status": "provisional_ai_reference",
+      "axis_expectations": {
+        "same_subject": [
+          "yes"
+        ],
+        "time_scope": [
+          "different"
+        ],
+        "relationships": [
+          "compatible_addition"
+        ],
+        "evidence_sufficiency": [
+          "sufficient"
+        ]
+      },
+      "notes": [
+        "The actual work-pref declares a recurring preference limited to work communication, not all chat."
+      ],
+      "critical_failures": [
+        "Do not invent absent facts, authorize disclosure, or treat an evidence-availability operation as a world event."
+      ],
+      "review_status": "not_run"
+    },
+    "md-quotation-subject-third-party": {
+      "reference_status": "provisional_ai_reference",
+      "axis_expectations": {
+        "same_subject": [
+          "yes"
+        ],
+        "time_scope": [
+          "same",
+          "unknown"
+        ],
+        "relationships": [
+          "duplicate",
+          "compatible_addition"
+        ],
+        "evidence_sufficiency": [
+          "sufficient"
+        ]
+      },
+      "notes": [
+        "Both statements report the colleague, not the contact. Same_subject concerns proposition holders rather than utterance speakers."
+      ],
+      "critical_failures": [
+        "Do not invent absent facts, authorize disclosure, or treat an evidence-availability operation as a world event."
+      ],
+      "review_status": "not_run"
+    },
+    "md-quotation-subject-contact-self": {
+      "reference_status": "provisional_ai_reference",
+      "axis_expectations": {
+        "same_subject": [
+          "no"
+        ],
+        "time_scope": [
+          "not_applicable",
+          "unknown"
+        ],
+        "relationships": [
+          "compatible_addition"
+        ],
+        "evidence_sufficiency": [
+          "sufficient"
+        ]
+      },
+      "notes": [
+        "A contact speaking about herself is a distinct holder from her quoted colleague."
+      ],
+      "critical_failures": [
+        "Do not invent absent facts, authorize disclosure, or treat an evidence-availability operation as a world event."
+      ],
+      "review_status": "not_run"
+    },
+    "md-correction-or-change-correction": {
+      "reference_status": "provisional_ai_reference",
+      "axis_expectations": {
+        "same_subject": [
+          "yes"
+        ],
+        "time_scope": [
+          "same"
+        ],
+        "relationships": [
+          "correction",
+          "contradiction"
+        ],
+        "evidence_sufficiency": [
+          "sufficient"
+        ]
+      },
+      "notes": [
+        "The new statement explicitly corrects the earlier description of the same historical week; it is not merely a new job."
+      ],
+      "critical_failures": [
+        "Do not invent absent facts, authorize disclosure, or treat an evidence-availability operation as a world event."
+      ],
+      "review_status": "not_run"
+    },
+    "md-correction-or-change-time-change": {
+      "reference_status": "provisional_ai_reference",
+      "axis_expectations": {
+        "same_subject": [
+          "yes"
+        ],
+        "time_scope": [
+          "different"
+        ],
+        "relationships": [
+          "change_over_time",
+          "compatible_addition"
+        ],
+        "evidence_sufficiency": [
+          "sufficient"
+        ]
+      },
+      "notes": [
+        "The old night shift and new bookstore job describe different dates. Recency alone is not the reason; the text states the transition."
+      ],
+      "critical_failures": [
+        "Do not invent absent facts, authorize disclosure, or treat an evidence-availability operation as a world event."
+      ],
+      "review_status": "not_run"
+    },
+    "md-duplicate-or-addition-duplicate": {
+      "reference_status": "provisional_ai_reference",
+      "axis_expectations": {
+        "same_subject": [
+          "yes"
+        ],
+        "time_scope": [
+          "same"
+        ],
+        "relationships": [
+          "duplicate"
+        ],
+        "evidence_sufficiency": [
+          "sufficient"
+        ]
+      },
+      "notes": [
+        "A paraphrase of the same tentative interest is not a second event or confirmed attendance."
+      ],
+      "critical_failures": [
+        "Do not invent absent facts, authorize disclosure, or treat an evidence-availability operation as a world event."
+      ],
+      "review_status": "not_run"
+    },
+    "md-duplicate-or-addition-addition": {
+      "reference_status": "provisional_ai_reference",
+      "axis_expectations": {
+        "same_subject": [
+          "yes"
+        ],
+        "time_scope": [
+          "different"
+        ],
+        "relationships": [
+          "compatible_addition"
+        ],
+        "evidence_sufficiency": [
+          "sufficient"
+        ]
+      },
+      "notes": [
+        "Two compatible interests should survive independently; neither entails actual attendance."
+      ],
+      "critical_failures": [
+        "Do not invent absent facts, authorize disclosure, or treat an evidence-availability operation as a world event."
+      ],
+      "review_status": "not_run"
+    },
+    "md-conflict-or-time-same-time": {
+      "reference_status": "provisional_ai_reference",
+      "axis_expectations": {
+        "same_subject": [
+          "yes"
+        ],
+        "time_scope": [
+          "same"
+        ],
+        "relationships": [
+          "contradiction",
+          "uncertain"
+        ],
+        "evidence_sufficiency": [
+          "insufficient"
+        ]
+      },
+      "notes": [
+        "The described person/instant is the same and the reports conflict; the input supplies no authority to choose a winner."
+      ],
+      "critical_failures": [
+        "Do not invent absent facts, authorize disclosure, or treat an evidence-availability operation as a world event."
+      ],
+      "review_status": "not_run"
+    },
+    "md-conflict-or-time-different-time": {
+      "reference_status": "provisional_ai_reference",
+      "axis_expectations": {
+        "same_subject": [
+          "yes"
+        ],
+        "time_scope": [
+          "different"
+        ],
+        "relationships": [
+          "compatible_addition"
+        ],
+        "evidence_sufficiency": [
+          "sufficient"
+        ]
+      },
+      "notes": [
+        "Different dates remove the supplied location conflict; no travel story should be invented."
+      ],
+      "critical_failures": [
+        "Do not invent absent facts, authorize disclosure, or treat an evidence-availability operation as a world event."
+      ],
+      "review_status": "not_run"
+    },
+    "md-withdrawal-or-cancel-withdrawal": {
+      "reference_status": "provisional_ai_reference",
+      "axis_expectations": {
+        "same_subject": [
+          "yes"
+        ],
+        "time_scope": [
+          "unknown"
+        ],
+        "relationships": [
+          "uncertain"
+        ],
+        "evidence_sufficiency": [
+          "unavailable"
+        ]
+      },
+      "notes": [
+        "Recall withdraws access to acceptance evidence; it is not a statement that the invitation was declined or cancelled. Old text is controlled historical component input, not newly usable evidence."
+      ],
+      "critical_failures": [
+        "Do not invent absent facts, authorize disclosure, or treat an evidence-availability operation as a world event."
+      ],
+      "review_status": "not_run"
+    },
+    "md-withdrawal-or-cancel-cancellation": {
+      "reference_status": "provisional_ai_reference",
+      "axis_expectations": {
+        "same_subject": [
+          "yes"
+        ],
+        "time_scope": [
+          "different"
+        ],
+        "relationships": [
+          "change_over_time"
+        ],
+        "evidence_sufficiency": [
+          "sufficient"
+        ]
+      },
+      "notes": [
+        "The original cancel explicitly changes the arrangement; retain that actual world-state report separately from source availability."
+      ],
+      "critical_failures": [
+        "Do not invent absent facts, authorize disclosure, or treat an evidence-availability operation as a world event."
+      ],
+      "review_status": "not_run"
+    },
+    "md-unknown-or-known-time-unknown": {
+      "reference_status": "provisional_ai_reference",
+      "axis_expectations": {
+        "same_subject": [
+          "uncertain"
+        ],
+        "time_scope": [
+          "unknown"
+        ],
+        "relationships": [
+          "uncertain"
+        ],
+        "evidence_sufficiency": [
+          "insufficient"
+        ]
+      },
+      "notes": [
+        "The report clock and current date do not establish when the pottery experience happened."
+      ],
+      "critical_failures": [
+        "Do not invent absent facts, authorize disclosure, or treat an evidence-availability operation as a world event."
+      ],
+      "review_status": "not_run"
+    },
+    "md-unknown-or-known-time-explicit-time": {
+      "reference_status": "provisional_ai_reference",
+      "axis_expectations": {
+        "same_subject": [
+          "yes"
+        ],
+        "time_scope": [
+          "unknown"
+        ],
+        "relationships": [
+          "compatible_addition"
+        ],
+        "evidence_sufficiency": [
+          "sufficient"
+        ]
+      },
+      "notes": [
+        "A newly reported occurrence date can supplement the old unknown date. Preserve user-report attribution; the clock remains distinct."
+      ],
+      "critical_failures": [
+        "Do not invent absent facts, authorize disclosure, or treat an evidence-availability operation as a world event."
+      ],
+      "review_status": "not_run"
+    }
+  },
+  "evidence": "ungraded_provisional_references_before_blind_raw_data_review"
+}

@@ -179,8 +179,8 @@ test('the initial call receives shared missing-material guidance and can deliver
   contexts.push(input);return assistModel(settings,input,signal,async(_url,args)=>{
    const request=JSON.parse(args.body),wrapper=JSON.parse(request.messages[1].content),p=wrapper.originalInput||wrapper;calls.push({p,wrapper,request});let value;
    if(p.purpose==='fidelity_check'){
-    checks++;const statements={'suggestions[0].text':[{quote:known,kind:'assertion',support:'supported',evidence:[{sourceId:p.evidence.find(source=>source.text===mint).sourceId,quote:mint}]}],'discussionExplanation.text':[{quote:question,kind:'question'}]};
-    value={checkRef:p.checkRef,verdict:checks===1?'allow':'uncertain',issues:[],factual:p.candidatePaths.map(path=>({path,statements:statements[path]||[]})),concerns:{malformed:'optional diagnostic'}};
+    checks++;assert.ok(p.evidence.some(source=>source.text===mint));assert.equal(p.candidate.discussionExplanation.text,question);
+    value={checkRef:p.checkRef,auditProtocol:'sparse-defects-v1',issues:[]};
    }else{
     primaries++;if(wrapper.originalInput)assert.doesNotMatch(wrapper.task,/原文不足则明确clarify/,'lack of self material must not force abandoning the known QQ response');
     value={operation:'prepare_message',answer:{suggestions:[{text:known}],privateExplanation:question}};
@@ -190,6 +190,6 @@ test('the initial call receives shared missing-material guidance and can deliver
  }});t.after(()=>{controller.close();store.close();});controller.updateStatus({phase:'ready',account:{uid:scope.accountUid,uin:scope.accountUin}});await controller.bind(scope.peerUin);
  controller.live({scope,messages:[raw('900719925474099876562',false,{msgTime:String(Math.floor(Date.now()/1000)-60),elements:[{textElement:{content:mint}}]})]});
  const reply=await controller.assist({text:'想接她这条，也让她知道一点我的日常，帮我写个自然的回复。',taskId:'truthful-partial-repair'});
- assert.equal(calls.length,1);assert.equal(primaries,1);assert.equal(checks,0);assert.equal(reply.suggestions[0].text,known);assert.equal(reply.discussionExplanation.text,question);assert.equal(reply.text,known,'the promoted sole suggestion is the reply main text (B13)');assert.equal(JSON.stringify(reply).includes(invented),false);
- const usage=controller.usage.get(scope,'truthful-partial-repair');assert.equal(usage.attempts,1);assert.equal(usage.limit,4);assert.equal(usage.requests.filter(request=>request.purpose==='delivery_repair').length,0);assert.equal(contexts.filter(input=>input.payload.purpose==='fidelity_check').length,0);assert.match(calls[0].request.messages[0].content,/privateExplanation.*真实小事|真实近况/);assert.equal(store.messages(scope).some(message=>message.direction==='outgoing'),false);
+ assert.equal(calls.length,2);assert.equal(primaries,1);assert.equal(checks,1);assert.equal(reply.suggestions[0].text,known);assert.equal(reply.discussionExplanation.text,question);assert.equal(reply.text,known,'the promoted sole suggestion is the reply main text (B13)');assert.equal(JSON.stringify(reply).includes(invented),false);
+ const usage=controller.usage.get(scope,'truthful-partial-repair');assert.equal(usage.attempts,2);assert.equal(usage.limit,4);assert.equal(usage.requests.filter(request=>request.purpose==='delivery_repair').length,0);assert.equal(contexts.filter(input=>input.payload.purpose==='fidelity_check').length,1);assert.equal(reply.semanticReview.exhaustive,false);assert.match(calls[0].request.messages[0].content,/privateExplanation.*真实小事|真实近况/);assert.equal(store.messages(scope).some(message=>message.direction==='outgoing'),false);
 });

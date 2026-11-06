@@ -14,7 +14,7 @@ function fixture({copy=FACT,admitted=[],extra=[]}={}){
  const input=buildFidelityContext(prepared,result,{scope,admittedContext:{payload:{outboundQuotes:admitted.map(text=>({sourceId:source.id,text}))},manifest},requestMeasure:()=>1});return {input,prepared,result,source};
 }
 const report=(issues=[],concerns=[])=>({checkRef:'c1',auditProtocol:'sparse-defects-v1',issues,concerns});
-const defect=(code= 'unsupported_fact',quote=FACT,evidence=[])=>({path:'suggestions[0].text',quote,code,reason:'A scripted concrete defect for this exact candidate.',...(evidence.length?{evidence}:{})});
+const defect=(code= 'unsupported_fact',quote=FACT,evidence=[],privacyBasis='explicit_restriction')=>({path:'suggestions[0].text',quote,code,claim:{kind:'assertion',quote},...(code==='private_disclosure'?{privacyBasis}:{}),reason:'A scripted concrete defect for this exact candidate.',...(evidence.length?{evidence}:{})});
 
 test('sparse no-defect report is a bounded review, never an exhaustive semantic approval',()=>{
  const app=fixture({admitted:[FACT]}),checked=parseFidelityResult(report(),app.input),receipt=deliveryFor(checked,app.input);
@@ -42,7 +42,7 @@ test('same source admission never licenses a second unadmitted private fact',()=
 test('program-authorized QQ cannot acquire invented privacy, newer private exclusion remains a separate witness',()=>{
  const qq={id:'qq:910000000000000123',type:'qq',role:'contact',revision:'qq-r1',text:'今天培训一整天。'},restriction={id:'private:new-exclusion',type:'private',kind:'discussion',role:'user',revision:'restriction-r1',text:'培训这件事只作背景，这轮别向她提。'};
  for(const exclude of [false,true]){
-  const app=fixture({copy:qq.text,extra:[qq,...(exclude?[restriction]:[])]}),checked=parseFidelityResult(report([defect('private_disclosure',qq.text,[{sourceId:qq.id,quote:qq.text},...(exclude?[{sourceId:restriction.id,quote:restriction.text}]:[])])]),app.input);
+  const app=fixture({copy:qq.text,extra:[qq,...(exclude?[restriction]:[])]}),checked=parseFidelityResult(report([defect('private_disclosure',qq.text,[{sourceId:qq.id,quote:qq.text},...(exclude?[{sourceId:restriction.id,quote:restriction.text}]:[])],exclude?'explicit_restriction':'absence_of_grant')]),app.input);
   assert.equal(checked.issues.length,exclude?1:0);assert.equal(deliveryFor(checked,app.input).findings.length,exclude?1:0);
  }
 });
@@ -87,6 +87,6 @@ test('native wire decoding cannot let unrelated source references erase a valid 
 test('malformed historical census containers cannot erase an already valid native hard finding',()=>{
  for(const factual of [[{path:'suggestions[0].text',statements:{}}],[null],[{statements:[null,{}]}]]){
   const app=fixture(),checked=parseFidelityResult({...report([defect()]),factual},app.input);
-  assert.equal(checked.issues.length,1);assert.equal(checked.issues[0].code,'unsupported_fact');assert.ok(deliveryFor(checked,app.input).findings.some(item=>item.kind==='reported_defect'));assert.equal(checked.reviewStatus,'incomplete');
+  assert.equal(checked.issues.length,1);assert.equal(checked.issues[0].code,'unsupported_fact');assert.ok(deliveryFor(checked,app.input).findings.some(item=>item.kind==='reported_defect'));assert.equal(checked.reviewStatus,'reviewed');assert.ok(checked.diagnostics.every(item=>item.blocking===false));
  }
 });

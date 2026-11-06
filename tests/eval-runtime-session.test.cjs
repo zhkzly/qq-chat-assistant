@@ -213,6 +213,9 @@ test('archived notes preserve identity, time, declared kind/use and chronologica
  ];
  await session.restoreNotes(notes);
  const state=session.snapshot(),saved=state.companion.notes;
+  const restoredTurn=session.trace.find(row=>row.component==='private_boundary'&&row.event==='restore'&&row.input_event?.id==='earlier-user');
+  assert.ok(restoredTurn,'archive input must not overwrite the trace event envelope');
+  assert.ok(session.trace.some(row=>row.component==='private_boundary'&&row.event==='restore_note'&&row.input_event?.id==='historical-material'));
  assert.deepEqual(saved.map(n=>[n.id,n.createdAt,n.updatedAt,n.use,n.kind]),notes.map(n=>[n.id,n.at,n.at,n.declared_use,n.note_kind]));
  assert.deepEqual(saved[1].evidenceSourceIds,[state.sourceAliases['original-incoming'],'note:historical-preference']);
  assert.equal(state.noteAliases['historical-preference'],'note:historical-preference');
@@ -223,6 +226,7 @@ test('archived notes preserve identity, time, declared kind/use and chronologica
  await session.post('/api/assistant',{text:'现在开始真实产品请求。'});
  await assert.rejects(session.restoreNotes([{...notes[0],id:'late-restore'}]),/before.*live|live.*output/);
  await session.withdrawSources([{id:'earlier-user',at:asOf,channel:'private',operation:'delete'}]);
+  assert.ok(session.trace.some(row=>row.component==='external_action'&&row.event==='source_withdrawn'&&row.input_event?.id==='earlier-user'));
  assert.equal(session.snapshot().companion.notes.length,0,'dependent notes are invalidated with their actual raw source');
  await session.post('/api/note',{id:'normal-note',text:'普通接口在当前时间新增。',use:'discussion',createdAt:'2000-01-01T00:00:00Z',at:'2000-01-01T00:00:00Z'});
  assert.equal(session.snapshot().companion.notes.find(n=>n.id==='normal-note').createdAt,asOf,'public note API cannot set historical dates');

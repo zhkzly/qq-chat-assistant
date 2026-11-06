@@ -114,14 +114,14 @@ async function integrationFixture(t,{privateOnly=false}={}){
  t.after(()=>{controller.close();store.close();});
  return {store,controller,calls,run:()=>store.getCompanion(scope).runs.at(-1)};
 }
-test('the actual final text body succeeds after three real primary calls without buying a critic or repair',async t=>{
+test('the actual final text body succeeds after three scripted primary HTTP calls and the required sparse audit without a repair',async t=>{
  const app=await integrationFixture(t),reply=await app.controller.assist({text:'回应她现在的包；只使用我明确允许分享的小经历，给我完整表达。',taskId:'final-carrier-four-call-task'});
- assert.equal(app.calls.length,3);assert.deepEqual(app.calls.map(call=>call.p.purpose),['discussion','discussion','discussion']);
+ assert.equal(app.calls.length,4);assert.deepEqual(app.calls.map(call=>call.p.purpose),['discussion','discussion','discussion','fidelity_check']);
  const wording=app.run().payload;assert.deepEqual(wording.outboundQuotes.map(({sourceId,text})=>({sourceId,text})),[actualQuote]);assert.equal(reply.suggestions[0].text,body);
  assert.equal(wording.userRequest,undefined);assert.equal(wording.privateConversation,undefined);assert.equal(wording.goal,undefined);assert.equal(app.calls[2].p.goal,app.store.getCompanion(scope).goal.text);assert.equal(JSON.stringify(reply.suggestions).includes('PRIVATE_REASON_DO_NOT_DISCLOSE'),false);
  assert.equal(reply.suggestions.length,1);assert.equal(reply.suggestions[0].text,body);assert.equal(app.run().status,'complete');assert.equal(app.run().manifest.requestDelivery.status,'delivered');
  assert.equal(app.run().requests.some(request=>request.purpose==='delivery_repair'||request.purpose==='plain_response_recovery'),false);
- const usage=app.controller.usage.get(scope,'final-carrier-four-call-task');assert.equal(usage.limit,4);assert.equal(usage.attempts,3);assert.equal(usage.remaining,1);assert.equal(usage.status,'complete');
+ const usage=app.controller.usage.get(scope,'final-carrier-four-call-task');assert.equal(usage.limit,4);assert.equal(usage.attempts,4);assert.equal(usage.remaining,0);assert.equal(usage.status,'complete');
  assert.equal(app.store.messages(scope).some(message=>message.direction==='outgoing'),false);
 });
 test('final carrier compatibility cannot bypass a private-only source at the planning handoff',async t=>{

@@ -81,6 +81,25 @@ without the internal diagnostics. `transport.json` preserves actual requests and
 responses, and `manifest.json` binds identities and unfinished cases. All review
 forms start ungraded. An execution result is not a quality verdict.
 
+The current QQ adapter also supplies an optional engineering-only preparation
+receipt. The CLI saves it as `*.preparation.json`; it is not copied into the
+behavioral review packet. The receipt fingerprints the restored raw prefix and
+checks text, role, source time and authored-note use against actual product
+state. It records forced maintenance, forwarded and blocked model requests,
+transport invocations, preparation failures and before/after memory status.
+Matching restoration is not historical execution or semantic correctness:
+archived assistant turns were supplied as checkpoint context, and a cleared
+source journal can still leave semantic review unfinished.
+
+The historical backend `.cjs` identity remains unchanged in scope. Adapter
+identity version 3 additionally fingerprints `src/contracts/**/*.json`, retains
+the effective `memoryInputBytes` setting, records non-secret effective settings
+and rejects source/contract drift before each new episode. These identities do
+not establish native desktop fidelity or model quality. A distinct from-empty
+event-stream setting is needed to exercise historical user requests through
+the running product rather than archive restoration; see
+[`docs/eval-setting-fidelity-20261105/design-review_CN.md`](../../docs/eval-setting-fidelity-20261105/design-review_CN.md).
+
 The original 18 cases remain unchanged. `replay/legacy-adaptations.json` explicitly
 records corrected ordinary goals and independent instructions for authored
 feedback that would otherwise assume a particular generated answer. Original

@@ -1,0 +1,145 @@
+{
+  "recorded_at": "2026-11-05T03:43:08.891327+00:00",
+  "purpose": "Project-matched evaluation settings and execution-boundary evidence, not quality acceptance",
+  "user_selected_settings": [
+    "streaming_e2e",
+    "controlled_component"
+  ],
+  "validation": {
+    "test_summary": "138 项离线检查通过（98 项设置/回放检查 + 40 项兼容性检查）",
+    "checks": {
+      "focused": {
+        "tests": 98,
+        "pass": 98,
+        "fail": 0,
+        "log": "focused-tests.log",
+        "sha256": "c02077f995f840c9ad43201df84e8eb92d6a06ca613b54990a01c00603465f66"
+      },
+      "compatibility": {
+        "tests": 40,
+        "pass": 40,
+        "fail": 0,
+        "log": "compatibility-tests.log",
+        "sha256": "21ce08a03795c8fb6e5e6dbedb9b19012f08b450137930814c48ba81000ef536"
+      }
+    },
+    "syntax_check": {
+      "status": "passed",
+      "command": "npm run check"
+    },
+    "diff_whitespace_check": "passed",
+    "visual_review": {
+      "desktop": "inspected",
+      "narrow": "inspected",
+      "artifact": "index_CN.html"
+    }
+  },
+  "pilots": [
+    {
+      "label": "E2E 首次边界样本 · 原版本保留",
+      "artifacts": "/tmp/qq-stream-luna-updated-20261105-boundary-v1",
+      "status": "executed_review_required",
+      "http_attempts": 5,
+      "blocked_attempts": 0,
+      "settings_unchanged": true,
+      "identity": {
+        "dataset_hash": "541b7176a1ca2c725123a335300de3caafc622326e815e0250039c266e45d8ab",
+        "policy_version": "raw-stream-replay-v1",
+        "setting": "stream_from_empty",
+        "adapter_condition": "scheduled_idle_public_memory_observation_v1",
+        "runner_hash": "79352931df4b42fbb9e8d3f2751cea19221240879d0a3a02ea75a63dc49e8952",
+        "portable_projection_hash": "4d32c07beffdc93429dfcb8dccf41ee2c078dbbed80dff444c5a46956e2ed875",
+        "adapter_hash": "d80b3b0eb946dc7f20463d5b8a842a161b475bb3e640503fa4d141892f42571a",
+        "global_http_cap": 12,
+        "event_wall_timeout_ms": 300000
+      },
+      "manifest_sha256": "8bed343bf91ce149059476187c55566f29a385eac5bb3bc9e224c9f21b962247",
+      "transport_sha256": "5172bee273521db35afc5b2f28c97d6929ff7ca149899c76048f052a06e13265",
+      "forced_prefix_maintenance_requests": 0,
+      "preparation_model_requests": 0,
+      "quality": "未评审；无语义分数"
+    },
+    {
+      "label": "E2E 冻结源码样本 · 2 次求助",
+      "artifacts": "/tmp/qq-stream-luna-updated-20261105-frozen-v1",
+      "status": "executed_review_required",
+      "http_attempts": 5,
+      "blocked_attempts": 0,
+      "settings_unchanged": true,
+      "identity": {
+        "dataset_hash": "541b7176a1ca2c725123a335300de3caafc622326e815e0250039c266e45d8ab",
+        "policy_version": "raw-stream-replay-v1",
+        "setting": "stream_from_empty",
+        "adapter_condition": "scheduled_idle_public_memory_observation_v1",
+        "runner_hash": "77cca30d029877d8e71626a8336ac8851ddae27642960f4fce47512cdef3a889",
+        "portable_projection_hash": "4d32c07beffdc93429dfcb8dccf41ee2c078dbbed80dff444c5a46956e2ed875",
+        "adapter_hash": "d80b3b0eb946dc7f20463d5b8a842a161b475bb3e640503fa4d141892f42571a",
+        "global_http_cap": 7,
+        "event_wall_timeout_ms": 300000
+      },
+      "manifest_sha256": "6efbcdc7d224b5b124fbf81126aeef3caa20a095c75b74a56a4d9c540a8329e4",
+      "transport_sha256": "f8debd901600904340ec03fc2e7f7951c593f6f0554dc6686c65d6b94fc28da6",
+      "forced_prefix_maintenance_requests": 0,
+      "preparation_model_requests": 0,
+      "quality": "未评审；无语义分数"
+    },
+    {
+      "label": "组件冻结样本 · 2 个受控判别",
+      "artifacts": "/tmp/qq-component-luna-boundary-20261105-frozen-v1",
+      "status": "executed_review_required",
+      "http_attempts": 2,
+      "blocked_attempts": 0,
+      "settings_unchanged": true,
+      "identity": {
+        "dataset_hash": "05cef7cb73a0519f4d1f25e21283332098b610e4be291c214c4697745b3b00e0",
+        "contract_hash": "f767a5c261a9ea9f55ef1c3881058332f6fb94a5da169a54665905a5acaa4979",
+        "runner_hash": "c804c3403f2edc74c7908bdf8df67e365b335354d5d2c1e54968a2fd2e05c465",
+        "adapter_hash": "03142d6796aedc86bc6b1b8072b243d2be631a9b14bce153e165fe9a8d1fec5d",
+        "setting": "raw-evidence-relations-v1"
+      },
+      "manifest_sha256": "46d743351bf788270bf7673409baa2e35d266974370a9620d73e31362afd8221",
+      "transport_sha256": "ec48374f538316fc4d69ad5c0079b789b39dea746e90e161336134effe3ac578",
+      "quality": "未评审；无语义分数"
+    }
+  ],
+  "retained_initialization_failure": {
+    "setting": "component",
+    "stage": "standalone CLI adapter import before provider dispatch",
+    "message": "Cannot destructure property '$schema' of 'OUTPUT_SCHEMA' as it is undefined.",
+    "http_attempts": 0,
+    "evidence": "Observed command/tool error; this pre-fix invocation created no run artifacts.",
+    "repair": "Initialize exports before CLI main; add real subprocess regression and persist subsequent general setup failures."
+  },
+  "model": "gpt-6-luna",
+  "provider_configuration_changed": false,
+  "total_actual_http_attempts": 12,
+  "declared_caps": {
+    "e2e_all_versions": 12,
+    "component": 2
+  },
+  "jev_calls": 0,
+  "semantic_evaluation": "not_run",
+  "desktop_qq": false,
+  "frozen_live_source_bundle": {
+    "path": "/tmp/qq-eval-settings-frozen-20261105-v1",
+    "manifest_sha256": "c62c738c3d8fbf40c14b9b4fcfe08d22a3fbee693b5e042c9ff05729c5fdae0c",
+    "files": 240,
+    "unchanged": true
+  },
+  "current_dataset_identities": {
+    "evals/assistant-stream/cases.jsonl": "467b6221fa5a772f8e03a58a9cf5ebcdb6e6ab046151af755ae3b4f4880d4138",
+    "evals/memory-decisions/cases.jsonl": "c06234c630414f65d32109074a4adbcf0db9ff5e4d3531f3f1598e3ff26151ce",
+    "evals/memory-decisions/output.schema.json": "f53911d9bda3b390e2a9bc5b402a47427dfcafd1e1275949077459a8fa7aecb9"
+  },
+  "post_pilot_revisions": [
+    "Stream seed-source attestation metadata; original runtime events and reviewer criteria retained.",
+    "Component setup-failure evidence hardening; independent raw-data reference and common-semantics clarification.",
+    "Current contract/refinements were not paid-replayed; prior live results remain bound to the frozen v1 contract and hashes."
+  ],
+  "limits": [
+    "All pilot quality reviews remain ungraded.",
+    "No JEV comparison or speed/quality improvement is established.",
+    "Sequential synthetic-boundary E2E does not establish concurrent ingress, real desktop or restart persistence.",
+    "Controlled evidence relation diagnosis is not the current production memory writer."
+  ]
+}

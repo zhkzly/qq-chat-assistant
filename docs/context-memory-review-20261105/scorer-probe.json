@@ -1,0 +1,55 @@
+{
+  "kind": "offline_scorer_fixture_probe",
+  "at": "2026-11-05T02:17:07.158Z",
+  "source": "scripts/memory-bench-run.cjs",
+  "source_sha256": "864dffeb40ec10f4f612ab5ed46d36282cba22bd68a0b07d52a8f041b2338067",
+  "fragment": "  const rows = episode.steps.map(s => {\n    const text = s.answer || '';\n    let verdict;\n    if (s.abstain) {\n      const fabricated = /\\d{1,2}\\s*月\\s*\\d{1,2}\\s*日|某公司|有限公司|公司叫/.test(text);\n      const hasHedge = /(没有?提到|没说过|不知道|不记得|没有告诉|没说过具体)/.test(text);\n      verdict = fabricated ? 'fail_fabricated' : (hasHedge ? 'pass' : 'pass_weak');\n    } else {\n      const hits = (s.expect || []).filter(kw => text.includes(kw));\n      const forbids = /forbid/ in s ? [] : [];\n      verdict = hits.length === (s.expect || []).length ? 'pass' : (hits.length ? 'partial' : 'fail');\n    }\n    return { ask: s.ask, category: s.category, verdict, answer: text.slice(0, 140) };\n  });",
+  "model_calls": 0,
+  "product_replay": "not_run",
+  "fixtures": [
+    {
+      "ask": "锻炼方式",
+      "category": "correction",
+      "verdict": "pass",
+      "answer": "你最近改成傍晚散步。",
+      "id": "correct-control",
+      "fixture_expectation": "pass",
+      "source_forbid": [
+        "晨跑坚持"
+      ],
+      "false_positive": false
+    },
+    {
+      "ask": "锻炼方式",
+      "category": "correction",
+      "verdict": "pass",
+      "answer": "你最近改成散步，同时晨跑坚持每天五公里。",
+      "id": "correct-and-forbidden",
+      "fixture_expectation": "fail",
+      "source_forbid": [
+        "晨跑坚持"
+      ],
+      "false_positive": true
+    },
+    {
+      "ask": "学的乐器",
+      "category": "correction",
+      "verdict": "pass",
+      "answer": "你学的并不是口琴。",
+      "id": "negated-correct-keyword",
+      "fixture_expectation": "fail",
+      "source_forbid": [],
+      "false_positive": true
+    },
+    {
+      "ask": "在哪上班",
+      "category": "abstention",
+      "verdict": "pass_weak",
+      "answer": "你在星海科技工作。",
+      "id": "fabricated-organization",
+      "fixture_expectation": "fail",
+      "source_forbid": [],
+      "false_positive": true
+    }
+  ]
+}

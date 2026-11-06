@@ -10,7 +10,7 @@ const {resolveDraftMaterial,assertDraftSourcesCurrent}=require('./draft-material
 const {resolveEditingReference}=require('./editing-reference.cjs');
 const {buildMaterialProvenance}=require('./material-provenance.cjs');
 const {buildCurrentHumanControl,currentFactQuotes}=require('./current-human-control.cjs');
-const {boundedSource}=require('./source-delivery.cjs');
+const {boundedSource,deliveredEvidenceMap}=require('./source-delivery.cjs');
 const {validationError}=require('../validation-issues.cjs');
 const {buildSelectedDirectionControl}=require('./selected-direction-control.cjs');
 function buildDraftContext(prepared, plan, info) {
@@ -20,7 +20,7 @@ function buildDraftContext(prepared, plan, info) {
   const budget=contextBudget(settings,prepared.manifest.byteBudget,info.requestMeasure,{sourceRevisions:sourceReferenceRevisions});
   const controlRefs=plan?.taskUse!=='different'&&plan?.taskUse!=='uncertain'?prepared.payload.topicContext?.controlRefs||[]:[];
   const byId = new Map([...controlRefs.map(ref=>({id:ref.sourceId,revision:ref.revision})),...prepared.payload.sources].map(s => [s.id, s]));
-  const material=resolveDraftMaterial(prepared.payload,plan,{restrictions:prepared.restrictions||prepared.payload.privateRestrictions||[]});
+  const material=resolveDraftMaterial(prepared.payload,plan,{restrictions:prepared.restrictions||prepared.payload.privateRestrictions||[],evidence:deliveredEvidenceMap(prepared,info)});
   const human=buildCurrentHumanControl(prepared,info);
   const selectedDirection=buildSelectedDirectionControl(prepared,info);
   const provenance=buildMaterialProvenance(prepared,material.quotes,info),quotes=provenance.quotes;
@@ -122,7 +122,7 @@ function buildDraftContext(prepared, plan, info) {
   // in canonical private revision fences/artifact input references.
   Object.assign(context.manifest.sourceRevisions,dependencyRevisions);
   context.manifest.materialProvenance={version:1,dependencyCount:provenance.dependencies.length,rootMetadataLimit:8};
-  if(human.control)context.manifest.currentHumanControl={version:1,authority:'CONTROL_ONLY',sourceId:human.control.sourceId,revision:dependencyRevisions[human.control.sourceId],complete:true};
+  if(human.control)context.manifest.currentHumanControl={version:1,authority:'CONTROL_ONLY',sourceId:human.control.sourceId,revision:dependencyRevisions[human.control.sourceId],localOriginalComplete:human.control.localOriginalComplete,producerDelivery:human.control.producerDelivery};
   context.manifest.compositionProposal={authority:'GENERATED_PROPOSAL',status:proposalOmitted?'omitted_for_budget':payload.draftingGuidance?'provided':'absent'};
   if(editing||selectedDirection.dependency)context.manifest.inputArtifactRefs=[...(editing?[editing.dependency]:[]),...(selectedDirection.dependency?[selectedDirection.dependency]:[])];
   if(selectedDirection.control)context.manifest.selectedDirectionControl=structuredClone(prepared.manifest.selectedDirectionControl);
@@ -185,9 +185,10 @@ function resolveAnswerMaterial(prepared,declaration={},info={}){
  if(!Array.isArray(materials)||materials.length>8)throw validationError('materials','answer_material_invalid','materials must be at most eight actually used private fact fragments');
  const currentId=payload.intentAuthority?.sourceId,byId=new Map((payload.sources||[]).map(source=>[source.id,source]));
  for(const [index,quote]of materials.entries())if(quote?.sourceId===currentId||byId.get(quote?.sourceId)?.type==='qq')throw validationError(`materials[${index}]`,'answer_material_scope_invalid','Public QQ needs no material selector; current human facts use exact currentFacts spans, not the instruction as outward material');
- const current=currentFactQuotes(prepared,declaration.currentFacts,info);
+ const privateEvidenceOnly=declaration.requestDelivery?.mode==='private_help'&&!declaration.suggestions?.length&&!declaration.draftPlan;
+ const current=currentFactQuotes(prepared,declaration.currentFacts,{...info,privateEvidenceOnly});
  if(materials.length+current.length>8)throw validationError('materials','answer_material_limit','currentFacts and materials together allow at most eight actually used private fact fragments');
- try{return resolveDraftMaterial(payload,{quotes:[...materials,...current],intent:'reply'},{explicitCurrentPermission:true,reportedOnly:true,allowEmpty:true,restrictions:prepared.restrictions||payload.privateRestrictions||[]});}
+ try{return resolveDraftMaterial(payload,{quotes:[...materials,...current],intent:'reply'},{explicitCurrentPermission:true,reportedOnly:true,allowEmpty:true,restrictions:prepared.restrictions||payload.privateRestrictions||[],evidence:deliveredEvidenceMap(prepared,info),privateEvidenceOnly});}
  catch(error){
   const path=value=>value.replace(/draftPlan\.quotes\[(\d+)\]/g,(_match,index)=>Number(index)<materials.length?`materials[${index}]`:`currentFacts[${Number(index)-materials.length}]`).replaceAll('draftPlan.quotes','materials');
   if(error.field)error.field=path(error.field);if(error.issues)error.issues=error.issues.map(issue=>({...issue,path:path(issue.path),message:path(issue.message)}));error.message=path(error.message);throw error;
@@ -203,13 +204,14 @@ function buildAnswerAdmission(prepared,declaration={},info={}){
  const revisions={...prepared.manifest.sourceRevisions,...dependencies};
  assertDraftSourcesCurrent({manifest:{sourceRevisions:revisions}},Object.keys(revisions),{...info,scope});
  return {payload:{purpose:'answer_admission',promptVersion:PROMPT_VERSION,asOf:prepared.payload.asOf,
-   sources:prepared.payload.sources.filter(source=>source.type==='qq'),outboundQuotes:provenance.quotes,
+   sources:prepared.payload.sources.filter(source=>source.type==='qq'),outboundQuotes:material.privateEvidenceOnly?[]:provenance.quotes,
+   ...(material.privateEvidenceOnly?{privateEvidence:provenance.quotes}:{}),
    ...(human.control?{currentHumanControl:human.control}:{}),...(selected.control?{selectedDirectionControl:selected.control}:{}),
    ...(editing?{editingReference:editing.reference}:{}),...((controls.controls.items.length||controls.controls.scoped?.length)?{wordingControls:controls.controls}:{})},
   manifest:{requestId:info.requestId||prepared.manifest.requestId,scope:{...scope},purpose:'answer_admission',promptVersion:PROMPT_VERSION,
    sourceIds:Object.keys(revisions).filter(id=>!id.startsWith('request:')),sourceRevisions:revisions,contextRevision:prepared.manifest.contextRevision,
    inputArtifactRefs:[...(editing?[editing.dependency]:[]),...(selected.dependency?[selected.dependency]:[])],
-   currentHumanControl:human.control?{version:1,authority:'CONTROL_ONLY',sourceId:human.control.sourceId,revision:revisions[human.control.sourceId],complete:true}:undefined,
+   currentHumanControl:human.control?{version:1,authority:'CONTROL_ONLY',sourceId:human.control.sourceId,revision:revisions[human.control.sourceId],localOriginalComplete:human.control.localOriginalComplete,producerDelivery:human.control.producerDelivery}:undefined,
    disclosureBindings:material.bindings,materialProvenance:{version:1,dependencyCount:provenance.dependencies.length},
    wordingControlEvidence:{sourceRefs:controls.sourceRefs,preferenceRefs:controls.preferenceRefs},
    preparedResponse:{owner:'primary_answer',message:declaration.suggestions?.length?'provided':'absent',privateExplanation:declaration.discussionExplanation?'provided':'absent',

@@ -5,6 +5,8 @@ const fs=require('node:fs'),path=require('node:path');
 const {execFileSync}=require('node:child_process');
 const {hash}=require('./eval-replay.cjs');
 const {OBSERVATION_CONDITION}=require('./eval-runtime-session.cjs');
+const {buildPreparationReceipt}=require('./eval-qq-preparation.cjs');
+const {httpBudget,exhausted,fields:budgetFields}=require('./eval-http-budget.cjs');
 const ROOT=path.resolve(__dirname,'..');
 const MAIN_ROOT='/home/zhkzly/pycodes/qq-chat-assistant';
 // Match ui/app.js assistantVisibleBody and assistant-thread rendering. These
@@ -36,6 +38,11 @@ function sourceIdentity(root){
  const names=fs.readdirSync(path.join(root,'src'),{recursive:true}).filter(name=>name.endsWith('.cjs')).sort();
  return hash(names.map(name=>[name,hash(fs.readFileSync(path.join(root,'src',name),'utf8'))]));
 }
+function contractIdentity(root){
+ const folder=path.join(root,'src','contracts');
+ const names=fs.existsSync(folder)?fs.readdirSync(folder,{recursive:true}).filter(name=>name.endsWith('.json')).sort():[];
+ return {hash:hash(names.map(name=>[name,hash(fs.readFileSync(path.join(folder,name),'utf8'))])),scope:'src/contracts/**/*.json',files:names.length};
+}
 // Optional pure provenance callback for architecture-independent experiment tools.
 // A replacement adapter defines its own scope; this backend uses src/**/*.cjs.
 const revisionIdentities=new Map();
@@ -53,7 +60,7 @@ function implementationIdentity({sourceRoot=ROOT,revision}={}){
 function selectedSettings(filename){
  const bytes=fs.readFileSync(filename),saved=JSON.parse(bytes),profile=saved.modelProfiles?.find(item=>item.id===saved.activeModelProfileId)||saved;
  const result={};
- for(const key of ['model','baseUrl','apiKey','anonymous','modelResponseMode','modelTimeoutMs','assistantContextBytes','assistantRequestBytes','assistantRequestLimit','discussionCompactionEnabled','memoryBatchThreshold','memoryIdleMs','memoryWindowRequests']){
+ for(const key of ['model','auditModel','baseUrl','apiKey','anonymous','modelResponseMode','modelTimeoutMs','assistantContextBytes','assistantRequestBytes','assistantRequestLimit','assistantRecentHours','memoryInputBytes','discussionCompactionEnabled','memoryBatchThreshold','memoryIdleMs','memoryWindowRequests','memoryMaintenanceBatches','instruction','instructionFull','visionEnabled','autoImages','viewerTimeZone']){
   const value=Object.hasOwn(profile,key)?profile[key]:saved[key];if(value!==undefined)result[key]=value;
  }
  const url=new URL(result.baseUrl);
@@ -79,22 +86,30 @@ function createAdapterFactory(options={}){
  // authorization: stage-sweep rounds need whole-stage arms in one invocation, and
  // the 64 cap only fragmented them into unattachable fragments. Usage is still
  // budget-accounted per round via goal-round max_http.
- const cap=options.maxHttp??16,ceiling=512;if(!Number.isSafeInteger(cap)||cap<1||cap>ceiling)throw Error(`Replay HTTP cap must be 1..${ceiling} across all selected episodes`);
+ const budget=httpBudget({unlimitedHttp:options.unlimitedHttp,maxHttp:options.maxHttp,label:'Replay HTTP'}),cap=budget.cap;
  let attempts=0,blockedAttempts=0;const requests=[],implementationHash=sourceIdentity(sourceRoot);
  const destination=new URL(settings.baseUrl);
- const metadata={name:'qq-assistant-public-api',version:'2',implementation_hash:implementationHash,source_root:sourceRoot,
+ const metadata={name:'qq-assistant-public-api',version:'3',implementation_hash:implementationHash,source_root:sourceRoot,
+  contract_json_identity:contractIdentity(sourceRoot),
+  effective_settings:Object.fromEntries(Object.entries(settings).filter(([key])=>!['apiKey','baseUrl','realChatConsent'].includes(key))),
+  isolated_overrides:{automatic:false,consent:'fictional_scope_current_destination',storage:'in_memory_sqlite',controller_viewer_time_zone:'Asia/Shanghai',images:'only_explicitly_unavailable_attachments_supported'},
   adapter_runtime_hash:hash(fs.readFileSync(path.join(__dirname,'eval-runtime-session.cjs'),'utf8')),
   evidence:live?'live_model_synthetic_events_product_integration':'synthetic_transport_product_integration',desktop_qq:false,
   prefix_preparation:supplemental?'scheduled_only_no_forced_prefix':'controlled_current_product_memory_rebuild',preparation_is_scheduler_test:false,
   ...(scriptedTransport?{transport:'scripted_synthetic_test_override'}:{}),
   ...(supplemental?{condition:OBSERVATION_CONDITION,native_idle_deadline_ms:65000,idle_outer_headroom_ms:2000,foreground_wall_timeout_ms:300000,ordinary_actions_wait:'foreground_only',idle_wait:'declared_scheduled_work_only',clock:'virtual_source_events_native_provider_elapsed'}:{}),
-  model:settings.model,destination:{origin:destination.origin,path:destination.pathname},settings_hash:selected?.digest||null,max_http:cap};
+  model:settings.model,destination:{origin:destination.origin,path:destination.pathname},settings_hash:selected?.digest||null,...budgetFields(budget)};
+ const assertImplementationCurrent=()=>{
+  if(sourceIdentity(sourceRoot)!==implementationHash||contractIdentity(sourceRoot).hash!==metadata.contract_json_identity.hash){
+   const error=Error('Implementation source or contract changed after replay factory creation');error.code='replay_implementation_changed';throw error;
+  }
+ };
  const redact=value=>typeof value==='string'&&settings.apiKey?value.split(settings.apiKey).join('[redacted]'):value;
  const clean=value=>JSON.parse(JSON.stringify(value,(_key,v)=>redact(v)));
  const {createReplaySession,makeSyntheticTransport}=require('./eval-runtime-session.cjs');
  const offline=scriptedTransport||makeSyntheticTransport();
  const transport=async(url,args)=>{
-  if(attempts>=cap){blockedAttempts++;const error=Error('Global replay HTTP limit reached');error.code='replay_http_limit';throw error;}
+  if(exhausted(attempts,budget)){blockedAttempts++;const error=Error('Global replay HTTP limit reached');error.code='replay_http_limit';throw error;}
   if(new URL(url).origin!==destination.origin)throw Error('Replay model destination changed');
   if(selected&&hash(fs.readFileSync(selected.filename,'utf8'))!==selected.digest)throw Error('Selected model configuration changed during replay');
   const started=Date.now(),item={sequence:++attempts,request:JSON.parse(args.body),status:'running',wall_started_at:new Date(started).toISOString()};requests.push(item);
@@ -105,7 +120,8 @@ function createAdapterFactory(options={}){
  };
  return {identity:metadata,redact:clean,summary:()=>({http_attempts:attempts,blocked_attempts:blockedAttempts,requests:clean(requests),settings_unchanged:selected?hash(fs.readFileSync(selected.filename,'utf8'))===selected.digest:null}),
   async create(){
-   let session,requestIndex=0;const knownReplies=new Set(),generatedReplies=new Set();
+   assertImplementationCurrent();
+   let session,requestIndex=0,preparation=null;const knownReplies=new Set(),generatedReplies=new Set();
    const fromTurn=projectVisibleTurn;
    const visible=(snapshot,requestId)=>fromTurn(snapshot.companion?.turns?.filter(t=>t.role==='assistant'&&(!requestId||t.requestId===requestId)).at(-1));
    const restore=async(events)=>{
@@ -114,17 +130,28 @@ function createAdapterFactory(options={}){
    };
    return {protocol_version:1,identity:metadata,
     async open(initial,{goal}){
-     session=await createReplaySession({sourceRoot,asOf:initial.as_of,history:initial.qq_events,goal,settings:{...settings,auto:false},transport,...(supplemental?{condition:OBSERVATION_CONDITION}:{})});
-     await restore(initial.private_events||[]);
-     for(const turn of session.snapshot().companion?.turns||[])if(turn.role==='assistant')knownReplies.add(turn.id);
-     // Checkpoint reconstruction is separate from evaluating automatic scheduling.
-     // Build this implementation's own derived records from the frozen raw prefix.
-     for(let batch=0;!supplemental&&session.snapshot().memoryStatus?.pending>0;batch++){
-      if(batch>=16)throw Error('Prefix preparation exceeded the declared 16 maintenance checkpoints');
-      const before=session.snapshot().memoryStatus;
-      await session.post('/api/memory-maintain');
-      const after=session.snapshot().memoryStatus;
-      if(!memoryPreparationProgressed(before,after))throw Error(`Prefix memory preparation did not progress (${after.errors?.[0]?.code||'no committed source progress'})`);
+     const started=Date.now(),attemptStart=attempts,blockedStart=blockedAttempts;let before,error;
+     try{
+      assertImplementationCurrent();
+      session=await createReplaySession({sourceRoot,asOf:initial.as_of,history:initial.qq_events,goal,settings:{...settings,auto:false},transport,...(supplemental?{condition:OBSERVATION_CONDITION}:{})});
+      assertImplementationCurrent();
+      before=session.snapshot();
+      await restore(initial.private_events||[]);
+      for(const turn of session.snapshot().companion?.turns||[])if(turn.role==='assistant')knownReplies.add(turn.id);
+      // Checkpoint reconstruction is separate from evaluating automatic scheduling.
+      // Build this implementation's own derived records from the frozen raw prefix.
+      for(let batch=0;!supplemental&&session.snapshot().memoryStatus?.pending>0;batch++){
+       if(!budget.unlimited&&batch>=16)throw Error('Prefix preparation exceeded the declared 16 maintenance checkpoints');
+       const prior=session.snapshot().memoryStatus;
+       await session.post('/api/memory-maintain');
+       const next=session.snapshot().memoryStatus;
+       if(!memoryPreparationProgressed(prior,next))throw Error(`Prefix memory preparation did not progress (${next.errors?.[0]?.code||'no committed source progress'})`);
+      }
+     }catch(failure){error=failure;throw failure;}
+     finally{
+      try{preparation=buildPreparationReceipt({initial,goal,setting:supplemental?'scheduled_prefix':'controlled_checkpoint',before,after:session?.snapshot(),trace:session?.trace,modelRequests:attempts-attemptStart,blockedRequests:blockedAttempts-blockedStart,error,wallElapsedMs:Date.now()-started});}
+      catch(auditError){preparation={version:'qq-prefix-preparation-v1',setting:supplemental?'scheduled_prefix':'controlled_checkpoint',status:error?'failed':'prepared',raw_prefix:{integrity:'unverifiable'},semantic_quality:'not_evaluated',entire_history_reexecuted:false,
+       audit_error:{code:auditError.code||'preparation_receipt_error',message:String(auditError.message).slice(0,1000)},...(error?{error:{code:error.code||'preparation_error',message:String(error.message).slice(0,1500)}}:{})};}
      }
     },
     async advanceTo(at){await session.advanceTo(at);},
@@ -156,9 +183,9 @@ function createAdapterFactory(options={}){
     },
     async drainOutputs(){const outputs=session.snapshot().companion.turns.filter(turn=>turn.role==='assistant'&&!knownReplies.has(turn.id));for(const turn of outputs){knownReplies.add(turn.id);generatedReplies.add(turn.id);}return outputs.map(fromTurn);},
     async currentOutput(){const snapshot=session.snapshot(),id=snapshot.advice?.turnId;return id?fromTurn(snapshot.companion.turns.find(t=>t.id===id)):null;},
-    async diagnostics(){return clean({snapshot:session.snapshot(),trace:session.trace});},
+    async diagnostics(){return clean({preparation,snapshot:session?.snapshot()||null,trace:session?.trace||[]});},
     async close(){if(session)return await session.close();}
    };
   }};
 }
-module.exports={createAdapterFactory,projectVisibleTurn,memoryPreparationProgressed,implementationIdentity};
+module.exports={createAdapterFactory,projectVisibleTurn,memoryPreparationProgressed,implementationIdentity,selectedSettings,contractIdentity};

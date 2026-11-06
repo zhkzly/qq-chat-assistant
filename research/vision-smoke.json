@@ -1,0 +1,8 @@
+{
+  "type": "synthetic-only-live-vision",
+  "timestamp": "2026-10-12T01:15:34.355Z",
+  "model": "gpt-6.1-sol",
+  "http": 200,
+  "recognizedBlueSquare": true,
+  "answer": "A blue square."
+}

@@ -1,0 +1,39 @@
+{
+  "reference_revision": "provisional-ai-v2",
+  "review_basis": "independent_raw_data_review_and_parent_arbitration_without_live_output_inspection",
+  "old_dataset_hash": "05cef7cb73a0519f4d1f25e21283332098b610e4be291c214c4697745b3b00e0",
+  "new_dataset_hash": "c06234c630414f65d32109074a4adbcf0db9ff5e4d3531f3f1598e3ff26151ce",
+  "old_contract_hash": "f767a5c261a9ea9f55ef1c3881058332f6fb94a5da169a54665905a5acaa4979",
+  "new_contract_hash": "ae574481a7ee5a04286d26ccda0efbc84b02a0306e6f92816d4babacff47e559",
+  "semantics_revision": "content-comparison-20261105-v2",
+  "raw_runtime_inputs_unchanged": true,
+  "semantic_scoring": "not_run",
+  "changed_reference_cases": [
+    "md-local-or-recurring-local",
+    "md-local-or-recurring-conditional-recurring",
+    "md-unknown-or-known-time-unknown",
+    "md-unknown-or-known-time-explicit-time",
+    "md-withdrawal-or-cancel-withdrawal",
+    "md-conflict-or-time-same-time"
+  ],
+  "remaining_limitations": [
+    "References remain provisional, not human gold.",
+    "The conflict/time family changes date plus omission of an uncertainty sentence; it is not a date-only causal experiment.",
+    "No component quality score or JEV speed claim is established."
+  ],
+  "post_pilot_engineering": {
+    "runner_hash": "8759d5e66feeb1b93691f04a7c893f2abc8ae67ae3baa883f62d5e3874e857b8",
+    "luna_adapter_hash": "03142d6796aedc86bc6b1b8072b243d2be631a9b14bce153e165fe9a8d1fec5d",
+    "offline_tests_passed": 19,
+    "synthetic_summary": {
+      "status": "executed_review_required",
+      "setting": "raw-evidence-relations-v1",
+      "artifacts": "/tmp/qq-memory-decisions-postpilot-ref-v2-20261105",
+      "adapter_calls": 16,
+      "unexecuted_cases": [],
+      "semantic_evaluation": "not_run"
+    },
+    "provider_calls_by_worker": 0
+  },
+  "worker_did_not_modify_frozen_live_runs": true
+}

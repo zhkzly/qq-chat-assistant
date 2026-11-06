@@ -107,7 +107,7 @@ test('automatic controller entry uses the configured envelope and persists the e
    calls.push(request.body);const wrapper=JSON.parse(JSON.parse(request.body).messages[1].content);if(wrapper.purpose==='fidelity_check')return ok(JSON.stringify({checkRef:wrapper.checkRef,auditProtocol:'sparse-defects-v1',issues:[]}));return ok(calls.length===1?JSON.stringify({kind:'discussion',text:''}):JSON.stringify({kind:'discussion',text:'参考她实际说的安排自然回应。',replyDisposition:'unavailable'}));
   })});
  controller.visible=false;t.after(()=>controller.close());controller.updateStatus({phase:'ready',account:{uid:scope.accountUid,uin:scope.accountUin}});await controller.bind(scope.peerUin);
- await controller.suggest({automatic:true});assert.equal(controller.assistantError,'');assert.equal(calls.length,2);assert.ok(calls.every(body=>Buffer.byteLength(body)<=32000));
+ await controller.suggest({automatic:true});assert.equal(controller.assistantError,'');assert.equal(calls.length,3);assert.ok(calls.every(body=>Buffer.byteLength(body)<=32000));
  const run=store.getCompanion(scope).runs.find(item=>item.id===controller.advice.requestId),repair=JSON.parse(JSON.parse(calls[1]).messages[1].content);
  assert.equal(run.status,'complete');
  const captured=run.requests[1].payload.originalInput,canonicalRepair=canonicalSourceView(repair.originalInput,run.requests[1].manifest.sourceHandles,captured);
@@ -115,7 +115,7 @@ test('automatic controller entry uses the configured envelope and persists the e
  assert.equal(run.payload.purpose,'answer_admission');assert.equal(run.payload.userRequest,undefined);assert.deepEqual(run.payload.outboundQuotes,[]);
  const delivered=canonicalRepair.sources.map(source=>source.id).filter(id=>!id.startsWith('request:')).sort();
  assert.deepEqual([...run.manifest.sourceIds].sort(),delivered);assert.deepEqual([...run.requests[1].manifest.sourceIds].sort(),delivered);
- const usage=controller.usage.get(scope,run.id);assert.equal(usage.attempts,2);assert.equal(usage.origin,'automatic');assert.equal(usage.status,'complete');
+ const usage=controller.usage.get(scope,run.id);assert.equal(usage.attempts,3);assert.equal(usage.requests.filter(r=>r.purpose==='fidelity_check').length,1);assert.equal(usage.origin,'automatic');assert.equal(usage.status,'complete');
 });
 test('a repaired whole answer retains selected image evidence for explicit legacy checker compatibility',async t=>{
  const {args}=fixture(t),imageMessageId=args.records[0].messageId;

@@ -93,7 +93,11 @@ function execute(store, scope, action, authorization, target) {
     undo = { kind: 'goal', expectedVersion: saved.version, previous: before.goal };
   } else if (['save_note', 'set_preference', 'update_note'].includes(action.type)) {
     const old = action.type === 'update_note' ? target : null;
-    saved = store.saveNote(scope, { ...(old || {}), ...(old ? { id: old.id } : {}), text: action.text ?? old.text,
+    // Model-derived revision: never inherit trusted user authorship; a model
+    // rewrite of a user note produces model-attributed text (undo restores
+    // the previous saved object with its original authorship).
+    const { authoredBy, ...previous } = old || {};
+    saved = store.saveNote(scope, { ...previous, ...(old ? { id: old.id } : {}), text: action.text ?? old.text,
       use: action.type === 'set_preference' ? 'discussion' : action.use || old?.use || 'discussion',
       kind: action.type === 'set_preference' ? 'preference' : old?.kind || 'material', evidenceSourceIds });
     sourceId = `note:${saved.id}`;

@@ -1,0 +1,212 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "QQ 助手：上下文与记忆的实际路径",
+    "locale": "zh-CN",
+    "quality_profile": "showcase"
+  },
+  "components": [
+    {
+      "id": "human-input",
+      "type": "external",
+      "label": "实际交流与私下输入",
+      "sublabel": "QQ 实发与私下输入",
+      "pos": [
+        20,
+        110
+      ],
+      "size": [
+        180,
+        88
+      ]
+    },
+    {
+      "id": "source-ledger",
+      "type": "database",
+      "label": "原始来源与变更账本",
+      "sublabel": "SQLite · 作用域与修订",
+      "pos": [
+        300,
+        110
+      ],
+      "size": [
+        180,
+        88
+      ]
+    },
+    {
+      "id": "context-compiler",
+      "type": "backend",
+      "label": "本轮上下文组装",
+      "sublabel": "必需材料 + 可选背景 + 预算",
+      "pos": [
+        580,
+        110
+      ],
+      "size": [
+        180,
+        88
+      ]
+    },
+    {
+      "id": "primary-model",
+      "type": "cloud",
+      "label": "主模型生成完整回答",
+      "sublabel": "建议 / 候选话语 / 有界补查",
+      "pos": [
+        860,
+        110
+      ],
+      "size": [
+        180,
+        88
+      ]
+    },
+    {
+      "id": "publication",
+      "type": "security",
+      "label": "核验与结果发布",
+      "sublabel": "素材 / 权限 / 来源版本",
+      "pos": [
+        1140,
+        110
+      ],
+      "size": [
+        180,
+        88
+      ]
+    },
+    {
+      "id": "memory-batch",
+      "type": "backend",
+      "label": "后台分批整理",
+      "sublabel": "增量队列 → 模型提案",
+      "pos": [
+        300,
+        390
+      ],
+      "size": [
+        180,
+        88
+      ]
+    },
+    {
+      "id": "write-admission",
+      "type": "security",
+      "label": "记忆写入门控",
+      "sublabel": "来源校验 / 缩小范围 / 隔离",
+      "pos": [
+        580,
+        390
+      ],
+      "size": [
+        180,
+        88
+      ]
+    },
+    {
+      "id": "durable-understanding",
+      "type": "database",
+      "label": "带来源的长期理解",
+      "sublabel": "事实 / 事件 / 不确定性 / 索引",
+      "pos": [
+        860,
+        390
+      ],
+      "size": [
+        180,
+        88
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "ingestion",
+      "from": "human-input",
+      "to": "source-ledger",
+      "label": "按作用域保存",
+      "variant": "emphasis"
+    },
+    {
+      "id": "raw-context",
+      "from": "source-ledger",
+      "to": "context-compiler",
+      "label": "选择与读取",
+      "variant": "emphasis"
+    },
+    {
+      "id": "inference",
+      "from": "context-compiler",
+      "to": "primary-model",
+      "label": "有界输入",
+      "variant": "emphasis"
+    },
+    {
+      "id": "candidate",
+      "from": "primary-model",
+      "to": "publication",
+      "label": "完整候选",
+      "variant": "emphasis"
+    },
+    {
+      "id": "enqueue",
+      "from": "source-ledger",
+      "to": "memory-batch",
+      "label": "增量与空闲触发",
+      "variant": "dashed",
+      "labelAt": [
+        390,
+        285
+      ]
+    },
+    {
+      "id": "proposal",
+      "from": "memory-batch",
+      "to": "write-admission",
+      "label": "记忆提案",
+      "variant": "dashed"
+    },
+    {
+      "id": "commit",
+      "from": "write-admission",
+      "to": "durable-understanding",
+      "label": "通过项写入",
+      "variant": "dashed"
+    },
+    {
+      "id": "knowledge-context",
+      "from": "durable-understanding",
+      "to": "context-compiler",
+      "label": "检索与来源复核",
+      "fromSide": "top",
+      "toSide": "bottom"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "前台回答",
+      "items": [
+        "当前请求与近期实际交流优先",
+        "补查最多两轮；不是固定两次生成"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "后台记忆",
+      "items": [
+        "正常回答不等待全部历史整理完",
+        "局部反馈不直接升级为长期偏好"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "证据边界",
+      "items": [
+        "图反映源码调用关系，不代表效果通过",
+        "候选与复制不等于实际 QQ 已发送"
+      ]
+    }
+  ]
+}

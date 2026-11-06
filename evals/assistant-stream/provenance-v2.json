@@ -1,0 +1,92 @@
+{
+  "revision": "local-seed-source-sha256-v2-2026-11-05",
+  "change": "metadata-only post-pilot source attestation",
+  "frozen_dataset_sha256": "541b7176a1ca2c725123a335300de3caafc622326e815e0250039c266e45d8ab",
+  "current_dataset_sha256": "467b6221fa5a772f8e03a58a9cf5ebcdb6e6ab046151af755ae3b4f4880d4138",
+  "paid_rerun": false,
+  "source_bundle_v1": "unchanged",
+  "source_verification": {
+    "revision": "local-seed-source-sha256-v2-2026-11-05",
+    "status": "verified",
+    "records": [
+      {
+        "case_id": "stream-temporary-state-unchanged",
+        "status": "verified",
+        "source": "evals/memory-understanding/cases.jsonl",
+        "source_sha256": "558be21ed1021bce08c96d061c50d2c865f40027edc6d1eff4272278eb37a5c7",
+        "seed_case_id": "mu-temporary-state-and-later-change",
+        "raw_ids": [
+          "run-old",
+          "run-new"
+        ],
+        "scope": "file bytes, cited case and source IDs; semantic adaptation reviewed separately"
+      },
+      {
+        "case_id": "stream-temporary-state-updated",
+        "status": "verified",
+        "source": "evals/memory-understanding/cases.jsonl",
+        "source_sha256": "558be21ed1021bce08c96d061c50d2c865f40027edc6d1eff4272278eb37a5c7",
+        "seed_case_id": "mu-temporary-state-and-later-change",
+        "raw_ids": [
+          "run-old",
+          "run-new"
+        ],
+        "scope": "file bytes, cited case and source IDs; semantic adaptation reviewed separately"
+      },
+      {
+        "case_id": "stream-material-retained",
+        "status": "verified",
+        "source": "evals/assistant/replay/withdrawal-v2.jsonl",
+        "source_sha256": "9c6dbf0a36272cbdcff7898442a3354ef6ecdbc7d8dfd608c30af5157562974f",
+        "seed_case_id": "coverage-material-note-exclusion",
+        "raw_ids": [
+          "q1",
+          "n1"
+        ],
+        "scope": "file bytes, cited case and source IDs; semantic adaptation reviewed separately"
+      },
+      {
+        "case_id": "stream-material-excluded",
+        "status": "verified",
+        "source": "evals/assistant/replay/withdrawal-v2.jsonl",
+        "source_sha256": "9c6dbf0a36272cbdcff7898442a3354ef6ecdbc7d8dfd608c30af5157562974f",
+        "seed_case_id": "coverage-material-note-exclusion",
+        "raw_ids": [
+          "q1",
+          "n1"
+        ],
+        "scope": "file bytes, cited case and source IDs; semantic adaptation reviewed separately"
+      }
+    ]
+  },
+  "cases": [
+    {
+      "id": "stream-temporary-state-unchanged",
+      "old_runtime_input_sha256": "44fdf902f5ce774f28fb126bc149b364b327795d90e55e7969eb727a0ce27fd0",
+      "current_runtime_input_sha256": "44fdf902f5ce774f28fb126bc149b364b327795d90e55e7969eb727a0ce27fd0",
+      "runtime_input_equal": true,
+      "reviewer_criteria_equal": true
+    },
+    {
+      "id": "stream-temporary-state-updated",
+      "old_runtime_input_sha256": "fc0a1ba4fbc5ae15e4652d627d1ee5b54564b68658ff07f707a95189e0c9d230",
+      "current_runtime_input_sha256": "fc0a1ba4fbc5ae15e4652d627d1ee5b54564b68658ff07f707a95189e0c9d230",
+      "runtime_input_equal": true,
+      "reviewer_criteria_equal": true
+    },
+    {
+      "id": "stream-material-retained",
+      "old_runtime_input_sha256": "6ce016e306a85119c894c316682135477318db40a210a8aacb249fe5dd818078",
+      "current_runtime_input_sha256": "6ce016e306a85119c894c316682135477318db40a210a8aacb249fe5dd818078",
+      "runtime_input_equal": true,
+      "reviewer_criteria_equal": true
+    },
+    {
+      "id": "stream-material-excluded",
+      "old_runtime_input_sha256": "c346a856078f52f1a0ffcc94999283e4d4d26f2d1148c4df838e0e0b803bf94d",
+      "current_runtime_input_sha256": "c346a856078f52f1a0ffcc94999283e4d4d26f2d1148c4df838e0e0b803bf94d",
+      "runtime_input_equal": true,
+      "reviewer_criteria_equal": true
+    }
+  ]
+}

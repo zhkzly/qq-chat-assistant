@@ -29,6 +29,8 @@ function deliveredSourceHandles(payload) {
 // the domain the range-read completion resolves against.
 function rangedLookupTargets(payload) {
   const candidates = new Map();
+  if(payload?.userRequest?.delivery?.status==='partial'&&typeof payload.userRequest.sourceId==='string')
+    candidates.set(payload.userRequest.sourceId,{start:0,end:payload.userRequest.delivery.originalCharLength??Infinity});
   for (const source of payload?.sources || []) {
     if (source.digest?.entries?.length) {
       const covered = source.digest.coveredCharRange;

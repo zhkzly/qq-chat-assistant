@@ -339,10 +339,15 @@ class Store {
       const record = this._getCompanion(scope);
       const id = note.id === undefined ? randomUUID() : identifier(note.id, 'note id');
       const index = record.notes.findIndex(item => item.id === id), old = record.notes[index];
-      if (old && old.text === note.text && old.use === note.use && (note.kind===undefined||note.kind===old.kind) && note.evidenceSourceIds===undefined && note.sourceIds===undefined) return old;
+      if (old && old.text === note.text && old.use === note.use && (note.kind===undefined||note.kind===old.kind) && (note.authoredBy===undefined||note.authoredBy===old.authoredBy) && note.evidenceSourceIds===undefined && note.sourceIds===undefined) return old;
       const now = new Date().toISOString();
       const saved = { id, text: note.text, use: note.use, version: (old?.version || 0) + 1, createdAt: old?.createdAt || now, updatedAt: now };
       if(note.kind!==undefined) { if(!['material','preference'].includes(note.kind))throw new Error('Invalid note kind');saved.kind=note.kind; } else if(old?.kind)saved.kind=old.kind;
+      // Trusted authorship only when explicitly injected by the authenticated
+      // UI route (controller.saveNote) or restored verbatim from undo. No
+      // silent carry-forward: a model action rewrite drops authorship, and
+      // legacy notes without the field stay unattributed, not promoted.
+      if(note.authoredBy!==undefined){ if(note.authoredBy!=='user')throw new Error('Invalid note authorship'); saved.authoredBy='user'; }
       if(note.evidenceSourceIds||note.sourceIds) {
         saved.evidenceSourceIds=sourceList(note.evidenceSourceIds||note.sourceIds);
         if(saved.evidenceSourceIds.some(id=>!this._sourceIds(scope,record).has(id)))throw new Error('Invalid note source');
@@ -848,7 +853,7 @@ class Store {
     const sources=[
       ...this.messages(scope).filter(m=>!m.recalled&&!locallyDeleted.has(m.messageId)).map(m=>({id:`qq:${m.messageId}`,type:'qq',text:m.text,at:new Date(m.timestamp).toISOString(),role:m.direction==='outgoing'?'user':'contact',direction:m.direction,use:'discussion',messageId:m.messageId,...qqSourceMetadata(m)})),
       ...record.turns.filter(t=>t.role==='user'&&!t.memoryExcluded&&!['feedback','feedback_ref'].includes(t.kind)).map(t=>({id:`private:${t.id}`,type:'private',text:t.text,at:t.createdAt,role:'user',use:'discussion',kind:t.kind,version:t.version||1})),
-      ...record.notes.filter(n=>n.use!=='disabled').map(n=>({id:`note:${n.id}`,type:'note',text:n.text,at:n.updatedAt,use:n.use,kind:n.kind||'material',version:n.version,...(n.evidenceSourceIds?{evidenceSourceIds:n.evidenceSourceIds}:{}),...(n.evidenceRevisions?{evidenceRevisions:n.evidenceRevisions}:{})})),
+      ...record.notes.filter(n=>n.use!=='disabled').map(n=>({id:`note:${n.id}`,type:'note',text:n.text,at:n.updatedAt,use:n.use,kind:n.kind||'material',version:n.version,...(n.evidenceSourceIds?{evidenceSourceIds:n.evidenceSourceIds}:{}),...(n.evidenceRevisions?{evidenceRevisions:n.evidenceRevisions}:{}),...(n.authoredBy==='user'?{authoredBy:'user',role:'user'}:{})})),
       ...this.experiences.sourceRows(scope)
     ].filter(s=>!excluded.has(s.id));
     return sources.map(s=>({...s,revision:sourceRevision(s)}));

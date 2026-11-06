@@ -1,0 +1,237 @@
+{
+  "schema_version": 1,
+  "goal_id": "context-memory-evaluation-20261105",
+  "status": "paused_for_handoff",
+  "phase": "handoff_ready",
+  "current_stage": "new_primary",
+  "current_hypothesis": null,
+  "native_goal_active": true,
+  "rounds": [
+    {
+      "id": "reported-understanding-001a",
+      "decision": "accepted_scoped_diagnostic",
+      "candidate_root": "/tmp/qq-memory-goal-candidate-reported-001",
+      "independent_candidate_requests": "4/4 usable",
+      "target_improvements": 1,
+      "guard": "nonregression",
+      "full_goal_acceptance": false
+    }
+  ],
+  "old_goal_state_modified": false,
+  "http_budget": "unlimited",
+  "quality_review": "actual judgments retained; no overall acceptance",
+  "baseline_runs": {
+    "stream": ".goal-runs/context-memory-20261105/baseline-stream-core",
+    "component": ".goal-runs/context-memory-20261105/baseline-component"
+  },
+  "reviewer_calibration": {
+    "review": ".goal-runs/context-memory-20261105/calibration-review.json",
+    "comparison": ".goal-runs/context-memory-20261105/calibration-comparison.json",
+    "all_20_observed": true,
+    "overall_agreement": "18/20",
+    "hard_flags_agreement": "20/20",
+    "references_are_human_gold": false
+  },
+  "regression_baseline": {
+    "directory": ".goal-runs/context-memory-20261105/regression-baseline",
+    "role": "regression_only_not_primary_optimization",
+    "status": "incomplete_retained",
+    "cases_attempted": 43,
+    "execution_errors": 8
+  },
+  "native_stream_review": {
+    "running": "rounds/stream-running-assessment-v2/review.json",
+    "material": "rounds/stream-material-assessment-v2/review.json",
+    "requests_reviewed": 8,
+    "usable": 5,
+    "minor_edit": 2,
+    "rewrite": 1,
+    "hard_failed_requests": 1,
+    "scope": "initial new core only; new challenge live execution and review separate"
+  },
+  "component_review": {
+    "cases_reviewed": 16,
+    "reviewer_deployment": "stateless_remote_component_evaluator_luna",
+    "calibration": "component-review-execution/v2/calibration/calibration.report.json",
+    "artifacts": "component-review-execution/v2",
+    "disagreements_requiring_adjudication": [
+      "same_subject may refer to holder or activity",
+      "evidence_sufficiency not-applicable contract interpretation"
+    ],
+    "not_final_acceptance": true
+  },
+  "candidates": [
+    {
+      "id": "reported-understanding-001a",
+      "source_root": "/tmp/qq-memory-goal-candidate-reported-001",
+      "cause": "epistemic certainty conflated with temporal applicability in read projection",
+      "functional_tests": 51,
+      "comparison_run": ".goal-runs/context-memory-20261105/candidate-reported-001-core",
+      "status": "accepted_scoped_diagnostic"
+    },
+    {
+      "id": "candidate-fact-coverage-002",
+      "source_root": "/tmp/qq-memory-goal-candidate-fact-002",
+      "cause": "unreported unsupported personal fact not checked at final candidate admission",
+      "status": "pre_live_revision_for_audit_headroom"
+    },
+    {
+      "id": "source-control-delivery-003",
+      "cause": "current-request delivery identity lost in final wire and derived evidence digest can gain arrangement guidance authority",
+      "status": "frozen_before_implementation"
+    }
+  ],
+  "observer_correction": {
+    "version": "qq-assistant-runtime-session-v4",
+    "cause": "caught optional compaction rejection was reported as terminal foreground failure",
+    "tests": 42,
+    "all_pass": true,
+    "old_artifacts_preserved": true,
+    "actual_model_reruns": [
+      "baseline-core-r8-observer-v4",
+      "baseline-challenges-r8-observer-v4"
+    ],
+    "policy": "retain nested error trace, let owning controller outcome establish foreground failure"
+  },
+  "handoff": {
+    "document": "docs/goal-memory-iteration-20261105/HANDOFF_CN.md",
+    "user_requested_handoff": true,
+    "workers_quiescent": true,
+    "known_root_model_sessions_completed": true,
+    "product_src_ui_main_diff_empty": true,
+    "goal_completed": false,
+    "note008_implementation_started": true,
+    "candidate_archives": ".goal-runs/context-memory-20261105/handoff/candidate-source-archives",
+    "next_priority": "Product adjudication requested: does the honest zero-history cautious draft under note exclusion count as usable help? If yes-as-redesign: exclusion posture change via architecture review. If no: the minor_edit is the honest ceiling and the merge decision (b/c) applies. All 13 runs, 10 frozen sources, 8 round decisions preserved.",
+    "pause_explicitly_requested": true,
+    "jev_context_added": true,
+    "paused_at": "2026-11-05T07:01:53.363113+00:00",
+    "merge_status": "NOT MERGED — main repo working tree carries the composed candidate (uncommitted); user decision pending between (a) product adjudication of the excluded-shape usable criterion then re-verify+merge, (b) merge now with the 1 minor_edit honesty-tension documented, (c) keep candidate line unmerged"
+  },
+  "latest_core_baseline": {
+    "path": ".goal-runs/context-memory-20261105/baseline-core-r8-observer-v5",
+    "observer": "v5_normal_note_api",
+    "cases_executed": 4,
+    "semantic_review": "not_run"
+  },
+  "new_frozen_candidates": {
+    "B007": {
+      "root": "/tmp/qq-memory-goal-candidate-fact-007",
+      "hash": "481537ce65374da00da4e5d4db4b20957fb22455b9c08b48c49971285f4ea2f5",
+      "live_replay": "not_run",
+      "known_real_blockers": [
+        "Malformed native issue.code may publish",
+        "Long PROMPT_VERSION changes 7000-byte latest-consultation selection"
+      ]
+    },
+    "D006": {
+      "root": "/tmp/qq-memory-goal-candidate-source-006",
+      "hash": "ad9f12df5b519673989685c0bec8cd4bba2e9acf7ca270da67792538d69fef6f",
+      "live_replay": "not_run"
+    },
+    "Note008": {
+      "round": "rounds/authored-note-source-008",
+      "implementation": "not_started"
+    }
+  },
+  "component_latest_review": {
+    "path": ".goal-runs/context-memory-20261105/component-paired-review-005/paired/review.resolved.json",
+    "baseline_usable": "13/16",
+    "candidate_usable": "16/16",
+    "accepted": false,
+    "unresolved": "Two opaque comparison preferences conflict with their own descriptions; new entry-handle adjudication round prepared and calibrated, paired call not run."
+  },
+  "native_goal_status": "paused",
+  "note008_implementation": {
+    "implemented": true,
+    "chain": "authenticated /api/note -> controller injects authoredBy=user -> store persists+derives role/authoredBy -> observation identity account_owner -> fidelity witness user_authored_record",
+    "live_proof": "stream-material-retained r2 audit evidence carried the note as user_authored_record in real Luna traffic (iter1 seq20)"
+  },
+  "composed_candidate": {
+    "tree": "/tmp/qq-composed-009 (A001+D006+B007+Note008+union decisions D1-D8)",
+    "frozen_iter1": "ed34ceed/6dbfd28f (see run manifest)",
+    "frozen_iter2": "fc06d24aa93bddc39d033ffddab4ff38d5c4cc12c44ced4ac27e2ed0b9d5532a",
+    "regression": "218/223 top-level suites; 24 env-only git tests pass with GIT_DIR; 1 inherited B007 failure (continuous-conversation #9); PROMPT_VERSION goal-ctx-2026-11-05.19"
+  },
+  "live_new_core_iterations": [
+    {
+      "run": "candidate-composed-009-core",
+      "executed": "6/8",
+      "failures": [
+        "stream-material-excluded r2 terminal_fact_defect_unresolved (Luna history hallucination x2, contained)",
+        "stream-temporary-state-updated r-s2 current_fact_span_invalid (paraphrase)"
+      ],
+      "positive": "Note008 authority proven live"
+    },
+    {
+      "run": "candidate-composed-009-core-iter2",
+      "executed": "6/8",
+      "failures": [
+        "stream-material-excluded r2 terminal_fact_audit_incomplete",
+        "stream-temporary-state-unchanged r-s2 current_fact_span_invalid"
+      ],
+      "positive": "temporary-state-updated fixed by instruction hardening"
+    }
+  ],
+  "component_adjudication_005b": {
+    "status": "accepted",
+    "binding": "16/16 mechanical, zero contradictions",
+    "usable": "candidate-side 15/16 vs baseline-side 12/16"
+  },
+  "rounds_registered": [
+    "component-relation-semantics-005b: accepted",
+    "authored-note-source-008: inconclusive (mechanism proven live; gate unmet by 2 generation refusals; baseline reproduced invented_or_misattributed_fact hard failure, candidate zero hard failures)",
+    "authored-note-source-008b: mis-prepared (candidate attach failed after frozen-dir clobber; baseline-only packet) — kept as-is, superseded by 008c",
+    "authored-note-source-008c: inconclusive — iter4b vs baseline-v5 blinded review: candidate 3 usable + 1 insufficient, ZERO hard failures; baseline 2 usable + 2 rewrite with invented_or_misattributed_fact hard failures on both material cases; quality preference to candidate on both material cases",
+    "authored-note-source-008g: inconclusive (symmetric Luna hallucination on excluded case, both systems contained; clarified packet instructions landed)"
+  ],
+  "live_iterations": {
+    "runs": [
+      "iter1",
+      "iter2",
+      "iter3",
+      "iter4b",
+      "iter5",
+      "iter6",
+      "iter7",
+      "iter8 (k=3 runs)",
+      "iter9",
+      "iter10",
+      "iter13/13b (audit lane terra + handle citation + complete package)"
+    ],
+    "frozen_sources": {
+      "iter4b": "66e98a7c (best run; restored at /tmp/qq-composed-009-frozen)",
+      "iter7": "6726e7ab (working tree line) others preserved under /tmp/qq-composed-009-frozen-iter*"
+    },
+    "failure_ladder": "iter1-4b: 2,2,2,1 | iter5: 4 (slot starvation, fixed) | iter6: 1 | iter7: 2 | iter8-k3: 3,2,2 (audit-protocol omission x4 -> wording fix) | iter9: 2 (span family only) | iter8-k3: 3,2,2 (audit-array omission x4 -> wording fix) | iter9: 2 (span family) | iter10: 2 (factQuote span, delivery-unfulfilled) | iter13b: 0 terminal failures (4/4 clean, complete fix package live-verified)",
+    "per_case_best": "every one of the 8 requests has passed at least once under the composed candidate; failures rotate with Luna nondeterminism",
+    "remaining_blockers": [
+      "audit-responsibility drift: faithful paraphrases / hedged presuppositions / general practical advice flagged as unsupported_fact (B004 family, transcripts in iter3/iter7 transports) — needs architecture adjudication",
+      "audit-output flakiness: D10 one-bounded-rebuild landed after iter4b; untested live",
+      "Luna exact-span/experience citation nondeterminism under strict contracts"
+    ],
+    "key_results": {
+      "audit_protocol_violations": "4 in iter8 -> 0 in iter9 (array-omission wording fix)",
+      "material_cases": "both retained+excluded passed in the same run for the first time (iter9)",
+      "note008": "proven live repeatedly (user_authored_record in audit evidence, note-grounded drafts published)",
+      "candidate_hard_failures": "ZERO in all blinded reviews; baseline published 2 invented_or_misattributed_fact hard failures",
+      "residual": "Luna format/citation discipline slips rotating across modes (span, factQuote, delivery-unfulfilled, audit-label variance): ~2-3/run, all correctly contained; boundary confirmed over 11 runs",
+      "complete_fix_verified": "iter13b: audit lane gpt-6.1-terra (bench 4/4, live 11 audits zero protocol violations zero false blocks), handle-based currentFact citation live, 4/4 cases executed clean, blinded 3 usable+1 minor_edit, quality-preferred both material cases, zero hard failures",
+      "inherent_tension": "excluded-case r2 zero-history draft graded minor_edit: honesty-under-exclusion posture is correct containment; making it grade usable requires either fabrication-adjacent specificity (forbidden) or an exclusion-posture redesign (product adjudication)"
+    }
+  },
+  "regression_verdict": {
+    "round": "legacy-regression-composed-002 (rejected)",
+    "composed": "23/43 clean, 20 terminal (span x6, audit-block x8, repair-exhausted x2, audit-incomplete x3, timeout x1)",
+    "baseline": "35/43 clean, 8 errors (R4 conditions)",
+    "verdict": "REGRESSION — merging would refuse ~47% of legacy-shaped conversations; span-family on legacy shapes needs handle-based citation redesign or authorized carve-out",
+    "merge_status": "NOT MERGED — blocked by this regression + the core minor_edit gap; user decision requested",
+    "with_complete_fix": "expected improved on span/audit-protocol classes (D9-D12) but excluded-shape minor_edit persists by design; full legacy re-verification pending user decision"
+  },
+  "excluded_r2_ceiling": {
+    "adjudication": "USABLE-WITH-CAUTION (architecture review)",
+    "measured_ceiling": "minor_edit under honest posture across 008d/008f/008g",
+    "implication": "90%-usable letter-gate unsatisfiable on this step without fabrication"
+  },
+  "decisions_record_in_repo": "docs/composed-009-20261105/union-decisions.md"
+}

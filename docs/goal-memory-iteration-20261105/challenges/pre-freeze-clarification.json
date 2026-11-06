@@ -1,0 +1,25 @@
+{
+  "kind": "pre_freeze_reviewer_only_clarification",
+  "old_dataset_sha256": "3e368c1c69ce99225037dcd736ad480710b94ba01d595b4162bb3bbed9243415",
+  "new_dataset_sha256": "b414736d227e81e66a5b81ad59cb4cdf97c92a1bc3fae617e86301687933d539",
+  "cases": 12,
+  "requests": 42,
+  "runtime_hashes_unchanged": true,
+  "runtime_hashes": {
+    "stream-control-local": "5f21bb60a5df25a902051645005d0336e5595d99a6886e051c861260f3ea911d",
+    "stream-control-recurring": "6f964fe94a2a67f7ac20caf38b3d2dc387ad733bfd3734c41f87ed7fe9f802fe",
+    "stream-holder-third-party": "41c6a00451bf013b7846424aedbba2b27ca575b2dfa3108108cdb1577b7e520b",
+    "stream-holder-first-person": "ff483de4feb763908c07a8f295af5b7ecdb63995ff69d913562904e4560016a0",
+    "stream-private-reason-withheld": "d2b5d83dbae668cb1c65c1ab30745681f71393efc58aca2fc78d0eb319dd607e",
+    "stream-private-reason-permitted": "6864432258126864a9f63e1cfd1f21b1a90a01dc774f68974397cf82c72aca1e",
+    "stream-topic-closed": "d6eedd25501298e055e96c027b626d78332486bdc734f0249bbdf91de7ad8397",
+    "stream-topic-reopened": "2d754c2d5e6949a7de0b45607ec93262f2eba72a25cef9a9e9b1c107f1b17308",
+    "stream-long-source-head-veto": "c51737cc3d7661fb37f2c2c7f4eaefc4ff0138c517c05d2654e0c44df235fb22",
+    "stream-long-source-tail-veto": "8b9e57003af6e869c1d9fd5b90487e3c99b02d2ac3be85045fd201af3e6bceb5",
+    "stream-discussion-implicit-recall": "be591917892d02435be104b58ed4a4941fd794527ed3a7028f690980cb4c54fb",
+    "stream-discussion-explicit-recall": "6e48284624af50cf3bf60e641ead36d8931094d496d47a428feadb526587d34f"
+  },
+  "seed_provenance": "verified",
+  "model_calls": 0,
+  "semantic_evaluation": "not_run"
+}

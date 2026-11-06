@@ -31,7 +31,10 @@ function fixture(t,{text=HUMAN}={}){
 
 test('actual restricted assembly keeps the whole current human statement separate from admitted facts and generated moves',t=>{
  const app=fixture(t),before=clone(app.prepared.payload),draft=buildDraftContext(app.prepared,app.plan,app.args),c=draft.payload.currentHumanControl;
- assert.deepEqual(c,{version:1,authority:'CONTROL_ONLY',sourceId:app.sourceId,sourceType:'private',text:HUMAN});
+ // D006 currentHumanControl adds honest delivery metadata (local completeness
+ // vs producer delivery) on the same CONTROL_ONLY contract shape.
+ assert.equal(c.version,1);assert.equal(c.authority,'CONTROL_ONLY');assert.equal(c.sourceId,app.sourceId);assert.equal(c.sourceType,'private');assert.equal(c.text,HUMAN);
+ assert.equal(c.localOriginalComplete,true);assert.equal(c.producerDelivery.complete,true);assert.deepEqual(c.producerDelivery.ranges,[{start:0,end:HUMAN.length}]);assert.deepEqual(c.producerDelivery.unreadRanges,[]);assert.equal(c.producerDelivery.sourceId,app.sourceId);assert.equal(typeof c.producerDelivery.revision,'string');
  assert.deepEqual(draft.payload.outboundQuotes.map(({sourceId,text})=>({sourceId,text})),[{sourceId:'note:'+app.note.id,text:FACT}]);
  assert.equal(JSON.stringify(draft.payload.outboundQuotes).includes('PRIVATE_CONTROL_FACT'),false);
  assert.equal(draft.payload.draftingGuidance.authority,'GENERATED_PROPOSAL');assert.equal(draft.payload.draftingGuidance.currentStep.text,app.plan.guidance.currentStep.text);
@@ -82,11 +85,11 @@ test('actual feedback continuation binds the original feedback human rather than
  t.after(()=>{controller.close();store.close();});controller.scope=clone(scope);controller.ingest(scope,[raw('72057594049927937144',false)]);
  const previous=store.appendTurn(scope,{role:'assistant',kind:'discussion',text:'A fictional previous suggestion.',requestId:'grounded-feedback-target',sourceIds:['qq:72057594049927937144']});
  const answer=await controller.continueFeedback({taskId:'grounded-original-feedback',clientEventId:'grounded-feedback-event',requestId:previous.requestId,targetRef:{kind:'artifact',artifactRef:previous.artifactRef},text:feedbackText});
- assert.equal(answer.feedbackContinuation.status,'complete');assert.equal(calls.length,1);const original=store.experiences.listFeedback(scope)[0],control=controller.assistantContext().run.payload.currentHumanControl;
+ assert.equal(answer.feedbackContinuation.status,'complete');assert.equal(calls.length,2);assert.equal(calls.filter(call=>call.payload.purpose==='fidelity_check').length,1);const original=store.experiences.listFeedback(scope)[0],control=controller.assistantContext().run.payload.currentHumanControl;
  assert.equal(control.sourceId,original.sourceId);assert.equal(control.sourceType,'feedback');assert.equal(control.text,feedbackText);assert.equal(control.authority,'CONTROL_ONLY');
  assert.equal(calls[0].payload.intentAuthority.sourceId,original.sourceId);assert.equal(control.text.includes('结合我选中的这条反馈'),false);
  assert.ok(store.getCompanion(scope).turns.some(turn=>turn.kind==='feedback_continue'),'the generated wrapper really exists and is not being mistaken for the human');
- assert.equal(controller.assistantContext().run.payload.outboundQuotes.length,0);assert.equal(calls.some(call=>call.payload.purpose==='fidelity_check'),false);
+ assert.equal(controller.assistantContext().run.payload.outboundQuotes.length,0);assert.equal(calls.filter(call=>call.payload.purpose==='fidelity_check').length,1);
 });
 
 test('missing, changed, withdrawn and foreign current human sources are rejected without stale text fallback',()=>{

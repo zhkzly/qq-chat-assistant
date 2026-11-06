@@ -84,6 +84,12 @@ test('claimed plan hashes do not hide changed raw inputs or reordered execution'
 test('old replay cannot be attached after the candidate source changes',async t=>{
  const c=prepare(t),where=path.join(c.dir,'candidate');await replayFixture(where,c.round,'candidate');fs.appendFileSync(path.join(where,'candidate-checkout/src/controller.cjs'),'\n// Changed after execution.\n');assert.throws(()=>attachReplay(c.out,{variant:'candidate',replay:where}),/implementation no longer matches/);
 });
+
+test('a numeric round refuses an otherwise bound replay that declares unlimited HTTP',async t=>{
+ const c=prepare(t),where=path.join(c.dir,'candidate');await replayFixture(where,c.round,'candidate');
+ const file=path.join(where,'manifest.json'),manifest=JSON.parse(fs.readFileSync(file));manifest.adapter.max_http=null;manifest.adapter.unlimited_http=true;fs.writeFileSync(file,JSON.stringify(manifest));
+ assert.throws(()=>attachReplay(c.out,{variant:'candidate',replay:where}),/HTTP cap\/mode/);
+});
 test('a usable self-report cannot hide a missing requested output',async t=>{
  const c=prepare(t);for(const variant of ['baseline','candidate'])await replayFixture(path.join(c.dir,variant),c.round,variant);
  const id=c.round.target_cases[0],file=path.join(c.dir,'candidate',`${id}.run.json`),raw=JSON.parse(fs.readFileSync(file));raw.steps.at(-1).output=null;fs.writeFileSync(file,JSON.stringify(raw));const rfile=path.join(c.dir,'candidate',`${id}.review.json`),r=JSON.parse(fs.readFileSync(rfile));r.steps=raw.steps.map(({diagnostics,...s})=>s);fs.writeFileSync(rfile,JSON.stringify(r));
@@ -127,4 +133,43 @@ test('JSON execution citations are accepted only for the bound observed status a
  const {validateReview}=require('../scripts/goal-round.cjs');assert.doesNotThrow(()=>validateReview(c.packet,r));
  r.ratings[0].evidence[1].quote='"output": "invented"';assert.throws(()=>validateReview(c.packet,r),/quote is absent/);
  assert.deepEqual(c.bundle.review_values.preferred,['equivalent','inconclusive',...c.packet.systems.map(s=>s.id)]);assert.deepEqual(c.bundle.review_values.basis,['wording','delivery']);
+});
+
+async function regressionCompared(t,{missingBoth=false}={}){
+ const dir=directory(t),goalDir=path.join(dir,'relative-goal');fs.mkdirSync(goalDir);
+ const goal=JSON.parse(fs.readFileSync(path.join(ROOT,'goals/assistant-improvement/goal.json'))),stage=goal.stages.find(item=>item.id==='delivery_provenance');
+ goal.id='new-primary-with-old-regression';goal.version='relative-regression-fixture-v1';stage.dataset_setting='regression';stage.acceptance_mode='no_new_regressions';
+ fs.writeFileSync(path.join(goalDir,'goal.json'),JSON.stringify(goal));fs.copyFileSync(path.join(ROOT,'goals/assistant-improvement/roles.json'),path.join(goalDir,'roles.json'));
+ const out=path.join(dir,'round'),round=prepareRound({root:ROOT,goalDir,id:'regression-relative',stage:stage.id,cases:['coverage-observed-output-feedback'],guardrails:['conv-share-own-material-missing'],hypothesis:'Preserve known old outcomes without claiming they were fixed.',maxHttp:32,out});
+ const c={dir,out,round};
+ for(const variant of ['baseline','candidate']){
+  const folder=path.join(dir,variant);await replayFixture(folder,round,variant);
+  if(missingBoth){const id=round.target_cases[0],file=path.join(folder,id+'.run.json'),run=JSON.parse(fs.readFileSync(file));run.steps.at(-1).status='execution_error';run.steps.at(-1).output=null;run.steps.at(-1).error={code:'known_fixture_failure',message:'Retained fixture missing answer.'};run.status='incomplete';
+   fs.writeFileSync(file,JSON.stringify(run));const rubric=JSON.parse(fs.readFileSync(path.join(ROOT,'evals/assistant/rubric.json')));fs.writeFileSync(path.join(folder,id+'.review.json'),JSON.stringify(reviewPacket(round.case_plans[id],run,rubric)));const manifest=JSON.parse(fs.readFileSync(path.join(folder,'manifest.json')));manifest.status='incomplete';fs.writeFileSync(path.join(folder,'manifest.json'),JSON.stringify(manifest));
+  }
+  attachReplay(out,{variant,replay:folder});
+ }
+ c.packet=buildPacket(out,{});c.bundle=JSON.parse(fs.readFileSync(path.join(out,'review-packet/bundle.json')));c.mapping=JSON.parse(fs.readFileSync(path.join(out,'packet-map.json')));
+ c.review=reviewFixture(c);for(const comparison of c.review.comparisons)comparison.preferred='equivalent';
+ return c;
+}
+test('explicit new-Goal regression mode preserves existing bad grades without requiring target improvement',async t=>{
+ const c=await regressionCompared(t);assert.equal(c.round.regression_only,true);
+ for(const rating of c.review.ratings)rating.overall='rewrite';
+ const file=path.join(c.dir,'review.json');fs.writeFileSync(file,JSON.stringify(c.review));recordReview(c.out,{file});const checked=checkRound(c.out);
+ assert.equal(checked.ready_to_accept,true,checked.reasons.join('\n'));assert.ok(checked.regression_findings.preexisting.length);assert.deepEqual(checked.regression_findings.introduced_or_worsened,[]);assert.equal(checked.preexisting_failures_fixed_proven,false);assert.equal(checked.target_improvements,0);
+});
+test('new hard failures and downgraded usability still block explicit relative-regression acceptance',async t=>{
+ for(const kind of ['hard','grade']){
+  const c=await regressionCompared(t),entry=c.packet.entries.find(item=>c.mapping.entries[item.id].variant==='candidate'),rating=c.review.ratings.find(item=>item.entry_id===entry.id);
+  if(kind==='hard')rating.hard_failures=['invented_or_misattributed_fact'];else rating.overall='minor_edit';
+  const file=path.join(c.dir,'review.json');fs.writeFileSync(file,JSON.stringify(c.review));recordReview(c.out,{file});const checked=checkRound(c.out);
+  assert.equal(checked.ready_to_accept,false);assert.ok(checked.regression_findings.introduced_or_worsened.length);assert.ok(checked.reasons.some(reason=>reason.includes('New or worsened')));
+ }
+});
+test('equivalent previously missing outcomes remain explicit uncertain regression evidence rather than fixed outputs',async t=>{
+ const c=await regressionCompared(t,{missingBoth:true});
+ for(const rating of c.review.ratings){const entry=c.packet.entries.find(item=>item.id===rating.entry_id);if(entry.actual.output===null)rating.overall='insufficient_evidence';}
+ const file=path.join(c.dir,'review.json');fs.writeFileSync(file,JSON.stringify(c.review));recordReview(c.out,{file});const checked=checkRound(c.out);
+ assert.equal(checked.ready_to_accept,true,checked.reasons.join('\n'));assert.ok(checked.regression_findings.preexisting.some(item=>item.baseline_missing&&item.candidate_missing));assert.ok(checked.regression_findings.uncertain.length);assert.equal(checked.goal_completed,false);
 });

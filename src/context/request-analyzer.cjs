@@ -89,8 +89,14 @@ const WANT_RULES = Object.freeze({
 function matchRule(rule, text) {
   const hits = [];
   for (const marker of rule.markers) {
-    const found = text.match(marker);
-    if (found) hits.push({ marker: String(marker), excerpt: found[0] });
+    for(const found of text.matchAll(new RegExp(marker.source,'gu'))){
+      // A lexical invitation inside a locally negated instruction is not a
+      // positive task signal. Keep the full original for semantic judgment;
+      // this conservative classifier controls navigation only.
+      const prefix=text.slice(0,found.index),clause=prefix.slice(Math.max(...['。','！','？',';','；','\n','，',','].map(mark=>prefix.lastIndexOf(mark)))+1);
+      if(rule.intentClass==='invitation_arrangement'&&/(?:不(?:是|想|要|用|打算|准备|希望|在|等于)|不要|并非|无需|别|不能)[^。！？；;\n，,]*$/u.test(clause))continue;
+      hits.push({marker:String(marker),excerpt:found[0]});break;
+    }
   }
   return hits;
 }

@@ -11,6 +11,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { responseEnvelope } = require('../src/model-response-format.cjs');
+const {consumptionContractFor}=require('../src/context/mqa-registry.cjs');
 const { assistModel } = require('../src/assistant-model.cjs');
 const { SourceHandleOwner } = require('../src/source-handles.cjs');
 
@@ -20,7 +21,7 @@ const DECLARATION = '周六三点半以后我有空，也愿意和她一起去�
 const ADOPTING = '周六三点半以后我都有空，可以那时候一起去。';
 
 function basePayload() {
-  return { purpose: 'discussion', asOf: '2026-10-01T18:10:00+08:00',
+  return { consumptionContract:consumptionContractFor('invitation_arrangement'), purpose: 'discussion', asOf: '2026-10-01T18:10:00+08:00',
     userRequest: { sourceId: 'req:1', text: '她问到这些了，帮我回一下。' },
     intentAuthority: { sourceId: 'req:1' },
     sources: [{ id: 'req:1', type: 'request', role: 'user', at: '2026-10-01T18:10:00+08:00',

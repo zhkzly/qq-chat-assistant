@@ -1,0 +1,14 @@
+{
+  "type": "native-qq-read-execution",
+  "timestamp": "2026-10-11T14:52:29.993Z",
+  "selectedContactBound": true,
+  "records": 58,
+  "historyBusy": false,
+  "coverage": "accessible_end",
+  "pages": 2,
+  "incomingInView": 0,
+  "outgoingInView": 58,
+  "modelReady": false,
+  "error": "模型 API 返回 HTTP 408",
+  "noQQTestMessagesSent": true
+}

@@ -116,4 +116,12 @@ function reviewPacket(plan,result,rubric){
   ...(result.error?{error:clone(result.error)}:{}),...(result.cleanup_error?{cleanup_error:clone(result.cleanup_error)}:{}),unexecuted_steps:clone(result.unexecuted_steps||[]),
   criteria:clone(plan.reviewer_only||{}),rubric:clone(rubric),review:{status:'not_run',overall:null,dimension_ratings:Object.fromEntries((rubric.dimensions||[]).map(d=>[d.id,{rating:null,evidence:[]}])),critical_failures:[],notes:[]}};
 }
-module.exports={runEpisode,reviewPacket,visibleOutput,PROTOCOL_VERSION,hash};
+// Optional engineering evidence is separate from behavioral review packets.
+// This only extracts an adapter-supplied receipt; the portable runner does not
+// define the implementation's memory schema or certify its claims.
+function preparationEvidence(result){
+ const candidates=[result.initial_diagnostics,result.diagnostics,...(result.steps||[]).map(step=>step.diagnostics)];
+ const receipt=candidates.find(item=>item?.preparation)?.preparation;
+ return receipt?clone(receipt):null;
+}
+module.exports={runEpisode,reviewPacket,visibleOutput,preparationEvidence,PROTOCOL_VERSION,hash};

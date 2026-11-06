@@ -117,19 +117,19 @@ async function application(t,producer){
  return {store,controller,calls,assist:()=>controller.assist({text:'想接她这条，也想分享一点自己的真实近况。',taskId:'candidate-address-independent-lifecycle'}),run:()=>store.getCompanion(scope).runs.at(-1)};
 }
 
-test('a qualified factual report normalizes its address without invoking either old automatic continuation',async t=>{
+test('a qualified factual report normalizes its address through one complete regeneration and a fresh candidate-bound audit',async t=>{
  for(const repairKind of ['grounded_candidate','private_question'])await t.test(repairKind,async t=>{
   let checks=0;const app=await application(t,(p,wrapper)=>{
    if(p.purpose==='fidelity_check'){
-    checks++;if(checks===1){const issue={path:'candidate.suggestions[0].text',code:'unsupported_fact',quote:p.candidate.suggestions[0].text,basis:'no_support_in_supplied_evidence',reason:'Scripted qualified factual rejection reaches the existing shared repair.'};const factual=factualReview(p,{'suggestions[0].text':[{quote:issue.quote,kind:'assertion',support:'unsupported',basis:issue.basis}]});factual.find(field=>field.path==='suggestions[0].text').path=issue.path;return {checkRef:p.checkRef,verdict:'reject',issues:[issue],factual};}
+    checks++;if(checks===1){const issue={path:'candidate.suggestions[0].text',code:'unsupported_fact',quote:p.candidate.suggestions[0].text,basis:'no_support_in_supplied_evidence',reason:'Scripted qualified factual rejection reaches the existing shared repair.'};const factual=factualReview(p,{'suggestions[0].text':[{quote:issue.quote,kind:'assertion',support:'unsupported',basis:issue.basis}]});factual.find(field=>field.path==='suggestions[0].text').path=issue.path;return {checkRef:p.checkRef,auditProtocol:p.auditProtocol,issues:[{path:issue.path,code:issue.code,quote:issue.quote,claim:{kind:'assertion',quote:issue.quote},reason:issue.reason}]};}
     const path=p.candidate.suggestions.length?'suggestions[0].text':'text',quote=p.candidate.suggestions.length?p.candidate.suggestions[0].text:p.candidate.text;
-    return {checkRef:p.checkRef,verdict:'allow',issues:[],factual:factualReview(p,{[path]:[{quote,kind:p.candidate.suggestions.length?'opinion':'question'}]})};
+    return {checkRef:p.checkRef,auditProtocol:p.auditProtocol,issues:[]};
    }
    if(wrapper.originalInput&&repairKind==='private_question')return {operation:'clarify',blocker:{kind:'missing_fact',missing:'用户愿意分享的真实近况',question:QUESTION}};
    return candidate(p,wrapper.originalInput?GOOD:BAD);
   }),reply=await app.assist(),ledger=app.controller.usage.get(scope,'candidate-address-independent-lifecycle');
-  assert.equal(app.calls.length,1);assert.equal(checks,0);assert.equal(ledger.requests.filter(request=>request.purpose==='delivery_repair').length,0);assert.deepEqual(app.calls.map(call=>call.p.purpose),['discussion']);assert.equal(new Set(app.calls.map(call=>call.taskId)).size,1);
+  assert.equal(app.calls.length,4);assert.equal(checks,2);assert.equal(ledger.requests.filter(request=>request.purpose==='delivery_repair').length,1);assert.deepEqual(app.calls.map(call=>call.p.purpose),['discussion','fidelity_check','discussion','fidelity_check']);assert.equal(new Set(app.calls.map(call=>call.taskId)).size,1);
   assert.equal(app.run().manifest.publicationSeal.semanticCheck,false);assert.equal(app.run().manifest.fidelity,undefined);
-  assert.equal(reply.suggestions[0].text,BAD);assert.equal(reply.semanticReview,undefined);assert.equal(app.run().status,'complete');assert.equal(app.store.getCompanion(scope).turns.filter(turn=>turn.role==='assistant').length,1);assert.equal(app.store.messages(scope).some(message=>message.direction==='outgoing'),false);
+  if(repairKind==='grounded_candidate')assert.equal(reply.suggestions[0].text,GOOD);else{assert.equal(reply.kind,'question');assert.equal(reply.text,QUESTION);assert.equal(reply.suggestions,undefined);}assert.equal(reply.semanticReview.exhaustive,false);assert.equal(app.run().status,'complete');assert.equal(app.store.getCompanion(scope).turns.filter(turn=>turn.role==='assistant').length,1);assert.equal(app.store.messages(scope).some(message=>message.direction==='outgoing'),false);
  });
 });

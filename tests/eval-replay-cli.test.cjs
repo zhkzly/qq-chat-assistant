@@ -23,3 +23,16 @@ test('explicit case-error continuation retains a failed case and executes later 
  assert.ifError(result.error);assert.equal(result.status,1,result.stderr);
  const manifest=JSON.parse(fs.readFileSync(path.join(out,'manifest.json')));assert.equal(manifest.status,'incomplete');assert.equal(manifest.episodes.length,2);assert.equal(manifest.episodes[1].status,'executed_review_required');assert.deepEqual(manifest.unexecuted_cases,[]);assert.deepEqual(manifest.episodes[0].unexecuted_steps,['s1']);
 });
+
+test('CLI exports adapter preparation evidence separately from blinded behavioral review',t=>{
+ const directory=fs.mkdtempSync(path.join(os.tmpdir(),'qq-replay-preparation-'));t.after(()=>fs.rmSync(directory,{recursive:true,force:true}));
+ const adapter=path.join(directory,'adapter.cjs'),out=path.join(directory,'artifacts');
+ fs.writeFileSync(adapter,`module.exports={createAdapterFactory:()=>({create:async()=>({protocol_version:1,async open(){},async advanceTo(){},async observe(){},async observePrivate(){},async respond(){return {text:'Actual synthetic transport output',suggestions:[],disposition:'discussion'};},async diagnostics(){return {preparation:{version:'test-preparation-v1',status:'prepared',engineering_marker:'ENGINEERING_ONLY_SENTINEL',semantic_quality:'not_evaluated'}};},async close(){}})})};`);
+ const result=spawnSync(process.execPath,[path.join(root,'scripts/eval-replay-cli.cjs'),'--adapter',adapter,'--id','conv-reconnect-no-anchor','--out',out],{cwd:root,encoding:'utf8',timeout:10000});
+ assert.ifError(result.error);assert.equal(result.status,0,result.stderr);
+ const preparation=JSON.parse(fs.readFileSync(path.join(out,'conv-reconnect-no-anchor.preparation.json')));
+ assert.equal(preparation.engineering_marker,'ENGINEERING_ONLY_SENTINEL');
+ const review=fs.readFileSync(path.join(out,'conv-reconnect-no-anchor.review.json'),'utf8');assert.equal(review.includes('ENGINEERING_ONLY_SENTINEL'),false);
+ const manifest=JSON.parse(fs.readFileSync(path.join(out,'manifest.json')));assert.equal(manifest.episodes[0].preparation_artifact,'conv-reconnect-no-anchor.preparation.json');
+ assert.equal(JSON.parse(review).review.status,'not_run');
+});

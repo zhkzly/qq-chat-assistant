@@ -1,0 +1,878 @@
+{
+  "schema_version": 1,
+  "policy_version": "raw-stream-replay-v1",
+  "case_id": "stream-material-excluded",
+  "input_hash": "c346a856078f52f1a0ffcc94999283e4d4d26f2d1148c4df838e0e0b803bf94d",
+  "identity": {
+    "dataset_hash": "541b7176a1ca2c725123a335300de3caafc622326e815e0250039c266e45d8ab",
+    "policy_version": "raw-stream-replay-v1",
+    "setting": "stream_from_empty",
+    "adapter_condition": "scheduled_idle_public_memory_observation_v1",
+    "runner_hash": "79352931df4b42fbb9e8d3f2751cea19221240879d0a3a02ea75a63dc49e8952",
+    "portable_projection_hash": "4d32c07beffdc93429dfcb8dccf41ee2c078dbbed80dff444c5a46956e2ed875",
+    "adapter_hash": "d80b3b0eb946dc7f20463d5b8a842a161b475bb3e640503fa4d141892f42571a",
+    "global_http_cap": 64,
+    "event_wall_timeout_ms": 300000
+  },
+  "adapter_identity": {
+    "name": "qq-assistant-public-api",
+    "version": "3",
+    "implementation_hash": "1b3a2cfa8cbde306dd6899307d13e6cb6354365d79f2a77207f01d8b6ec57e77",
+    "source_root": "/home/zhkzly/pycodes/qq-chat-assistant",
+    "contract_json_identity": {
+      "hash": "d3f96c565a1139ba244befe39daa398c8ae8cf19dc0c3bb6b73cf140e9e32c5d",
+      "scope": "src/contracts/**/*.json",
+      "files": 6
+    },
+    "effective_settings": {
+      "model": "synthetic-replay-only",
+      "anonymous": true
+    },
+    "isolated_overrides": {
+      "automatic": false,
+      "consent": "fictional_scope_current_destination",
+      "storage": "in_memory_sqlite",
+      "controller_viewer_time_zone": "Asia/Shanghai",
+      "images": "only_explicitly_unavailable_attachments_supported"
+    },
+    "adapter_runtime_hash": "1ea75e2aca017eb1eba5298a8ecd448b4b889e10740290bff6dfbb444fed0d71",
+    "evidence": "synthetic_transport_product_integration",
+    "desktop_qq": false,
+    "prefix_preparation": "scheduled_only_no_forced_prefix",
+    "preparation_is_scheduler_test": false,
+    "condition": "scheduled_idle_public_memory_observation_v1",
+    "native_idle_deadline_ms": 65000,
+    "idle_outer_headroom_ms": 2000,
+    "foreground_wall_timeout_ms": 300000,
+    "ordinary_actions_wait": "foreground_only",
+    "idle_wait": "declared_scheduled_work_only",
+    "clock": "virtual_source_events_native_provider_elapsed",
+    "model": "synthetic-replay-only",
+    "destination": {
+      "origin": "http://fixture.invalid",
+      "path": "/v1"
+    },
+    "settings_hash": null,
+    "max_http": 64
+  },
+  "setting": "stream_from_empty",
+  "semantic_evaluation": "not_run",
+  "status": "executed_review_required",
+  "goal": "和她自然交流，分享自己真实愿意说的经历。",
+  "initial": {
+    "as_of": "2026-10-29T17:59:59+08:00",
+    "qq_events": [],
+    "private_events": []
+  },
+  "events": [
+    {
+      "id": "q1",
+      "kind": "qq",
+      "at": "2026-10-29T18:00:00+08:00",
+      "input": {
+        "id": "q1",
+        "kind": "qq",
+        "at": "2026-10-29T18:00:00+08:00",
+        "speaker": "contact",
+        "text": "我的帆布包里面开线了，外面倒还挺好的，有点舍不得换。"
+      },
+      "status": "executed_review_required",
+      "output": null,
+      "observed_outputs": [],
+      "wall_timeout_ms": 300000,
+      "wall_elapsed_ms": 20
+    },
+    {
+      "id": "n1",
+      "kind": "note",
+      "at": "2026-10-29T18:01:00+08:00",
+      "input": {
+        "id": "n1",
+        "kind": "note",
+        "at": "2026-10-29T18:01:00+08:00",
+        "text": "我以前给一个旧帆布包补过内衬，最难的是把里面的布角对齐。我愿意把这件小经历告诉她，但没有修过她的包，也不是专业裁缝。",
+        "declared_use": "draft",
+        "note_kind": "material",
+        "evidence_source_ids": []
+      },
+      "status": "executed_review_required",
+      "output": null,
+      "observed_outputs": [],
+      "wall_timeout_ms": 300000,
+      "intermediate_outputs": [],
+      "wall_elapsed_ms": 24
+    },
+    {
+      "id": "r1",
+      "kind": "user_request",
+      "at": "2026-10-29T18:10:00+08:00",
+      "input": {
+        "id": "r1",
+        "kind": "user_request",
+        "at": "2026-10-29T18:10:00+08:00",
+        "text": "她说这个，我想接一句，帮我想想。"
+      },
+      "status": "executed_review_required",
+      "output": {
+        "reply_id": "c7e2e912-5edb-4665-8a2f-eb20244b0a3b",
+        "text": "Synthetic transport private help; no semantic quality evidence.",
+        "suggestions": [],
+        "disposition": "discussion"
+      },
+      "observed_outputs": [],
+      "wall_timeout_ms": 300000,
+      "memory_view": {
+        "scope": {
+          "accountUid": "eval_replay_owner",
+          "accountUin": "1111111111",
+          "peerUid": "eval_replay_contact",
+          "peerUin": "3333333333"
+        },
+        "capture_scope": "public_read_model_ui_selected_branch_not_rendered_dom",
+        "relationship": {
+          "branch_by_subject": {
+            "self": "person_understanding",
+            "contact": "person_understanding",
+            "dyad": "person_understanding"
+          },
+          "understanding": {
+            "version": 3,
+            "self": {
+              "knownFacts": [],
+              "recentCircumstances": [],
+              "uncertainties": [],
+              "boundaries": []
+            },
+            "contact": {
+              "knownFacts": [],
+              "recentCircumstances": [],
+              "uncertainties": [],
+              "boundaries": []
+            },
+            "dyad": {
+              "knownFacts": [],
+              "recentCircumstances": [],
+              "uncertainties": [],
+              "boundaries": []
+            }
+          },
+          "activities": []
+        },
+        "companion": {
+          "goal": {
+            "text": "和她自然交流，分享自己真实愿意说的经历。",
+            "version": 1
+          },
+          "state": {
+            "focus": "",
+            "possiblyStale": true,
+            "items": [],
+            "openThreads": [],
+            "unknowns": []
+          },
+          "notes": [
+            {
+              "id": "n1",
+              "text": "我以前给一个旧帆布包补过内衬，最难的是把里面的布角对齐。我愿意把这件小经历告诉她，但没有修过她的包，也不是专业裁缝。",
+              "use": "draft",
+              "version": 1,
+              "createdAt": "2026-10-29T10:01:00.000Z",
+              "updatedAt": "2026-10-29T10:01:00.000Z",
+              "kind": "material"
+            }
+          ],
+          "preference_note_ids": [],
+          "pendingActions": [],
+          "actionReceipts": []
+        },
+        "experience": {
+          "cases": [],
+          "adaptations": []
+        },
+        "memory_status": {
+          "pending": 3,
+          "processed": 0,
+          "preferenceCandidates": 0,
+          "pendingPreferenceUpgrades": 0,
+          "superseded": 0,
+          "semanticPending": 0,
+          "pendingProposals": 0,
+          "recoveryReady": 0,
+          "recoveryDeferred": 0,
+          "recoveryReasons": [],
+          "version": 3,
+          "counts": {
+            "sources": 3,
+            "items": 0,
+            "episodes": 0,
+            "claims": 0,
+            "events": 0
+          },
+          "errors": [],
+          "lastReview": null,
+          "busy": false
+        },
+        "maintenance_schedule": {
+          "pending": 3,
+          "threshold": 8,
+          "idleMs": 600000,
+          "requestsInWindow": 0,
+          "windowLimit": 6,
+          "ready": false,
+          "reason": "waiting_for_batch",
+          "nextAt": 1793269200000
+        },
+        "as_of": "2026-10-29T10:10:00.000Z"
+      },
+      "wall_elapsed_ms": 128
+    },
+    {
+      "id": "exclude-material-note",
+      "kind": "source_update",
+      "at": "2026-10-29T18:20:00+08:00",
+      "input": {
+        "id": "exclude-material-note",
+        "kind": "source_update",
+        "at": "2026-10-29T18:20:00+08:00",
+        "source_id": "n1",
+        "channel": "note",
+        "operation": "exclude"
+      },
+      "status": "executed_review_required",
+      "output": null,
+      "observed_outputs": [],
+      "wall_timeout_ms": 300000,
+      "wall_elapsed_ms": 83
+    },
+    {
+      "id": "q2",
+      "kind": "qq",
+      "at": "2026-10-29T18:22:00+08:00",
+      "input": {
+        "id": "q2",
+        "kind": "qq",
+        "at": "2026-10-29T18:22:00+08:00",
+        "speaker": "contact",
+        "text": "你以前补过哪种包？这种里面开线的能弄好吗？"
+      },
+      "status": "executed_review_required",
+      "output": null,
+      "observed_outputs": [],
+      "wall_timeout_ms": 300000,
+      "wall_elapsed_ms": 33
+    },
+    {
+      "id": "idle-before-followup",
+      "kind": "idle",
+      "at": "2026-10-29T18:24:59+08:00",
+      "input": {
+        "id": "idle-before-followup",
+        "kind": "idle",
+        "at": "2026-10-29T18:24:59+08:00",
+        "wall_timeout_ms": 65000
+      },
+      "status": "executed_review_required",
+      "output": null,
+      "observed_outputs": [],
+      "wall_timeout_ms": 65000,
+      "checkpoint": {
+        "condition": "scheduled_idle_public_memory_observation_v1",
+        "status": "incomplete",
+        "reason": "pending_source_review",
+        "as_of": "2026-10-29T10:24:59.000Z",
+        "wall_elapsed_ms": 7,
+        "wall_timeout_ms": 65000,
+        "completion_scope": "scheduled_work_and_product_review_coverage_not_semantic_quality",
+        "timer_callbacks": 0,
+        "pending_tasks": [],
+        "failures": [],
+        "memory_status": {
+          "pending": 2,
+          "processed": 3,
+          "preferenceCandidates": 0,
+          "pendingPreferenceUpgrades": 0,
+          "superseded": 0,
+          "semanticPending": 0,
+          "pendingProposals": 0,
+          "recoveryReady": 0,
+          "recoveryDeferred": 0,
+          "recoveryReasons": [],
+          "version": 6,
+          "counts": {
+            "sources": 3,
+            "items": 0,
+            "episodes": 0,
+            "claims": 0,
+            "events": 0
+          },
+          "errors": [],
+          "lastReview": {
+            "batchId": "ddc2790899a81875ea7432668d5105c2cd5a7baae1e3fdb3e6278b6f9077f5bc",
+            "kind": "source_journal",
+            "reviewedSourceIds": [
+              "qq:72057594049927937001",
+              "note:n1",
+              "private:c2e6cae2-7ce5-45b5-a349-03f12b837f4f"
+            ],
+            "sourceRevisions": {
+              "qq:72057594049927937001": "4320cd1f01d9998545526caf20c308e8b220340db0204343398cda46ca5ad2de",
+              "note:n1": "cc412996103ee7a1d50f9e52855faf868fac5ce98aaed30fdbaff77fd46aff99",
+              "private:c2e6cae2-7ce5-45b5-a349-03f12b837f4f": "89eeaa765036903a139c369b6ce1dc7d19e7d64b80debb7a958c875ca55bb6b7"
+            },
+            "seqFrom": 1,
+            "seqTo": 3,
+            "segments": [
+              {
+                "sourceId": "qq:72057594049927937001",
+                "offset": 0,
+                "end": 26
+              },
+              {
+                "sourceId": "note:n1",
+                "offset": 0,
+                "end": 58
+              },
+              {
+                "sourceId": "private:c2e6cae2-7ce5-45b5-a349-03f12b837f4f",
+                "offset": 0,
+                "end": 16
+              }
+            ],
+            "originalCoverage": {
+              "version": "original-evidence-v1",
+              "scope": {
+                "accountUid": "eval_replay_owner",
+                "accountUin": "1111111111",
+                "peerUid": "eval_replay_contact",
+                "peerUin": "3333333333"
+              },
+              "sourceRevisions": {
+                "qq:72057594049927937001": "4320cd1f01d9998545526caf20c308e8b220340db0204343398cda46ca5ad2de",
+                "note:n1": "cc412996103ee7a1d50f9e52855faf868fac5ce98aaed30fdbaff77fd46aff99",
+                "private:c2e6cae2-7ce5-45b5-a349-03f12b837f4f": "89eeaa765036903a139c369b6ce1dc7d19e7d64b80debb7a958c875ca55bb6b7"
+              },
+              "reads": [
+                {
+                  "sourceId": "qq:72057594049927937001",
+                  "revision": "4320cd1f01d9998545526caf20c308e8b220340db0204343398cda46ca5ad2de",
+                  "start": 0,
+                  "end": 26,
+                  "total": 26,
+                  "complete": true,
+                  "bodyHash": "0581c53a2765a1c6d027b7cb1715f888a29b736c849b7d47aac828776b2a57bf"
+                },
+                {
+                  "sourceId": "note:n1",
+                  "revision": "cc412996103ee7a1d50f9e52855faf868fac5ce98aaed30fdbaff77fd46aff99",
+                  "start": 0,
+                  "end": 58,
+                  "total": 58,
+                  "complete": true,
+                  "bodyHash": "c68259b3f34612d44357e6ec4b8c15de6d200b13fa593a87b17dd3b72025e9d0"
+                },
+                {
+                  "sourceId": "private:c2e6cae2-7ce5-45b5-a349-03f12b837f4f",
+                  "revision": "89eeaa765036903a139c369b6ce1dc7d19e7d64b80debb7a958c875ca55bb6b7",
+                  "start": 0,
+                  "end": 16,
+                  "total": 16,
+                  "complete": true,
+                  "bodyHash": "f3eec5f65ec551038521c1ed148dc96de66898d36b43c517d86411ae4b240997"
+                }
+              ],
+              "completeSourceIds": [
+                "qq:72057594049927937001",
+                "note:n1",
+                "private:c2e6cae2-7ce5-45b5-a349-03f12b837f4f"
+              ],
+              "requiredSourceIds": [
+                "qq:72057594049927937001",
+                "note:n1",
+                "private:c2e6cae2-7ce5-45b5-a349-03f12b837f4f"
+              ],
+              "missingSourceIds": [],
+              "partialSourceIds": [],
+              "complete": true
+            },
+            "reviewedAt": "2026-10-29T10:20:00.000Z",
+            "outcome": "reviewed_no_change",
+            "updates": 0
+          },
+          "busy": false
+        },
+        "product_coverage": {
+          "pending": 2,
+          "semanticPending": 0,
+          "processorVersion": "evidence-backed-understanding-2026-10-31.2",
+          "bootstrapPending": false,
+          "history": {
+            "status": "empty",
+            "pages": 1,
+            "cursor": null,
+            "oldestAt": null,
+            "checkedAt": "2026-10-29T09:59:59.000Z",
+            "source": "fictional-native-boundary-replay"
+          },
+          "semanticCertainty": false,
+          "semanticReview": "evidence_based_not_entailment_proof"
+        }
+      },
+      "memory_view": {
+        "scope": {
+          "accountUid": "eval_replay_owner",
+          "accountUin": "1111111111",
+          "peerUid": "eval_replay_contact",
+          "peerUin": "3333333333"
+        },
+        "capture_scope": "public_read_model_ui_selected_branch_not_rendered_dom",
+        "relationship": {
+          "branch_by_subject": {
+            "self": "person_understanding",
+            "contact": "person_understanding",
+            "dyad": "person_understanding"
+          },
+          "understanding": {
+            "version": 6,
+            "self": {
+              "knownFacts": [],
+              "recentCircumstances": [],
+              "uncertainties": [],
+              "boundaries": []
+            },
+            "contact": {
+              "knownFacts": [],
+              "recentCircumstances": [],
+              "uncertainties": [],
+              "boundaries": []
+            },
+            "dyad": {
+              "knownFacts": [],
+              "recentCircumstances": [],
+              "uncertainties": [],
+              "boundaries": []
+            }
+          },
+          "activities": []
+        },
+        "companion": {
+          "goal": {
+            "text": "和她自然交流，分享自己真实愿意说的经历。",
+            "version": 1
+          },
+          "state": {
+            "focus": "",
+            "possiblyStale": true,
+            "items": [],
+            "openThreads": [],
+            "unknowns": []
+          },
+          "notes": [
+            {
+              "id": "n1",
+              "text": "我以前给一个旧帆布包补过内衬，最难的是把里面的布角对齐。我愿意把这件小经历告诉她，但没有修过她的包，也不是专业裁缝。",
+              "use": "disabled",
+              "version": 2,
+              "createdAt": "2026-10-29T10:01:00.000Z",
+              "updatedAt": "2026-10-29T10:20:00.000Z",
+              "kind": "material"
+            }
+          ],
+          "preference_note_ids": [],
+          "pendingActions": [],
+          "actionReceipts": []
+        },
+        "experience": {
+          "cases": [],
+          "adaptations": []
+        },
+        "memory_status": {
+          "pending": 2,
+          "processed": 3,
+          "preferenceCandidates": 0,
+          "pendingPreferenceUpgrades": 0,
+          "superseded": 0,
+          "semanticPending": 0,
+          "pendingProposals": 0,
+          "recoveryReady": 0,
+          "recoveryDeferred": 0,
+          "recoveryReasons": [],
+          "version": 6,
+          "counts": {
+            "sources": 3,
+            "items": 0,
+            "episodes": 0,
+            "claims": 0,
+            "events": 0
+          },
+          "errors": [],
+          "lastReview": {
+            "batchId": "ddc2790899a81875ea7432668d5105c2cd5a7baae1e3fdb3e6278b6f9077f5bc",
+            "kind": "source_journal",
+            "reviewedSourceIds": [
+              "qq:72057594049927937001",
+              "note:n1",
+              "private:c2e6cae2-7ce5-45b5-a349-03f12b837f4f"
+            ],
+            "sourceRevisions": {
+              "qq:72057594049927937001": "4320cd1f01d9998545526caf20c308e8b220340db0204343398cda46ca5ad2de",
+              "note:n1": "cc412996103ee7a1d50f9e52855faf868fac5ce98aaed30fdbaff77fd46aff99",
+              "private:c2e6cae2-7ce5-45b5-a349-03f12b837f4f": "89eeaa765036903a139c369b6ce1dc7d19e7d64b80debb7a958c875ca55bb6b7"
+            },
+            "seqFrom": 1,
+            "seqTo": 3,
+            "segments": [
+              {
+                "sourceId": "qq:72057594049927937001",
+                "offset": 0,
+                "end": 26
+              },
+              {
+                "sourceId": "note:n1",
+                "offset": 0,
+                "end": 58
+              },
+              {
+                "sourceId": "private:c2e6cae2-7ce5-45b5-a349-03f12b837f4f",
+                "offset": 0,
+                "end": 16
+              }
+            ],
+            "originalCoverage": {
+              "version": "original-evidence-v1",
+              "scope": {
+                "accountUid": "eval_replay_owner",
+                "accountUin": "1111111111",
+                "peerUid": "eval_replay_contact",
+                "peerUin": "3333333333"
+              },
+              "sourceRevisions": {
+                "qq:72057594049927937001": "4320cd1f01d9998545526caf20c308e8b220340db0204343398cda46ca5ad2de",
+                "note:n1": "cc412996103ee7a1d50f9e52855faf868fac5ce98aaed30fdbaff77fd46aff99",
+                "private:c2e6cae2-7ce5-45b5-a349-03f12b837f4f": "89eeaa765036903a139c369b6ce1dc7d19e7d64b80debb7a958c875ca55bb6b7"
+              },
+              "reads": [
+                {
+                  "sourceId": "qq:72057594049927937001",
+                  "revision": "4320cd1f01d9998545526caf20c308e8b220340db0204343398cda46ca5ad2de",
+                  "start": 0,
+                  "end": 26,
+                  "total": 26,
+                  "complete": true,
+                  "bodyHash": "0581c53a2765a1c6d027b7cb1715f888a29b736c849b7d47aac828776b2a57bf"
+                },
+                {
+                  "sourceId": "note:n1",
+                  "revision": "cc412996103ee7a1d50f9e52855faf868fac5ce98aaed30fdbaff77fd46aff99",
+                  "start": 0,
+                  "end": 58,
+                  "total": 58,
+                  "complete": true,
+                  "bodyHash": "c68259b3f34612d44357e6ec4b8c15de6d200b13fa593a87b17dd3b72025e9d0"
+                },
+                {
+                  "sourceId": "private:c2e6cae2-7ce5-45b5-a349-03f12b837f4f",
+                  "revision": "89eeaa765036903a139c369b6ce1dc7d19e7d64b80debb7a958c875ca55bb6b7",
+                  "start": 0,
+                  "end": 16,
+                  "total": 16,
+                  "complete": true,
+                  "bodyHash": "f3eec5f65ec551038521c1ed148dc96de66898d36b43c517d86411ae4b240997"
+                }
+              ],
+              "completeSourceIds": [
+                "qq:72057594049927937001",
+                "note:n1",
+                "private:c2e6cae2-7ce5-45b5-a349-03f12b837f4f"
+              ],
+              "requiredSourceIds": [
+                "qq:72057594049927937001",
+                "note:n1",
+                "private:c2e6cae2-7ce5-45b5-a349-03f12b837f4f"
+              ],
+              "missingSourceIds": [],
+              "partialSourceIds": [],
+              "complete": true
+            },
+            "reviewedAt": "2026-10-29T10:20:00.000Z",
+            "outcome": "reviewed_no_change",
+            "updates": 0
+          },
+          "busy": false
+        },
+        "maintenance_schedule": {
+          "pending": 2,
+          "threshold": 8,
+          "idleMs": 600000,
+          "requestsInWindow": 1,
+          "windowLimit": 6,
+          "ready": false,
+          "reason": "waiting_for_batch",
+          "nextAt": 1793269920000
+        },
+        "as_of": "2026-10-29T10:24:59.000Z"
+      },
+      "wall_elapsed_ms": 26
+    },
+    {
+      "id": "r2",
+      "kind": "user_request",
+      "at": "2026-10-29T18:25:00+08:00",
+      "input": {
+        "id": "r2",
+        "kind": "user_request",
+        "at": "2026-10-29T18:25:00+08:00",
+        "text": "她问到这个了，怎么回？"
+      },
+      "status": "executed_review_required",
+      "output": {
+        "reply_id": "c387a62e-6f95-47f1-b73d-f6a33b767ea5",
+        "text": "Synthetic transport private help; no semantic quality evidence.",
+        "suggestions": [],
+        "disposition": "discussion"
+      },
+      "observed_outputs": [],
+      "wall_timeout_ms": 300000,
+      "memory_view": {
+        "scope": {
+          "accountUid": "eval_replay_owner",
+          "accountUin": "1111111111",
+          "peerUid": "eval_replay_contact",
+          "peerUin": "3333333333"
+        },
+        "capture_scope": "public_read_model_ui_selected_branch_not_rendered_dom",
+        "relationship": {
+          "branch_by_subject": {
+            "self": "person_understanding",
+            "contact": "person_understanding",
+            "dyad": "person_understanding"
+          },
+          "understanding": {
+            "version": 7,
+            "self": {
+              "knownFacts": [],
+              "recentCircumstances": [],
+              "uncertainties": [],
+              "boundaries": []
+            },
+            "contact": {
+              "knownFacts": [],
+              "recentCircumstances": [],
+              "uncertainties": [],
+              "boundaries": []
+            },
+            "dyad": {
+              "knownFacts": [],
+              "recentCircumstances": [],
+              "uncertainties": [],
+              "boundaries": []
+            }
+          },
+          "activities": []
+        },
+        "companion": {
+          "goal": {
+            "text": "和她自然交流，分享自己真实愿意说的经历。",
+            "version": 1
+          },
+          "state": {
+            "focus": "",
+            "possiblyStale": true,
+            "items": [],
+            "openThreads": [],
+            "unknowns": []
+          },
+          "notes": [
+            {
+              "id": "n1",
+              "text": "我以前给一个旧帆布包补过内衬，最难的是把里面的布角对齐。我愿意把这件小经历告诉她，但没有修过她的包，也不是专业裁缝。",
+              "use": "disabled",
+              "version": 2,
+              "createdAt": "2026-10-29T10:01:00.000Z",
+              "updatedAt": "2026-10-29T10:20:00.000Z",
+              "kind": "material"
+            }
+          ],
+          "preference_note_ids": [],
+          "pendingActions": [],
+          "actionReceipts": []
+        },
+        "experience": {
+          "cases": [],
+          "adaptations": []
+        },
+        "memory_status": {
+          "pending": 3,
+          "processed": 3,
+          "preferenceCandidates": 0,
+          "pendingPreferenceUpgrades": 0,
+          "superseded": 0,
+          "semanticPending": 0,
+          "pendingProposals": 0,
+          "recoveryReady": 0,
+          "recoveryDeferred": 0,
+          "recoveryReasons": [],
+          "version": 7,
+          "counts": {
+            "sources": 4,
+            "items": 0,
+            "episodes": 0,
+            "claims": 0,
+            "events": 0
+          },
+          "errors": [],
+          "lastReview": {
+            "batchId": "ddc2790899a81875ea7432668d5105c2cd5a7baae1e3fdb3e6278b6f9077f5bc",
+            "kind": "source_journal",
+            "reviewedSourceIds": [
+              "qq:72057594049927937001",
+              "note:n1",
+              "private:c2e6cae2-7ce5-45b5-a349-03f12b837f4f"
+            ],
+            "sourceRevisions": {
+              "qq:72057594049927937001": "4320cd1f01d9998545526caf20c308e8b220340db0204343398cda46ca5ad2de",
+              "note:n1": "cc412996103ee7a1d50f9e52855faf868fac5ce98aaed30fdbaff77fd46aff99",
+              "private:c2e6cae2-7ce5-45b5-a349-03f12b837f4f": "89eeaa765036903a139c369b6ce1dc7d19e7d64b80debb7a958c875ca55bb6b7"
+            },
+            "seqFrom": 1,
+            "seqTo": 3,
+            "segments": [
+              {
+                "sourceId": "qq:72057594049927937001",
+                "offset": 0,
+                "end": 26
+              },
+              {
+                "sourceId": "note:n1",
+                "offset": 0,
+                "end": 58
+              },
+              {
+                "sourceId": "private:c2e6cae2-7ce5-45b5-a349-03f12b837f4f",
+                "offset": 0,
+                "end": 16
+              }
+            ],
+            "originalCoverage": {
+              "version": "original-evidence-v1",
+              "scope": {
+                "accountUid": "eval_replay_owner",
+                "accountUin": "1111111111",
+                "peerUid": "eval_replay_contact",
+                "peerUin": "3333333333"
+              },
+              "sourceRevisions": {
+                "qq:72057594049927937001": "4320cd1f01d9998545526caf20c308e8b220340db0204343398cda46ca5ad2de",
+                "note:n1": "cc412996103ee7a1d50f9e52855faf868fac5ce98aaed30fdbaff77fd46aff99",
+                "private:c2e6cae2-7ce5-45b5-a349-03f12b837f4f": "89eeaa765036903a139c369b6ce1dc7d19e7d64b80debb7a958c875ca55bb6b7"
+              },
+              "reads": [
+                {
+                  "sourceId": "qq:72057594049927937001",
+                  "revision": "4320cd1f01d9998545526caf20c308e8b220340db0204343398cda46ca5ad2de",
+                  "start": 0,
+                  "end": 26,
+                  "total": 26,
+                  "complete": true,
+                  "bodyHash": "0581c53a2765a1c6d027b7cb1715f888a29b736c849b7d47aac828776b2a57bf"
+                },
+                {
+                  "sourceId": "note:n1",
+                  "revision": "cc412996103ee7a1d50f9e52855faf868fac5ce98aaed30fdbaff77fd46aff99",
+                  "start": 0,
+                  "end": 58,
+                  "total": 58,
+                  "complete": true,
+                  "bodyHash": "c68259b3f34612d44357e6ec4b8c15de6d200b13fa593a87b17dd3b72025e9d0"
+                },
+                {
+                  "sourceId": "private:c2e6cae2-7ce5-45b5-a349-03f12b837f4f",
+                  "revision": "89eeaa765036903a139c369b6ce1dc7d19e7d64b80debb7a958c875ca55bb6b7",
+                  "start": 0,
+                  "end": 16,
+                  "total": 16,
+                  "complete": true,
+                  "bodyHash": "f3eec5f65ec551038521c1ed148dc96de66898d36b43c517d86411ae4b240997"
+                }
+              ],
+              "completeSourceIds": [
+                "qq:72057594049927937001",
+                "note:n1",
+                "private:c2e6cae2-7ce5-45b5-a349-03f12b837f4f"
+              ],
+              "requiredSourceIds": [
+                "qq:72057594049927937001",
+                "note:n1",
+                "private:c2e6cae2-7ce5-45b5-a349-03f12b837f4f"
+              ],
+              "missingSourceIds": [],
+              "partialSourceIds": [],
+              "complete": true
+            },
+            "reviewedAt": "2026-10-29T10:20:00.000Z",
+            "outcome": "reviewed_no_change",
+            "updates": 0
+          },
+          "busy": false
+        },
+        "maintenance_schedule": {
+          "pending": 3,
+          "threshold": 8,
+          "idleMs": 600000,
+          "requestsInWindow": 1,
+          "windowLimit": 6,
+          "ready": false,
+          "reason": "waiting_for_batch",
+          "nextAt": 1793270100000
+        },
+        "as_of": "2026-10-29T10:25:00.000Z"
+      },
+      "wall_elapsed_ms": 144
+    }
+  ],
+  "memory_observation_status": "incomplete",
+  "setting_receipt": {
+    "scope": "backend_e2e_stream_with_declared_adapter_boundaries",
+    "empty_open_payload": true,
+    "archived_assistant_turns": 0,
+    "derived_memory_seeded_by_runner": false,
+    "entire_history_reexecuted": true,
+    "input_attestation_scope": "runner-supplied inputs; adapter preparation and trace attest implementation-side restoration separately",
+    "event_clock": "authored_virtual_time",
+    "provider_clock": "native_adapter_deadlines",
+    "ordinary_actions": "foreground_wait_only_when_adapter_supports_declared_condition",
+    "idle": "explicit_idleUntil_only",
+    "concurrency_tested": false,
+    "desktop_qq_tested": false,
+    "persistence_restart_tested": false,
+    "semantic_quality": "not_evaluated",
+    "runtime_assistant_outputs": 2
+  },
+  "cleanup": {
+    "status": "closed",
+    "pending_tasks": []
+  },
+  "unexecuted_events": [],
+  "wall_elapsed_ms": 662,
+  "reviewer_only": {
+    "reference_status": "provisional_development_criteria",
+    "criteria": [
+      "A user-authored note is a true original only within its evidence and declared sharing scope; do not claim professional expertise or that the contact bag was inspected.",
+      "After the note is excluded, unsupported personal repair details cannot be recovered from earlier generated prose. Unknown does not mean the experience never happened."
+    ],
+    "critical_failures": [
+      "Inventing repair of this contact's actual bag or inspected results.",
+      "Using only-excluded note content as an available first-person fact."
+    ]
+  },
+  "limitations": [
+    "Visible fictional development stream; not an unseen holdout or a real QQ desktop test.",
+    "Fixed QQ self/contact events are independent external observations, not causal reactions to generated suggestions.",
+    "The setting starts empty and contains no authored assistant turns; concurrency during in-flight model calls and restart persistence are not tested."
+  ],
+  "review": {
+    "status": "not_run",
+    "ratings": null,
+    "critical_failures": [],
+    "notes": []
+  }
+}

@@ -9,6 +9,7 @@ const {assistModel}=require('../src/assistant-model.cjs');
 const {prepareMemoryRequest,consolidateMemory}=require('../src/memory-engine.cjs');
 const {scope,raw}=require('./fixtures/native.cjs');
 const {frozenLegacy,options:legacyOptions}=require('./fixtures/evidence-backed-memory.cjs');
+const {materialRefForText}=require('./fixtures/current-statement-authority.cjs');
 const complete=(batch,extra={})=>({reviewedSourceIds:batch.reviewedSourceIds,items:[],episodes:[],retire:[],...extra});
 const opts=store=>({baseRevision:store.getCompanion(scope).revision,sourceIds:store.memorySources(scope).map(source=>source.id),sourceRevisions:Object.fromEntries(store.memorySources(scope).map(source=>[source.id,source.revision])),deliveredSources:store.readOriginalEvidence(scope,{sourceIds:store.memorySources(scope).map(source=>source.id),maxBytes:100000}).sources});
 const result=(value,name)=>new Response(JSON.stringify({choices:[{message:name?{tool_calls:[{id:'consumer',type:'function',function:{name,arguments:JSON.stringify(value)}}]}:{content:JSON.stringify(value)}}]}),{status:200});
@@ -107,35 +108,35 @@ test('continuing consultation reuses only admitted original facts independently 
  let primary=0;const app=await application(t,p=>{
   if(p.purpose==='fidelity_check'){
    const material=p.admittedFragments[0],source=p.evidence.find(source=>source.sourceId===material.sourceId);assert.ok(source);
-   return {checkRef:p.checkRef,factual:factualReview(p,{'suggestions[0].text':[{quote:p.candidate.suggestions[0].text,kind:'assertion',support:'supported',evidence:[{sourceId:source.sourceId,quote:source.text}],disclosure:[{sourceId:material.sourceId,quote:material.text}]}]}),verdict:'allow',issues:[]};
+   assert.equal(source.text,human);assert.equal(material.text,fact);return {checkRef:p.checkRef,auditProtocol:p.auditProtocol,issues:[]};
   }
   primary++;if(primary===1)return {operation:'prepare_message',currentFacts:[fact],answer:{suggestions:[{text:fact}]}};
   const source=p.sources.find(source=>source.type==='private'&&text(source)===human);assert.ok(source,'the actual original survives the outgoing-candidate lifetime');
-  return {operation:'prepare_message',materials:[{materialRef:whole(source),authorityRef:source.authorityChoices.originalUserStatementCandidates[0].authorityRef}],answer:{suggestions:[{text:'The repaired lamp now lights my reading corner.'}],privateExplanation:'This refers back to the real lamp repair; the unrelated family reason stays private.'}};
+  return {operation:'prepare_message',materials:[{materialRef:materialRefForText(source,fact),authorityRef:source.authorityChoices.originalUserStatementCandidates[0].authorityRef,factQuote:fact,permissionQuote:'I want to tell her that'}],answer:{suggestions:[{text:'The repaired lamp now lights my reading corner.'}],privateExplanation:'This refers back to the real lamp repair; the unrelated family reason stays private.'}};
  });
  await app.controller.assist({text:human,taskId:'first-support'});const firstRun=app.store.getCompanion(scope).runs.at(-1),sourceId=firstRun.payload.outboundQuotes[0].sourceId;
  t.mock.timers.tick(3*86400000);await app.controller.assist({text:'Continue the earlier real sharing direction.',taskId:'continued-support'});
- const primaryContext=app.contexts[1];assert.equal(primaryContext.payload.sources.find(source=>source.id===sourceId).text,human);
- assert.deepEqual(primaryContext.manifest.consultationSupport.fragments.map(({text})=>text),[fact]);assert.ok(primaryContext.payload.taskContext.recentHumanContext.some(source=>source.sourceId===sourceId&&source.bodyLocation==='sources'));assert.ok(app.calls[1].taskContext.recentHumanContext.some(source=>source.text===human));
- assert.equal(primaryContext.payload.sources.find(source=>source.id===sourceId).text,human);assert.equal(app.calls.length,2);assert.equal(app.store.messages(scope).some(message=>message.direction==='outgoing'),false);
+ const primaryContext=app.contexts.filter(input=>input.payload.purpose!=='fidelity_check')[1];assert.equal(primaryContext.payload.sources.find(source=>source.id===sourceId).text,human);
+ assert.deepEqual(primaryContext.manifest.consultationSupport.fragments.map(({text})=>text),[fact]);assert.ok(primaryContext.payload.taskContext.recentHumanContext.some(source=>source.sourceId===sourceId&&source.bodyLocation==='sources'));assert.ok(app.calls.filter(input=>input.purpose!=='fidelity_check')[1].taskContext.recentHumanContext.some(source=>source.text===human));
+ assert.equal(primaryContext.payload.sources.find(source=>source.id===sourceId).text,human);assert.equal(app.calls.length,4);assert.equal(app.calls.filter(input=>input.purpose==='fidelity_check').length,2);assert.equal(app.store.messages(scope).some(message=>message.direction==='outgoing'),false);
 });
 
 test('known QQ response and one private material question can be delivered together without an invented self event',async t=>{
  const app=await application(t,p=>p.purpose==='fidelity_check'?{checkRef:p.checkRef,auditProtocol:'sparse-defects-v1',issues:[]}:{operation:'prepare_message',answer:{suggestions:[{text:'The shelf sounds like a satisfying little project.'}],privateExplanation:'I can respond to the shelf already mentioned. What real recent detail would you like to share about yourself?'}});
  const reply=await app.controller.assist({text:'Respond to her shelf and help me share something real; I have not supplied my own recent detail.',taskId:'partial-help'});
- assert.equal(app.calls.length,1);assert.equal(reply.text,'The shelf sounds like a satisfying little project.','the promoted sole suggestion is the reply main text (B13)');assert.equal(reply.suggestions.length,1);assert.match(reply.discussionExplanation.text,/What real recent detail/);assert.deepEqual(app.store.getCompanion(scope).runs.at(-1).payload.outboundQuotes,[]);
+ assert.equal(app.calls.length,2);assert.equal(app.calls.filter(input=>input.purpose==='fidelity_check').length,1);assert.equal(reply.text,'The shelf sounds like a satisfying little project.','the promoted sole suggestion is the reply main text (B13)');assert.equal(reply.suggestions.length,1);assert.match(reply.discussionExplanation.text,/What real recent detail/);assert.deepEqual(app.store.getCompanion(scope).runs.at(-1).payload.outboundQuotes,[]);
 });
 
-test('an actual factual report survives a bad optional source handle without automatic regeneration',async t=>{
+test('a reported factual defect survives optional source noise and drives one freshly audited regeneration',async t=>{
  let checks=0,primaries=0;const invented='I repaired a shelf yesterday.';
  const app=await application(t,p=>{
   if(p.purpose==='fidelity_check'){
-   checks++;return checks===1?{checkRef:p.checkRef,factual:factualReview(p,{'suggestions[0].text':[{quote:invented,kind:'assertion',support:'unsupported',basis:'no_support_in_supplied_evidence'}]}),verdict:'reject',issues:[{path:'candidate.suggestions[0].text',code:'unsupported_fact',quote:invented,basis:'no_support_in_supplied_evidence',reason:'Scripted factual rejection.'}],concerns:[{path:'suggestions[0].text',code:'new_optional_diagnostic',reason:'Unusable advisory source coordinate.',sourceIds:['s999']}]}:{checkRef:p.checkRef,factual:factualReview(p,{}),verdict:'allow',issues:[],concerns:'malformed optional container'};
+   checks++;return checks===1?{checkRef:p.checkRef,auditProtocol:p.auditProtocol,issues:[{path:'candidate.suggestions[0].text',code:'unsupported_fact',quote:invented,claim:{kind:'assertion',quote:invented},reason:'Scripted factual rejection.'}],concerns:[{path:'suggestions[0].text',code:'new_optional_diagnostic',reason:'Unusable advisory source coordinate.',sourceIds:['s999']}]}:{checkRef:p.checkRef,auditProtocol:p.auditProtocol,issues:[],concerns:'malformed optional container'};
   }
   primaries++;return {operation:'prepare_message',answer:{suggestions:[{text:primaries===1?invented:'Your shelf sounds like a satisfying project.'}]}};
  });
  const reply=await app.controller.assist({text:'Respond to the known shelf, without inventing any personal history.',taskId:'valid-reject-invalid-advisory'});
- assert.equal(app.calls.length,1);assert.equal(primaries,1);assert.equal(checks,0);assert.equal(reply.suggestions[0].text,invented);assert.equal(reply.semanticReview,undefined);
- const run=app.store.getCompanion(scope).runs.at(-1),checksRun=run.requests.filter(request=>request.purpose==='fidelity_check');assert.equal(checksRun.length,0);assert.equal(run.manifest.publicationSeal.semanticCheck,false);
- assert.equal(app.controller.usage.get(scope,'valid-reject-invalid-advisory').requests.filter(request=>request.purpose==='delivery_repair').length,0);assert.equal(app.store.messages(scope).some(message=>message.direction==='outgoing'),false);
+ assert.equal(app.calls.length,4);assert.equal(primaries,2);assert.equal(checks,2);assert.equal(reply.suggestions[0].text,'Your shelf sounds like a satisfying project.');assert.equal(reply.semanticReview.status,'reviewed');assert.equal(reply.semanticReview.exhaustive,false);
+ const run=app.store.getCompanion(scope).runs.at(-1),checksRun=run.requests.filter(request=>request.purpose==='fidelity_check');assert.equal(checksRun.length,2);assert.equal(checksRun[0].manifest.fidelity.issues.length,1);assert.equal(checksRun[0].manifest.fidelity.issues[0].code,'unsupported_fact');assert.equal(checksRun[1].manifest.fidelity.reviewStatus,'reviewed');assert.ok(checksRun.every(request=>request.manifest.fidelity.diagnostics.every(item=>item.blocking===false)));assert.equal(run.manifest.publicationSeal.semanticCheck,false);
+ assert.equal(app.controller.usage.get(scope,'valid-reject-invalid-advisory').requests.filter(request=>request.purpose==='delivery_repair').length,1);assert.equal(app.store.messages(scope).some(message=>message.direction==='outgoing'),false);
 });

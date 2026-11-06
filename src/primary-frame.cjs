@@ -6,13 +6,13 @@ const {parseRequestDelivery,editable}=require('./request-delivery.cjs');
 // A foreground task already owns the source namespace. The independent span
 // namespace shares that lifetime without storing bodies on the task owner.
 const owners=new WeakMap();
-function preparePrimaryFrame(payload,sourceOwner){
+function preparePrimaryFrame(payload,sourceOwner,{capturedSources,sourceRevisions}={}){
  const original=payload?.originalInput||payload;
  if(!original||['draft','memory','discussion_compaction','plain_help_recovery','plain_draft_recovery','fidelity_check'].includes(payload.purpose)||
   ['draft','memory','discussion_compaction'].includes(original.purpose))return undefined;
  let owner=owners.get(sourceOwner);
  if(!owner){owner=new PrimaryReferenceOwner(sourceOwner.taskBinding);owners.set(sourceOwner,owner);}
- return owner.preview(payload,{foreground:true});
+ return owner.preview(payload,{foreground:true,capturedSources,sourceRevisions});
 }
 const plain=value=>value&&typeof value==='object'&&!Array.isArray(value);
 function compilePrimaryFrame(raw,snapshot,payload){

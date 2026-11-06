@@ -38,7 +38,7 @@ test('the primary model preserves exact selected targets as quoted data without 
  };
  const {store,controller}=app(t,(model,context,signal)=>assistModel(model,context,signal,network));
  const ids=[records[0].messageId];controller.configure({replyMessageIds:ids});const actualCount=store.messages(scope).length;
- await controller.suggest();assert.deepEqual(inputs.map(p=>p.purpose),['reply']);
+ await controller.suggest();assert.deepEqual(inputs.map(p=>p.purpose),['reply','fidelity_check']);
  assert.deepEqual(inputs[0].replyFocus,ids);const selected=inputs[0].sources.find(s=>s.messageId===ids[0]);assert.ok(selected);assert.equal(selected.text,records[0].text,'the primary reads the exact selected original QQ target');
  for(const input of inputs){assert.equal(input.send,undefined);assert.equal(input.command,undefined);}
  assert.equal(controller.advice.suggestions.length,1);assert.equal(store.messages(scope).length,actualCount);
@@ -66,8 +66,8 @@ test('authorized current-scope cached images reach the primary stage; foreign an
  const file=cachedImage(t),calls=[];const {store,controller}=app(t,async(_,context)=>{calls.push(context);return context.payload.purpose==='fidelity_check'?{checkRef:context.payload.checkRef,auditProtocol:'sparse-defects-v1',issues:[]}:{...plan,draftPlan:withCurrentDraftControls(plan.draftPlan,context.payload),answer:{privateExplanation:draft.text,suggestions:draft.suggestions}};});
  const id='72057594037927991',message=normalize(raw(id,false,{elements:[{picElement:{sourcePath:file,fileName:'one.png'}}]}),scope);store.add(scope,[message]);
  controller.settings.visionEnabled=true;controller.settings.realChatConsent.allowImages=true;controller.configure({images:[{messageId:id,index:0}]});
- await controller.suggest();assert.equal(calls.length,1);assert.ok(calls.every(c=>c.images.length===1&&c.images[0].messageId===id&&c.images[0].url.startsWith('data:image/png;base64,')));
- controller.configure({images:[{messageId:'72057594037927992',index:0}]});await assert.rejects(controller.suggest(),/来源已撤回或不再用于助手/);assert.equal(calls.length,1);
+ await controller.suggest();assert.equal(calls.length,2);assert.equal(calls.filter(call=>call.payload.purpose==='fidelity_check').length,1);assert.ok(calls.filter(c=>c.payload.purpose!=='fidelity_check').every(c=>c.images.length===1&&c.images[0].messageId===id&&c.images[0].url.startsWith('data:image/png;base64,')));
+ controller.configure({images:[{messageId:'72057594037927992',index:0}]});await assert.rejects(controller.suggest(),/来源已撤回或不再用于助手/);assert.equal(calls.length,2);assert.equal(calls.filter(call=>call.payload.purpose==='fidelity_check').length,1);
  controller.configure({images:[{messageId:id,index:0}]});store.forgetSource(scope,`qq:${id}`);
- await assert.rejects(controller.suggest(),/来源已撤回或不再用于助手/);assert.equal(calls.length,1);
+ await assert.rejects(controller.suggest(),/来源已撤回或不再用于助手/);assert.equal(calls.length,2);assert.equal(calls.filter(call=>call.payload.purpose==='fidelity_check').length,1);
 });

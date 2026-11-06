@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:qq-assistant:raw-evidence-relations-v1:output",
+  "title": "Controlled memory evidence relation diagnostic output",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["axes", "evidence_ids", "reason"],
+  "properties": {
+    "axes": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["same_subject", "time_scope", "relationships", "evidence_sufficiency"],
+      "properties": {
+        "same_subject": {"enum": ["yes", "no", "uncertain", "not_applicable"]},
+        "time_scope": {"enum": ["same", "different", "unknown", "not_applicable"]},
+        "relationships": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"enum": ["duplicate", "compatible_addition", "correction", "change_over_time", "contradiction", "uncertain", "not_applicable"]}},
+        "evidence_sufficiency": {"enum": ["sufficient", "insufficient", "unavailable", "mixed"]}
+      }
+    },
+    "evidence_ids": {"type": "array", "maxItems": 128, "uniqueItems": true, "items": {"type": "string", "pattern": "^[su][1-9][0-9]*$"}},
+    "reason": {"type": "string", "minLength": 1, "maxLength": 4000, "pattern": "\\S"},
+    "confidence": {"type": "number", "minimum": 0, "maximum": 1}
+  }
+}

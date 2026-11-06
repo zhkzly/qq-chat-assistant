@@ -1,6 +1,6 @@
 'use strict';
 const {createHash}=require('node:crypto');
-const {deliveryRange}=require('./context/source-delivery.cjs');
+const {deliveryRange,copyReadyDelivery,sourceEvidence}=require('./context/source-delivery.cjs');
 const {validationError}=require('./validation-issues.cjs');
 
 const VERSION='primary-reference-choices-v1';
@@ -64,7 +64,7 @@ class PrimaryReferenceOwner{
  constructor({scope=null,taskId='standalone'}={}){this.#scope=scopeIdentity(scope);this.#taskId=taskId;}
  matches(scope,taskId){return digest(scopeIdentity(scope))===digest(this.#scope)&&taskId===this.#taskId;}
  get size(){return this.#entries.size;}
- preview(payload,{foreground=false}={}){
+ preview(payload,{foreground=false,capturedSources,sourceRevisions}={}){
   const projected=clone(payload),input=projected?.originalInput||projected;
   const original=payload?.originalInput||payload;
   if(!input||typeof input!=='object'||['draft','memory','discussion_compaction'].includes(input.purpose))throw fail('$','primary_reference_phase_invalid','reference choices are only a foreground planning contract');
@@ -92,8 +92,11 @@ class PrimaryReferenceOwner{
    sourceById.set(source.id,{source:clone(source),text,available});
    if(foreground&&source.id===intentId){
     if(originalUser(source)){
-     input.userRequest={sourceId:source.id,text};
-     if(available&&range.status!=='partial'){
+     const union=capturedSources&&sourceEvidence({payload:original,fullAvailableSources:capturedSources,manifest:{sourceRevisions:sourceRevisions||{},scope:this.#scope}},source.id);
+     if(union?.complete)sourceById.set(source.id,{source:clone(source),text:union.completeText,available});
+     input.userRequest={...clone(original.userRequest),sourceId:source.id,text,
+      ...(source.delivery?{delivery:copyReadyDelivery(original.userRequest?.delivery||source.delivery,source.id)}:{})};
+     if(available&&(range.status!=='partial'||union?.complete)){
       const offered=entry('authority',{kind:'ORIGINALUSERSTATEMENTCANDIDATE',sourceId:source.id,revision:source.revision,currentInstruction:true});
       offeredAuthorities.set(offered.authorityRef,offered);receiptAuthorities.push(offered);
       input.currentPermission={authorityRef:offered.authorityRef,authority:'original_current_human_statement_candidate_not_grant',bodyLocation:'userRequest'};
@@ -116,7 +119,7 @@ class PrimaryReferenceOwner{
     const metadata={sourceId:source.id,revision:source.revision,start:range.start+local.start,end:range.start+local.end,bodyDigest:digest(text.slice(local.start,local.end))};
     const material=entry('material',metadata),key=JSON.stringify([local.start,local.end]);
     if(!choices.has(key)){
-     choices.set(key,material);offeredMaterials.set(material.materialRef,{metadata:material,text:text.slice(local.start,local.end)});receiptMaterials.push(material);
+     choices.set(key,material);offeredMaterials.set(material.materialRef,{metadata:material,text:text.slice(local.start,local.end),requiresFactWitness:foreground&&range.status!=='delivered'});receiptMaterials.push(material);
     }
     return material;
    };
@@ -195,6 +198,7 @@ class PrimaryReferenceOwner{
     const refined=typeof ref==='string'&&/^(m[1-9]\d*)@(b[1-9]\d*):(b[1-9]\d*)$/.exec(ref),base=refined?refined[1]:ref;
     const found=typeof base==='string'&&offeredMaterials.get(base);
     if(!found)throw fail(path,'unknown_material_reference','choose only an exact materialRef offered in this HTTP request');
+    if(found.requiresFactWitness&&!refined&&factQuote===undefined)throw fail(path,'material_fact_witness_required','This historical source is only partially delivered. Select an exact factQuote inside this offered material (or a valid narrow boundary refinement); a broad parent or generated summary cannot stand in for an unread fact. Look up the actual original fact when absent.');
     let metadata=found.metadata,text=found.text;
     if(refined){
      const start=offeredBoundaries.get(refined[2]),end=offeredBoundaries.get(refined[3]);

@@ -40,8 +40,8 @@ function assertSafeDefault(planning,draft){
 
 test('private assistance delivers the configured preference to planning and safe controls without replacing the current meaning',async t=>{
  const {controller,calls}=fixture(t);const answer=await controller.assist({text:REQUEST,taskId:'private-configured-preference'});
- assert.equal(answer.suggestions[0].text,WORDING);assert.equal(calls.length,1);assert.equal(calls[0].userRequest.text,REQUEST);
- assertSafeDefault(calls[0],controller.assistantContext().run.payload);assert.ok(calls.every(call=>call.purpose!=='fidelity_check'));assert.equal(controller.assistantContext().run.payload.currentHumanControl.text,REQUEST);assert.equal(controller.assistantContext().run.payload.draftingGuidance,undefined);
+ assert.equal(answer.suggestions[0].text,WORDING);assert.equal(calls.length,2);assert.equal(calls[0].userRequest.text,REQUEST);
+ assertSafeDefault(calls[0],controller.assistantContext().run.payload);assert.equal(calls.filter(call=>call.purpose==='fidelity_check').length,1);assert.equal(controller.assistantContext().run.payload.currentHumanControl.text,REQUEST);assert.equal(controller.assistantContext().run.payload.draftingGuidance,undefined);
 });
 
 test('canonical feedback continuation receives the same configured preference and preserves the exact local feedback',async t=>{
@@ -49,7 +49,7 @@ test('canonical feedback continuation receives the same configured preference an
  const text='我只是不喜欢人工感，这次仍然想直接邀请她逛展。';
  const result=await controller.continueFeedback({taskId:'feedback-configured-preference',clientEventId:'synthetic-preference-feedback',requestId:target.requestId,
   targetRef:{kind:'artifact',artifactRef:target.artifactRef},text});
- assert.equal(result.feedbackContinuation.status,'complete');assert.equal(calls.length,1);assertSafeDefault(calls[0],controller.assistantContext().run.payload);assert.ok(calls.every(call=>call.purpose!=='fidelity_check'));
+ assert.equal(result.feedbackContinuation.status,'complete');assert.equal(calls.length,2);assertSafeDefault(calls[0],controller.assistantContext().run.payload);assert.equal(calls.filter(call=>call.purpose==='fidelity_check').length,1);
  assert.equal(calls[0].sources.find(source=>source.id===calls[0].intentAuthority.sourceId).text,text);
  assert.equal(store.experiences.listFeedback(scope).length,1);
 });
@@ -76,8 +76,8 @@ test('local wording criticism carries the prior invitation and humor through gui
    assert.equal(calls.length,1,'an old private quote without authorization cannot reach publication');
    assert.equal(controller.usage.get(scope,request.taskId).status,'failed');
   }else{
-   const answer=await controller.assist(request);assert.equal(answer.suggestions[0].text,WORDING);assert.equal(calls.length,1);
-   const draft=controller.assistantContext().run.payload,currentId=calls[0].userRequest.sourceId;assert.ok(calls.every(call=>call.purpose!=='fidelity_check'));
+   const answer=await controller.assist(request);assert.equal(answer.suggestions[0].text,WORDING);assert.equal(calls.length,2);
+   const draft=controller.assistantContext().run.payload,currentId=calls[0].userRequest.sourceId;assert.equal(calls.filter(call=>call.purpose==='fidelity_check').length,1);
    assert.equal(draft.purpose,'answer_admission');assert.deepEqual(draft.outboundQuotes,[]);
    assert.equal(draft.draftingGuidance,undefined);assert.ok(calls[0].sources.some(source=>source.id===priorId&&source.text===priorText));
    assert.ok(draft.sources.some(source=>source.id==='qq:56701'));
@@ -106,7 +106,7 @@ test('lookup reassembly retains the preference captured at entry and does not ad
   return {kind:'discussion',text:'查看已有来源后按本次意思表达。',draftPlan:plan(payload),answer:{privateExplanation:'合成参考',suggestions:[{style:'自然',text:WORDING}]}};
  });controller=app.controller;
  await controller.assist({text:REQUEST,taskId:'lookup-configured-preference'});
- assert.equal(app.calls.length,2);assert.equal(app.calls[0].taskContext.responsePreference,PREFERENCE);assertSafeDefault(app.calls[1],controller.assistantContext().run.payload);assert.ok(app.calls.every(call=>call.purpose!=='fidelity_check'));
+ assert.equal(app.calls.length,3);assert.equal(app.calls[0].taskContext.responsePreference,PREFERENCE);assertSafeDefault(app.calls[1],controller.assistantContext().run.payload);assert.equal(app.calls.filter(call=>call.purpose==='fidelity_check').length,1);
  assert.equal(controller.instruction,UPDATED,'a later property value cannot rewrite this request snapshot');
 });
 
@@ -119,16 +119,16 @@ test('incoming-message resume carries the original captured default without dupl
  assert.equal(pending.args.responsePreference,PREFERENCE);controller.instruction=UPDATED;
  finishFirst({kind:'discussion',text:'Obsolete synthetic result'});await first;
  await controller.assist({...pending.args,taskId:pending.taskId,resumeTurnId:pending.turnId,resumes:1});
- assert.equal(calls.length,2);assertSafeDefault(calls[1],controller.assistantContext().run.payload);assert.ok(calls.every(call=>call.purpose!=='fidelity_check'));
+ assert.equal(calls.length,3);assertSafeDefault(calls[1],controller.assistantContext().run.payload);assert.equal(calls.filter(call=>call.purpose==='fidelity_check').length,1);
  assert.equal(store.getCompanion(scope).turns.filter(turn=>turn.role==='user').length,1);
 });
 
 test('a completed task keeps its original retry identity while a new private request reads updated configuration',async t=>{
  const {controller,store,calls}=fixture(t,()=>({kind:'discussion',text:'只讨论本次表达意思。'}));
  const args={text:'先商量，不写句子。',taskId:'preference-original-task'},first=await controller.assist(args);
- assert.equal(calls.length,1,'private help uses one complete primary call');assert.equal(calls[0].taskContext.responsePreference,PREFERENCE);
+ assert.equal(calls.length,2,'private help uses one complete primary call plus its audit');assert.equal(calls[0].taskContext.responsePreference,PREFERENCE);
  controller.configure({instruction:UPDATED});
- const retried=await controller.assist(args);assert.equal(retried.id,first.id);assert.equal(calls.length,1,'the same taskId retains its original completed request');
- await controller.assist({...args,taskId:'preference-new-task'});assert.equal(calls.length,2);assert.equal(calls[1].taskContext.responsePreference,UPDATED);assert.ok(calls.every(call=>call.purpose!=='fidelity_check'));
+ const retried=await controller.assist(args);assert.equal(retried.id,first.id);assert.equal(calls.length,2,'the same taskId retains its original completed request and audit');
+ await controller.assist({...args,taskId:'preference-new-task'});assert.equal(calls.length,4);assert.equal(calls[2].taskContext.responsePreference,UPDATED);assert.equal(calls.filter(call=>call.purpose==='fidelity_check').length,2);
  assert.equal(store.getCompanion(scope).turns.filter(turn=>turn.role==='user').length,2);
 });

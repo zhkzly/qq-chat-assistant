@@ -1,0 +1,1091 @@
+{
+  "schema_version": 1,
+  "policy_version": "raw-stream-replay-v1",
+  "case_id": "stream-temporary-state-updated",
+  "input_hash": "fc0a1ba4fbc5ae15e4652d627d1ee5b54564b68658ff07f707a95189e0c9d230",
+  "identity": {
+    "dataset_hash": "541b7176a1ca2c725123a335300de3caafc622326e815e0250039c266e45d8ab",
+    "policy_version": "raw-stream-replay-v1",
+    "setting": "stream_from_empty",
+    "adapter_condition": "scheduled_idle_public_memory_observation_v1",
+    "runner_hash": "1693852cd852af9b1d06ef80e16828560c2d98030b1f578566c2a79a3e875ee0",
+    "portable_projection_hash": "4d32c07beffdc93429dfcb8dccf41ee2c078dbbed80dff444c5a46956e2ed875",
+    "adapter_hash": "9302bd97338ca467148a5dd622bed70703b9285dcb18304d6c31ccb0bc3d23ae",
+    "global_http_cap": 64,
+    "event_wall_timeout_ms": 300000
+  },
+  "adapter_identity": {
+    "name": "qq-assistant-public-api",
+    "version": "3",
+    "implementation_hash": "1b3a2cfa8cbde306dd6899307d13e6cb6354365d79f2a77207f01d8b6ec57e77",
+    "source_root": "/home/zhkzly/pycodes/qq-chat-assistant",
+    "contract_json_identity": {
+      "hash": "d3f96c565a1139ba244befe39daa398c8ae8cf19dc0c3bb6b73cf140e9e32c5d",
+      "scope": "src/contracts/**/*.json",
+      "files": 6
+    },
+    "effective_settings": {
+      "model": "synthetic-replay-only",
+      "anonymous": true
+    },
+    "isolated_overrides": {
+      "automatic": false,
+      "consent": "fictional_scope_current_destination",
+      "storage": "in_memory_sqlite"
+    },
+    "adapter_runtime_hash": "f3ee49b005179f146f4d7acc05aff639867602f1c1635f83784a2341fa5f8ab9",
+    "evidence": "synthetic_transport_product_integration",
+    "desktop_qq": false,
+    "prefix_preparation": "scheduled_only_no_forced_prefix",
+    "preparation_is_scheduler_test": false,
+    "condition": "scheduled_idle_public_memory_observation_v1",
+    "native_idle_deadline_ms": 65000,
+    "idle_outer_headroom_ms": 2000,
+    "foreground_wall_timeout_ms": 300000,
+    "ordinary_actions_wait": "foreground_only",
+    "idle_wait": "declared_scheduled_work_only",
+    "clock": "virtual_source_events_native_provider_elapsed",
+    "model": "synthetic-replay-only",
+    "destination": {
+      "origin": "http://fixture.invalid",
+      "path": "/v1"
+    },
+    "settings_hash": null,
+    "max_http": 64
+  },
+  "setting": "stream_from_empty",
+  "semantic_evaluation": "not_run",
+  "status": "executed_review_required",
+  "goal": "与这位朋友保持联系，关心她的生活，也聊聊共同感兴趣的事。",
+  "initial": {
+    "as_of": "2026-09-01T18:29:59+08:00",
+    "qq_events": [],
+    "private_events": []
+  },
+  "events": [
+    {
+      "id": "run-old",
+      "kind": "qq",
+      "at": "2026-09-01T18:30:00+08:00",
+      "input": {
+        "id": "run-old",
+        "kind": "qq",
+        "at": "2026-09-01T18:30:00+08:00",
+        "speaker": "contact",
+        "text": "这周换班有点累，暂时没空跑步，跑步还是喜欢的。"
+      },
+      "status": "executed_review_required",
+      "output": null,
+      "observed_outputs": [],
+      "wall_timeout_ms": 300000,
+      "wall_elapsed_ms": 19
+    },
+    {
+      "id": "idle-before-first",
+      "kind": "idle",
+      "at": "2026-09-01T18:47:59+08:00",
+      "input": {
+        "id": "idle-before-first",
+        "kind": "idle",
+        "at": "2026-09-01T18:47:59+08:00",
+        "wall_timeout_ms": 65000
+      },
+      "status": "executed_review_required",
+      "output": null,
+      "observed_outputs": [],
+      "wall_timeout_ms": 65000,
+      "checkpoint": {
+        "condition": "scheduled_idle_public_memory_observation_v1",
+        "status": "complete",
+        "reason": null,
+        "as_of": "2026-09-01T10:47:59.000Z",
+        "wall_elapsed_ms": 20,
+        "wall_timeout_ms": 65000,
+        "completion_scope": "scheduled_work_and_product_review_coverage_not_semantic_quality",
+        "timer_callbacks": 1,
+        "pending_tasks": [],
+        "failures": [],
+        "memory_status": {
+          "pending": 0,
+          "processed": 1,
+          "preferenceCandidates": 0,
+          "pendingPreferenceUpgrades": 0,
+          "superseded": 0,
+          "semanticPending": 0,
+          "pendingProposals": 0,
+          "recoveryReady": 0,
+          "recoveryDeferred": 0,
+          "recoveryReasons": [],
+          "version": 2,
+          "counts": {
+            "sources": 1,
+            "items": 0,
+            "episodes": 0,
+            "claims": 0,
+            "events": 0
+          },
+          "errors": [],
+          "lastReview": {
+            "batchId": "e3517dbd979b530f89bd4d4ed78061e9a5f823f57119e1f6169d88d69b1acadf",
+            "kind": "source_journal",
+            "reviewedSourceIds": [
+              "qq:72057594049927937001"
+            ],
+            "sourceRevisions": {
+              "qq:72057594049927937001": "6771a0261020a2d2c6f72ef0dc7714dd2bf1eaf790092ebf2d93c15f1b43c1fb"
+            },
+            "seqFrom": 1,
+            "seqTo": 1,
+            "segments": [
+              {
+                "sourceId": "qq:72057594049927937001",
+                "offset": 0,
+                "end": 23
+              }
+            ],
+            "originalCoverage": {
+              "version": "original-evidence-v1",
+              "scope": {
+                "accountUid": "eval_replay_owner",
+                "accountUin": "1111111111",
+                "peerUid": "eval_replay_contact",
+                "peerUin": "3333333333"
+              },
+              "sourceRevisions": {
+                "qq:72057594049927937001": "6771a0261020a2d2c6f72ef0dc7714dd2bf1eaf790092ebf2d93c15f1b43c1fb"
+              },
+              "reads": [
+                {
+                  "sourceId": "qq:72057594049927937001",
+                  "revision": "6771a0261020a2d2c6f72ef0dc7714dd2bf1eaf790092ebf2d93c15f1b43c1fb",
+                  "start": 0,
+                  "end": 23,
+                  "total": 23,
+                  "complete": true,
+                  "bodyHash": "490de7c38de76a21b6aef935354738790948481f8ab520d3a975c7622a6f7844"
+                }
+              ],
+              "completeSourceIds": [
+                "qq:72057594049927937001"
+              ],
+              "requiredSourceIds": [
+                "qq:72057594049927937001"
+              ],
+              "missingSourceIds": [],
+              "partialSourceIds": [],
+              "complete": true
+            },
+            "reviewedAt": "2026-09-01T10:40:00.000Z",
+            "outcome": "reviewed_no_change",
+            "updates": 0
+          },
+          "busy": false
+        },
+        "product_coverage": {
+          "pending": 0,
+          "semanticPending": 0,
+          "processorVersion": "evidence-backed-understanding-2026-10-31.2",
+          "bootstrapPending": false,
+          "history": {
+            "status": "empty",
+            "pages": 1,
+            "cursor": null,
+            "oldestAt": null,
+            "checkedAt": "2026-09-01T10:29:59.000Z",
+            "source": "fictional-native-boundary-replay"
+          },
+          "semanticCertainty": false,
+          "semanticReview": "evidence_based_not_entailment_proof"
+        }
+      },
+      "memory_view": {
+        "scope": {
+          "accountUid": "eval_replay_owner",
+          "accountUin": "1111111111",
+          "peerUid": "eval_replay_contact",
+          "peerUin": "3333333333"
+        },
+        "capture_scope": "public_read_model_ui_selected_branch_not_rendered_dom",
+        "relationship": {
+          "branch_by_subject": {
+            "self": "person_understanding",
+            "contact": "person_understanding",
+            "dyad": "person_understanding"
+          },
+          "understanding": {
+            "version": 2,
+            "self": {
+              "knownFacts": [],
+              "recentCircumstances": [],
+              "uncertainties": [],
+              "boundaries": []
+            },
+            "contact": {
+              "knownFacts": [],
+              "recentCircumstances": [],
+              "uncertainties": [],
+              "boundaries": []
+            },
+            "dyad": {
+              "knownFacts": [],
+              "recentCircumstances": [],
+              "uncertainties": [],
+              "boundaries": []
+            }
+          },
+          "activities": []
+        },
+        "companion": {
+          "goal": {
+            "text": "与这位朋友保持联系，关心她的生活，也聊聊共同感兴趣的事。",
+            "version": 1
+          },
+          "state": {
+            "focus": "",
+            "possiblyStale": true,
+            "items": [],
+            "openThreads": [],
+            "unknowns": []
+          },
+          "notes": [],
+          "preference_note_ids": [],
+          "pendingActions": [],
+          "actionReceipts": []
+        },
+        "experience": {
+          "cases": [],
+          "adaptations": []
+        },
+        "memory_status": {
+          "pending": 0,
+          "processed": 1,
+          "preferenceCandidates": 0,
+          "pendingPreferenceUpgrades": 0,
+          "superseded": 0,
+          "semanticPending": 0,
+          "pendingProposals": 0,
+          "recoveryReady": 0,
+          "recoveryDeferred": 0,
+          "recoveryReasons": [],
+          "version": 2,
+          "counts": {
+            "sources": 1,
+            "items": 0,
+            "episodes": 0,
+            "claims": 0,
+            "events": 0
+          },
+          "errors": [],
+          "lastReview": {
+            "batchId": "e3517dbd979b530f89bd4d4ed78061e9a5f823f57119e1f6169d88d69b1acadf",
+            "kind": "source_journal",
+            "reviewedSourceIds": [
+              "qq:72057594049927937001"
+            ],
+            "sourceRevisions": {
+              "qq:72057594049927937001": "6771a0261020a2d2c6f72ef0dc7714dd2bf1eaf790092ebf2d93c15f1b43c1fb"
+            },
+            "seqFrom": 1,
+            "seqTo": 1,
+            "segments": [
+              {
+                "sourceId": "qq:72057594049927937001",
+                "offset": 0,
+                "end": 23
+              }
+            ],
+            "originalCoverage": {
+              "version": "original-evidence-v1",
+              "scope": {
+                "accountUid": "eval_replay_owner",
+                "accountUin": "1111111111",
+                "peerUid": "eval_replay_contact",
+                "peerUin": "3333333333"
+              },
+              "sourceRevisions": {
+                "qq:72057594049927937001": "6771a0261020a2d2c6f72ef0dc7714dd2bf1eaf790092ebf2d93c15f1b43c1fb"
+              },
+              "reads": [
+                {
+                  "sourceId": "qq:72057594049927937001",
+                  "revision": "6771a0261020a2d2c6f72ef0dc7714dd2bf1eaf790092ebf2d93c15f1b43c1fb",
+                  "start": 0,
+                  "end": 23,
+                  "total": 23,
+                  "complete": true,
+                  "bodyHash": "490de7c38de76a21b6aef935354738790948481f8ab520d3a975c7622a6f7844"
+                }
+              ],
+              "completeSourceIds": [
+                "qq:72057594049927937001"
+              ],
+              "requiredSourceIds": [
+                "qq:72057594049927937001"
+              ],
+              "missingSourceIds": [],
+              "partialSourceIds": [],
+              "complete": true
+            },
+            "reviewedAt": "2026-09-01T10:40:00.000Z",
+            "outcome": "reviewed_no_change",
+            "updates": 0
+          },
+          "busy": false
+        },
+        "maintenance_schedule": {
+          "pending": 0,
+          "threshold": 8,
+          "idleMs": 600000,
+          "requestsInWindow": 1,
+          "windowLimit": 6,
+          "ready": false,
+          "reason": "up_to_date",
+          "nextAt": null
+        },
+        "as_of": "2026-09-01T10:47:59.000Z"
+      },
+      "wall_elapsed_ms": 32
+    },
+    {
+      "id": "r-s1",
+      "kind": "user_request",
+      "at": "2026-09-01T18:48:00+08:00",
+      "input": {
+        "id": "r-s1",
+        "kind": "user_request",
+        "at": "2026-09-01T18:48:00+08:00",
+        "text": "关于她现在的生活节奏和跑步，我目前可靠知道什么？"
+      },
+      "status": "executed_review_required",
+      "output": {
+        "reply_id": "af49f55d-a7e1-4e97-ae93-a2f6bc8387de",
+        "text": "Synthetic transport private help; no semantic quality evidence.",
+        "suggestions": [],
+        "disposition": "discussion"
+      },
+      "observed_outputs": [],
+      "wall_timeout_ms": 300000,
+      "memory_view": {
+        "scope": {
+          "accountUid": "eval_replay_owner",
+          "accountUin": "1111111111",
+          "peerUid": "eval_replay_contact",
+          "peerUin": "3333333333"
+        },
+        "capture_scope": "public_read_model_ui_selected_branch_not_rendered_dom",
+        "relationship": {
+          "branch_by_subject": {
+            "self": "person_understanding",
+            "contact": "person_understanding",
+            "dyad": "person_understanding"
+          },
+          "understanding": {
+            "version": 3,
+            "self": {
+              "knownFacts": [],
+              "recentCircumstances": [],
+              "uncertainties": [],
+              "boundaries": []
+            },
+            "contact": {
+              "knownFacts": [],
+              "recentCircumstances": [],
+              "uncertainties": [],
+              "boundaries": []
+            },
+            "dyad": {
+              "knownFacts": [],
+              "recentCircumstances": [],
+              "uncertainties": [],
+              "boundaries": []
+            }
+          },
+          "activities": []
+        },
+        "companion": {
+          "goal": {
+            "text": "与这位朋友保持联系，关心她的生活，也聊聊共同感兴趣的事。",
+            "version": 1
+          },
+          "state": {
+            "focus": "",
+            "possiblyStale": true,
+            "items": [],
+            "openThreads": [],
+            "unknowns": []
+          },
+          "notes": [],
+          "preference_note_ids": [],
+          "pendingActions": [],
+          "actionReceipts": []
+        },
+        "experience": {
+          "cases": [],
+          "adaptations": []
+        },
+        "memory_status": {
+          "pending": 1,
+          "processed": 1,
+          "preferenceCandidates": 0,
+          "pendingPreferenceUpgrades": 0,
+          "superseded": 0,
+          "semanticPending": 0,
+          "pendingProposals": 0,
+          "recoveryReady": 0,
+          "recoveryDeferred": 0,
+          "recoveryReasons": [],
+          "version": 3,
+          "counts": {
+            "sources": 2,
+            "items": 0,
+            "episodes": 0,
+            "claims": 0,
+            "events": 0
+          },
+          "errors": [],
+          "lastReview": {
+            "batchId": "e3517dbd979b530f89bd4d4ed78061e9a5f823f57119e1f6169d88d69b1acadf",
+            "kind": "source_journal",
+            "reviewedSourceIds": [
+              "qq:72057594049927937001"
+            ],
+            "sourceRevisions": {
+              "qq:72057594049927937001": "6771a0261020a2d2c6f72ef0dc7714dd2bf1eaf790092ebf2d93c15f1b43c1fb"
+            },
+            "seqFrom": 1,
+            "seqTo": 1,
+            "segments": [
+              {
+                "sourceId": "qq:72057594049927937001",
+                "offset": 0,
+                "end": 23
+              }
+            ],
+            "originalCoverage": {
+              "version": "original-evidence-v1",
+              "scope": {
+                "accountUid": "eval_replay_owner",
+                "accountUin": "1111111111",
+                "peerUid": "eval_replay_contact",
+                "peerUin": "3333333333"
+              },
+              "sourceRevisions": {
+                "qq:72057594049927937001": "6771a0261020a2d2c6f72ef0dc7714dd2bf1eaf790092ebf2d93c15f1b43c1fb"
+              },
+              "reads": [
+                {
+                  "sourceId": "qq:72057594049927937001",
+                  "revision": "6771a0261020a2d2c6f72ef0dc7714dd2bf1eaf790092ebf2d93c15f1b43c1fb",
+                  "start": 0,
+                  "end": 23,
+                  "total": 23,
+                  "complete": true,
+                  "bodyHash": "490de7c38de76a21b6aef935354738790948481f8ab520d3a975c7622a6f7844"
+                }
+              ],
+              "completeSourceIds": [
+                "qq:72057594049927937001"
+              ],
+              "requiredSourceIds": [
+                "qq:72057594049927937001"
+              ],
+              "missingSourceIds": [],
+              "partialSourceIds": [],
+              "complete": true
+            },
+            "reviewedAt": "2026-09-01T10:40:00.000Z",
+            "outcome": "reviewed_no_change",
+            "updates": 0
+          },
+          "busy": false
+        },
+        "maintenance_schedule": {
+          "pending": 1,
+          "threshold": 8,
+          "idleMs": 600000,
+          "requestsInWindow": 1,
+          "windowLimit": 6,
+          "ready": false,
+          "reason": "waiting_for_batch",
+          "nextAt": 1788260280000
+        },
+        "as_of": "2026-09-01T10:48:00.000Z"
+      },
+      "wall_elapsed_ms": 99
+    },
+    {
+      "id": "run-new",
+      "kind": "qq",
+      "at": "2026-09-21T18:30:00+08:00",
+      "input": {
+        "id": "run-new",
+        "kind": "qq",
+        "at": "2026-09-21T18:30:00+08:00",
+        "speaker": "contact",
+        "text": "最近恢复正常下班了，刚过去的周末又去跑了一次。"
+      },
+      "status": "executed_review_required",
+      "output": null,
+      "observed_outputs": [],
+      "wall_timeout_ms": 300000,
+      "wall_elapsed_ms": 91
+    },
+    {
+      "id": "idle-before-second",
+      "kind": "idle",
+      "at": "2026-09-21T18:47:59+08:00",
+      "input": {
+        "id": "idle-before-second",
+        "kind": "idle",
+        "at": "2026-09-21T18:47:59+08:00",
+        "wall_timeout_ms": 65000
+      },
+      "status": "executed_review_required",
+      "output": null,
+      "observed_outputs": [],
+      "wall_timeout_ms": 65000,
+      "checkpoint": {
+        "condition": "scheduled_idle_public_memory_observation_v1",
+        "status": "complete",
+        "reason": null,
+        "as_of": "2026-09-21T10:47:59.000Z",
+        "wall_elapsed_ms": 41,
+        "wall_timeout_ms": 65000,
+        "completion_scope": "scheduled_work_and_product_review_coverage_not_semantic_quality",
+        "timer_callbacks": 1,
+        "pending_tasks": [],
+        "failures": [],
+        "memory_status": {
+          "pending": 0,
+          "processed": 3,
+          "preferenceCandidates": 0,
+          "pendingPreferenceUpgrades": 0,
+          "superseded": 0,
+          "semanticPending": 0,
+          "pendingProposals": 0,
+          "recoveryReady": 0,
+          "recoveryDeferred": 0,
+          "recoveryReasons": [],
+          "version": 6,
+          "counts": {
+            "sources": 3,
+            "items": 0,
+            "episodes": 0,
+            "claims": 0,
+            "events": 0
+          },
+          "errors": [],
+          "lastReview": {
+            "batchId": "2915871dc2d1dc1ebfd0c5dee652229a3c7e8e1cd6a15c8a5ef595a7bf70c1d5",
+            "kind": "source_journal",
+            "reviewedSourceIds": [
+              "qq:72057594049927937002"
+            ],
+            "sourceRevisions": {
+              "qq:72057594049927937002": "d4af4c75d209335e4a32b16b990ba1e35287cd43249e865b1fc56a364d6c88e3"
+            },
+            "seqFrom": 3,
+            "seqTo": 3,
+            "segments": [
+              {
+                "sourceId": "qq:72057594049927937002",
+                "offset": 0,
+                "end": 23
+              }
+            ],
+            "originalCoverage": {
+              "version": "original-evidence-v1",
+              "scope": {
+                "accountUid": "eval_replay_owner",
+                "accountUin": "1111111111",
+                "peerUid": "eval_replay_contact",
+                "peerUin": "3333333333"
+              },
+              "sourceRevisions": {
+                "qq:72057594049927937002": "d4af4c75d209335e4a32b16b990ba1e35287cd43249e865b1fc56a364d6c88e3",
+                "qq:72057594049927937001": "6771a0261020a2d2c6f72ef0dc7714dd2bf1eaf790092ebf2d93c15f1b43c1fb",
+                "private:c70d6623-de66-4fab-95b4-1b2e37ee66dc": "4c0624190db425a85ff394e738fb46056b9d5de7f0b34a80c1c910e2468ed42c"
+              },
+              "reads": [
+                {
+                  "sourceId": "qq:72057594049927937002",
+                  "revision": "d4af4c75d209335e4a32b16b990ba1e35287cd43249e865b1fc56a364d6c88e3",
+                  "start": 0,
+                  "end": 23,
+                  "total": 23,
+                  "complete": true,
+                  "bodyHash": "fa5e15f16f20dcd57a7e5833744477f8c16f973b9097ddcddc27fb718095d19f"
+                },
+                {
+                  "sourceId": "qq:72057594049927937001",
+                  "revision": "6771a0261020a2d2c6f72ef0dc7714dd2bf1eaf790092ebf2d93c15f1b43c1fb",
+                  "start": 0,
+                  "end": 23,
+                  "total": 23,
+                  "complete": true,
+                  "bodyHash": "490de7c38de76a21b6aef935354738790948481f8ab520d3a975c7622a6f7844"
+                },
+                {
+                  "sourceId": "private:c70d6623-de66-4fab-95b4-1b2e37ee66dc",
+                  "revision": "4c0624190db425a85ff394e738fb46056b9d5de7f0b34a80c1c910e2468ed42c",
+                  "start": 0,
+                  "end": 24,
+                  "total": 24,
+                  "complete": true,
+                  "bodyHash": "f59e61c9126e8e010da50df5f3ac46e9a47e749474e9dc922b6dac10ccda9128"
+                }
+              ],
+              "completeSourceIds": [
+                "qq:72057594049927937002",
+                "qq:72057594049927937001",
+                "private:c70d6623-de66-4fab-95b4-1b2e37ee66dc"
+              ],
+              "requiredSourceIds": [
+                "qq:72057594049927937002",
+                "qq:72057594049927937001",
+                "private:c70d6623-de66-4fab-95b4-1b2e37ee66dc"
+              ],
+              "missingSourceIds": [],
+              "partialSourceIds": [],
+              "complete": true
+            },
+            "reviewedAt": "2026-09-21T10:40:00.000Z",
+            "outcome": "reviewed_no_change",
+            "updates": 0
+          },
+          "busy": false
+        },
+        "product_coverage": {
+          "pending": 0,
+          "semanticPending": 0,
+          "processorVersion": "evidence-backed-understanding-2026-10-31.2",
+          "bootstrapPending": false,
+          "history": {
+            "status": "empty",
+            "pages": 1,
+            "cursor": null,
+            "oldestAt": null,
+            "checkedAt": "2026-09-01T10:29:59.000Z",
+            "source": "fictional-native-boundary-replay"
+          },
+          "semanticCertainty": false,
+          "semanticReview": "evidence_based_not_entailment_proof"
+        }
+      },
+      "memory_view": {
+        "scope": {
+          "accountUid": "eval_replay_owner",
+          "accountUin": "1111111111",
+          "peerUid": "eval_replay_contact",
+          "peerUin": "3333333333"
+        },
+        "capture_scope": "public_read_model_ui_selected_branch_not_rendered_dom",
+        "relationship": {
+          "branch_by_subject": {
+            "self": "person_understanding",
+            "contact": "person_understanding",
+            "dyad": "person_understanding"
+          },
+          "understanding": {
+            "version": 6,
+            "self": {
+              "knownFacts": [],
+              "recentCircumstances": [],
+              "uncertainties": [],
+              "boundaries": []
+            },
+            "contact": {
+              "knownFacts": [],
+              "recentCircumstances": [],
+              "uncertainties": [],
+              "boundaries": []
+            },
+            "dyad": {
+              "knownFacts": [],
+              "recentCircumstances": [],
+              "uncertainties": [],
+              "boundaries": []
+            }
+          },
+          "activities": []
+        },
+        "companion": {
+          "goal": {
+            "text": "与这位朋友保持联系，关心她的生活，也聊聊共同感兴趣的事。",
+            "version": 1
+          },
+          "state": {
+            "focus": "",
+            "possiblyStale": true,
+            "items": [],
+            "openThreads": [],
+            "unknowns": []
+          },
+          "notes": [],
+          "preference_note_ids": [],
+          "pendingActions": [],
+          "actionReceipts": []
+        },
+        "experience": {
+          "cases": [],
+          "adaptations": []
+        },
+        "memory_status": {
+          "pending": 0,
+          "processed": 3,
+          "preferenceCandidates": 0,
+          "pendingPreferenceUpgrades": 0,
+          "superseded": 0,
+          "semanticPending": 0,
+          "pendingProposals": 0,
+          "recoveryReady": 0,
+          "recoveryDeferred": 0,
+          "recoveryReasons": [],
+          "version": 6,
+          "counts": {
+            "sources": 3,
+            "items": 0,
+            "episodes": 0,
+            "claims": 0,
+            "events": 0
+          },
+          "errors": [],
+          "lastReview": {
+            "batchId": "2915871dc2d1dc1ebfd0c5dee652229a3c7e8e1cd6a15c8a5ef595a7bf70c1d5",
+            "kind": "source_journal",
+            "reviewedSourceIds": [
+              "qq:72057594049927937002"
+            ],
+            "sourceRevisions": {
+              "qq:72057594049927937002": "d4af4c75d209335e4a32b16b990ba1e35287cd43249e865b1fc56a364d6c88e3"
+            },
+            "seqFrom": 3,
+            "seqTo": 3,
+            "segments": [
+              {
+                "sourceId": "qq:72057594049927937002",
+                "offset": 0,
+                "end": 23
+              }
+            ],
+            "originalCoverage": {
+              "version": "original-evidence-v1",
+              "scope": {
+                "accountUid": "eval_replay_owner",
+                "accountUin": "1111111111",
+                "peerUid": "eval_replay_contact",
+                "peerUin": "3333333333"
+              },
+              "sourceRevisions": {
+                "qq:72057594049927937002": "d4af4c75d209335e4a32b16b990ba1e35287cd43249e865b1fc56a364d6c88e3",
+                "qq:72057594049927937001": "6771a0261020a2d2c6f72ef0dc7714dd2bf1eaf790092ebf2d93c15f1b43c1fb",
+                "private:c70d6623-de66-4fab-95b4-1b2e37ee66dc": "4c0624190db425a85ff394e738fb46056b9d5de7f0b34a80c1c910e2468ed42c"
+              },
+              "reads": [
+                {
+                  "sourceId": "qq:72057594049927937002",
+                  "revision": "d4af4c75d209335e4a32b16b990ba1e35287cd43249e865b1fc56a364d6c88e3",
+                  "start": 0,
+                  "end": 23,
+                  "total": 23,
+                  "complete": true,
+                  "bodyHash": "fa5e15f16f20dcd57a7e5833744477f8c16f973b9097ddcddc27fb718095d19f"
+                },
+                {
+                  "sourceId": "qq:72057594049927937001",
+                  "revision": "6771a0261020a2d2c6f72ef0dc7714dd2bf1eaf790092ebf2d93c15f1b43c1fb",
+                  "start": 0,
+                  "end": 23,
+                  "total": 23,
+                  "complete": true,
+                  "bodyHash": "490de7c38de76a21b6aef935354738790948481f8ab520d3a975c7622a6f7844"
+                },
+                {
+                  "sourceId": "private:c70d6623-de66-4fab-95b4-1b2e37ee66dc",
+                  "revision": "4c0624190db425a85ff394e738fb46056b9d5de7f0b34a80c1c910e2468ed42c",
+                  "start": 0,
+                  "end": 24,
+                  "total": 24,
+                  "complete": true,
+                  "bodyHash": "f59e61c9126e8e010da50df5f3ac46e9a47e749474e9dc922b6dac10ccda9128"
+                }
+              ],
+              "completeSourceIds": [
+                "qq:72057594049927937002",
+                "qq:72057594049927937001",
+                "private:c70d6623-de66-4fab-95b4-1b2e37ee66dc"
+              ],
+              "requiredSourceIds": [
+                "qq:72057594049927937002",
+                "qq:72057594049927937001",
+                "private:c70d6623-de66-4fab-95b4-1b2e37ee66dc"
+              ],
+              "missingSourceIds": [],
+              "partialSourceIds": [],
+              "complete": true
+            },
+            "reviewedAt": "2026-09-21T10:40:00.000Z",
+            "outcome": "reviewed_no_change",
+            "updates": 0
+          },
+          "busy": false
+        },
+        "maintenance_schedule": {
+          "pending": 0,
+          "threshold": 8,
+          "idleMs": 600000,
+          "requestsInWindow": 1,
+          "windowLimit": 6,
+          "ready": false,
+          "reason": "up_to_date",
+          "nextAt": null
+        },
+        "as_of": "2026-09-21T10:47:59.000Z"
+      },
+      "wall_elapsed_ms": 71
+    },
+    {
+      "id": "r-s2",
+      "kind": "user_request",
+      "at": "2026-09-21T18:48:00+08:00",
+      "input": {
+        "id": "r-s2",
+        "kind": "user_request",
+        "at": "2026-09-21T18:48:00+08:00",
+        "text": "结合后来消息，更新一下现在的理解，再帮我想一句自然接话。"
+      },
+      "status": "executed_review_required",
+      "output": {
+        "reply_id": "71c304bf-11a2-4a4a-8349-1e79bd031e82",
+        "text": "Synthetic transport private help; no semantic quality evidence.",
+        "suggestions": [],
+        "disposition": "discussion"
+      },
+      "observed_outputs": [],
+      "wall_timeout_ms": 300000,
+      "memory_view": {
+        "scope": {
+          "accountUid": "eval_replay_owner",
+          "accountUin": "1111111111",
+          "peerUid": "eval_replay_contact",
+          "peerUin": "3333333333"
+        },
+        "capture_scope": "public_read_model_ui_selected_branch_not_rendered_dom",
+        "relationship": {
+          "branch_by_subject": {
+            "self": "person_understanding",
+            "contact": "person_understanding",
+            "dyad": "person_understanding"
+          },
+          "understanding": {
+            "version": 7,
+            "self": {
+              "knownFacts": [],
+              "recentCircumstances": [],
+              "uncertainties": [],
+              "boundaries": []
+            },
+            "contact": {
+              "knownFacts": [],
+              "recentCircumstances": [],
+              "uncertainties": [],
+              "boundaries": []
+            },
+            "dyad": {
+              "knownFacts": [],
+              "recentCircumstances": [],
+              "uncertainties": [],
+              "boundaries": []
+            }
+          },
+          "activities": []
+        },
+        "companion": {
+          "goal": {
+            "text": "与这位朋友保持联系，关心她的生活，也聊聊共同感兴趣的事。",
+            "version": 1
+          },
+          "state": {
+            "focus": "",
+            "possiblyStale": true,
+            "items": [],
+            "openThreads": [],
+            "unknowns": []
+          },
+          "notes": [],
+          "preference_note_ids": [],
+          "pendingActions": [],
+          "actionReceipts": []
+        },
+        "experience": {
+          "cases": [],
+          "adaptations": []
+        },
+        "memory_status": {
+          "pending": 1,
+          "processed": 3,
+          "preferenceCandidates": 0,
+          "pendingPreferenceUpgrades": 0,
+          "superseded": 0,
+          "semanticPending": 0,
+          "pendingProposals": 0,
+          "recoveryReady": 0,
+          "recoveryDeferred": 0,
+          "recoveryReasons": [],
+          "version": 7,
+          "counts": {
+            "sources": 4,
+            "items": 0,
+            "episodes": 0,
+            "claims": 0,
+            "events": 0
+          },
+          "errors": [],
+          "lastReview": {
+            "batchId": "2915871dc2d1dc1ebfd0c5dee652229a3c7e8e1cd6a15c8a5ef595a7bf70c1d5",
+            "kind": "source_journal",
+            "reviewedSourceIds": [
+              "qq:72057594049927937002"
+            ],
+            "sourceRevisions": {
+              "qq:72057594049927937002": "d4af4c75d209335e4a32b16b990ba1e35287cd43249e865b1fc56a364d6c88e3"
+            },
+            "seqFrom": 3,
+            "seqTo": 3,
+            "segments": [
+              {
+                "sourceId": "qq:72057594049927937002",
+                "offset": 0,
+                "end": 23
+              }
+            ],
+            "originalCoverage": {
+              "version": "original-evidence-v1",
+              "scope": {
+                "accountUid": "eval_replay_owner",
+                "accountUin": "1111111111",
+                "peerUid": "eval_replay_contact",
+                "peerUin": "3333333333"
+              },
+              "sourceRevisions": {
+                "qq:72057594049927937002": "d4af4c75d209335e4a32b16b990ba1e35287cd43249e865b1fc56a364d6c88e3",
+                "qq:72057594049927937001": "6771a0261020a2d2c6f72ef0dc7714dd2bf1eaf790092ebf2d93c15f1b43c1fb",
+                "private:c70d6623-de66-4fab-95b4-1b2e37ee66dc": "4c0624190db425a85ff394e738fb46056b9d5de7f0b34a80c1c910e2468ed42c"
+              },
+              "reads": [
+                {
+                  "sourceId": "qq:72057594049927937002",
+                  "revision": "d4af4c75d209335e4a32b16b990ba1e35287cd43249e865b1fc56a364d6c88e3",
+                  "start": 0,
+                  "end": 23,
+                  "total": 23,
+                  "complete": true,
+                  "bodyHash": "fa5e15f16f20dcd57a7e5833744477f8c16f973b9097ddcddc27fb718095d19f"
+                },
+                {
+                  "sourceId": "qq:72057594049927937001",
+                  "revision": "6771a0261020a2d2c6f72ef0dc7714dd2bf1eaf790092ebf2d93c15f1b43c1fb",
+                  "start": 0,
+                  "end": 23,
+                  "total": 23,
+                  "complete": true,
+                  "bodyHash": "490de7c38de76a21b6aef935354738790948481f8ab520d3a975c7622a6f7844"
+                },
+                {
+                  "sourceId": "private:c70d6623-de66-4fab-95b4-1b2e37ee66dc",
+                  "revision": "4c0624190db425a85ff394e738fb46056b9d5de7f0b34a80c1c910e2468ed42c",
+                  "start": 0,
+                  "end": 24,
+                  "total": 24,
+                  "complete": true,
+                  "bodyHash": "f59e61c9126e8e010da50df5f3ac46e9a47e749474e9dc922b6dac10ccda9128"
+                }
+              ],
+              "completeSourceIds": [
+                "qq:72057594049927937002",
+                "qq:72057594049927937001",
+                "private:c70d6623-de66-4fab-95b4-1b2e37ee66dc"
+              ],
+              "requiredSourceIds": [
+                "qq:72057594049927937002",
+                "qq:72057594049927937001",
+                "private:c70d6623-de66-4fab-95b4-1b2e37ee66dc"
+              ],
+              "missingSourceIds": [],
+              "partialSourceIds": [],
+              "complete": true
+            },
+            "reviewedAt": "2026-09-21T10:40:00.000Z",
+            "outcome": "reviewed_no_change",
+            "updates": 0
+          },
+          "busy": false
+        },
+        "maintenance_schedule": {
+          "pending": 1,
+          "threshold": 8,
+          "idleMs": 600000,
+          "requestsInWindow": 1,
+          "windowLimit": 6,
+          "ready": false,
+          "reason": "waiting_for_batch",
+          "nextAt": 1789988280000
+        },
+        "as_of": "2026-09-21T10:48:00.000Z"
+      },
+      "wall_elapsed_ms": 197
+    }
+  ],
+  "memory_observation_status": "complete",
+  "setting_receipt": {
+    "scope": "backend_e2e_stream_with_declared_adapter_boundaries",
+    "empty_open_payload": true,
+    "archived_assistant_turns": 0,
+    "derived_memory_seeded_by_runner": false,
+    "entire_history_reexecuted": true,
+    "event_clock": "authored_virtual_time",
+    "provider_clock": "native_adapter_deadlines",
+    "ordinary_actions": "foreground_wait_only_when_adapter_supports_declared_condition",
+    "idle": "explicit_idleUntil_only",
+    "concurrency_tested": false,
+    "desktop_qq_tested": false,
+    "persistence_restart_tested": false,
+    "semantic_quality": "not_evaluated",
+    "runtime_assistant_outputs": 2
+  },
+  "cleanup": {
+    "status": "closed",
+    "pending_tasks": []
+  },
+  "unexecuted_events": [],
+  "wall_elapsed_ms": 667,
+  "reviewer_only": {
+    "reference_status": "provisional_development_criteria",
+    "criteria": [
+      "The one-week busy state does not establish a permanent dislike of running.",
+      "Use the later dated observation only when it actually reports a new circumstance; a neutral cloud message does not establish resumed normal hours.",
+      "Keep the previously stated running interest separate from temporary availability."
+    ],
+    "source_criteria": {
+      "memory_should": [
+        "不要把一周忙碌升级为长期不喜欢跑步或固定人格。",
+        "后来生活变化应与旧状态区分；两条有日期的陈述可保留，旧忙碌不能无条件作为现状。",
+        "再次提问与维护时间不应伪装成新的对方陈述日期。"
+      ],
+      "answer_should": [
+        "依据当前可靠信息自然接话，不编造用户自己跑步经历，不要求重复已知材料。"
+      ]
+    }
+  },
+  "limitations": [
+    "Visible fictional development stream; not an unseen holdout or a real QQ desktop test.",
+    "Fixed QQ self/contact events are independent external observations, not causal reactions to generated suggestions.",
+    "The setting starts empty and contains no authored assistant turns; concurrency during in-flight model calls and restart persistence are not tested."
+  ],
+  "review": {
+    "status": "not_run",
+    "ratings": null,
+    "critical_failures": [],
+    "notes": []
+  }
+}

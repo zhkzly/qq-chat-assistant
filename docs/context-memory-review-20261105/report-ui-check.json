@@ -1,0 +1,188 @@
+{
+  "artifact": "index.html",
+  "model_calls": 0,
+  "checks": [
+    "Five proposed dimensions render from the embedded proposal",
+    "Dimension selection changes its anchors and counterexample",
+    "Benchmark capability filters and text search combine without stale cards",
+    "Six-step fictional walkthrough changes and bounds its navigation",
+    "Reproduced scoring defects remain separate from untested architecture hypotheses",
+    "The validated architecture document is embedded offline",
+    "All six report tabs avoid horizontal page overflow at desktop and mobile widths",
+    "Theme toggle renders the dark report"
+  ],
+  "containment": [
+    {
+      "width": 1440,
+      "scrollWidth": 1425,
+      "active": "proposal",
+      "viewport": [
+        1440,
+        900
+      ]
+    },
+    {
+      "width": 1440,
+      "scrollWidth": 1425,
+      "active": "design",
+      "viewport": [
+        1440,
+        900
+      ]
+    },
+    {
+      "width": 1440,
+      "scrollWidth": 1425,
+      "active": "trace",
+      "viewport": [
+        1440,
+        900
+      ]
+    },
+    {
+      "width": 1440,
+      "scrollWidth": 1425,
+      "active": "questions",
+      "viewport": [
+        1440,
+        900
+      ]
+    },
+    {
+      "width": 1440,
+      "scrollWidth": 1425,
+      "active": "bench",
+      "viewport": [
+        1440,
+        900
+      ]
+    },
+    {
+      "width": 1440,
+      "scrollWidth": 1425,
+      "active": "plan",
+      "viewport": [
+        1440,
+        900
+      ]
+    },
+    {
+      "width": 1920,
+      "scrollWidth": 1905,
+      "active": "proposal",
+      "viewport": [
+        1920,
+        1080
+      ]
+    },
+    {
+      "width": 1920,
+      "scrollWidth": 1905,
+      "active": "design",
+      "viewport": [
+        1920,
+        1080
+      ]
+    },
+    {
+      "width": 1920,
+      "scrollWidth": 1920,
+      "active": "trace",
+      "viewport": [
+        1920,
+        1080
+      ]
+    },
+    {
+      "width": 1920,
+      "scrollWidth": 1905,
+      "active": "questions",
+      "viewport": [
+        1920,
+        1080
+      ]
+    },
+    {
+      "width": 1920,
+      "scrollWidth": 1905,
+      "active": "bench",
+      "viewport": [
+        1920,
+        1080
+      ]
+    },
+    {
+      "width": 1920,
+      "scrollWidth": 1905,
+      "active": "plan",
+      "viewport": [
+        1920,
+        1080
+      ]
+    },
+    {
+      "width": 390,
+      "scrollWidth": 375,
+      "active": "proposal",
+      "viewport": [
+        390,
+        844
+      ]
+    },
+    {
+      "width": 390,
+      "scrollWidth": 375,
+      "active": "design",
+      "viewport": [
+        390,
+        844
+      ]
+    },
+    {
+      "width": 390,
+      "scrollWidth": 375,
+      "active": "trace",
+      "viewport": [
+        390,
+        844
+      ]
+    },
+    {
+      "width": 390,
+      "scrollWidth": 375,
+      "active": "questions",
+      "viewport": [
+        390,
+        844
+      ]
+    },
+    {
+      "width": 390,
+      "scrollWidth": 375,
+      "active": "bench",
+      "viewport": [
+        390,
+        844
+      ]
+    },
+    {
+      "width": 390,
+      "scrollWidth": 375,
+      "active": "plan",
+      "viewport": [
+        390,
+        844
+      ]
+    }
+  ],
+  "exceptions": [],
+  "screenshots": [
+    "report.1440.proposal.png",
+    "report.1440.bench.png",
+    "report.1440.design.png",
+    "report.1920.proposal.png",
+    "report.390.proposal.png",
+    "report.1440.dark.png"
+  ],
+  "status": "pass"
+}

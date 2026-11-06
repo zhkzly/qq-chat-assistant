@@ -9,7 +9,7 @@ const { createRequire } = require('node:module');
 const { randomUUID } = require('node:crypto');
 const { AsyncLocalStorage } = require('node:async_hooks');
 
-const ADAPTER_VERSION = 'qq-assistant-runtime-session-v2';
+const ADAPTER_VERSION = 'qq-assistant-runtime-session-v5';
 const OBSERVATION_CONDITION='scheduled_idle_public_memory_observation_v1';
 const SCOPE = Object.freeze({ accountUid: 'eval_replay_owner', accountUin: '1111111111',
   peerUid: 'eval_replay_contact', peerUin: '3333333333' });
@@ -161,7 +161,7 @@ async function createReplaySession({ sourceRoot, asOf, history = [], goal = '', 
   const recordFailure = (error, location,owner='foreground') => {
     if (!failedErrors.has(error)) { failedErrors.add(error); failures.push({ error, location,owner });taskFailures.push({error:errorInfo(error),location,owner}); }
   };
-  const observePromise = (value, component, method,owner='foreground') => {
+  const observePromise = (value, component, method,owner='foreground',terminalFailure=true) => {
     const promise = Promise.resolve(value),task={taskId:++taskSequence,component,method,owner};pending.set(promise,task);
     if(supplemental)emit('runtime_task','started',task);
     promise.then(result => {
@@ -174,7 +174,12 @@ async function createReplaySession({ sourceRoot, asOf, history = [], goal = '', 
         error.code = `memory_maintenance_${result.status}`; recordFailure(error, `${component}.${method}`,owner);
       }
       if(supplemental)emit('runtime_task','finished',{...task,status:result?.status||'fulfilled'});
-    }, error => { pending.delete(promise); recordFailure(error, `${component}.${method}`,owner);if(supplemental)emit('runtime_task','finished',{...task,status:'rejected',error:errorInfo(error)}); });
+    }, error => {
+      pending.delete(promise);
+      if(terminalFailure)recordFailure(error, `${component}.${method}`,owner);
+      else emit('runtime_task','nested_rejection',{...task,error:errorInfo(error),outcome_owner:'controller',terminal_failure:false});
+      if(supplemental)emit('runtime_task','finished',{...task,status:'rejected',terminal_failure:terminalFailure,error:errorInfo(error)});
+    });
     return promise;
   };
   const tracedTransport = async (url, args) => {
@@ -250,7 +255,10 @@ async function createReplaySession({ sourceRoot, asOf, history = [], goal = '', 
         const reported = result.then(value => { emit(component, 'result', { method, result: value }); return value; }, error => {
           emit(component, 'error', { method, error: errorInfo(error) }); throw error;
         });
-        return tracked ? observePromise(reported, component, method,owner) : reported;
+        // Compaction is awaited, but its controller owns the optional fallback.
+        // Keep this rejection observable and let the outer controller report a
+        // terminal failure if deterministic context or answering also fails.
+        return tracked ? observePromise(reported, component, method,owner,component!=='compaction_adapter') : reported;
       }
       emit(component, 'result', { method, result }); return result;
     };
@@ -263,7 +271,7 @@ async function createReplaySession({ sourceRoot, asOf, history = [], goal = '', 
     // stay active; the actual memory adapter is explicitly connected by server.
     controller = new runtime.Controller({ store, read, settings: clone(settings), now: clock.now,
       viewerTimeZone: 'Asia/Shanghai', memoryModel: runtime.consolidateMemory });
-    for (const method of ['bind', 'loadLatest', 'loadOlder', 'assist', 'suggest', 'maintainMemory']) audit(controller, method, 'controller', true);
+    for (const method of ['bind', 'loadLatest', 'loadOlder', 'assist', 'suggest', 'maintainMemory','saveNote']) audit(controller, method, 'controller', true);
     audit(controller, 'ingest', 'controller');
     for (const [method, component] of [['assistantModel', 'assistant_adapter'], ['memoryModel', 'memory_adapter'], ['compactionModel', 'compaction_adapter']])
       audit(controller, method, component, true, args => [{ model: args[0]?.model, baseUrl: args[0]?.baseUrl }, args[1]]);
@@ -362,6 +370,7 @@ async function createReplaySession({ sourceRoot, asOf, history = [], goal = '', 
         const use=event.declared_use||'discussion',kind=event.note_kind||'material',references=event.evidence_source_ids||[];
         if(!['discussion','draft'].includes(use)||!['material','preference'].includes(kind)||!Array.isArray(references)||new Set(references).size!==references.length)
           throw new Error('Authored note requires valid declared use, kind and distinct evidence references');
+        if(!historical&&(kind!=='material'||references.length))throw new Error('Normal note API does not expose preference-kind or evidence-lineage authoring; use a supported actual user action');
         const evidenceSourceIds=references.map(id=>{
           if(typeof id!=='string'||!Object.hasOwn(aliases,id)||!available.has(aliases[id]))throw new Error(`Unknown or unavailable note evidence: ${id}`);
           if(dates.get(id)>at)throw new Error(`Note evidence is later than the note: ${id}`);
@@ -375,11 +384,18 @@ async function createReplaySession({ sourceRoot, asOf, history = [], goal = '', 
       try{
         for(const {event,at,note}of prepared){
           if(historical)clock.set(at);
-          const saved=store.saveNote(scope,note);noteAliases[event.id]=`note:${saved.id}`;sourceDates.set(event.id,at);
-          emit('private_boundary',historical?'restore_note':'note',{provenance:historical?'authored_archived_user_note':'authored_user_note',event,result:saved});
+          let saved;
+          if(historical)saved=store.saveNote(scope,note);
+          else{
+            const result=await post('/api/note',{id:note.id,text:note.text,use:note.use});
+            saved=result.companion?.notes?.find(item=>item.id===note.id);
+            if(!saved||saved.text!==note.text||saved.use!==note.use)throw new Error('Normal note API did not persist the observed note');
+          }
+          noteAliases[event.id]=`note:${saved.id}`;sourceDates.set(event.id,at);
+          emit('private_boundary',historical?'restore_note':'note',{provenance:historical?'authored_archived_user_note':'authored_user_note',input_event:event,result:saved});
         }
       }finally{clock.set(current);}
-      controller.changedContext();return snapshot();
+      if(historical)controller.changedContext();return snapshot();
     }
     const session = { adapterVersion: ADAPTER_VERSION, sourceRoot: runtime.root, scope, trace, controller, store, sourceAliases, privateAliases, noteAliases,
       post, snapshot, publicMemoryView,idleUntil,
@@ -414,7 +430,7 @@ async function createReplaySession({ sourceRoot, asOf, history = [], goal = '', 
             if(!applied)throw new Error(`Withdrawal source is no longer available: ${event.id}`);
             controller.changedContext();
           }else throw new Error(`Unsupported source withdrawal: ${event.channel}/${event.operation}`);
-          emit('external_action','source_withdrawn',{event,sourceId:id});
+          emit('external_action','source_withdrawn',{input_event:event,sourceId:id});
         }
         return snapshot();
       },
@@ -453,7 +469,7 @@ async function createReplaySession({ sourceRoot, asOf, history = [], goal = '', 
             const saved = store.appendTurn(scope, { id: event.id, role: event.role, kind: 'discussion', text: event.text });
             privateAliases[event.id] = `private:${saved.id}`;
             sourceDates.set(event.id,timestamp(event.at,'private event'));
-            emit('private_boundary', 'restore', { provenance: 'authored_archived_private_transcript', event, result: saved });
+            emit('private_boundary', 'restore', { provenance: 'authored_archived_private_transcript', input_event:event, result: saved });
           }
         } finally { clock.set(current); }
         controller.changedContext(); return snapshot();

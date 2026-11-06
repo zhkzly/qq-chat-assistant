@@ -1,0 +1,135 @@
+{
+  "research_date": "2026-10-11",
+  "sources": [
+    {
+      "id": "S01",
+      "title": "NapCat Framework current guide",
+      "url": "https://napneko.github.io/guide/boot/Framework",
+      "grade": "经验级-官方文档",
+      "supports": "桌面 QQ 插件接入候选，需先确认 LiteLoader 对当前版本的支持",
+      "limit": "未在当前 Ubuntu/QQ 上执行"
+    },
+    {
+      "id": "S02",
+      "title": "NapCat private history implementation",
+      "url": "https://github.com/NapNeko/NapCatQQ/blob/7471e3ecd648189a9e80530b00348a17a4528906/packages/napcat-onebot/action/go-cqhttp/GetFriendMsgHistory.ts",
+      "commit": "7471e3ecd648189a9e80530b00348a17a4528906",
+      "grade": "经验级-冻结源码",
+      "supports": "QQ号转UID、无游标最新窗口、有游标历史、空页抛错",
+      "limit": "接口存在不证明完整历史"
+    },
+    {
+      "id": "S03",
+      "title": "NapCat self message dispatch",
+      "url": "https://github.com/NapNeko/NapCatQQ/blob/7471e3ecd648189a9e80530b00348a17a4528906/packages/napcat-onebot/index.ts",
+      "commit": "7471e3ecd648189a9e80530b00348a17a4528906",
+      "grade": "经验级-冻结源码",
+      "supports": "reportSelfMessage与target_id对双向监听的重要性"
+    },
+    {
+      "id": "S04",
+      "title": "NapCat message construction",
+      "url": "https://github.com/NapNeko/NapCatQQ/blob/7471e3ecd648189a9e80530b00348a17a4528906/packages/napcat-onebot/api/msg.ts",
+      "commit": "7471e3ecd648189a9e80530b00348a17a4528906",
+      "grade": "经验级-冻结源码",
+      "supports": "user_id是发送者；自发消息post_type=message_sent"
+    },
+    {
+      "id": "S05",
+      "title": "QCE user guide",
+      "url": "https://qce.sdjz.wiki/docs/guide.html",
+      "grade": "经验级-维护方文档",
+      "supports": "格式导出、平台包和桌面共存方法",
+      "limit": "Framework发布包列Windows，不能证明Ubuntu桌面兼容"
+    },
+    {
+      "id": "S06",
+      "title": "QCE history batch fetcher",
+      "url": "https://github.com/shuakami/qq-chat-exporter/blob/7d154b847a0cb3f9cffbdb126598c4d1434995ba/qq-chat-export-server/src/fetcher/batch_fetcher.rs",
+      "commit": "7d154b847a0cb3f9cffbdb126598c4d1434995ba",
+      "grade": "经验级-冻结源码",
+      "supports": "最新页、历史页、游标进度与停止边界"
+    },
+    {
+      "id": "S07",
+      "title": "QCE experimental roaming API",
+      "url": "https://github.com/shuakami/qq-chat-exporter/blob/7d154b847a0cb3f9cffbdb126598c4d1434995ba/docs/roaming-api.md",
+      "commit": "7d154b847a0cb3f9cffbdb126598c4d1434995ba",
+      "grade": "经验级-维护方验证记录",
+      "supports": "限定验证平台、查询缓存副作用和完整性界限",
+      "limit": "不能泛化为用户Ubuntu可用或腾讯服务端历史完整"
+    },
+    {
+      "id": "S08",
+      "title": "QQ GPT reply plugin",
+      "url": "https://github.com/wangyz1999/LiteLoaderQQNT-GPT-Reply/tree/24c0d6f0237549712a18f9748e2f21598e398755",
+      "commit": "24c0d6f0237549712a18f9748e2f21598e398755",
+      "grade": "经验级-文档和冻结源码",
+      "supports": "QQ内入口、当前有效复制动作、模型参数与BrowserWindow能力",
+      "limit": "未核验自动加载整段历史与实时双向同步"
+    },
+    {
+      "id": "S09",
+      "title": "Chrome side panel",
+      "url": "https://developer.chrome.com/docs/extensions/develop/ui/create-a-side-panel",
+      "grade": "经验级-官方文档",
+      "supports": "Chrome侧栏是浏览器UI，非现成QQ桌面接入层"
+    },
+    {
+      "id": "S10",
+      "title": "Cherry Studio quick assistant",
+      "url": "https://cherryai.com/docs/en/cherrystudio/preview/quick-assistant/",
+      "grade": "经验级-官方文档",
+      "supports": "快捷浮窗和剪贴板输入",
+      "limit": "未证明直接读取QQ历史及实时会话"
+    },
+    {
+      "id": "S11",
+      "title": "Local FisherAI source",
+      "local_path": "/home/zhkzly/pycodes/FisherAI",
+      "commit": "05425103afebc88b2c78440dda262bceba96cb7f",
+      "working_tree_dirty": true,
+      "grade": "经验级-本地源码检查",
+      "supports": "Chrome sidePanel、复制和流式/会话状态结构",
+      "limit": "没有QQ采集层；未修改或运行其既有工作区"
+    },
+    {
+      "id": "S12",
+      "title": "NapCat license",
+      "url": "https://github.com/NapNeko/NapCatQQ/blob/7471e3ecd648189a9e80530b00348a17a4528906/LICENSE",
+      "license_label": "Limited Redistribution License for NapCat",
+      "grade": "经验级-许可原文",
+      "supports": "不是统一MIT/GPL许可；本研究不复制其实现源码"
+    },
+    {
+      "id": "S13",
+      "title": "QCE license",
+      "url": "https://github.com/shuakami/qq-chat-exporter/blob/7d154b847a0cb3f9cffbdb126598c4d1434995ba/LICENSE",
+      "license_label": "GPL-3.0",
+      "grade": "经验级-许可原文"
+    },
+    {
+      "id": "S14",
+      "title": "GPT reply license",
+      "url": "https://github.com/wangyz1999/LiteLoaderQQNT-GPT-Reply/blob/24c0d6f0237549712a18f9748e2f21598e398755/LICENSE",
+      "license_label": "MIT",
+      "grade": "经验级-许可原文"
+    }
+  ],
+  "experiments": [],
+  "integration_status": "installed_native_history_entry_draft_verified_live_canary_open",
+  "primary_workflow": "normal desktop QQ + assistant window + automatic history/live read + human copy/send",
+  "implementationStatus": "Native personal MVP with scoped text consent, optional selected-image consent, history/media browsing and manual draft fill",
+  "nativeEvidence": [
+    "research/native-launch.json",
+    "research/native-history-evidence.json",
+    "docs/verification_CN.md",
+    "research/native-iteration-20261012.json"
+  ],
+  "syntheticEvidence": [
+    "research/browser-evidence.json",
+    "research/model-smoke.json",
+    "research/mutation-evidence.json"
+  ],
+  "realChatDisclosure": "user-granted only for matching current scope; images separate"
+}

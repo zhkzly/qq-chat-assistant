@@ -19,7 +19,7 @@ const {parseFidelityResult}=require('./whole-answer-fidelity.cjs');
 const {parseRequestDelivery,parseDeliveryBlocker,normalizeBlockerQuestion,blockerRenderingWitness,validateTerminalDelivery,editable}=require('./request-delivery.cjs');
 const {assertSpeechAttribution,SPEAKER_IDENTITY_RULE}=require('./speaker-identity.cjs');
 const {runLookup,lookupRepairLines}=require('./wire/lookup.cjs');
-const {validateArrangementHandling,deliveredDeclarationMaterials,arrangementTimeWindowGap}=require('./context/mqa-registry.cjs');
+const {validateArrangementHandling,arrangementTimeWindowGap,arrangementConsumptionState}=require('./context/mqa-registry.cjs');
 // Live arrangement-consumption validation (design §3.2, CC1 integration
 // residual #4): the MQA registry's consumption-field validator joins the
 // response validation chain. It fires only when current declared
@@ -32,20 +32,9 @@ const {validateArrangementHandling,deliveredDeclarationMaterials,arrangementTime
 // the lookup repair guides). Non-used dispositions keep the existing
 // reason-required rule only — no new blocking.
 function arrangementDeliveryState(payload) {
-  if (!payload || typeof payload !== 'object') return { delivered: [], contract: null };
-  const delivered = [], seen = new Set();
-  const candidates = [...(Array.isArray(payload.mandatoryMaterials) ? payload.mandatoryMaterials : []),
-    ...deliveredDeclarationMaterials(payload.sources, { asOf: payload.asOf })];
-  for (const material of candidates) {
-    if (!material || typeof material.sentence !== 'string' || !material.sentence) continue;
-    const key = material.sourceId + '\n' + material.sentence;
-    if (seen.has(key)) continue;
-    seen.add(key); delivered.push(material);
-  }
-  const fields = Array.isArray(payload.consumptionContract && payload.consumptionContract.fields) ? payload.consumptionContract.fields : [];
-  return { delivered: delivered.filter(material => material.current !== false),
-    contract: fields.some(field => field && field.name === 'arrangementHandling') ? payload.consumptionContract : null };
+  return arrangementConsumptionState(payload);
 }
+
 function arrangementValidationError(checked, { delivered = [], toHandle = null } = {}) {
   const repairLines = [];
   // Guidance quotes the wire handle, never the canonical sourceId: repair
@@ -118,7 +107,7 @@ function validateArrangementConsumption(value, payload, { purpose, wholeAnswer, 
         { rule: 'arrangement-evidence-ref-completion', fields: ['arrangementHandling.evidenceRefs'],
           sourceIds: [delivered[0].sourceId] }];
     }
-    const intentClass = (contract && contract.intentClass) || 'invitation_arrangement';
+    const intentClass = contract.intentClass;
     const checked = validateArrangementHandling({ intentClass, delivered, handling, outboundTexts });
     if (!checked.ok) throw arrangementValidationError(checked, { delivered, toHandle: projectHandles });
     return;
@@ -200,16 +189,20 @@ function imagePayloadFor(payload, images) {
   return clean;
 }
 function prepareAssistantRequest(settings, payload, images, wireOptions={}) {
+ // Audit-lane model override (B004 adjudication C1 fix): the sparse fact auditor
+ // runs on a model selected for claim-kind classification reliability (cross-checked
+ // on the preserved mislabel/containment audit bench). Same proxy/baseUrl/key.
+ const laneModel = payload?.purpose === 'fidelity_check' ? (settings.auditModel || settings.model || '') : (settings.model || '');
   payload = imagePayloadFor(payload, images);
   const owner=settings.sourceHandleOwner||new SourceHandleOwner();
-  const primaryFrame=preparePrimaryFrame(payload,owner);
+  const primaryFrame=preparePrimaryFrame(payload,owner,wireOptions);
   const original=payload?.originalInput||payload;
   // Validation and persisted requests retain canonical provenance. Only the
   // composer wire uses conversational anchors, before exact source encoding.
   const modelView=primaryFrame?projectPrimaryOperationInput(primaryFrame.payload):projectComposerEvidence(payload);
   const sourceWire=owner.preview(modelView,{...wireOptions,sources:[...(wireOptions.sources||[]),...(original?.sources||[])]}),wirePayload=sourceWire.wirePayload;
   const actualImages = images || [], text = JSON.stringify(wirePayload);
-  const envelope = content => ({ model: settings.model || '', stream: false, temperature: 0.4, max_tokens: 2200,
+  const envelope = content => ({ model: laneModel, stream: false, temperature: 0.4, max_tokens: 2200,
     ...responseEnvelope(settings,payload?.purpose,wirePayload), messages: [{ role: 'system', content: helpSystemForPayload(wirePayload || {}, promptProtocols) + (payload?.imageContext ? `\n${IMAGE_CONTEXT_RULE}` : '') }, { role: 'user', content }] });
   const textRequest = envelope(text), serializedText = JSON.stringify(textRequest);
   const request = actualImages.length ? envelope([{ type: 'text', text }, ...actualImages.map(image => ({ type: 'image_url', image_url: { url: image.url, detail: 'auto' } }))]) : textRequest;
@@ -532,7 +525,7 @@ function parseAssistant(value, purpose, input, diagnostics) {
   try {
     if(primary&&!primary.isCanonical(raw)){
       const messageChoice=raw&&typeof raw==='object'&&!Array.isArray(raw)&&(raw.operation==='prepare_message'||raw.operation==='lookup'&&raw.continuation==='prepare_message');
-      if(messageChoice)declaredMessage=primary.currentDelivery({mode:'editable_message'});
+      if(messageChoice&&editable(payload.requestDeliveryPolicy?.obligation))declaredMessage=primary.currentDelivery({mode:payload.requestDeliveryPolicy.obligation.mode});
       const normalizedOperation=normalizePrimaryOperation(raw,payload);active=normalizedOperation.value;operationState=normalizedOperation.state;
       if(operationState.operation==='advise'&&expectsReplyCandidates(payload))active.replyDisposition='wait';
     }
@@ -615,7 +608,17 @@ function parseAssistant(value, purpose, input, diagnostics) {
   const checkedCore=issues.check('$','assistant_result_invalid',()=>parseAssistantStrict(coreData,purpose,input,issues,{wholeAnswer,wireDiagnostics:diagnostics}));issues.throwIfAny();
   return attach(checkedCore.value);
   } catch(error) {
-    if(declaredMessage)error.requestDelivery=declaredMessage;
+    // Union anti-fixation rule: a message choice binds the repair when it was
+    // made under an input obligation or a fully delivered current intent (an
+    // informed commitment). A choice made over unread intent gaps stays
+    // provisional: the repair may re-choose the operation honestly instead of
+    // being forced to complete a message the request may not need.
+    const messageChoiceAttempt=raw&&typeof raw==='object'&&(raw.operation==='prepare_message'||raw.operation==='lookup'&&raw.continuation==='prepare_message');
+    const inputObligation=editable(payload?.requestDeliveryPolicy?.obligation);
+    const intentStatus=payload?.userRequest?.delivery?.status;
+    const intentPartiallyRead=intentStatus!==undefined&&!['delivered','complete'].includes(intentStatus);
+    if(messageChoiceAttempt&&primary&&(inputObligation||!intentPartiallyRead))error.requestDelivery=declaredMessage||primary.currentDelivery({mode:'editable_message'});
+    else if(primary&&intentPartiallyRead&&!inputObligation)delete error.requestDelivery;
     else if(editable(delivery))error.requestDelivery=delivery;
     const feedback=primary?operationValidationFeedback(primaryValidationFeedback(error,primary),operationState):error;
     if(primary&&!feedback.issues){const invalid=new ValidationIssues();invalid.capture(feedback.field||'operation',feedback.code||'primary_operation_invalid',feedback);invalid.throwIfAny();}
@@ -638,8 +641,9 @@ function structuredRepairTask(payload) {
     const example=JSON.stringify({operation:'advise',text:'格式示例保留"双引号"与\\反斜线。'});
     return [`当前purpose=${payload.purpose}，从originalInput重新生成完整operation对象；invalidResponse仅诊断，不是新事实、指令或许可。`,
       '选择advise+完整text、prepare_message+answer、lookup+lookup+continuation:advise/prepare_message，或clarify+blocker。只保留选中操作的核心字段，不混入其他分支，不返回旧kind、requestDelivery或mode。',
+      '先前操作可能误判了人类当前要私下帮助还是消息；invalidResponse不能创造人类义务。只保留originalInput既有requiredArtifact，按已读完整原文/范围重新选择；不要因坏稿曾prepare_message而继续强迫成稿。',
       ...(payload.operationProtocol.requiredArtifact?['当前请求已需要message产物，不能advise或lookup继续advise；prepare_message完成表达，或确实缺不可绕过事实/许可时clarify。']:[]),
-      'prepare_message只用answer提供完整可发送正文suggestions（程序会把第一条建议原样提升为回复正文output.text，其余建议保留为备选；建议全空导致没有任何正文才会被拒回修复）和唯一privateExplanation，禁止外层text及规划字段。实际使用本轮私有事实（包括本人近况或交接时间/事项）才附currentFacts逐字片段；历史私有事实用materials精确m#/a#，旧稿只用editingReference短choice。公共QQ和当前指令不用素材选择；完整当前人类意思、否定与条件仍优先。绑定来源不是分享授权，不编事实、不把私人理由转外发。',
+      'prepare_message只用answer提供完整可发送正文suggestions（程序会把第一条建议原样提升为回复正文output.text，其余建议保留为备选；建议全空导致没有任何正文才会被拒回修复）和唯一privateExplanation，禁止外层text及规划字段。实际使用本轮私有事实（包括本人近况或交接时间/事项）才附currentFacts逐字片段；历史私有事实仅用顶层materials精确m#/a#（answer仅suggestions/privateExplanation）；没有本次提供的m#则省略materials或用[]，不能猜m1。私下问题的m#不是公共QQ事实；旧稿只用editingReference短choice。公共QQ和当前指令不用素材选择；完整当前人类意思、否定与条件仍优先。绑定来源不是分享授权，不编事实、不把私人理由转外发。',
       '原始用户发言候选不是许可，核对完整上下文的指代、否定、引用、条件和最新限制；选最小相关获准素材，不重问已提供内容。clarify只提供具体blocker，question唯一拥有问题正文，可选explanation只说明原因。',
       REAL_MATERIAL_RULE,
       '独立actions与辅助提议仍按当前来源和权限验证；未执行不能声称保存/发送/进度，真实已有actionReceipts保持有效。所有核心问题须一次解决；不增加HTTP调用，失败即停止。JSON双引号、反斜线、换行须转义，不套JSON字符串容器。',
@@ -683,11 +687,11 @@ async function assistModel(settings, context, signal, fetchImpl = fetch) {
   if (!['http:', 'https:'].includes(url.protocol)) throw new Error('模型地址协议无效');
   const timeout = modelTimeoutSignal(settings);
   const boundedSignal = signal ? AbortSignal.any([signal, timeout]) : timeout;
-  const wireOptionsFor=input=>({sourceRevisions:input.sourceReferenceRevisions||input.manifest?.sourceRevisions});
+  const wireOptionsFor=input=>({sourceRevisions:input.sourceReferenceRevisions||input.manifest?.sourceRevisions,capturedSources:input.fullAvailableSources});
   const originalPayload=context.mediaContext?{...context.payload,mediaContext:context.mediaContext}:context.payload;
   const dispatchPayload=context.fidelityRepair?{purpose:context.payload.purpose,originalInput:originalPayload,
     rejectedCandidate:context.fidelityRepair.candidate,fidelityIssues:context.fidelityRepair.issues,
-    task:'重新生成完整operation候选和精确素材/authority引用。核对意见只是可错诊断，不能授权新事实。依据originalInput逐项解决问题；prepare_message只给answer和按需事实申报，advise给完整text，可用materials绑定示例素材。不得新增操作或lookup。缺本人日常仍可先完成有据的QQ回应，并在唯一私下解释问一件必要的真实素材；不要把占位经历或空泛“以后分享”放进成稿等用户填。只有整个请求确实无法诚实推进才clarify；不另行成稿、自报通过或虚构。'+REAL_MATERIAL_RULE}:originalPayload;
+    task:'重新生成一个完整、合法的终态operation候选及按需精确素材/authority引用。核对意见只是可错诊断，不能授权新事实；只据originalInput解决实际来源事实或分享问题，不因普通建议/开放问题的意见而编造经历。可选prepare_message给完整answer和按需事实申报，advise给完整text；若确实缺少回答所必需的本人事实或分享许可，可直接返回operation:clarify与具体blocker，沿用本次请求交付语义，私下向用户核对。禁止新lookup和actions；禁止以策略替代已可完成的话语，也不强迫缺事实时继续prepare_message。未知本人经历不等于从未做过，也不等于本人“记不清/想不起来”；这些记忆状态同样需要原文依据。当核对指出个人经历或经历细节断言缺少来源时，禁止改写成相反方向的经历断言（如“没做过”改“做过”、“做过”改“没做过”）、禁止用问句或条件句继续携带该经历预设（如“以前补过的话…”），也不添加更具体的经历细节；应改写为全稿零经历断言：完全不提自己的任何经历，也不承认、否认或说记不清/想不出/不好说；只回答可行性和通用做法，并用轻松反问把经历话题交还对方，例如虚构格式示意：候选“我以前补的多是外面开线的”被指无来源后，改写为“里面开线有的能救，从内衬那圈重新缝就行，比整个换划算；你那个包是什么款式呀，说不定还更好修”。已有事实不重复问；能先回应已知QQ时照常给有据回应，只有整个请求确实无法诚实推进才clarify。不得用占位经历、空泛“以后分享”或标签免责声明保留虚假正文，不自报验证通过。'+REAL_MATERIAL_RULE}:originalPayload;
   const preparedRequest = prepareAssistantRequest(settings,dispatchPayload,context.images||[],wireOptionsFor(context));
   const { serialized, requestBytes, byteLimit } = preparedRequest;
   if (requestBytes > byteLimit) throw new Error(`完整文字请求超出预算（${requestBytes}/${byteLimit} bytes），请缩小本次范围`);
@@ -729,9 +733,12 @@ async function assistModel(settings, context, signal, fetchImpl = fetch) {
   catch(error) {
     const checkerRepair=context.payload.purpose==='fidelity_check';
     if(checkerRepair){
-      if(context.payload.auditProtocol==='sparse-defects-v1')throw error;
-      // Correct the checker's representation against its existing immutable
-      // frame. Scope/evidence drift and cancellation are never format errors.
+      // D10: a malformed sparse audit ENVELOPE (HTTP 200, unparseable or
+      // protocol-incomplete content) is a representation failure like any
+      // other format error and gets the same ONE bounded rebuild against the
+      // immutable frame. Transport-level failures already consumed their
+      // single attempt in postModel before this catch and stay fail-closed;
+      // scope/frame drift and cancellation are never format errors.
       if(error.code==='fidelity_binding_invalid')throw error;
       boundedSignal.throwIfAborted();context.fidelityFrameSnapshot.assert();
     }
@@ -746,7 +753,7 @@ async function assistModel(settings, context, signal, fetchImpl = fetch) {
     }
     const terminalRepair=editable(context.payload.requestDeliveryObligation);
     const deliveryRepair=checkerRepair||context.payload.purpose==='draft'||!!context.primaryFrameSnapshot||!!context.payload.requestDeliveryPolicy||terminalRepair;
-    if(deliveryRepair&&settings.requestBudget?.task?.snapshot().requests.some(request=>request.purpose==='delivery_repair')){
+    if(deliveryRepair&&!checkerRepair&&settings.requestBudget?.task?.snapshot().requests.some(request=>request.purpose==='delivery_repair')){
       const exhausted=new Error('本次结构化交付修复已使用一次，仍未得到合规交付；输入已保留',{cause:error});exhausted.code='request_delivery_repair_exhausted';exhausted.originalFailure=failureWitness(error);throw exhausted;
     }
     const obligation=editable(error.requestDelivery)?error.requestDelivery:context.payload.requestDeliveryPolicy?.obligation;
@@ -763,7 +770,7 @@ async function assistModel(settings, context, signal, fetchImpl = fetch) {
       : plainRecovery
       ? {purpose:context.payload.purpose === 'draft' ? 'plain_draft_recovery' : 'plain_help_recovery',originalInput:context.payload}
       : {purpose:context.payload.purpose,originalInput:context.payload,invalidResponse:responseContent,
-      formatError:error.issues?`${error.issues.map(issue=>issue.path).join(', ')}: address every validationIssues entry atomically.`:error instanceof SyntaxError?'响应不是合法 JSON':error.message,
+      formatError:error.issues?`${error.issues.map(issue=>issue.path).join(', ')}: address every validationIssues entry atomically. 若 currentFacts 条目被指非精确交付跨度：不得自行撰写或总结，改为引用其所在 userRequest.readRanges 的句柄 '@r1'/'@r2'（程序负责精确文本），或逐字复制该已交付范围的连续原文。`:error instanceof SyntaxError?'响应不是合法 JSON':error.message,
       ...(error.issues?{validationIssues:error.issues}:{}),
       task: context.payload.purpose === 'draft'
         ? '当前purpose=draft，按originalInput一次修复完整准备答复：kind:draft，text只写对外话语，可选privateExplanation只写最终私下解释（最多6000字，空白即缺失），二者事实/时间必须一致；非空legacy suggestions仍为对外候选。不从主规划文字补解释，不能把私下理由混入text或候选。若未给privateExplanation就保持缺失，不宣称解释已恢复。真缺不可绕过信息才kind:question+deliveryBlocker的唯一question及可选why-only explanation，不附privateExplanation。保持同一结构化载体，不改用消息专用纯文本恢复、不增加HTTP调用；不新增事实/许可。'
@@ -792,8 +799,8 @@ async function assistModel(settings, context, signal, fetchImpl = fetch) {
     if(preparedRepair.requestBytes>byteLimit)throw new Error('模型格式不正确，且必要修复输入超过预算；输入已保留，内容未被截断');
     repairPayload=preparedRepair.payload;
     const repairBody=preparedRepair.serialized;
-    const trace = repairedInput.manifest?.methodTrace && { ...structuredClone(repairedInput.manifest.methodTrace), purpose: deliveryRepair ? 'delivery_repair' : plainRecovery ? 'plain_response_recovery' : 'format_repair', reported: null };
-    const repairStage = deliveryRepair ? 'delivery_repair' : plainRecovery ? 'plain_response_recovery' : 'format_repair';
+    const trace = repairedInput.manifest?.methodTrace && { ...structuredClone(repairedInput.manifest.methodTrace), purpose: checkerRepair ? 'audit_format_repair' : deliveryRepair ? 'delivery_repair' : plainRecovery ? 'plain_response_recovery' : 'format_repair', reported: null };
+    const repairStage = checkerRepair ? 'audit_format_repair' : deliveryRepair ? 'delivery_repair' : plainRecovery ? 'plain_response_recovery' : 'format_repair';
     const repairManifest={...repairedInput.manifest,methodTrace:trace,purpose:repairStage,serializedTextRequestBytes:preparedRepair.requestBytes,requestByteBudget:byteLimit,imageCount:retainImages ? repairedInput.images?.length||0 : 0,responseMode:repairSettings.modelResponseMode || 'model_default'};
     if(repairPayload.imageContext)repairManifest.imageContext=structuredClone(repairPayload.imageContext);
     if(retainImages && repairedInput.images?.length)repairManifest.images=repairedInput.images.map(({url,...metadata})=>metadata);else delete repairManifest.images;

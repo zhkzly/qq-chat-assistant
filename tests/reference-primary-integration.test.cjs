@@ -91,7 +91,7 @@ async function application(t,producer){
 test('controller reference primary records admitted wording with exact text, recording provenance and canonical storage',async t=>{
  const app=await application(t,p=>p.purpose==='fidelity_check'?{checkRef:p.checkRef,auditProtocol:'sparse-defects-v1',issues:[]}:planFrom(p));
  const result=await app.assist('我愿把网页用途和查找进展告诉她，给我完整表达。');
- assert.equal(result.kind,'draft');assert.equal(app.calls.length,1);assert.equal(app.run().manifest.requestDelivery.status,'delivered');
+ assert.equal(result.kind,'draft');assert.equal(app.calls.length,2);assert.equal(app.calls.filter(call=>call.p.purpose==='fidelity_check').length,1);assert.equal(app.run().manifest.requestDelivery.status,'delivered');
  const canonical=app.run(),quote=canonical.payload.outboundQuotes[0];
  assert.equal(canonical.payload.purpose,'answer_admission');assert.equal(quote.text,TEXT);
  assert.equal(quote.provenance.source.role,'user');assert.equal(quote.provenance.source.recordedAt,'2026-08-31T10:00:00.000Z');
@@ -109,8 +109,12 @@ test('private advice keeps its declared historical fact through actual admission
  const app=await application(t,p=>p.purpose==='fidelity_check'?{checkRef:p.checkRef,auditProtocol:'sparse-defects-v1',issues:[]}:
   {operation:'advise',text:'可以用已完成的标题查找来回答她，私下先比较这条表达是否自然。',materials:planFrom(p).materials});
  const result=await app.assist('网页用途和查找进展这两件事实可以作为表达例子，但这次先只和我分析，不要给最终稿。');
- assert.equal(result.kind,'discussion');assert.equal(app.calls.length,1);
- assert.equal(app.calls[0].p.purpose,'discussion');assert.equal(app.run().payload.outboundQuotes[0].text,TEXT);assert.equal(app.run().payload.outboundQuotes[0].provenance.source.role,'user');
+ assert.equal(result.kind,'discussion');assert.equal(app.calls.length,2);assert.equal(app.calls.filter(call=>call.p.purpose==='fidelity_check').length,1);
+ assert.equal(app.calls[0].p.purpose,'discussion');const admitted=app.run().payload.privateEvidence[0];
+ // Union carrier (recorded D4b decision): private-only advise admits the
+ // declared fact through privateEvidence with exact provenance; it never
+ // becomes disclosure-eligible outboundQuotes.
+ assert.deepEqual(app.run().payload.outboundQuotes,[]);assert.equal(admitted.text,TEXT);assert.equal(admitted.provenance.source.role,'user');
  assert.equal(app.run().payload.currentHumanControl.text,'网页用途和查找进展这两件事实可以作为表达例子，但这次先只和我分析，不要给最终稿。');
  assert.equal(typeof app.run().manifest.sourceRevisions[app.old.sourceId||`private:${app.old.id}`],'string');
 });
@@ -119,8 +123,8 @@ test('private advice retains an exact new fact and the full current permission t
  const app=await application(t,p=>p.purpose==='fidelity_check'?{checkRef:p.checkRef,auditProtocol:'sparse-defects-v1',issues:[]}:
   {operation:'advise',text:'先私下分析：修好台灯是具体的日常进展，可以围绕这件小事找表达方向。',currentFacts:[fact]});
  const result=await app.assist(request);
- assert.equal(result.kind,'discussion');assert.equal(app.calls.length,1);
- assert.equal(app.run().payload.outboundQuotes[0].text,fact);assert.equal(app.run().payload.currentHumanControl.authority,'CONTROL_ONLY');assert.equal(app.run().payload.currentHumanControl.text,request);assert.equal(app.run().payload.outboundQuotes[0].sourceId,app.run().payload.currentHumanControl.sourceId);assert.equal(typeof app.run().manifest.sourceRevisions[app.run().payload.currentHumanControl.sourceId],'string');
+ assert.equal(result.kind,'discussion');assert.equal(app.calls.length,2);assert.equal(app.calls.filter(call=>call.p.purpose==='fidelity_check').length,1);
+ assert.equal(app.run().payload.privateEvidence[0].text,fact);assert.equal(app.run().payload.currentHumanControl.authority,'CONTROL_ONLY');assert.equal(app.run().payload.currentHumanControl.text,request);assert.equal(app.run().payload.privateEvidence[0].sourceId,app.run().payload.currentHumanControl.sourceId);assert.equal(typeof app.run().manifest.sourceRevisions[app.run().payload.currentHumanControl.sourceId],'string');
 });
 test('missing authority is not inferred from willingness and bad primary commits no valid actions or state',async t=>{
  const app=await application(t,p=>{

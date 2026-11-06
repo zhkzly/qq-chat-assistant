@@ -1,7 +1,7 @@
 'use strict';
 const crypto=require('node:crypto');
 const {redact}=require('../model.cjs');
-const PROMPT_VERSION = 'goal-context-2026-11-01.15';
+const PROMPT_VERSION = 'goal-ctx-2026-11-05.19';
 const METHODS = {
   discussion: '围绕用户当前目的和本轮实际请求选择帮助，可理解、接续、真实分享、比较行动或组织表达。意思明确就直接帮助，只问会改变建议的必要问题。允许暂缓或不用助手，不强制每次制定目的。',
   review: '按实际覆盖回顾当前任务、交流进展、真实经历和用户体验；区分事实、意愿、计划和未知，不预设关系性质。兼顾反证与未知，不计算好感分，不把回复归因为某条建议。',
@@ -11,7 +11,18 @@ const METHODS = {
 };
 const digest = value => crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const bytes = value => Buffer.byteLength(JSON.stringify(value), 'utf8');
+// The final foreground wire has one current-input body lane. The canonical
+// validation copy in sources must not charge that same body a second time.
+function contextBytes(value){
+ const project=payload=>{
+  if(!payload||typeof payload!=='object'||Array.isArray(payload))return payload;
+  if(payload.originalInput)return {...payload,originalInput:project(payload.originalInput)};
+  const id=payload.intentAuthority?.sourceId||payload.userRequest?.sourceId;
+  return payload.userRequest&&Array.isArray(payload.sources)?{...payload,sources:payload.sources.filter(source=>source.id!==id)}:payload;
+ };
+ return bytes(project(value));
+}
 const sanitize = value => JSON.parse(JSON.stringify(value, (_key, item) => typeof item === 'string' ? redact(item) : item));
 const pick = (value, fields) => Object.fromEntries(fields.filter(key => value?.[key] !== undefined).map(key => [key, value[key]]));
 
-module.exports={PROMPT_VERSION,METHODS,digest,bytes,sanitize,pick};
+module.exports={PROMPT_VERSION,METHODS,digest,bytes,contextBytes,sanitize,pick};

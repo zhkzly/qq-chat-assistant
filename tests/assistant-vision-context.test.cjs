@@ -63,7 +63,11 @@ test('assembler budgets the source-bound image map and preserves older selected 
   const { args, images, prepared } = fixture(t);
   const context = buildContext({ ...args, imageMessageIds: [], images, mediaContext: prepared.mediaContext });
   assert.deepEqual(context.payload.imageContext.attached.map(image => image.sourceId), images.map(image => `qq:${image.messageId}`));
-  assert.equal(context.manifest.inputBytes, Buffer.byteLength(JSON.stringify(context.payload)));
+  // D006 budget accounting: inputBytes uses the dedup-aware contextBytes
+  // measure; canonicalInputBytes keeps the raw payload JSON size alongside.
+  const {contextBytes}=require('../src/context/shared.cjs');
+  assert.equal(context.manifest.inputBytes, contextBytes(context.payload));
+  assert.equal(context.manifest.canonicalInputBytes, Buffer.byteLength(JSON.stringify(context.payload)));
   assert.equal(context.manifest.serializedTextRequestBytes, prepareAssistantRequest(settings, context.payload, images).requestBytes);
   assert.deepEqual(context.images, images);
   const draft = buildDraftContext(context, withCurrentDraftControls({ intent: 'reply', quotes: [] },context.payload), args);

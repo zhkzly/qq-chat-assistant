@@ -1,7 +1,7 @@
 'use strict';
 const {prepareAssistantRequest}=require('../assistant-model.cjs');
 const {sourceDeliveryManifest}=require('./source-delivery.cjs');
-const {PROMPT_VERSION,bytes}=require('./shared.cjs');
+const {PROMPT_VERSION,bytes,contextBytes}=require('./shared.cjs');
 function methodTrace(payload) {
   return { purpose: payload.purpose, delivered: (payload.methodCards || []).map(({ id, version }) => ({ id, version })),
     catalog:(payload.methodCatalog||[]).map(({id,version})=>({id,version:version||payload.methodSelection?.version})),
@@ -10,8 +10,8 @@ function methodTrace(payload) {
 function contextBudget(settings, byteBudget, requestMeasure,wireOptions={}) {
   const base=prepareAssistantRequest(settings,null,undefined,wireOptions),measure=requestMeasure||(payload=>prepareAssistantRequest(settings,payload,undefined,wireOptions).requestBytes);
   const envelopeBytes=measure(null)-4;
-  return {measure,requestByteBudget:base.byteLimit,envelopeBytes,payloadWireByteBudget:base.byteLimit-envelopeBytes,model:settings.model||'',
-    fits:payload=>bytes(payload)<=byteBudget&&measure(payload)<=base.byteLimit};
+  return {measure,payloadBytes:contextBytes,requestByteBudget:base.byteLimit,envelopeBytes,payloadWireByteBudget:base.byteLimit-envelopeBytes,model:settings.model||'',
+    fits:payload=>contextBytes(payload)<=byteBudget&&measure(payload)<=base.byteLimit};
 }
 function trimEmptyNavigation(payload){
   for(const key of ['actionReceipts','expressionOptions','privateRestrictions','memoryIndex','lookupHistory','preferences','selectedMaterialIds'])
@@ -20,15 +20,15 @@ function trimEmptyNavigation(payload){
   if(payload.experienceProposalPolicy?.enabled===false)delete payload.experienceProposalPolicy;
 }
 function finish(payload, sources, info, allSources, byteBudget, budget) {
-  const inputBytes = bytes(payload);
+  const inputBytes = budget.payloadBytes?budget.payloadBytes(payload):bytes(payload);
   if (!budget.fits(payload)) throw new Error('本次必要内容超过上下文预算，请缩小所选内容或分段讨论；内容未被截断');
-  const delivery=sourceDeliveryManifest(allSources,sources,payload.evidenceDelivery?.explicitLookups||[]);
+  const delivery=sourceDeliveryManifest(allSources,sources,payload.evidenceDelivery?.explicitLookups||[],payload.userRequest);
   const ids = sources.filter(s => !s.id.startsWith('request:')).map(s => s.id);
   return { payload, manifest: { requestId: info.requestId, scope: info.scope, purpose: payload.purpose,
     promptVersion: PROMPT_VERSION, contextRevision: info.companion.revision, stateVersion: info.companion.state.version,
     sourceIds: ids, sourceRevisions: Object.fromEntries(sources.map(s => [s.id, s.revision])),
     sourceDelivery:delivery,...(payload.discussionReadCoverage?{discussionReadCoverage:payload.discussionReadCoverage,discussionReads:(payload.retrievedDiscussion||[]).filter(item=>item.role==='assistant').map(item=>({turnId:item.originalTurnId,turnFingerprint:item.turnFingerprint,bodyView:item.bodyView,delivery:item.delivery}))}:{}),completeReview: allSources.every(s => ids.includes(s.id))&&!delivery.partialSourceCount, omittedSourceCount: allSources.filter(s => !ids.includes(s.id)).length,
-    historyCoverage: info.coverage, inputBytes, byteBudget, tokenizerVerified: false,
+    historyCoverage: info.coverage, inputBytes,canonicalInputBytes:bytes(payload),byteBudget, tokenizerVerified: false,
     serializedTextRequestBytes:budget.measure(payload),requestByteBudget:budget.requestByteBudget,requestEnvelopeBytes:budget.envelopeBytes,
     payloadWireByteBudget:budget.payloadWireByteBudget,requestModel:budget.model,
     budgetMethod: 'Complete serialized UTF-8 request envelope plus payload ceiling; tokenizer and provider window unverified',

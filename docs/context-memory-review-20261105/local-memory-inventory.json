@@ -1,0 +1,24 @@
+{
+  "status": "inventory",
+  "dataset_hash": "558be21ed1021bce08c96d061c50d2c865f40027edc6d1eff4272278eb37a5c7",
+  "policy_version": "raw-memory-observation-v1",
+  "cases": [
+    {
+      "id": "mu-temporary-state-and-later-change",
+      "steps": 2
+    },
+    {
+      "id": "mu-local-instruction-recurring-preference-and-quotation",
+      "steps": 2
+    },
+    {
+      "id": "mu-unknown-past-occurrence",
+      "steps": 1
+    },
+    {
+      "id": "mu-late-report-cancellation-and-withdrawal",
+      "steps": 3
+    }
+  ],
+  "inference": "not_run"
+}

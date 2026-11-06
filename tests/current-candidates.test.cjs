@@ -26,9 +26,9 @@ test('automatic candidates expose their exact QQ binding, expire on outgoing, an
  c.live({scope,messages:[raw('54003')]});await c.suggest({automatic:true});assert.deepEqual(c.advice.binding.messageIds,['54003']);
 });
 test('automatic deduplication has a finite lifetime and never returns a stale candidate',async t=>{
- const {c,calls,advance}=fixture(t);await c.suggest({automatic:true});const first=c.advice.requestId;await c.suggest({automatic:true});assert.equal(calls.length,1);
+ const {c,calls,advance}=fixture(t);await c.suggest({automatic:true});const first=c.advice.requestId;await c.suggest({automatic:true});assert.equal(calls.length,2);
  advance(6*60000);assert.equal(c.snapshot().advice,null);assert.equal(c.snapshot().candidateStatus.phase,'expired');
- await c.suggest({automatic:true});assert.equal(calls.length,2);assert.notEqual(c.advice.requestId,first);
+ await c.suggest({automatic:true});assert.equal(calls.length,4);assert.equal(calls.filter(p=>p.purpose==='fidelity_check').length,2);assert.notEqual(c.advice.requestId,first);
 });
 test('private consultations remain visible and switching contacts cannot publish a previous candidate',async t=>{
  const {c,store}=fixture(t);c.assistantModel=async(_,input)=>input.payload.purpose==='fidelity_check'?{checkRef:input.payload.checkRef,auditProtocol:'sparse-defects-v1',issues:[]}:{kind:'discussion',text:'A private consultation remains intact.'};
@@ -43,6 +43,6 @@ test('private-help recovery is explicitly unavailable rather than a decision to 
 });
 test('source withdrawal invalidates a current candidate while unrelated derived memory maintenance does not',async t=>{
  const {c,store,calls}=fixture(t);await c.suggest({automatic:true});const first=c.currentAdvice();
- store.touchContext(scope);assert.equal(c.currentAdvice(),first);await c.suggest({automatic:true});assert.equal(calls.length,1,'background generations alone do not spend another automatic request');
+ store.touchContext(scope);assert.equal(c.currentAdvice(),first);await c.suggest({automatic:true});assert.equal(calls.length,2,'background generations alone do not spend another automatic request');
  store.forgetSource(scope,'qq:54001');assert.equal(c.currentAdvice(),null);assert.equal(c.snapshot().candidateStatus.reason,'source_changed');
 });

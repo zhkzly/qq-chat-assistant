@@ -50,7 +50,7 @@ test('the delivered auto contract asks for wording and permits honest uncertaint
  assert.doesNotMatch(system,/draftPlan|taskUse|draftControlPolicy/);
  assert.match(system,/QQ候选勿强聊/);
  assert.match(system,/不编经历|不编.*情绪|不编经历\/情绪/);
- assert.match(system,/缺关键素材可诚实clarify/);assert.match(system,/没有所需事实或不明权限才具体私下核对/);
+ assert.match(system,/缺关键素材可诚实clarify/);assert.match(system,/缺事实或权限不明才具体私下核对/);
  const final=prepareAssistantRequest({model:'fixture'},{...payload,purpose:'draft'}).request.messages[0].content;assert.match(final,/实质不同才≤3条，否则1条/);
 });
 

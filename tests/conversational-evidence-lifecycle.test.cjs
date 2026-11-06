@@ -62,17 +62,17 @@ test('real e1, explicit UI selection and current human controls remain independe
 
 test('repaired complete primary preserves rich canonical dependencies, exact compact admission and actual byte accounting',async t=>{
  const app=await application(t,(p,wrapper)=>{if(p.purpose==='fidelity_check')return allow(p);const value=plan(p);if(!wrapper.originalInput)value.answer.privateExplanation={invalid:'requires one repair'};return value;}),reply=await app.assist(),context=app.run(),wire=projectComposerEvidence({...context.payload,purpose:'draft'});
- assert.equal(app.calls.length,2);assert.deepEqual(app.calls.map(call=>call.request.tool_choice.function.name),['assistant_result','assistant_result']);
+ assert.equal(app.calls.length,3);assert.deepEqual(app.calls.map(call=>call.request.tool_choice.function.name),['assistant_result','assistant_result','fidelity_result']);
  assert.deepEqual(app.calls[0].p.sources,app.calls[1].p.sources,'the shared primary repair retains the actual offered originals');
  assert.equal(wire.outboundQuotes[0].provenance,undefined);assert.equal(wire.outboundQuotes[0].origin.originalRecordsStatus,'partial');assert.equal(wire.outboundQuotes[0].text,FACT);assert.equal(context.payload.outboundQuotes[0].provenance.rootCount,12);
  const repair=app.contexts[0].extraRequests[0];assert.equal(repair.purpose,'delivery_repair');const repairNote=repair.payload.originalInput.sources.find(source=>source.id==='note:'+app.note.id);
  for(const root of app.roots){const id='private:'+root.id;assert.equal(repairNote.evidenceRevisions[id],context.manifest.sourceRevisions[id],'the canonical primary repair retains every note-lineage revision before admission expands the full dependency manifest');}
- const ledger=app.controller.usage.get(scope,'compact-evidence-life');assert.equal(ledger.attempts,2);assert.equal(ledger.requests.filter(request=>request.purpose==='delivery_repair').length,1);for(let index=0;index<app.calls.length;index++)assert.equal(ledger.requests[index].inputBytes,app.calls[index].bytes);
+ const ledger=app.controller.usage.get(scope,'compact-evidence-life');assert.equal(ledger.attempts,3);assert.equal(ledger.requests.filter(request=>request.purpose==='delivery_repair').length,1);for(let index=0;index<app.calls.length;index++)assert.equal(ledger.requests[index].inputBytes,app.calls[index].bytes);
  assert.equal(reply.discussionExplanation.text,WHY);assert.equal(reply.suggestions[0].text,MESSAGE);assert.deepEqual(context.manifest.preparedResponse,{owner:'primary_answer',message:'provided',privateBodyOwner:'answer.privateExplanation',privateExplanation:'provided'});
 });
 
-for(const mutation of ['root-version','root-forget','contact'])test(`late ${mutation} invalidates publication across the complete canonical dependency closure without a critic`,async t=>{
- const app=await application(t,plan),id='private:'+app.roots.at(-1).id,bind=app.controller.candidateSession.bindPlan.bind(app.controller.candidateSession);let entered=false;
+for(const mutation of ['root-version','root-forget','contact'])test(`late ${mutation} invalidates publication across the complete canonical dependency closure after the readonly audit`,async t=>{
+ const app=await application(t,p=>p.purpose==='fidelity_check'?allow(p):plan(p)),id='private:'+app.roots.at(-1).id,bind=app.controller.candidateSession.bindPlan.bind(app.controller.candidateSession);let entered=false;
  t.mock.method(app.controller.candidateSession,'bindPlan',(...args)=>{
   entered=true;assert.ok(app.store.memorySources(scope).some(source=>source.id===id),'the hidden canonical root is a real current source before invalidation');
   if(mutation==='root-version')app.store.updateTurn(scope,app.roots.at(-1).id,'这条旧来源已有新的修订。');
@@ -80,6 +80,6 @@ for(const mutation of ['root-version','root-forget','contact'])test(`late ${muta
   if(mutation==='contact'){app.controller.scope={...scope,peerUid:'another-contact',peerUin:'66778899'};app.controller.changedContext();}
   return bind(...args);
  });
- await app.assist().catch(()=>{});assert.equal(entered,true);assert.equal(app.calls.length,1);assert.equal(app.calls.some(call=>call.p.purpose==='fidelity_check'),false);
+ await app.assist().catch(()=>{});assert.equal(entered,true);assert.equal(app.calls.length,2);assert.equal(app.calls.filter(call=>call.p.purpose==='fidelity_check').length,1);
  assert.equal(app.store.getCompanion(scope).turns.some(turn=>turn.role==='assistant'&&turn.requestId==='compact-evidence-life'),false);assert.equal(app.store.messages(scope).some(message=>message.direction==='outgoing'),false);
 });

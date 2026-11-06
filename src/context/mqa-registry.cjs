@@ -136,6 +136,25 @@ function consumptionContractFor(intentClass) {
   const fields = CONSUMPTION_FIELDS[intentClass] || [];
   return Object.freeze({ version: MQA_VERSION, intentClass, fields });
 }
+// A declaration is evidence navigation, not an output contract. Every
+// producer and parser consumes this same explicit request-level applicability.
+function activeArrangementContract(payloadLike){
+ const payload=payloadLike?.originalInput||payloadLike,contract=payload?.consumptionContract;
+ if(!contract||contract.version!==MQA_VERSION||!CONSUMPTION_FIELDS[contract.intentClass]?.some(field=>field.name==='arrangementHandling')||
+  !Array.isArray(contract.fields)||!contract.fields.some(field=>field?.name==='arrangementHandling'))return null;
+ if(payload.contextRequest?.intentClass&&payload.contextRequest.intentClass!==contract.intentClass)return null;
+ return contract;
+}
+function arrangementConsumptionState(payloadLike){
+ const payload=payloadLike?.originalInput||payloadLike,contract=activeArrangementContract(payload);
+ if(!contract)return {contract:null,delivered:[]};
+ const delivered=[],seen=new Set();
+ for(const material of [...(Array.isArray(payload.mandatoryMaterials)?payload.mandatoryMaterials:[]),...deliveredDeclarationMaterials(payload.sources,{asOf:payload.asOf})]){
+  if(!material||typeof material.sentence!=='string'||!material.sentence||material.current===false)continue;
+  const key=material.sourceId+'\n'+material.sentence;if(seen.has(key))continue;seen.add(key);delivered.push(material);
+ }
+ return {contract,delivered};
+}
 
 // ---- Declared-arrangement material extraction ----
 
@@ -250,6 +269,6 @@ module.exports = {
   MQA_VERSION, INTENT_CLASSES, MATERIAL_CLASSES, AUTHORIZATION_TIERS, POLICY, FLOORS, ROWS, DEFAULT_ROW,
   ARRANGEMENT_DISPOSITIONS, ARRANGEMENT_HANDLING_VERSION, DECLARATION_FRESHNESS_MS,
   isIntentClass, isMaterialClass, tierAtLeast, tierFromCode, policyFor, requirementsFor,
-  consumptionContractFor, declaredArrangementMaterials, deliveredDeclarationMaterials,
+  consumptionContractFor, activeArrangementContract, arrangementConsumptionState, declaredArrangementMaterials, deliveredDeclarationMaterials,
   arrangementTimeWindowGap, validateArrangementHandling
 };

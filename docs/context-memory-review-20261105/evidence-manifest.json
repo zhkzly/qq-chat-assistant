@@ -1,0 +1,82 @@
+{
+  "built_at": "2026-11-05T02:25:28.580628+00:00",
+  "revision": "b74e11168f9be340aac30b72d832c099b8c8aeab",
+  "evidence_status": "Current working-tree source review; public benchmark research; offline dataset validation. No model-quality experiment or native QQ integration was run for this report.",
+  "scorer_probe": {
+    "model_calls": 0,
+    "source_sha256": "864dffeb40ec10f4f612ab5ed46d36282cba22bd68a0b07d52a8f041b2338067"
+  },
+  "files": {
+    "index.html": {
+      "sha256": "c2dbfe18ed9b9ef5eb556c6d32313f206e54ded6f39b219811523f48a36fdba8",
+      "bytes": 910411
+    },
+    "architecture.html": {
+      "sha256": "3318a2cac572aae080f84aa6af9befbbffdabc986d0cca333f99b56c06b0b942",
+      "bytes": 712052
+    },
+    "architecture.json": {
+      "sha256": "17e9e6f18a515a3a997a5d213ac011aef5525b8f2d37e0c871e49668b403f0ed",
+      "bytes": 4334
+    },
+    "report-data.json": {
+      "sha256": "f10827df3ecd0d20562a48a39c7b03d9cc5a4941ba8225073b46edb68d61b49d",
+      "bytes": 24338
+    },
+    "evaluation-proposal_CN.json": {
+      "sha256": "3ed0a059ab79f2c815901176c83194e163fb5d89169c032462db7ec75aefe70f",
+      "bytes": 9706
+    },
+    "source-evidence.json": {
+      "sha256": "14c02c71e1fe39d27b34011e8fc8191257e2c86f3d6b5cae89a8f876ffe846cc",
+      "bytes": 37521
+    },
+    "scorer-probe.json": {
+      "sha256": "4193c15b34598858f5b269d38e5c08d4c58145808a457d6fa6ac6006cb33ca6d",
+      "bytes": 2261
+    },
+    "local-dataset-check.json": {
+      "sha256": "c30e48ee9d4c309c5a862d481efc047f78092fe4c11b3b4fe09ccf8b7cba91d7",
+      "bytes": 320
+    },
+    "local-replay-inventory.json": {
+      "sha256": "b12eff8e71c19c2be4224c84600061dd806358a1d41e2823d2f4e8198460db70",
+      "bytes": 8501
+    },
+    "local-memory-inventory.json": {
+      "sha256": "915c1d666815ad443968b8062c673a07de5c9ddcfef8ab3a36a86159a6bcf726",
+      "bytes": 548
+    },
+    "README.md": {
+      "sha256": "60c0a24aa55651cf03037502c07a612511b080efeb01e08bd12a08995b7daea0",
+      "bytes": 4219
+    },
+    "report-ui-check.json": {
+      "sha256": "4eaea8070373ab6f91be6440bedc416d121f0059d5cb0ba09fb1988d8d58a760",
+      "bytes": 3432
+    },
+    "architecture.visual-check.json": {
+      "sha256": "ff2f4d5e8f6e5fa8cbe5bce90bd93de0c9795986a396ed27d3bfa51e71fca54b",
+      "bytes": 17107
+    },
+    "build_report.py": {
+      "sha256": "594121ea6ced1cf52808d3f99598d729cf28ac765cb75f7f02efe555c1aa318f",
+      "bytes": 35812
+    },
+    "check_report.cjs": {
+      "sha256": "3bb5d9dce3ef426cc1838f990b0af90203690912a3e7a887a3dbd9a07bb2b620",
+      "bytes": 6666
+    }
+  },
+  "visual_review": {
+    "architecture_large_light": "inspected",
+    "report_views": [
+      "desktop_proposal",
+      "desktop_benchmarks",
+      "desktop_design",
+      "mobile_proposal"
+    ],
+    "report_ui": "passed",
+    "product_quality": "not_run"
+  }
+}

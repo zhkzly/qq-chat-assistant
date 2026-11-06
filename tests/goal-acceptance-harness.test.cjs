@@ -24,8 +24,8 @@ test('synthetic transport exercises planning, clarification, private explanation
  const report=await runHarness({extended:true});assert.equal(report.evidence,'synthetic_transport_pipeline_only');assert.equal(report.realHttpAttempts,0);
  assert.equal(report.semanticVerdict,'requires_independent_review');assert.equal(report.cases.length,13);assert.ok(report.httpAttempts<=28);
  assert.ok(report.cases.every(item=>item.status==='executed_semantic_review_required'&&item.checks.every(check=>check.status==='pass')));
- const clarification=report.cases.find(item=>item.id==='G2');assert.deepEqual(clarification.stages.map(stage=>stage.purpose),['discussion']);assert.equal(clarification.reply.suggestions,undefined);
- const indirect=report.cases.find(item=>item.id==='G3');assert.deepEqual(indirect.stages.map(stage=>stage.purpose),['discussion']);assert.ok(indirect.reply.discussionExplanation.text);
+ const clarification=report.cases.find(item=>item.id==='G2');assert.deepEqual(clarification.stages.map(stage=>stage.purpose),['discussion','fidelity_check']);assert.equal(clarification.reply.suggestions,undefined);
+ const indirect=report.cases.find(item=>item.id==='G3');assert.deepEqual(indirect.stages.map(stage=>stage.purpose),['discussion','fidelity_check']);assert.ok(indirect.reply.discussionExplanation.text);
  const experience=report.cases.find(item=>item.id==='G8');assert.equal(experience.guidanceSeeds.length,4);assert.ok(experience.guidanceDelivery[0].entries.every(item=>item.authority==='user_approved_assistance_guidance'));
  const contrary=report.cases.find(item=>item.id==='G8-contrary');assert.equal(contrary.admittedContext.payload.currentHumanControl.text,contrary.request);assert.equal(contrary.admittedContext.payload.draftingGuidance,undefined);
  for(const item of report.cases)for(const stage of item.methodDelivery){
@@ -48,7 +48,7 @@ test('synthetic transport exercises planning, clarification, private explanation
 test('targeted cases select only declared IDs and preserve the newly requested rationale and both question meanings',async()=>{
  const cases=['G3','G8','G9','G8-two-questions'];assert.deepEqual(selectedDefinitions({cases}).map(item=>item.id),cases);
  assert.throws(()=>selectedDefinitions({cases:['G9','not-declared']}),/declared scenario ID/);assert.throws(()=>selectedDefinitions({cases:['G9','G9']}),/distinct/);
- const report=await runHarness({cases,maxHttp:10});assert.deepEqual(report.cases.map(item=>item.id),cases);assert.equal(report.httpAttempts,4);
+ const report=await runHarness({cases,maxHttp:10});assert.deepEqual(report.cases.map(item=>item.id),cases);assert.equal(report.httpAttempts,8);
  assert.equal(report.limits.hardCeiling,10);await assert.rejects(runHarness({cases,maxHttp:11}),/1\.\.10/);
  const rationale=report.cases.find(item=>item.id==='G9');assert.equal(rationale.request,'为什么建议这样回？说明依据，再给一句。');
  assert.equal(rationale.observedDeliverables.privateRationale,true);assert.equal(rationale.observedDeliverables.editableWordingCount,1);
@@ -60,8 +60,8 @@ test('targeted cases select only declared IDs and preserve the newly requested r
 });
 test('global caps retain the first incomplete result and prevent later scenario retries',async()=>{
  const report=await runHarness({maxHttp:1});assert.equal(report.httpAttempts,1);assert.equal(report.stopped.reason,'global_http_cap');
- assert.equal(report.cases[0].status,'executed_semantic_review_required');assert.equal(report.cases[0].stages.length,1);assert.equal(report.cases[1].status,'execution_failure');
- assert.ok(report.cases.slice(2).every(item=>item.status==='skipped_verification_stopped'));
+ assert.equal(report.cases[0].status,'execution_failure');assert.deepEqual(report.cases[0].stages.map(s=>s.purpose),['discussion','fidelity_check']);assert.equal(report.cases[0].reply,undefined);
+ assert.ok(report.cases.slice(1).every(item=>item.status==='skipped_verification_stopped'));
  assert.ok(report.cases[0].tasks.every(task=>task.attempts<=4));
  await assert.rejects(runHarness({maxHttp:25}),/1\.\.24/);await assert.rejects(runHarness({extended:true,maxHttp:29}),/1\.\.28/);
 });

@@ -1,13 +1,13 @@
 'use strict';
 // No product imports: --adapter is the only implementation-specific boundary.
 const fs=require('node:fs'),path=require('node:path');
-const {runEpisode,reviewPacket,hash}=require('./eval-replay.cjs');
+const {runEpisode,reviewPacket,preparationEvidence,hash}=require('./eval-replay.cjs');
 const {loadReplayPlans}=require('./eval-replay-plan.cjs');
 function argumentsFor(argv){
  const options={};
  for(let i=0;i<argv.length;i++){
   const name=argv[i];
-  if(['--list','--live','--all','--continue-on-case-error'].includes(name)){options[name.slice(2)]=true;continue;}
+  if(['--list','--live','--all','--continue-on-case-error','--unlimited-http'].includes(name)){options[name.slice(2)]=true;continue;}
   if(!['--adapter','--id','--out','--source-root','--max-http','--timeout-ms','--settings-file'].includes(name)||!argv[i+1]||argv[i+1].startsWith('--'))throw Error(`Invalid replay option ${name}`);
   options[name.slice(2)]=argv[++i];
  }
@@ -15,6 +15,7 @@ function argumentsFor(argv){
 }
 async function main(argv){
  const options=argumentsFor(argv),dataset=loadReplayPlans();
+ if(options['unlimited-http']&&options['max-http']!==undefined)throw Error('Choose either --unlimited-http or --max-http');
  const timeoutMs=options['timeout-ms']===undefined?120000:Number(options['timeout-ms']);
  if(!Number.isSafeInteger(timeoutMs)||timeoutMs<1||timeoutMs>3600000)throw Error('--timeout-ms must be 1..3600000');
  const deadline=async(fn,label)=>{let timer;try{return await Promise.race([Promise.resolve().then(fn),new Promise((_,reject)=>{timer=setTimeout(()=>{const error=Error(`${label} exceeded wall-clock deadline`);error.code='replay_timeout';reject(error);},timeoutMs);})]);}finally{clearTimeout(timer);}};
@@ -27,7 +28,8 @@ async function main(argv){
  if(new Set(selected.map(p=>p.id)).size!==selected.length)throw Error('Replay case IDs must be distinct');
  const adapterFile=fs.realpathSync(path.resolve(options.adapter)),module=require(adapterFile);
  if(typeof module.createAdapterFactory!=='function')throw Error('Adapter module must export createAdapterFactory(options)');
- const factory=await deadline(()=>module.createAdapterFactory({live:options.live===true,sourceRoot:options['source-root'],settingsFile:options['settings-file'],maxHttp:options['max-http']===undefined?undefined:Number(options['max-http'])}),'Adapter factory initialization');
+ const factory=await deadline(()=>module.createAdapterFactory({live:options.live===true,sourceRoot:options['source-root'],settingsFile:options['settings-file'],maxHttp:options['max-http']===undefined?undefined:Number(options['max-http']),unlimitedHttp:options['unlimited-http']===true}),'Adapter factory initialization');
+ if(options['unlimited-http']&&(factory.identity?.unlimited_http!==true||factory.identity?.max_http!==null))throw Error('Replay adapter must explicitly declare unlimited HTTP mode');
  if(typeof factory.create!=='function')throw Error('Adapter factory must create independent episodes');
  const output=path.resolve(options.out);
  if(output.split(path.sep).some(part=>['.git','data'].includes(part))||fs.existsSync(output))throw Error('Artifact directory must be new and outside private data/Git metadata');
@@ -50,11 +52,13 @@ async function main(argv){
    write(`${plan.id}.run.json`,result);
   }
   write(`${plan.id}.review.json`,reviewPacket(plan,result,rubric));
-  manifest.episodes.push({id:plan.id,status:result.status,steps:result.steps.map(s=>({id:s.id,status:s.status})),unexecuted_steps:result.unexecuted_steps||[],...(result.error?{error:result.error}:{})});
+  const preparation=preparationEvidence(result);
+  if(preparation)write(`${plan.id}.preparation.json`,preparation);
+  manifest.episodes.push({id:plan.id,status:result.status,steps:result.steps.map(s=>({id:s.id,status:s.status})),unexecuted_steps:result.unexecuted_steps||[],...(preparation?{preparation_artifact:`${plan.id}.preparation.json`}:{}),...(result.error?{error:result.error}:{})});
   write('transport.json',factory.summary?.()||{});write('manifest.json',manifest);
   // A broken provider or global cap is not a reason to burn through more cases.
   if(result.status==='incomplete'&&!options['continue-on-case-error'])break;
-  if(factory.identity?.max_http&&factory.summary?.().http_attempts>=factory.identity.max_http)break;
+  if(factory.identity?.unlimited_http!==true&&Number.isSafeInteger(factory.identity?.max_http)&&factory.summary?.().http_attempts>=factory.identity.max_http)break;
  }
  manifest.status=manifest.episodes.some(e=>e.status==='incomplete')?'incomplete':manifest.episodes.length<selected.length?'incomplete':manifest.episodes.some(e=>e.status==='partial_review_required')?'partial_review_required':'executed_review_required';
  manifest.unexecuted_cases=selected.map(p=>p.id).filter(id=>!manifest.episodes.some(e=>e.id===id));

@@ -1,0 +1,405 @@
+{
+  "provenance": [
+    {
+      "case": "stream-material-retained",
+      "source": "/home/zhkzly/pycodes/qq-chat-assistant/.goal-runs/context-memory-20261105/candidate-fact-002-r8-observer-v4/stream-material-retained.run.json",
+      "sha256": "08955305d8a308a4ed1a68237ff161869e64d08e9a798ee5b267465f3612db75",
+      "evidence": "actual_selected_model_fictional_stream"
+    },
+    {
+      "case": "stream-material-excluded",
+      "source": "/home/zhkzly/pycodes/qq-chat-assistant/.goal-runs/context-memory-20261105/candidate-fact-002-r8-observer-v4/stream-material-excluded.run.json",
+      "sha256": "9206cda85ac3c573f9af69ef215b901bd43285e47b0af42d811715a64091a68a",
+      "evidence": "actual_selected_model_fictional_stream"
+    }
+  ],
+  "retained": {
+    "audits": [
+      {
+        "candidate": {
+          "text": "里面开线了确实挺可惜的，外面看着还好就更舍不得换了。我以前给旧帆布包补过内衬，最难的是把里面的布角对齐。",
+          "discussionExplanation": {
+            "kind": "discussion",
+            "text": "我按你愿意分享的真实经历来接她的话，没有说你修过她的包。"
+          },
+          "suggestions": [
+            {
+              "style": "自然",
+              "text": "里面开线了确实挺可惜的，外面看着还好就更舍不得换了。我以前给旧帆布包补过内衬，最难的是把里面的布角对齐。"
+            }
+          ],
+          "expressionOptions": []
+        },
+        "evidence": [
+          {
+            "sourceId": "qq:72057594049927937001",
+            "type": "qq",
+            "role": "contact",
+            "at": "2026-10-29T10:00:00.000Z",
+            "text": "我的帆布包里面开线了，外面倒还挺好的，有点舍不得换。"
+          },
+          {
+            "sourceId": "note:n1",
+            "type": "note",
+            "role": "unknown",
+            "at": "2026-10-29T10:01:00.000Z",
+            "text": "我以前给一个旧帆布包补过内衬，最难的是把里面的布角对齐。我愿意把这件小经历告诉她，但没有修过她的包，也不是专业裁缝。",
+            "authority": "note_context_not_original_human_statement",
+            "lineage": "authored_or_unattributed",
+            "evidenceSourceIds": []
+          },
+          {
+            "sourceId": "private:6f4c9d6c-5720-41c0-a620-79e7337c7ca5",
+            "type": "private",
+            "role": "user",
+            "at": "2026-10-29T10:10:00.000Z",
+            "text": "她说这个，我想接一句，帮我想想。"
+          }
+        ],
+        "disclosureAuthority": {
+          "programSources": [
+            {
+              "sourceId": "qq:72057594049927937001"
+            },
+            {
+              "sourceId": "note:n1"
+            }
+          ],
+          "rule": "Truth support is not sharing authority. Private outward assertions require an admitted fragment; a narrower disclosure witness may select one."
+        },
+        "admittedFragments": [],
+        "reported": {
+          "auditProtocol": "sparse-defects-v1",
+          "checkRef": "c1",
+          "issues": [
+            {
+              "path": "suggestions[0].text",
+              "code": "private_disclosure",
+              "quote": "我以前给旧帆布包补过内衬，最难的是把里面的布角对齐。",
+              "reason": "虽有来源支持这段经历，但没有获准对外分享的admittedFragment或admittedFactBinding；来源中的愿意分享不能替代披露许可。",
+              "evidence": [
+                {
+                  "sourceId": "s2",
+                  "quote": "我愿意把这件小经历告诉她，但没有修过她的包，也不是专业裁缝。"
+                }
+              ]
+            },
+            {
+              "path": "text",
+              "code": "private_disclosure",
+              "quote": "我以前给旧帆布包补过内衬，最难的是把里面的布角对齐。",
+              "reason": "来源支持该经历，但没有获准对外分享的admittedFragment或admittedFactBinding；来源中的愿意分享不能替代披露许可。",
+              "evidence": [
+                {
+                  "sourceId": "s2",
+                  "quote": "我愿意把这件小经历告诉她，但没有修过她的包，也不是专业裁缝。"
+                }
+              ]
+            }
+          ]
+        },
+        "parsed": {
+          "version": "whole-answer-fidelity-v9",
+          "candidateHash": "ecbc76bbcf8af7e027869f9a4dbfd53a129df28f93b182ffc904ba2dee51b487",
+          "bindingHash": "4851c76a352f519eedf285fcf0ae35fde06505960e31cf91ab6fc6e8b244eea6",
+          "evidenceHash": "0f03ac810fcf2bace86ec01c5cf00427a78c0f4137ff96188a3c98c300194371",
+          "status": "pending",
+          "reviewStatus": "incomplete",
+          "derivedVerdict": "incomplete",
+          "auditProtocol": "sparse-defects-v1",
+          "issues": [],
+          "concerns": [
+            {
+              "path": "text",
+              "code": "private_disclosure",
+              "quote": "我以前给旧帆布包补过内衬，最难的是把里面的布角对齐。",
+              "reason": "来源支持该经历，但没有获准对外分享的admittedFragment或admittedFactBinding；来源中的愿意分享不能替代披露许可。"
+            }
+          ],
+          "diagnostics": [
+            {
+              "code": "program_disclosure_authority",
+              "message": "A checker cannot revoke already admitted exact material without an independent private restriction."
+            }
+          ],
+          "exhaustive": false
+        }
+      }
+    ]
+  },
+  "excluded": {
+    "audits": [
+      {
+        "candidate": {
+          "text": "我没补过帆布包诶，不过这种里面开线，感觉可以拿去问问修包的师傅能不能从里面缝一下。你要是舍不得换，可以先问问看。",
+          "discussionExplanation": {
+            "kind": "discussion",
+            "text": "我没有关于你以前补过什么包的真实信息，所以这版没有替你编经验；若你确实补过，可以告诉我具体是哪种包、怎么补的，我再帮你改得更贴近实际。"
+          },
+          "suggestions": [
+            {
+              "style": "自然、诚实，不假装有修补经验",
+              "text": "我没补过帆布包诶，不过这种里面开线，感觉可以拿去问问修包的师傅能不能从里面缝一下。你要是舍不得换，可以先问问看。"
+            }
+          ],
+          "expressionOptions": []
+        },
+        "evidence": [
+          {
+            "sourceId": "qq:72057594049927937001",
+            "type": "qq",
+            "role": "contact",
+            "at": "2026-10-29T10:00:00.000Z",
+            "text": "我的帆布包里面开线了，外面倒还挺好的，有点舍不得换。"
+          },
+          {
+            "sourceId": "private:f883b27c-49c1-42b4-8330-41a598e487d4",
+            "type": "private",
+            "role": "user",
+            "at": "2026-10-29T10:10:00.000Z",
+            "text": "她说这个，我想接一句，帮我想想。"
+          },
+          {
+            "sourceId": "qq:72057594049927937002",
+            "type": "qq",
+            "role": "contact",
+            "at": "2026-10-29T10:22:00.000Z",
+            "text": "你以前补过哪种包？这种里面开线的能弄好吗？"
+          },
+          {
+            "sourceId": "private:212200ff-991c-47ac-81cd-dbbecbb8e9a1",
+            "type": "private",
+            "role": "user",
+            "at": "2026-10-29T10:25:00.000Z",
+            "text": "她问到这个了，怎么回？"
+          }
+        ],
+        "disclosureAuthority": {
+          "programSources": [
+            {
+              "sourceId": "qq:72057594049927937001"
+            },
+            {
+              "sourceId": "qq:72057594049927937002"
+            }
+          ],
+          "rule": "Truth support is not sharing authority. Private outward assertions require an admitted fragment; a narrower disclosure witness may select one."
+        },
+        "admittedFragments": [],
+        "reported": {
+          "auditProtocol": "sparse-defects-v1",
+          "checkRef": "c1",
+          "issues": [
+            {
+              "path": "text",
+              "code": "unsupported_fact",
+              "quote": "我没补过帆布包诶",
+              "reason": "这是用户对外的个人经历陈述，但本次没有提供任何可支持该经历的事实或分享许可。"
+            },
+            {
+              "path": "text",
+              "code": "unsupported_fact",
+              "quote": "这种里面开线，感觉可以拿去问问修包的师傅能不能从里面缝一下",
+              "reason": "具体修补方式没有本次来源依据，作为给对方的建议提出了无依据的可行性判断。",
+              "evidence": [
+                {
+                  "sourceId": "s2",
+                  "quote": "我的帆布包里面开线了，外面倒还挺好的，有点舍不得换。"
+                }
+              ]
+            },
+            {
+              "path": "suggestions[0].text",
+              "code": "unsupported_fact",
+              "quote": "我没补过帆布包诶",
+              "reason": "这是用户对外的个人经历陈述，但本次没有提供任何可支持该经历的事实或分享许可。"
+            },
+            {
+              "path": "suggestions[0].text",
+              "code": "unsupported_fact",
+              "quote": "这种里面开线，感觉可以拿去问问修包的师傅能不能从里面缝一下",
+              "reason": "具体修补方式没有本次来源依据，作为给对方的建议提出了无依据的可行性判断。",
+              "evidence": [
+                {
+                  "sourceId": "s2",
+                  "quote": "我的帆布包里面开线了，外面倒还挺好的，有点舍不得换。"
+                }
+              ]
+            }
+          ],
+          "concerns": []
+        },
+        "parsed": {
+          "version": "whole-answer-fidelity-v9",
+          "candidateHash": "0d054da7eb3d5ab1a8a95952e1cf831913cfb3ad935da539bcbf0c39c5831c92",
+          "bindingHash": "5b180c7b2989182797cdfba88a8d8966c262efd176883fae7bffb535b69ab2a4",
+          "evidenceHash": "9b634bf6fcc53cf9edcada19b9d30fe2797ba594545f45d571a664f42e8d1b18",
+          "status": "pending",
+          "reviewStatus": "incomplete",
+          "derivedVerdict": "reject",
+          "auditProtocol": "sparse-defects-v1",
+          "issues": [
+            {
+              "path": "text",
+              "code": "unsupported_fact",
+              "quote": "我没补过帆布包诶",
+              "reason": "这是用户对外的个人经历陈述，但本次没有提供任何可支持该经历的事实或分享许可。"
+            },
+            {
+              "path": "text",
+              "code": "unsupported_fact",
+              "quote": "这种里面开线，感觉可以拿去问问修包的师傅能不能从里面缝一下",
+              "reason": "具体修补方式没有本次来源依据，作为给对方的建议提出了无依据的可行性判断。"
+            },
+            {
+              "path": "suggestions[0].text",
+              "code": "unsupported_fact",
+              "quote": "我没补过帆布包诶",
+              "reason": "这是用户对外的个人经历陈述，但本次没有提供任何可支持该经历的事实或分享许可。"
+            },
+            {
+              "path": "suggestions[0].text",
+              "code": "unsupported_fact",
+              "quote": "这种里面开线，感觉可以拿去问问修包的师傅能不能从里面缝一下",
+              "reason": "具体修补方式没有本次来源依据，作为给对方的建议提出了无依据的可行性判断。"
+            }
+          ],
+          "concerns": [],
+          "diagnostics": [
+            {
+              "code": "audit_irrelevant_evidence",
+              "message": "Finding 1 does not need a source witness for this code"
+            },
+            {
+              "code": "audit_extra_finding_metadata",
+              "message": "Finding 1 extra keys: evidence"
+            },
+            {
+              "code": "audit_irrelevant_evidence",
+              "message": "Finding 3 does not need a source witness for this code"
+            },
+            {
+              "code": "audit_extra_finding_metadata",
+              "message": "Finding 3 extra keys: evidence"
+            }
+          ],
+          "exhaustive": false
+        }
+      },
+      {
+        "candidate": {
+          "text": "你说以前补过哪种包，是想问我有没有补过吗？我这会儿想不起来具体补过哪种。你这个包开线的位置是在里面吗？",
+          "discussionExplanation": {
+            "kind": "discussion",
+            "text": "如果你记得自己以前补过哪种包、或想不起这段话的真实情况，可以告诉我，我再帮你把回复改准确些。"
+          },
+          "suggestions": [
+            {
+              "style": "自然、先回应她的问题",
+              "text": "你说以前补过哪种包，是想问我有没有补过吗？我这会儿想不起来具体补过哪种。你这个包开线的位置是在里面吗？"
+            }
+          ],
+          "expressionOptions": []
+        },
+        "evidence": [
+          {
+            "sourceId": "qq:72057594049927937001",
+            "type": "qq",
+            "role": "contact",
+            "at": "2026-10-29T10:00:00.000Z",
+            "text": "我的帆布包里面开线了，外面倒还挺好的，有点舍不得换。"
+          },
+          {
+            "sourceId": "private:f883b27c-49c1-42b4-8330-41a598e487d4",
+            "type": "private",
+            "role": "user",
+            "at": "2026-10-29T10:10:00.000Z",
+            "text": "她说这个，我想接一句，帮我想想。"
+          },
+          {
+            "sourceId": "qq:72057594049927937002",
+            "type": "qq",
+            "role": "contact",
+            "at": "2026-10-29T10:22:00.000Z",
+            "text": "你以前补过哪种包？这种里面开线的能弄好吗？"
+          },
+          {
+            "sourceId": "private:212200ff-991c-47ac-81cd-dbbecbb8e9a1",
+            "type": "private",
+            "role": "user",
+            "at": "2026-10-29T10:25:00.000Z",
+            "text": "她问到这个了，怎么回？"
+          }
+        ],
+        "disclosureAuthority": {
+          "programSources": [
+            {
+              "sourceId": "qq:72057594049927937001"
+            },
+            {
+              "sourceId": "qq:72057594049927937002"
+            }
+          ],
+          "rule": "Truth support is not sharing authority. Private outward assertions require an admitted fragment; a narrower disclosure witness may select one."
+        },
+        "admittedFragments": [],
+        "reported": {
+          "auditProtocol": "sparse-defects-v1",
+          "checkRef": "c1",
+          "issues": [
+            {
+              "path": "suggestions[0].text",
+              "code": "private_disclosure",
+              "quote": "我这会儿想不起来具体补过哪种。",
+              "reason": "这是对外披露用户自己的过往经历与记忆状态；本次没有任何已许可的用户事实片段或分享许可。"
+            },
+            {
+              "path": "suggestions[0].text",
+              "code": "omitted_qualifier",
+              "quote": "你这个包开线的位置是在里面吗？",
+              "reason": "她已明确说包是“里面开线”，此处把已知信息当作疑问，遗漏了来源中明确的限定。",
+              "evidence": [
+                {
+                  "sourceId": "s2",
+                  "quote": "我的帆布包里面开线了，外面倒还挺好的，有点舍不得换。"
+                }
+              ]
+            }
+          ]
+        },
+        "parsed": {
+          "version": "whole-answer-fidelity-v9",
+          "candidateHash": "28186666067e80c549e38a39c3f6ef13b744882d63df89e28d8a93bf4f3cf832",
+          "bindingHash": "46f8d1d822f6505e439f928892b6407c2c7ae52fc3cd239227df1942497cfa31",
+          "evidenceHash": "13fac7ab2bf5a3b1a1847184057bf9f37ea149b282098f855d5a6c8d47cec33b",
+          "status": "pending",
+          "reviewStatus": "incomplete",
+          "derivedVerdict": "reject",
+          "auditProtocol": "sparse-defects-v1",
+          "issues": [
+            {
+              "path": "suggestions[0].text",
+              "code": "omitted_qualifier",
+              "quote": "你这个包开线的位置是在里面吗？",
+              "reason": "她已明确说包是“里面开线”，此处把已知信息当作疑问，遗漏了来源中明确的限定。",
+              "evidence": [
+                {
+                  "sourceId": "qq:72057594049927937001",
+                  "quote": "我的帆布包里面开线了，外面倒还挺好的，有点舍不得换。"
+                }
+              ]
+            }
+          ],
+          "concerns": [],
+          "diagnostics": [
+            {
+              "code": "audit_invalid_finding",
+              "message": "Finding 0: This defect needs original source witnesses"
+            }
+          ],
+          "exhaustive": false
+        }
+      }
+    ]
+  }
+}

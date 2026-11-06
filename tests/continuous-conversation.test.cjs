@@ -45,7 +45,7 @@ test('the next automatic primary sees the original local correction without trea
   const stages=item.stages.filter(stage=>stage.stepId==='next-incoming-keeps-correction');
   const planner=stages.find(stage=>stage.purpose!=='fidelity_check');
   assert.ok(planner.effectivePayload.sources.some(source=>source.role==='user'&&source.text===request));
-  assert.equal(stages.some(stage=>stage.purpose==='fidelity_check'),false,'ordinary suggestions have no automatic critic');
+  assert.equal(stages.filter(stage=>stage.purpose==='fidelity_check').length,1,'the next automatic candidate receives its own readonly audit');
   assert.equal(JSON.stringify(item.steps.at(-1).reply.suggestions).includes(request),false,'private control text is not copied as outward content');
   assert.equal(stages.some(stage=>stage.purpose==='draft'),false,'complete wording is generated in the primary request');
   assert.ok(noFailedChecks(report));

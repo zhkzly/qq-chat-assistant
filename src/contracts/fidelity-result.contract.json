@@ -1,7 +1,7 @@
 {
  "contract": "fidelity_result",
- "version": "fidelity-result-contract-v2",
- "description": "Read-only fidelity checker exchange, both protocols (full proposition census and sparse-defects-v1). Path enums are payload-injected from candidatePaths.",
+ "version": "fidelity-result-contract-v4",
+ "description": "Read-only sparse source-fact defects and speech-act-independent disclosure checks, with candidate-bound claims and explicit privacy bases.",
  "protocols": [
   "full",
   "sparse-defects-v1"
@@ -57,6 +57,42 @@
       "evidence_mismatch",
       "omitted_qualifier",
       "internal_conflict",
+      "private_disclosure"
+     ]
+    },
+    "claim": {
+     "kinds": [
+      "assertion",
+      "presupposition",
+      "intent",
+      "opinion",
+      "open_question",
+      "advice",
+      "inspection",
+      "private_conditional"
+     ],
+     "hardFactKinds": [
+      "assertion",
+      "presupposition"
+     ],
+     "quote": {
+      "type": "string",
+      "maxLength": 1200
+     },
+     "requiredForProtocol": "sparse-defects-v1",
+     "hardFactCodes": [
+      "unsupported_fact",
+      "evidence_mismatch",
+      "omitted_qualifier",
+      "internal_conflict"
+     ]
+    },
+    "privacyBasis": {
+     "values": [
+      "absence_of_grant",
+      "explicit_restriction"
+     ],
+     "requiredForCodes": [
       "private_disclosure"
      ]
     }

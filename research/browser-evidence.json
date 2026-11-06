@@ -1,0 +1,24 @@
+{
+  "type": "synthetic-browser-execution",
+  "timestamp": "2026-10-12T03:47:32.926Z",
+  "checks": [
+    "authenticated loopback UI shows read-only QQ connection",
+    "binding automatically renders both synthetic history directions",
+    "adoption produces an editable draft",
+    "live updates preserve draft and treat message HTML as text",
+    "copy handler writes the edited draft and never creates a sent record",
+    "all 739 cached rows are browseable and polling preserves DOM/scroll",
+    "a fresh helper window restores the edited draft from local storage",
+    "model list, separate API profiles and quick model switches preserve drafts and require matching consent",
+    "editing an endpoint discards its pending model-list response",
+    "an old message can be selected for AI context and reset to the latest burst",
+    "prominent model settings and exact local context preview open",
+    "minimum window width has no horizontal overflow",
+    "source contact changes set the QQ selector even when it retains focus",
+    "a pending fill cannot be redirected to a newly selected contact",
+    "contact switch clears previous suggestions/draft and does not overwrite typed selector",
+    "export stays bound to newly selected contact"
+  ],
+  "nativeQQIntegration": false,
+  "result": "PASS"
+}

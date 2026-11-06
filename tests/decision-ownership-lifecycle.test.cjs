@@ -36,7 +36,7 @@ function currentTopic(p){return {operation:'create',objective:'回应当前盆�
 
 test('invalid optional prepared metadata keeps the complete checked candidate and pending human intent without writes or false review',async t=>{
  const app=await application(t,p=>p.purpose==='fidelity_check'?allow(p):{...candidate(p),topicPatch:{operation:'update',authority:'MODEL_CANNOT_ASSIGN_AUTHORITY'},stateReview:'no_change'}),before=app.store.getCompanion(scope),reply=await app.assist(),after=app.store.getCompanion(scope),check=app.calls.at(-1).p;
- assert.equal(app.calls.length,1);assert.equal(check.purpose,'discussion');assert.equal(app.run().manifest.publicationSeal.semanticCheck,false);assert.equal(reply.suggestions[0].text,GOOD);
+ assert.equal(app.calls.length,2);assert.equal(check.purpose,'fidelity_check');assert.equal(app.run().manifest.publicationSeal.semanticCheck,false);assert.equal(reply.suggestions[0].text,GOOD);
  assert.equal(after.goal.version,before.goal.version);assert.equal(after.state.version,before.state.version);assert.equal(after.topics.version,before.topics.version);
  assert.equal(reply.privateReviewReceipt,undefined);assert.equal(reply.metadataReviewPending.reasonCode,'auxiliary_metadata_rejected');
  const id=reply.metadataReviewPending.sourceIds[0],source=app.store.memorySources(scope).find(item=>item.id===id);assert.equal(source.text,HUMAN);assert.equal(reply.metadataReviewPending.sourceRevisions[id],source.revision);
@@ -45,48 +45,48 @@ test('invalid optional prepared metadata keeps the complete checked candidate an
 });
 
 test('a plausible private pragmatic concern preserves the exact candidate without consuming a repair, showing its concern separately',async t=>{
- const marker='PRIVATE_UNCERTAIN_SOCIAL_READING',app=await application(t,p=>p.purpose==='fidelity_check'?{checkRef:p.checkRef,factual:factualReview(p,{}),verdict:'reject',issues:[],concerns:[{path:'suggestions[0].text',code:'pragmatic_ambiguity',quote:p.candidate.suggestions[0].text,reason:marker}]}:candidate(p)),reply=await app.assist();
- assert.equal(app.calls.length,1);assert.equal(reply.suggestions[0].text,GOOD);assert.equal(reply.semanticReview,undefined);assert.equal(JSON.stringify(reply).includes(marker),false);assert.equal(JSON.stringify(app.run().requests).includes(marker),false);assert.equal(app.controller.usage.get(scope,'decision-ownership-lifecycle').requests.some(r=>r.purpose==='fidelity_check'||r.purpose==='delivery_repair'),false);
+ const marker='PRIVATE_UNCERTAIN_SOCIAL_READING',app=await application(t,p=>p.purpose==='fidelity_check'?{checkRef:p.checkRef,auditProtocol:p.auditProtocol,issues:[],concerns:[{path:'suggestions[0].text',code:'pragmatic_ambiguity',quote:p.candidate.suggestions[0].text,reason:marker}]}:candidate(p)),reply=await app.assist();
+ assert.equal(app.calls.length,2);assert.equal(reply.suggestions[0].text,GOOD);assert.equal(reply.semanticReview.exhaustive,false);assert.ok(reply.semanticReview.findings.some(f=>f.kind==='concern'&&f.reason===marker));assert.equal(JSON.stringify(reply.suggestions).includes(marker),false);assert.equal(JSON.stringify(app.run().requests).includes(marker),true);const requests=app.controller.usage.get(scope,'decision-ownership-lifecycle').requests;assert.equal(requests.filter(r=>r.purpose==='fidelity_check').length,1);assert.equal(requests.filter(r=>r.purpose==='delivery_repair').length,0);
 });
 
-for(const defect of ['invented_self_event'])test(`a grounded ${defect} is reported for manual judgment without automatically regenerating the candidate`,async t=>{
+for(const defect of ['invented_self_event'])test(`a grounded ${defect} is fully regenerated once and freshly audited without mutating independent user state`,async t=>{
  const bad=defect==='invented_self_event'?'我昨天也给自己养的花盆换了土。':'下次我们一起去给花盆换土吧。';let checks=0;
  const app=await application(t,(p,wrapper)=>{
   if(p.purpose==='fidelity_check'){
    checks++;if(checks>1)return allow(p);
    const current=p.evidence.find(source=>source.sourceId===p.intentAuthority.sourceId),issue={path:'suggestions[0].text',code:defect==='invented_self_event'?'unsupported_fact':'current_boundary',quote:bad,reason:'Scripted concrete defect exercises the repair boundary only.',...(defect==='invented_self_event'?{basis:'no_support_in_supplied_evidence'}:{evidence:[{sourceId:current.sourceId,quote:current.text}]})};
-   assert.equal(p.candidate.suggestions[0].text,bad);return {checkRef:p.checkRef,factual:factualReview(p,{'suggestions[0].text':[{quote:bad,kind:'assertion',support:'unsupported',basis:'no_support_in_supplied_evidence'}]}),verdict:'reject',issues:[issue]};
+   assert.equal(p.candidate.suggestions[0].text,bad);return {checkRef:p.checkRef,auditProtocol:p.auditProtocol,issues:[{path:issue.path,code:issue.code,quote:issue.quote,claim:{kind:'assertion',quote:issue.quote},reason:issue.reason}]};
   }
   return candidate(p,wrapper.originalInput?GOOD:bad);
  });
- const reply=await app.assist();assert.equal(app.calls.length,1);assert.equal(checks,0);assert.equal(reply.suggestions[0].text,bad);assert.equal(reply.semanticReview,undefined);
- const ledger=app.controller.usage.get(scope,'decision-ownership-lifecycle');assert.equal(ledger.requests.filter(request=>request.purpose==='delivery_repair').length,0);assert.equal(new Set(app.calls.map(call=>call.taskId)).size,1);assert.equal(app.calls.every(call=>call.request.model==='synthetic-decision-ownership'),true);assert.equal(app.calls.some(call=>call.p.purpose==='draft'),false);assert.equal(app.store.getCompanion(scope).turns.filter(turn=>turn.role==='assistant').length,1);assert.equal(app.store.messages(scope).some(message=>message.direction==='outgoing'),false);
+ const reply=await app.assist();assert.equal(app.calls.length,4);assert.equal(checks,2);assert.equal(reply.suggestions[0].text,GOOD);assert.equal(reply.semanticReview.exhaustive,false);
+ const ledger=app.controller.usage.get(scope,'decision-ownership-lifecycle');assert.equal(ledger.requests.filter(request=>request.purpose==='delivery_repair').length,1);assert.equal(ledger.requests.filter(request=>request.purpose==='fidelity_check').length,2);assert.equal(new Set(app.calls.map(call=>call.taskId)).size,1);assert.equal(app.calls.every(call=>call.request.model==='synthetic-decision-ownership'),true);assert.equal(app.calls.some(call=>call.p.purpose==='draft'),false);assert.equal(app.store.getCompanion(scope).turns.filter(turn=>turn.role==='assistant').length,1);assert.equal(app.store.messages(scope).some(message=>message.direction==='outgoing'),false);
 });
 
 test('a sourced current social-boundary concern retains the exact answer without a repair',async t=>{
  const text='下次我们一起去给花盆换土吧。',app=await application(t,p=>{
   if(p.purpose!=='fidelity_check')return candidate(p,text);
   const current=p.evidence.find(source=>source.sourceId===p.intentAuthority.sourceId);
-  return {checkRef:p.checkRef,factual:factualReview(p,{}),verdict:'reject',issues:[{path:'suggestions[0].text',code:'current_boundary',quote:text,evidence:[{sourceId:current.sourceId,quote:current.text}],reason:'Scripted social interpretation remains privately advisory.'}]};
+  assert.ok(current);return {checkRef:p.checkRef,auditProtocol:p.auditProtocol,issues:[],concerns:[{path:'suggestions[0].text',code:'current_boundary',quote:text,reason:'Scripted social interpretation remains privately advisory.'}]};
  }),reply=await app.assist();
- assert.equal(app.calls.length,1);assert.equal(reply.suggestions[0].text,text);assert.equal(app.run().requests.filter(request=>request.purpose==='delivery_repair').length,0);assert.equal(app.store.messages(scope).some(message=>message.direction==='outgoing'),false);
+ assert.equal(app.calls.length,2);assert.equal(reply.suggestions[0].text,text);assert.ok(reply.semanticReview.findings.some(f=>f.kind==='concern'&&f.code==='current_boundary'));assert.equal(app.run().requests.filter(request=>request.purpose==='delivery_repair').length,0);assert.equal(app.store.messages(scope).some(message=>message.direction==='outgoing'),false);
 });
 
 test('a later sourced explicit invitation replaces the prior local action under its fresh human-control frame',async t=>{
  let invitation=false;const outward='这周末要不要一起看看附近的花市？',app=await application(t,p=>p.purpose==='fidelity_check'?allow(p):candidate(p,invitation?outward:GOOD));
  await app.assist(HUMAN,'decision-before-invite');invitation=true;const current='现在我改变主意，想邀请她这周末一起看看附近的花市，但不假装她已经答应。',reply=await app.assist(current,'decision-current-invite'),check=app.calls.at(-1).p;
- assert.equal(reply.suggestions[0].text,outward);assert.equal(app.calls.length,2);assert.ok(app.contexts.at(-1).payload.sources.some(source=>source.text===HUMAN));assert.equal(app.contexts.at(-1).payload.sources.find(source=>source.id===app.contexts.at(-1).payload.intentAuthority.sourceId).text,current);assert.notEqual(app.calls[0].taskId,app.calls[1].taskId,'each human intent has a fresh request namespace');
+ const primary=[...app.contexts].reverse().find(c=>c.payload.purpose!=='fidelity_check');assert.equal(reply.suggestions[0].text,outward);assert.equal(app.calls.length,4);assert.ok(primary.payload.sources.some(source=>source.text===HUMAN));assert.equal(primary.payload.sources.find(source=>source.id===primary.payload.intentAuthority.sourceId).text,current);assert.notEqual(app.calls[0].taskId,app.calls[2].taskId,'each human intent has a fresh request namespace');
  assert.equal(app.store.messages(scope).some(message=>message.direction==='outgoing'),false);assert.equal(app.store.experiences.draft(scope),null);
 });
 
 test('missing self material still permits a checked private question without fabricating or mechanically blocking the known QQ topic',async t=>{
  const app=await application(t,p=>p.purpose==='fidelity_check'?allow(p):{operation:'clarify',blocker:{kind:'missing_fact',missing:'用户愿意分享的真实近况',question:PRIVATE_QUESTION,explanation:'可以先接她的花盆新叶；补充自己的日常还需要一件真实小事。'}}),reply=await app.assist('也想分享一点自己的近况，但你还不知道我最近做过什么。');
- assert.equal(app.calls.length,1);assert.equal(reply.kind,'question');assert.ok(reply.text.includes(PRIVATE_QUESTION));assert.equal(reply.suggestions,undefined);assert.equal(app.calls[0].p.sources.some(source=>source.type==='qq'),true);assert.equal(reply.semanticReview,undefined);assert.equal(app.store.messages(scope).some(message=>message.direction==='outgoing'),false);
+ assert.equal(app.calls.length,2);assert.equal(reply.kind,'question');assert.ok(reply.text.includes(PRIVATE_QUESTION));assert.equal(reply.suggestions,undefined);assert.equal(app.calls[0].p.sources.some(source=>source.type==='qq'),true);assert.equal(reply.semanticReview.exhaustive,false);assert.equal(app.store.messages(scope).some(message=>message.direction==='outgoing'),false);
 });
 
-for(const verdict of ['malformed','unknown factual kind'])test(`${verdict} checker output labels the unchanged candidate incomplete without another model or repair`,async t=>{
- const app=await application(t,p=>p.purpose==='fidelity_check'?{...allow(p),...(verdict==='malformed'?{unchecked:true}:{factual:factualReview(p,{'suggestions[0].text':[{quote:p.candidate.suggestions[0].text,kind:'looks_good'}]})})}:candidate(p)),before=app.store.getCompanion(scope);
- const reply=await app.assist();assert.equal(reply.semanticReview,undefined);assert.equal(reply.suggestions[0].text,GOOD);assert.equal(app.calls.length,1);assert.deepEqual(app.store.getCompanion(scope).goal,before.goal);assert.deepEqual(app.store.getCompanion(scope).state,before.state);assert.equal(app.run().status,'complete');assert.equal(app.controller.usage.get(scope,'decision-ownership-lifecycle').requests.filter(request=>request.purpose==='delivery_repair').length,0);
+for(const verdict of ['malformed','unknown factual kind'])test(`${verdict} audit blocks publication without mutating independent goal/state or purchasing a repair`,async t=>{
+ const app=await application(t,p=>p.purpose==='fidelity_check'?verdict==='malformed'?{checkRef:p.checkRef,issues:[]}:{...allow(p),issues:[{path:'suggestions[0].text',code:'unsupported_fact',quote:p.candidate.suggestions[0].text,claim:{kind:'looks_good',quote:p.candidate.suggestions[0].text}}]}:candidate(p)),before=app.store.getCompanion(scope);
+ await assert.rejects(app.assist(),e=>e.code==='terminal_fact_audit_incomplete');assert.equal(app.calls.length,2);unchangedCore(app,before);assert.equal(app.run().status,'failed');assert.equal(app.controller.usage.get(scope,'decision-ownership-lifecycle').requests.filter(request=>request.purpose==='delivery_repair').length,0);
 });
 
 test('a real late Store topic CAS rejection remains fatal and rolls back candidate, state and goal writes',async t=>{
@@ -96,7 +96,7 @@ test('a real late Store topic CAS rejection remains fatal and rolls back candida
   const receipt=apply(identity,patch,options);receipts.push(receipt);return receipt;
  });
  await assert.rejects(app.assist(HUMAN,taskId),error=>error.code==='topic_patch_rejected'&&/stale_topic_version/.test(error.message));
- assert.equal(receipts.length,2);assert.equal(receipts[1].reason,'stale_topic_version','the real Store, rather than a fabricated rejection reason, performs the CAS check');assert.equal(app.calls.length,1);unchangedCore(app,before);assert.equal(app.run().status,'failed');
+ assert.equal(receipts.length,2);assert.equal(receipts[1].reason,'stale_topic_version','the real Store, rather than a fabricated rejection reason, performs the CAS check');assert.equal(app.calls.length,2);unchangedCore(app,before);assert.equal(app.run().status,'failed');
 });
 
 test('a changed current human source while checking invalid optional bookkeeping cannot publish a stale core',async t=>{

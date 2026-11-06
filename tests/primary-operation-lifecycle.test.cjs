@@ -40,15 +40,15 @@ function noSendOrAdoption(app,beforeDraft){assert.equal(app.store.messages(scope
 test('raw advise checks its genuine private why body before publication',async t=>{
  const explanation='因为她问的是功能，不能据此认定她已经使用过；这里先解释这个区别。',app=await application(t,p=>p.purpose==='fidelity_check'?allow(p):({operation:'advise',text:explanation})),before=app.store.experiences.draft(scope);
  const reply=await app.assist('先不写给她，为什么那个问题会预设她已经用过？','operation-private-why');
- assert.equal(reply.kind,'discussion');assert.equal(reply.text,explanation);assert.equal(reply.suggestions,undefined);assert.equal(app.calls.length,1);assert.equal(app.calls[0].p.operationProtocol.requiredArtifact,undefined);
+ assert.equal(reply.kind,'discussion');assert.equal(reply.text,explanation);assert.equal(reply.suggestions,undefined);assert.equal(app.calls.length,2);assert.equal(app.calls[0].p.operationProtocol.requiredArtifact,undefined);
  assert.equal(app.calls.some(call=>call.p.purpose==='draft'),false);assert.equal(app.run().status,'complete');noSendOrAdoption(app,before);
 });
 
 test('raw prepare_message with genuine references reaches a complete candidate without implying adoption or sending',async t=>{
  const app=await application(t,p=>p.purpose==='fidelity_check'?allow(p):preparedMessage(p)),before=app.store.experiences.draft(scope);
  const reply=await app.assist('这次愿意把已选笔记的事实告诉她，给我完整表达。','operation-complete-message');
- assert.equal(reply.kind,'draft');assert.equal(reply.suggestions[0].text,MESSAGE);assert.equal(app.calls.length,1);assert.equal(app.run().manifest.requestDelivery.status,'delivered');
- const wording=app.run().payload;assert.ok(app.calls.every(call=>call.p.purpose!=='fidelity_check'));assert.equal(wording.outboundQuotes[0].text,FACT);assert.equal(wording.currentHumanControl.authority,'CONTROL_ONLY');assert.equal(wording.currentHumanControl.text.includes('给我完整表达'),true);assert.equal(wording.selectedDirectionControl,undefined);
+ assert.equal(reply.kind,'draft');assert.equal(reply.suggestions[0].text,MESSAGE);assert.equal(app.calls.length,2);assert.equal(app.run().manifest.requestDelivery.status,'delivered');
+ const wording=app.run().payload;assert.equal(app.calls.filter(call=>call.p.purpose==='fidelity_check').length,1);assert.equal(wording.outboundQuotes[0].text,FACT);assert.equal(wording.currentHumanControl.authority,'CONTROL_ONLY');assert.equal(wording.currentHumanControl.text.includes('给我完整表达'),true);assert.equal(wording.selectedDirectionControl,undefined);
  assert.equal(app.calls[0].request.tool_choice.function.name,'assistant_result');assert.equal(app.run().manifest.publicationSeal.semanticCheck,false);
  assert.equal(app.calls.every(call=>Buffer.byteLength(JSON.stringify(call.request))<=64000),true);noSendOrAdoption(app,before);
 });
@@ -56,7 +56,7 @@ test('raw prepare_message with genuine references reaches a complete candidate w
 test('automatic primary prepare_message is publication-bound without forging original human control',async t=>{
  const app=await application(t,p=>p.purpose==='fidelity_check'?allow(p):preparedMessage(p)),before=app.store.experiences.draft(scope);
  const reply=await app.controller.assist({text:'结合实际来信提供参考。',purpose:'reply',transient:true,origin:'automatic',materialIds:[app.note.id],taskId:'operation-automatic-message'});
- assert.equal(reply.kind,'draft');assert.equal(reply.suggestions[0].text,MESSAGE);assert.equal(reply.origin,'automatic');assert.equal(app.calls.length,1);
+ assert.equal(reply.kind,'draft');assert.equal(reply.suggestions[0].text,MESSAGE);assert.equal(reply.origin,'automatic');assert.equal(app.calls.length,2);
  assert.equal(app.calls[0].p.operationProtocol.requiredArtifact,undefined,'transport purpose and an automatic observation alone do not establish a promise');
  assert.equal(app.run().payload.currentHumanControl,undefined,'a generated invocation is not an original private human statement');assert.equal(app.run().payload.outboundQuotes[0].text,FACT);assert.equal(app.run().manifest.requestDelivery.status,'delivered');noSendOrAdoption(app,before);
 });
@@ -64,7 +64,7 @@ test('automatic primary prepare_message is publication-bound without forging ori
 test('automatic advise stays private wait without an original-human wrapper grant',async t=>{
  const text='先观察她真正想说的细节，这里只提供私下考虑。',app=await application(t,p=>p.purpose==='fidelity_check'?allow(p):({operation:'advise',text})),before=app.store.experiences.draft(scope);
  const reply=await app.controller.assist({text:'结合实际来信提供参考。',purpose:'reply',transient:true,origin:'automatic',materialIds:[app.note.id],taskId:'operation-automatic-advice'});
- assert.equal(reply.kind,'discussion');assert.equal(reply.text,text);assert.equal(reply.replyDisposition,'wait');assert.equal(reply.suggestions,undefined);assert.equal(app.calls.length,1);assert.equal(app.calls.some(call=>call.p.purpose==='draft'),false);
+ assert.equal(reply.kind,'discussion');assert.equal(reply.text,text);assert.equal(reply.replyDisposition,'wait');assert.equal(reply.suggestions,undefined);assert.equal(app.calls.length,2);assert.equal(app.calls.some(call=>call.p.purpose==='draft'),false);
  assert.equal(app.run().requests[0].manifest.primaryOperation.requiredArtifact,undefined);assert.equal(app.run().manifest.preparedResponse.message,'absent');assert.equal(app.calls[0].p.operationProtocol.requiredArtifact,undefined);
  const context=app.contexts[0],current=context.payload.sources.find(source=>source.id===context.payload.intentAuthority.sourceId);assert.equal(current.type,'request');assert.equal(current.authority,'invocation_control_not_user_evidence');
  assert.equal(app.store.getCompanion(scope).turns.some(turn=>turn.role==='user'),false);noSendOrAdoption(app,before);
@@ -78,15 +78,15 @@ test('lookup for a message carries its program promise through reading and one r
   if(index===1)return {operation:'advise',text:'Only private strategy, not a complete message.'};
   assert.ok(wrapper.originalInput);return preparedMessage(p);
  });
- const reply=await app.assist('结合已选材料给我完整表达。','operation-read-repair');assert.equal(reply.suggestions[0].text,MESSAGE);assert.equal(app.calls.length,3);
- const usage=app.controller.usage.get(scope,'operation-read-repair');assert.equal(usage.attempts,3);assert.equal(usage.requests.filter(item=>item.purpose==='delivery_repair').length,1);assert.equal(new Set(app.calls.map(call=>call.taskId)).size,1);
+ const reply=await app.assist('结合已选材料给我完整表达。','operation-read-repair');assert.equal(reply.suggestions[0].text,MESSAGE);assert.equal(app.calls.length,4);
+ const usage=app.controller.usage.get(scope,'operation-read-repair');assert.equal(usage.attempts,4);assert.equal(usage.requests.filter(item=>item.purpose==='delivery_repair').length,1);assert.equal(new Set(app.calls.map(call=>call.taskId)).size,1);
  assert.equal(app.run().manifest.requestDelivery.status,'delivered');assert.equal(app.calls[2].request.tools[0].function.parameters.properties.requestDelivery,undefined);
 });
 
 test('a new private why turn does not inherit an earlier request message promise',async t=>{
  let why=false;const app=await application(t,p=>p.purpose==='fidelity_check'?allow(p):why?{operation:'advise',text:'这里解释刚才那种问法的前提。'}:preparedMessage(p));
  await app.assist('给我完整表达。','operation-prior-message');why=true;const reply=await app.assist('现在只商量为什么，不重新写消息。','operation-new-private-why');
- assert.equal(reply.kind,'discussion');assert.equal(reply.suggestions,undefined);assert.equal(app.calls.length,2);assert.equal(app.calls.at(-2).p.operationProtocol.requiredArtifact,undefined);assert.notEqual(app.calls[0].taskId,app.calls.at(-1).taskId);
+ assert.equal(reply.kind,'discussion');assert.equal(reply.suggestions,undefined);assert.equal(app.calls.length,4);assert.equal(app.calls.at(-2).p.operationProtocol.requiredArtifact,undefined);assert.notEqual(app.calls[0].taskId,app.calls.at(-1).taskId);
 });
 
 for(const variant of ['mixed','unknown','bad-reference'])test(`raw ${variant} core rejects atomically before valid independent state or forget actions`,async t=>{
@@ -119,7 +119,7 @@ test('a private clarify owns one canonical why/question body without declaring a
  const question='你现在愿意讨论哪一件具体的小事？',why='需要先确认讨论对象。',app=await application(t,p=>p.purpose==='fidelity_check'?allow(p):({operation:'clarify',blocker:{kind:'missing_fact',missing:'具体的小事',question,explanation:why}}));
  const append=app.store.appendTurn.bind(app.store);let observed=false,commitObligation;
  app.store.appendTurn=(identity,turn)=>{if(turn.role==='assistant'){observed=true;commitObligation=app.controller.activeAssist?.args?.requestDeliveryObligation;}return append(identity,turn);};
- const reply=await app.assist('先私下理清，不要替我写给她。','operation-private-clarify');assert.equal(reply.text,why+'\n\n'+question);assert.equal(reply.kind,'question');assert.equal(reply.suggestions,undefined);assert.equal(reply.discussionExplanation,undefined);assert.equal(app.calls.length,1);
+ const reply=await app.assist('先私下理清，不要替我写给她。','operation-private-clarify');assert.equal(reply.text,why+'\n\n'+question);assert.equal(reply.kind,'question');assert.equal(reply.suggestions,undefined);assert.equal(reply.discussionExplanation,undefined);assert.equal(app.calls.length,2);
  assert.equal(app.run().manifest.primaryOperation.requiredArtifact,undefined);assert.equal(app.run().manifest.requestDelivery.interpretation.mode,'private_help');assert.equal(observed,true);assert.equal(commitObligation,undefined,'canonical parser/controller normalization must not manufacture a message obligation for private clarification');
  assert.equal(app.run().manifest.requestDelivery.status,'blocked');assert.equal(projectVisibleTurn(reply).text,reply.text);
 });
@@ -129,7 +129,7 @@ test('private clarify can apply an authorized local save then freshly clarify wi
  const app=await application(t,(p,_wrapper,index)=>p.purpose==='fidelity_check'?allow(p):({operation:'clarify',blocker:{kind:'missing_fact',missing:'当前具体讨论对象',question,explanation:why},
   ...(index===0?{actions:[{type:'save_note',text:noteText,use:'discussion',evidenceQuote:'记住'+noteText}]}:{})}));
  const reply=await app.assist('记住'+noteText+'。先私下核对，不要替我写给她。','operation-private-clarify-save');
- assert.equal(app.calls.length,2,'the post-action fresh primary pass is followed by one read-only check');assert.equal(reply.text,why+'\n\n'+question);assert.equal(reply.kind,'question');assert.equal(reply.suggestions,undefined);
+ assert.equal(app.calls.length,3,'the post-action fresh primary pass is followed by one read-only check');assert.equal(reply.text,why+'\n\n'+question);assert.equal(reply.kind,'question');assert.equal(reply.suggestions,undefined);
  assert.ok(reply.actionReceipts.some(receipt=>receipt.type==='save_note'&&receipt.status==='applied'));const saved=app.store.memorySources(scope).find(source=>source.type==='note'&&source.text===noteText);assert.ok(saved);assert.equal(saved.use,'discussion');
  assert.ok(app.run().actionReceipts.some(receipt=>receipt.type==='save_note'&&receipt.status==='applied'&&receipt.sourceId===saved.id));
  assert.equal(app.calls.every(call=>call.p.operationProtocol?.requiredArtifact===undefined),true);assert.equal(app.run().manifest.primaryOperation.requiredArtifact,undefined);assert.equal(app.run().manifest.requestDelivery.interpretation.mode,'private_help');
@@ -141,7 +141,7 @@ test('clarify after a message lookup remains a truthful blocked result instead o
   {operation:'clarify',blocker:{kind:'missing_authorization',missing:'仍需确认的分享范围',question}});
  const append=app.store.appendTurn.bind(app.store);let commitObligation;
  app.store.appendTurn=(identity,turn)=>{if(turn.role==='assistant')commitObligation=app.controller.activeAssist?.args?.requestDeliveryObligation;return append(identity,turn);};
- const reply=await app.assist('先核对，再给表达。','operation-message-clarify');assert.equal(reply.kind,'question');assert.equal(reply.text,question);assert.equal(reply.suggestions,undefined);assert.equal(app.calls.length,2);
+ const reply=await app.assist('先核对，再给表达。','operation-message-clarify');assert.equal(reply.kind,'question');assert.equal(reply.text,question);assert.equal(reply.suggestions,undefined);assert.equal(app.calls.length,3);
  assert.equal(app.calls[1].p.operationProtocol.requiredArtifact,'message');assert.equal(app.run().manifest.primaryOperation.requiredArtifact,'message');assert.equal(app.run().manifest.requestDelivery.status,'blocked');
  assert.equal(app.run().manifest.requestDelivery.interpretation.mode,'editable_message');assert.equal(commitObligation.mode,'editable_message');assert.ok(commitObligation.sourceId);assert.ok(commitObligation.sourceRevision);
 });
@@ -151,7 +151,7 @@ for(const repropose of [false,true])test(`a valid pre-read understanding proposa
  const app=await application(t,(p,_wrapper,index)=>p.purpose==='fidelity_check'?allow(p):index===0?{operation:'lookup',lookup:{sourceIds:[p.sources.find(source=>source.type==='qq').id]},continuation:'advise',relationshipPatch:{claims:[claim(p)]}}:
   {operation:'advise',text:'补读后只保留这次重新核对的判断。',...(repropose?{relationshipPatch:{claims:[claim(p)]}}:{})});
  const reply=await app.assist(statement+'。先补读当前资料，再回顾已有事实。','operation-pre-read-proposal-'+repropose,{purpose:'review'});
- assert.equal(reply.kind,'discussion');assert.equal(app.calls.length,2);const first=app.run().requests.find(request=>request.manifest?.deferredProposals);
+ assert.equal(reply.kind,'discussion');assert.equal(app.calls.length,3);const first=app.run().requests.find(request=>request.manifest?.deferredProposals);
  assert.ok(first,'pre-read proposal deferral remains in the recorded product audit');assert.equal(first.manifest.deferredProposals.reason,'lookup_requires_terminal_reproposal');assert.ok(first.manifest.deferredProposals.fields.includes('relationshipPatch'));
  const claims=app.store.relationshipView(scope).claims.filter(item=>item.text===statement);assert.equal(claims.length,0,'foreground proposals never become active profile knowledge');
  assert.equal(app.store.memoryStatus(scope).pendingProposals,repropose?1:0);
@@ -180,7 +180,7 @@ test('same-task QQ resume retains the captured source/revision message promise t
  const pending=app.controller.pendingAssist;assert.ok(pending);assert.equal(pending.args.requestDeliveryObligation.mode,'editable_message');assert.ok(pending.args.requestDeliveryObligation.sourceId.startsWith('private:'));assert.ok(pending.args.requestDeliveryObligation.sourceRevision);
  clearTimeout(app.controller.assistantRetryTimer);app.controller.assistantRetryTimer=null;app.controller.pendingAssist=null;
  const resumed=app.controller.assist({...pending.args,taskId:pending.taskId,resumeTurnId:pending.turnId,resumes:pending.resumes+1});releasePending();await first;const reply=await resumed;
- assert.equal(reply.suggestions[0].text,MESSAGE);assert.equal(new Set(app.calls.map(call=>call.taskId)).size,1);assert.equal(app.calls.length,4);assert.equal(app.controller.usage.get(scope,pending.taskId).attempts,4);assert.equal(app.run().manifest.requestDelivery.status,'delivered');
+ assert.equal(reply.suggestions[0].text,MESSAGE);assert.equal(new Set(app.calls.map(call=>call.taskId)).size,1);assert.equal(app.calls.length,5);assert.equal(app.controller.usage.get(scope,pending.taskId).attempts,5);assert.equal(app.run().manifest.requestDelivery.status,'delivered');
 });
 
 test('an interrupted repair of invalid prepare_message retains its early bound promise and already spent repair slot on QQ resume',async t=>{
@@ -208,7 +208,7 @@ test('an interrupted repair of invalid prepare_message retains its early bound p
 });
 
 for(const mutation of ['cancel','withdraw','source-version','contact'])test(`a completed operation candidate cannot publish after late ${mutation}`,async t=>{
- const app=await application(t,p=>({...preparedMessage(p),answer:{suggestions:[{text:'OBSOLETE_OPERATION_CANDIDATE'}]}})),bind=app.controller.candidateSession.bindPlan.bind(app.controller.candidateSession);let reached=false;
+ const app=await application(t,p=>p.purpose==='fidelity_check'?allow(p):({...preparedMessage(p),answer:{suggestions:[{text:'OBSOLETE_OPERATION_CANDIDATE'}]}})),bind=app.controller.candidateSession.bindPlan.bind(app.controller.candidateSession);let reached=false;
  t.mock.method(app.controller.candidateSession,'bindPlan',(...args)=>{
   reached=true;
   if(mutation==='cancel')app.controller.invalidateAssistant();
@@ -217,5 +217,5 @@ for(const mutation of ['cancel','withdraw','source-version','contact'])test(`a c
   if(mutation==='contact'){app.controller.scope={...scope,peerUid:'another-contact',peerUin:'99887766'};app.controller.changedContext();}
   return bind(...args);
  });
- await app.assist('给完整表达。','operation-late-'+mutation).catch(()=>{});assert.equal(reached,true);assert.equal(app.calls.length,1);assert.equal(app.store.getCompanion(scope).turns.some(turn=>turn.role==='assistant'&&JSON.stringify(turn).includes('OBSOLETE_OPERATION_CANDIDATE')),false);assert.equal(app.store.messages(scope).some(message=>message.direction==='outgoing'),false);
+ await app.assist('给完整表达。','operation-late-'+mutation).catch(()=>{});assert.equal(reached,true);assert.equal(app.calls.length,2);assert.equal(app.store.getCompanion(scope).turns.some(turn=>turn.role==='assistant'&&JSON.stringify(turn).includes('OBSOLETE_OPERATION_CANDIDATE')),false);assert.equal(app.store.messages(scope).some(message=>message.direction==='outgoing'),false);
 });

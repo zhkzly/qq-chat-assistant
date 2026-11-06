@@ -6,10 +6,11 @@ const BASELINE='4f5a48e';
 const scope={accountUid:'fictional-migration-account',accountUin:'100001',peerUid:'fictional-migration-contact',peerUin:'200002'};
 const legacyScope={...scope,peerUid:'fictional-legacy-contact',peerUin:'200003'};
 function baselineDatabase(t){
+ const repository=process.env.QQ_TEST_FROZEN_GIT_ROOT||path.resolve(__dirname,'..');
  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'qq-task-owner-migration-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
- const archive=spawnSync('git',['archive',BASELINE,'src'],{cwd:path.resolve(__dirname,'..'),maxBuffer:16*1024*1024});assert.equal(archive.status,0,archive.stderr.toString());
+ const archive=spawnSync('git',['archive',BASELINE,'src'],{cwd:repository,maxBuffer:16*1024*1024});assert.equal(archive.status,0,archive.stderr.toString());
  const extracted=spawnSync('tar',['-x','-C',dir],{input:archive.stdout});assert.equal(extracted.status,0,extracted.stderr.toString());
- const frozenStore=spawnSync('git',['show',`${BASELINE}:src/store.cjs`],{cwd:path.resolve(__dirname,'..')});assert.equal(frozenStore.status,0,frozenStore.stderr.toString());
+ const frozenStore=spawnSync('git',['show',`${BASELINE}:src/store.cjs`],{cwd:repository});assert.equal(frozenStore.status,0,frozenStore.stderr.toString());
  const extractedStore=fs.readFileSync(path.join(dir,'src/store.cjs'));assert.ok(extractedStore.equals(frozenStore.stdout),'baseline Store bytes must exactly equal the frozen Git object');
  const baselineStoreSha256=require('node:crypto').createHash('sha256').update(extractedStore).digest('hex');
  const filename=path.join(dir,'fictional.sqlite');

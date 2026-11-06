@@ -106,7 +106,9 @@ test('same-millisecond private sources follow actual turn order and fit without 
  const answer=store.appendTurn(scope,{role:'assistant',kind:'discussion',text:'最新完整私下回复。'.repeat(80),sourceIds:[`private:${latest.id}`]});
  const turn=store.appendTurn(scope,{id:'bbbbbbbb-bbbb-bbbb-bbbb-000000000001',role:'user',kind:'discussion',text:'接着刚才的意思帮我商量。'});
  const context=buildContext({scope,records:[],companion:store.getCompanion(scope),turn,purpose:'discussion',availableSources:store.memorySources(scope),coverage:{status:'empty'},byteBudget:7000,settings:{model:'synthetic',assistantRequestBytes:64000},asOf:'2026-10-16T08:00:00Z',viewerTimeZone:'Asia/Shanghai'});
- assert.ok(context.manifest.inputBytes<=7000);assert.equal(context.payload.privateConversation.find(item=>item.id===answer.id).text,answer.text);
+ const retained=context.payload.privateConversation.find(item=>item.id===answer.id);
+ if(!retained)t.diagnostic(JSON.stringify({expectedLatestAssistantId:answer.id,bytes:context.manifest.inputBytes,selectedTurns:context.payload.privateConversation.map(item=>({id:item.id,role:item.role,textBytes:typeof item.text==='string'?Buffer.byteLength(item.text):0})),degradation:context.manifest.degradation,sourceIds:context.payload.sources.map(item=>item.id)}));
+ assert.ok(context.manifest.inputBytes<=7000);assert.ok(retained,'the actual latest private answer must survive the original 7000-byte budget');assert.equal(retained.text,answer.text);
  for(const id of [latest.id,turn.id])assert.equal(context.payload.sources.find(source=>source.id===`private:${id}`).historicalOnly,undefined,'omitted earlier turns cannot invalidate the newest private meaning');
  assert.equal(context.payload.taskContext.timeContext.localNow,'2026-10-16 16:00');assert.equal(context.payload.taskContext.timeContext.asOf,undefined,'UTC clock and viewer zone already exist at payload root');
  assert.equal(context.payload.taskContext.timeContext.viewerTimeZone,undefined);assert.equal(context.payload.asOf,'2026-10-16T08:00:00.000Z');

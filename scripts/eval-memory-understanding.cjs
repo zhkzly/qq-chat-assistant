@@ -2,7 +2,7 @@
 // Supplemental raw-event observations. Product imports and memory formats stay
 // behind the replaceable adapter; reviewer expectations never enter that adapter.
 const fs=require('node:fs'),path=require('node:path');
-const {hash,visibleOutput}=require('./eval-replay.cjs');
+const {hash,visibleOutput,preparationEvidence}=require('./eval-replay.cjs');
 const DEFAULT_CASES=path.resolve(__dirname,'../evals/memory-understanding/cases.jsonl');
 const POLICY='raw-memory-observation-v1';
 const CONDITION='scheduled_idle_public_memory_observation_v1';
@@ -68,6 +68,9 @@ async function runMemoryEpisode({item,adapter,identity={},onRecord=()=>{}}){
  const diagnostics=async target=>{if(adapter.diagnostics)try{target.diagnostics=clone(await bounded(()=>adapter.diagnostics(),1000));}catch(error){target.diagnostics_error=errorInfo(error);}};
  try{
   await bounded(()=>adapter.open(clone(plan.initial),{goal:plan.runtime_goal}),FOREGROUND_TIMEOUT_MS);
+  const prepared={};await diagnostics(prepared);
+  if(prepared.diagnostics)result.initial_diagnostics=prepared.diagnostics;
+  if(prepared.diagnostics_error)result.initial_diagnostics_error=prepared.diagnostics_error;
   result.initial_memory=clone(await bounded(()=>adapter.publicMemoryView(),1000));await record();
   for(const step of plan.steps){
    const entry={id:step.id,as_of:step.as_of,input:clone(step),status:'running',output:null,observed_outputs:[],memory_observations:[]};result.steps.push(entry);await record();
@@ -105,14 +108,16 @@ async function runMemoryEpisode({item,adapter,identity={},onRecord=()=>{}}){
  }
  return result;
 }
-function argumentsFor(argv){const options={};for(let i=0;i<argv.length;i++){const key=argv[i];if(['--list','--all','--live','--continue-on-case-error'].includes(key)){options[key.slice(2)]=true;continue;}if(!['--adapter','--source-root','--settings-file','--cases','--id','--out','--max-http'].includes(key)||!argv[i+1]||argv[i+1].startsWith('--'))throw Error(`Invalid supplemental observation option ${key}`);options[key.slice(2)]=argv[++i];}return options;}
+function argumentsFor(argv){const options={};for(let i=0;i<argv.length;i++){const key=argv[i];if(['--list','--all','--live','--continue-on-case-error','--unlimited-http'].includes(key)){options[key.slice(2)]=true;continue;}if(!['--adapter','--source-root','--settings-file','--cases','--id','--out','--max-http'].includes(key)||!argv[i+1]||argv[i+1].startsWith('--'))throw Error(`Invalid supplemental observation option ${key}`);options[key.slice(2)]=argv[++i];}return options;}
 async function main(argv){
  const options=argumentsFor(argv),dataset=loadMemoryCases(options.cases||DEFAULT_CASES);
+ if(options['unlimited-http']&&options['max-http']!==undefined)throw Error('Choose either --unlimited-http or --max-http');
  if(options.list||!options.id&&!options.all){console.log(JSON.stringify({status:'inventory',dataset_hash:dataset.datasetHash,policy_version:POLICY,cases:dataset.cases.map(item=>({id:item.id,steps:item.steps.length})),inference:'not_run'},null,2));return;}
  if(!options.adapter||!options.out)throw Error('Supplemental observations require explicit --adapter and new --out');
  const selected=options.all?dataset.cases:options.id.split(',').map(id=>{const item=dataset.cases.find(c=>c.id===id);if(!item)throw Error(`Unknown supplemental case ${id}`);return item;});
  if(new Set(selected.map(item=>item.id)).size!==selected.length)throw Error('Duplicate selected supplemental case');
- const adapterFile=fs.realpathSync(path.resolve(options.adapter)),factory=await require(adapterFile).createAdapterFactory({sourceRoot:options['source-root'],settingsFile:options['settings-file'],maxHttp:options['max-http']===undefined?16:Number(options['max-http']),live:options.live===true,condition:CONDITION});
+ const adapterFile=fs.realpathSync(path.resolve(options.adapter)),factory=await require(adapterFile).createAdapterFactory({sourceRoot:options['source-root'],settingsFile:options['settings-file'],maxHttp:options['max-http']===undefined?undefined:Number(options['max-http']),unlimitedHttp:options['unlimited-http']===true,live:options.live===true,condition:CONDITION});
+ if(options['unlimited-http']&&(factory.identity?.unlimited_http!==true||factory.identity?.max_http!==null))throw Error('Supplemental adapter must explicitly declare unlimited HTTP mode');
  if(factory.identity?.condition!==CONDITION||factory.identity?.foreground_wall_timeout_ms!==FOREGROUND_TIMEOUT_MS)throw Error('Supplemental observations require the explicit scheduled-idle condition and foreground bound');
  const output=path.resolve(options.out);if(fs.existsSync(output)||output.split(path.sep).some(part=>['.git','data'].includes(part)))throw Error('Observation output must be new and outside private data/Git metadata');fs.mkdirSync(output,{recursive:true,mode:0o700});
  const identity={dataset_hash:dataset.datasetHash,policy_version:POLICY,condition:CONDITION,foreground_wall_timeout_ms:FOREGROUND_TIMEOUT_MS,idle_outer_headroom_ms:2000,runner_hash:hash(fs.readFileSync(__filename,'utf8')),adapter_hash:hash(fs.readFileSync(adapterFile,'utf8'))};
@@ -123,8 +128,9 @@ async function main(argv){
   // The separate review artifact alone carries external expected understanding.
   const {diagnostics,initial_diagnostics,...publicResult}=result;
   write(`${item.id}.review.json`,{...publicResult,steps:result.steps.map(({diagnostics,...step})=>step),reviewer_only:clone(item.reviewer_only),review:{status:'not_run',ratings:null}});
+  const preparation=preparationEvidence(result);if(preparation)write(`${item.id}.preparation.json`,preparation);
   manifest.episodes.push({id:item.id,status:result.status,memory_observation_status:result.memory_observation_status||'unrun',steps:result.steps.map(s=>({id:s.id,status:s.status,memory_observation_status:s.memory_observation_status||'unrun'})),...(result.error?{error:result.error}:{})});write('transport.json',factory.summary?.()||{});write('manifest.json',manifest);
-  if(result.status==='incomplete'&&!options['continue-on-case-error']||factory.summary?.().http_attempts>=factory.identity?.max_http)break;
+  if(result.status==='incomplete'&&!options['continue-on-case-error']||factory.identity?.unlimited_http!==true&&Number.isSafeInteger(factory.identity?.max_http)&&factory.summary?.().http_attempts>=factory.identity.max_http)break;
  }
  manifest.unexecuted_cases=selected.map(item=>item.id).filter(id=>!manifest.episodes.some(done=>done.id===id));manifest.status=manifest.episodes.some(item=>item.status==='incomplete')||manifest.unexecuted_cases.length?'incomplete':'executed_review_required';manifest.memory_observation_status=manifest.unexecuted_cases.length||manifest.episodes.some(item=>item.memory_observation_status!=='complete')?'incomplete':'complete';write('manifest.json',manifest);
  console.log(JSON.stringify({status:manifest.status,memory_observation_status:manifest.memory_observation_status,artifacts:output,episodes:manifest.episodes,unexecuted_cases:manifest.unexecuted_cases,semantic_evaluation:'not_run'},null,2));if(manifest.status==='incomplete')process.exitCode=1;

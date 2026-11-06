@@ -34,7 +34,7 @@ test('real Controller delivers the selected complete prior draft into wording an
  const {controller,store,calls}=fixture(t);const prior=await publish(controller,store);
  const original=prior.suggestions[0].text;assert.match(original,/^听起来/);
  const reply=await controller.assist({text:'从原句改，删去开头的听起来，其他不必改。'});
- const planning=calls.at(-1),wording=controller.assistantContext().run.payload;assert.equal(calls.at(-1).purpose,'discussion');
+ assert.equal(calls.length,4);assert.equal(calls.filter(p=>p.purpose==='fidelity_check').length,2);const planning=calls.filter(p=>p.purpose!=='fidelity_check').at(-1),wording=controller.assistantContext().run.payload;assert.equal(calls.filter(p=>p.purpose!=='fidelity_check').at(-1).purpose,'discussion');
  assert.equal(planning.editingReferences[0].selection,'offered_current_candidate');
  assert.equal(wording.editingReference.text,original);assert.deepEqual(wording.editingReference.artifactRef,prior.suggestions[0].artifactRef);
  assert.match(wording.editingReference.instruction,/FALLIBLE EDITING REFERENCE/);assert.match(wording.editingReference.authority,/not_facts_or_sharing_permission/);
@@ -49,8 +49,8 @@ test('offered implicit handle requires explicit planning selection, and a change
  for(const select of [false,true]){
   const {controller,calls}=fixture(t,{select});await controller.suggest({automatic:true});
   await controller.assist({text:select?'换话题，这是新问题，接她刚才的薄荷分享。':'从原句改，删去开头的听起来。'});
-  assert.ok(calls.at(-1).editingReferences?.length,'current reference is merely offered');
-  assert.equal(controller.assistantContext().run.payload.editingReference,undefined);
+  assert.ok(calls.filter(p=>p.purpose!=='fidelity_check').at(-1).editingReferences?.length,'current reference is merely offered');
+  assert.equal(controller.assistantContext().run.payload.editingReference,undefined);assert.equal(calls.length,4);assert.equal(calls.filter(p=>p.purpose==='fidelity_check').length,2);
  }
 });
 test('canonical explicit second-suggestion feedback selects that exact leaf; response and action option never coerce to suggestion zero',async t=>{
@@ -59,15 +59,16 @@ test('canonical explicit second-suggestion feedback selects that exact leaf; res
  let result=await controller.continueFeedback({taskId:'explicit-second-leaf',clientEventId:'explicit-second-leaf',requestId:prior.requestId,
   targetRef:{kind:'artifact',artifactRef:selected.artifactRef},text:'从选中的原句改，删去开头的原来。'});
  assert.equal(result.feedbackContinuation.status,'complete');assert.equal(controller.assistantContext().run.payload.editingReference.text,selected.text);
- assert.equal(controller.assistantContext().run.payload.editingReference.suggestionIndex,1);assert.equal(calls.at(-1).editingReferences[0].selection,'explicit_feedback_target');
+ assert.equal(controller.assistantContext().run.payload.editingReference.suggestionIndex,1);assert.equal(calls.filter(p=>p.purpose!=='fidelity_check').at(-1).editingReferences[0].selection,'explicit_feedback_target');
  assert.equal(controller.assistantContext().run.payload.editingReference.text.includes(prior.suggestions[0].text),false);
  const optionTurn=store.appendTurn(scope,{role:'assistant',kind:'discussion',origin:'user',text:'PRIVATE_EXPLANATION_SENTINEL',
   expressionOptions:[{label:'ACTION_OPTION_SENTINEL',quotes:[]}],suggestions:[{style:'自然',text:'NOT_AN_IMPLIED_LEAF'}]});
  for(const [i,artifactRef]of [optionTurn.artifactRef,optionTurn.expressionOptions[0].artifactRef].entries()){
   result=await controller.continueFeedback({taskId:`non-leaf-${i}`,clientEventId:`non-leaf-${i}`,targetRef:{kind:'artifact',artifactRef},text:'从选中的原句改短一点。'});
-  assert.equal(result.feedbackContinuation.status,'complete');assert.equal(controller.assistantContext().run.payload.editingReference,undefined);assert.equal(calls.at(-1).editingReferences,undefined);
+  assert.equal(result.feedbackContinuation.status,'complete');assert.equal(controller.assistantContext().run.payload.editingReference,undefined);assert.equal(calls.filter(p=>p.purpose!=='fidelity_check').at(-1).editingReferences,undefined);
   assert.equal(JSON.stringify(controller.assistantContext().run.payload).includes('NOT_AN_IMPLIED_LEAF'),false);
  }
+ assert.equal(calls.length,8);assert.equal(calls.filter(p=>p.purpose==='fidelity_check').length,4);
 });
 test('an observed reply reference offers each outgoing leaf and explicit plan chooses the actual second sentence',async t=>{
  const {controller,store,calls}=fixture(t);const prior=await publish(controller,store),reference=prior.suggestions[1].artifactRef;
@@ -78,13 +79,13 @@ test('an observed reply reference offers each outgoing leaf and explicit plan ch
   return output;
  };
  const reply=await controller.assist({text:'从上一轮实际给我的原句改，去掉开头。',sourceTurnIds:[prior.id]});
- assert.equal(calls.at(-1).editingReferences.length,2);assert.equal(controller.assistantContext().run.payload.editingReference.suggestionIndex,1);
+ assert.equal(calls.length,4);assert.equal(calls.filter(p=>p.purpose==='fidelity_check').length,2);assert.equal(calls.filter(p=>p.purpose!=='fidelity_check').at(-1).editingReferences.length,2);assert.equal(controller.assistantContext().run.payload.editingReference.suggestionIndex,1);
  assert.equal(controller.assistantContext().run.payload.editingReference.text,prior.suggestions[1].text);assert.equal(reply.suggestions[0].text,prior.suggestions[1].text.replace(/^原来/,''));
 });
 test('an explicit bound leaf can be offered during feedback without forcing editing for unrelated new content',async t=>{
  const {controller,store,calls}=fixture(t);const prior=await publish(controller,store);
  const result=await controller.continueFeedback({taskId:'feedback-new-request',clientEventId:'feedback-new-request',targetRef:{kind:'artifact',artifactRef:prior.suggestions[1].artifactRef},text:'先不改原句，换话题，这是新问题。'});
- assert.equal(result.feedbackContinuation.status,'complete');assert.ok(calls.at(-1).editingReferences);assert.equal(controller.assistantContext().run.payload.editingReference,undefined);
+ assert.equal(result.feedbackContinuation.status,'complete');assert.equal(calls.length,4);assert.equal(calls.filter(p=>p.purpose==='fidelity_check').length,2);assert.ok(calls.filter(p=>p.purpose!=='fidelity_check').at(-1).editingReferences);assert.equal(controller.assistantContext().run.payload.editingReference,undefined);
 });
 test('parser and result schema preserve only an offered handle and program-owned text',t=>{
  const {store}=fixture(t),prior=store.appendTurn(scope,{role:'assistant',kind:'draft',text:'Private explanation.',suggestions:[{style:'自然',text:'听起来薄荷长新叶了。'}]});

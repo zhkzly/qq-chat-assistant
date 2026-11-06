@@ -1,0 +1,41 @@
+{
+  "type": "actual-desktop-qq-integration",
+  "timestamp": "2026-10-12T02:21:51.568Z",
+  "sourceVersion": "2026-10-12.3",
+  "qqReady": true,
+  "sameSelectedFriend": true,
+  "records": 739,
+  "incoming": 402,
+  "outgoing": 337,
+  "coverage": "accessible_end",
+  "historyViewport": {
+    "before": 100,
+    "after": 739,
+    "scrollable": true,
+    "atLatest": true
+  },
+  "entryAutomaticallyBindsClickedPrivate": true,
+  "actualDraftFill": {
+    "http": 200,
+    "inserted": true,
+    "sent": false,
+    "nativeEditorRecognized": true,
+    "validationTextCleared": true,
+    "originalEmptyDraftRestored": true
+  },
+  "localImagePreviewHTTP": 200,
+  "privateImageModelTests": 0,
+  "modelConsent": true,
+  "imageConsent": false,
+  "qqMessagesSentByTests": 0,
+  "newIncomingCanaryVerified": false,
+  "subsequentNativeIncoming": {
+    "observed": 6,
+    "total": 745,
+    "incoming": 408,
+    "outgoing": 337,
+    "testMarkerInSentHistory": false
+  },
+  "liveIncomingReadVerified": true,
+  "newIncomingToSuggestionCanaryVerified": false
+}

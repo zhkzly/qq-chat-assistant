@@ -1,0 +1,332 @@
+[
+  {
+    "case": "native-send-rejection",
+    "target": "plugin/native-driver.cjs",
+    "exitCode": 0,
+    "result": "✅ 执照发放:plugin/native-driver.cjs 注入错误时变红、按快照还原后回绿——该验收有资格存在。"
+  },
+  {
+    "case": "native-account-binding",
+    "target": "plugin/native-driver.cjs",
+    "exitCode": 0,
+    "result": "✅ 执照发放:plugin/native-driver.cjs 注入错误时变红、按快照还原后回绿——该验收有资格存在。"
+  },
+  {
+    "case": "native-peer-binding",
+    "target": "plugin/native-driver.cjs",
+    "exitCode": 0,
+    "result": "✅ 执照发放:plugin/native-driver.cjs 注入错误时变红、按快照还原后回绿——该验收有资格存在。"
+  },
+  {
+    "case": "native-history-errors",
+    "target": "plugin/native-driver.cjs",
+    "exitCode": 0,
+    "result": "✅ 执照发放:plugin/native-driver.cjs 注入错误时变红、按快照还原后回绿——该验收有资格存在。"
+  },
+  {
+    "case": "native-bind-race",
+    "target": "plugin/native-driver.cjs",
+    "exitCode": 0,
+    "result": "✅ 执照发放:plugin/native-driver.cjs 注入错误时变红、按快照还原后回绿——该验收有资格存在。"
+  },
+  {
+    "case": "confirmed-send-only",
+    "target": "src/messages.cjs",
+    "exitCode": 0,
+    "result": "✅ 执照发放:src/messages.cjs 注入错误时变红、按快照还原后回绿——该验收有资格存在。"
+  },
+  {
+    "case": "opaque-message-id",
+    "target": "src/messages.cjs",
+    "exitCode": 0,
+    "result": "✅ 执照发放:src/messages.cjs 注入错误时变红、按快照还原后回绿——该验收有资格存在。"
+  },
+  {
+    "case": "message-peer-filter",
+    "target": "src/messages.cjs",
+    "exitCode": 0,
+    "result": "✅ 执照发放:src/messages.cjs 注入错误时变红、按快照还原后回绿——该验收有资格存在。"
+  },
+  {
+    "case": "store-account-filter",
+    "target": "src/store.cjs",
+    "exitCode": 0,
+    "result": "✅ 执照发放:src/store.cjs 注入错误时变红、按快照还原后回绿——该验收有资格存在。"
+  },
+  {
+    "case": "draft-provenance",
+    "target": "src/store.cjs",
+    "exitCode": 0,
+    "result": "✅ 执照发放:src/store.cjs 注入错误时变红、按快照还原后回绿——该验收有资格存在。"
+  },
+  {
+    "case": "model-format",
+    "target": "src/model.cjs",
+    "exitCode": 0,
+    "result": "✅ 执照发放:src/model.cjs 注入错误时变红、按快照还原后回绿——该验收有资格存在。"
+  },
+  {
+    "case": "model-quoted-directions",
+    "target": "src/model.cjs",
+    "exitCode": 0,
+    "result": "✅ 执照发放:src/model.cjs 注入错误时变红、按快照还原后回绿——该验收有资格存在。"
+  },
+  {
+    "case": "generation-stale-check",
+    "target": "src/controller.cjs",
+    "exitCode": 0,
+    "result": "✅ 执照发放:src/controller.cjs 注入错误时变红、按快照还原后回绿——该验收有资格存在。"
+  },
+  {
+    "case": "generation-message-revision",
+    "target": "src/controller.cjs",
+    "exitCode": 0,
+    "result": "✅ 执照发放:src/controller.cjs 注入错误时变红、按快照还原后回绿——该验收有资格存在。"
+  },
+  {
+    "case": "cached-history-gap",
+    "target": "src/controller.cjs",
+    "exitCode": 0,
+    "result": "✅ 执照发放:src/controller.cjs 注入错误时变红、按快照还原后回绿——该验收有资格存在。"
+  },
+  {
+    "case": "api-token",
+    "target": "src/server.cjs",
+    "exitCode": 0,
+    "result": "✅ 执照发放:src/server.cjs 注入错误时变红、按快照还原后回绿——该验收有资格存在。"
+  },
+  {
+    "case": "api-origin",
+    "target": "src/server.cjs",
+    "exitCode": 0,
+    "result": "✅ 执照发放:src/server.cjs 注入错误时变红、按快照还原后回绿——该验收有资格存在。"
+  },
+  {
+    "case": "native-read-route",
+    "target": "plugin/ipc-transport.cjs",
+    "exitCode": 0,
+    "result": "✅ 执照发放:plugin/ipc-transport.cjs 注入错误时变红、按快照还原后回绿——该验收有资格存在。"
+  },
+  {
+    "case": "native-page-count",
+    "target": "plugin/ipc-transport.cjs",
+    "exitCode": 0,
+    "result": "✅ 执照发放:plugin/ipc-transport.cjs 注入错误时变红、按快照还原后回绿——该验收有资格存在。"
+  },
+  {
+    "case": "native-page-direction",
+    "target": "plugin/ipc-transport.cjs",
+    "exitCode": 0,
+    "result": "✅ 执照发放:plugin/ipc-transport.cjs 注入错误时变红、按快照还原后回绿——该验收有资格存在。"
+  },
+  {
+    "case": "native-active-msg",
+    "target": "plugin/ipc-transport.cjs",
+    "exitCode": 0,
+    "result": "✅ 执照发放:plugin/ipc-transport.cjs 注入错误时变红、按快照还原后回绿——该验收有资格存在。"
+  },
+  {
+    "case": "native-window-owner",
+    "target": "plugin/ipc-transport.cjs",
+    "exitCode": 0,
+    "result": "✅ 执照发放:plugin/ipc-transport.cjs 注入错误时变红、按快照还原后回绿——该验收有资格存在。"
+  },
+  {
+    "case": "native-worker-command",
+    "target": "plugin/main.cjs",
+    "exitCode": 0,
+    "result": "✅ 执照发放:plugin/main.cjs 注入错误时变红、按快照还原后回绿——该验收有资格存在。"
+  },
+  {
+    "case": "preload-capabilities",
+    "target": "plugin/preload.cjs",
+    "exitCode": 0,
+    "result": "✅ 执照发放:plugin/preload.cjs 注入错误时变红、按快照还原后回绿——该验收有资格存在。"
+  },
+  {
+    "case": "closed-window-generation",
+    "target": "src/controller.cjs",
+    "exitCode": 0,
+    "result": "✅ 执照发放:src/controller.cjs 注入错误时变红、按快照还原后回绿——该验收有资格存在。"
+  },
+  {
+    "case": "model-data-consent",
+    "target": "src/controller.cjs",
+    "exitCode": 0,
+    "result": "✅ 执照发放:src/controller.cjs 注入错误时变红、按快照还原后回绿——该验收有资格存在。"
+  },
+  {
+    "case": "consent-account-view",
+    "target": "src/server.cjs",
+    "exitCode": 0,
+    "result": "✅ 执照发放:src/server.cjs 注入错误时变红、按快照还原后回绿——该验收有资格存在。"
+  },
+  {
+    "case": "consent-peer-view",
+    "target": "src/server.cjs",
+    "exitCode": 0,
+    "result": "✅ 执照发放:src/server.cjs 注入错误时变红、按快照还原后回绿——该验收有资格存在。"
+  },
+  {
+    "case": "consent-destination-view",
+    "target": "src/server.cjs",
+    "exitCode": 0,
+    "result": "✅ 执照发放:src/server.cjs 注入错误时变红、按快照还原后回绿——该验收有资格存在。"
+  },
+  {
+    "case": "consent-model-view",
+    "target": "src/server.cjs",
+    "exitCode": 0,
+    "result": "✅ 执照发放:src/server.cjs 注入错误时变红、按快照还原后回绿——该验收有资格存在。"
+  },
+  {
+    "case": "gui-focus-snapshot",
+    "target": "plugin/main.cjs",
+    "exitCode": 0,
+    "result": "✅ 执照发放:plugin/main.cjs 注入错误时变红、按快照还原后回绿——该验收有资格存在。"
+  },
+  {
+    "case": "gui-lookup-order",
+    "target": "plugin/main.cjs",
+    "exitCode": 0,
+    "result": "✅ 执照发放:plugin/main.cjs 注入错误时变红、按快照还原后回绿——该验收有资格存在。"
+  },
+  {
+    "case": "gui-session-epoch",
+    "target": "plugin/main.cjs",
+    "exitCode": 0,
+    "result": "✅ 执照发放:plugin/main.cjs 注入错误时变红、按快照还原后回绿——该验收有资格存在。"
+  },
+  {
+    "case": "gui-cache-account",
+    "target": "plugin/main.cjs",
+    "exitCode": 0,
+    "result": "✅ 执照发放:plugin/main.cjs 注入错误时变红、按快照还原后回绿——该验收有资格存在。"
+  },
+  {
+    "case": "native-request-owner",
+    "target": "plugin/ipc-transport.cjs",
+    "exitCode": 0,
+    "result": "✅ 执照发放:plugin/ipc-transport.cjs 注入错误时变红、按快照还原后回绿——该验收有资格存在。"
+  },
+  {
+    "case": "native-read-context-owner",
+    "target": "plugin/ipc-transport.cjs",
+    "exitCode": 0,
+    "result": "✅ 执照发放:plugin/ipc-transport.cjs 注入错误时变红、按快照还原后回绿——该验收有资格存在。"
+  },
+  {
+    "case": "initial-read-error",
+    "target": "src/controller.cjs",
+    "exitCode": 0,
+    "result": "✅ 执照发放:src/controller.cjs 注入错误时变红、按快照还原后回绿——该验收有资格存在。"
+  },
+  {
+    "case": "empty-read-state",
+    "target": "src/controller.cjs",
+    "exitCode": 0,
+    "result": "✅ 执照发放:src/controller.cjs 注入错误时变红、按快照还原后回绿——该验收有资格存在。"
+  },
+  {
+    "case": "context-secret-projection",
+    "target": "src/model.cjs",
+    "exitCode": 0,
+    "result": "✅ 执照发放:src/model.cjs 注入错误时变红、按快照还原后回绿——该验收有资格存在。"
+  },
+  {
+    "case": "reply-placeholder-cleanup",
+    "target": "src/model.cjs",
+    "exitCode": 0,
+    "result": "✅ 执照发放:src/model.cjs 注入错误时变红、按快照还原后回绿——该验收有资格存在。"
+  },
+  {
+    "case": "media-root-binding",
+    "target": "src/media.cjs",
+    "exitCode": 0,
+    "result": "✅ 执照发放:src/media.cjs 注入错误时变红、按快照还原后回绿——该验收有资格存在。"
+  },
+  {
+    "case": "media-path-disclosure",
+    "target": "src/media.cjs",
+    "exitCode": 0,
+    "result": "✅ 执照发放:src/media.cjs 注入错误时变红、按快照还原后回绿——该验收有资格存在。"
+  },
+  {
+    "case": "image-consent-gate",
+    "target": "src/controller.cjs",
+    "exitCode": 0,
+    "result": "✅ 执照发放:src/controller.cjs 注入错误时变红、按快照还原后回绿——该验收有资格存在。"
+  },
+  {
+    "case": "draft-contact-binding",
+    "target": "plugin/draft.cjs",
+    "exitCode": 0,
+    "result": "✅ 执照发放:plugin/draft.cjs 注入错误时变红、按快照还原后回绿——该验收有资格存在。"
+  },
+  {
+    "case": "production-vue-contact",
+    "target": "plugin/contact.cjs",
+    "exitCode": 0,
+    "result": "✅ 执照发放:plugin/contact.cjs 注入错误时变红、按快照还原后回绿——该验收有资格存在。"
+  },
+  {
+    "case": "ambiguous-contact",
+    "target": "plugin/contact.cjs",
+    "exitCode": 0,
+    "result": "✅ 执照发放:plugin/contact.cjs 注入错误时变红、按快照还原后回绿——该验收有资格存在。"
+  },
+  {
+    "case": "draft-native-window-owner",
+    "target": "plugin/draft.cjs",
+    "exitCode": 0,
+    "result": "✅ 执照发放:plugin/draft.cjs 注入错误时变红、按快照还原后回绿——该验收有资格存在。"
+  },
+  {
+    "case": "draft-switch-before-insert",
+    "target": "plugin/draft.cjs",
+    "exitCode": 0,
+    "result": "✅ 执照发放:plugin/draft.cjs 注入错误时变红、按快照还原后回绿——该验收有资格存在。"
+  },
+  {
+    "case": "context-preview-keeps-advice",
+    "target": "src/controller.cjs",
+    "exitCode": 0,
+    "result": "✅ 执照发放:src/controller.cjs 注入错误时变红、按快照还原后回绿——该验收有资格存在。"
+  },
+  {
+    "case": "cached-current-peer",
+    "target": "plugin/contact.cjs",
+    "exitCode": 0,
+    "result": "✅ 执照发放:plugin/contact.cjs 注入错误时变红、按快照还原后回绿——该验收有资格存在。"
+  },
+  {
+    "case": "qq-private-type-shape",
+    "target": "plugin/contact.cjs",
+    "exitCode": 0,
+    "result": "✅ 执照发放:plugin/contact.cjs 注入错误时变红、按快照还原后回绿——该验收有资格存在。"
+  },
+  {
+    "case": "native-rich-draft-protection",
+    "target": "plugin/contact.cjs",
+    "exitCode": 0,
+    "result": "✅ 执照发放:plugin/contact.cjs 注入错误时变红、按快照还原后回绿——该验收有资格存在。"
+  },
+  {
+    "case": "ui-fill-async-binding",
+    "target": "ui/app.js",
+    "exitCode": 0,
+    "result": "✅ 执照发放:ui/app.js 注入错误时变红、按快照还原后回绿——该验收有资格存在。"
+  },
+  {
+    "case": "draft-owner-binding",
+    "target": "plugin/draft.cjs",
+    "exitCode": 0,
+    "result": "✅ 执照发放:plugin/draft.cjs 注入错误时变红、按快照还原后回绿——该验收有资格存在。"
+  },
+  {
+    "case": "existing-draft-preservation",
+    "target": "plugin/draft.cjs",
+    "exitCode": 0,
+    "result": "✅ 执照发放:plugin/draft.cjs 注入错误时变红、按快照还原后回绿——该验收有资格存在。"
+  }
+]

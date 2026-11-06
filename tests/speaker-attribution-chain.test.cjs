@@ -71,7 +71,15 @@ test('help wire keeps speaker labels through source-handle encoding without a pa
   const ownWire=delivered.sources.find(s=>s.type==='qq'&&s.direction==='outgoing');
   assert.equal(ownWire.speaker,'我');
   assert.equal(delivered.speakerIdentityRule,undefined,'no payload-scale legend on the help path');
-  assert.ok(prepared.request.messages[0].content.length<4600,'bounded foreground system prompt');
+  // Union re-bound (recorded decision, context-memory-20261105): the composed
+  // help contract adds D006's irreducible delivery-honesty commitments
+  // (unread-gap honesty, delivery.lookup continuation, materials top-level
+  // only, restored-source provenance) at ~200 minimum characters after
+  // compression to 4803; B007's own constants were already 4579/1639. The
+  // bound keeps real headroom (~100 chars under the compressed floor) so the
+  // prompt stays bounded and prose creep stays detectable. The consultation
+  // 7000-byte budget regression keeps its own separate assertion unchanged.
+  assert.ok(prepared.request.messages[0].content.length<5000,'bounded foreground system prompt');
 });
 
 test('memory wire marks private user sources as the account owner (author self) and pins the legend',t=>{

@@ -96,7 +96,7 @@ test('invitation answers receive the declared availability as delivered evidence
   const declaration = (delivered.digest.declarations || []).find(item => item.sentence.includes('周六三点半以后我有空'));
   assert.ok(declaration, 'the declared Saturday availability reaches the model verbatim');
   assert.ok(declaration.sentence.includes('也愿意和她一起去看旧物展'), 'the declared willingness travels with the time');
-  assert.equal(delivered.digest.declarationRule.includes('逐字原句'), true, 'the declaration lines are labeled as verbatim navigation, not permission');
+  assert.equal(delivered.digest.declarationRule.includes('逐字'), true, 'the declaration lines are labeled as verbatim navigation, not permission');
   // The invitation itself stays whole, and the complete original stays
   // retrievable: honest degradation, never a silent replacement.
   const invitation = context.payload.sources.find(source => source.type === 'qq');
@@ -228,16 +228,17 @@ test('replay pipeline: grounding without declarations still degrades to a bounde
   assert.equal(JSON.stringify(planning).includes('declarationRule'), false, 'no adoption rule appears without declarations');
 });
 
-test('the adoption rule travels with the declarations, not as free-floating guidance', () => {
+test('the neutral navigation rule travels with declarations without prescribing adoption', () => {
   const { digestSource } = require('../src/context/evidence-digest.cjs');
   const view = digestSource({ id: 'private:rule', type: 'private', role: 'user', use: 'discussion',
     at: '2026-09-30T18:00:00+08:00', revision: 'r1', text: declarationNote(4) });
   assert.ok(view.digest.declarations.length >= 1);
   const rule = view.digest.declarationRule;
-  assert.ok(rule.includes('与来信邀约一致时直接采用并给可发送的接受与时间'), 'adopt plus sendable acceptance with time');
-  assert.ok(rule.includes('不把已声明意愿变成核对问句'), 'do not re-ask a declared willingness');
-  assert.ok(rule.includes('未声明、过期或冲突才澄清'), 'the clarify branch is bound to its conditions');
-  assert.ok(rule.includes('仅导航非许可'), 'navigation is never disclosure permission');
+  assert.ok(rule.includes('仅用于原文导航'), 'the original remains navigable');
+  assert.ok(rule.includes('不是当前行动'), 'a declaration is not a current task');
+  assert.ok(rule.includes('否定、条件和最新限制'), 'full human scope remains decisive');
+  assert.ok(rule.includes('不是当前行动、邀请、采用义务或分享许可'), 'navigation grants no adoption or disclosure authority');
+  assert.equal(/直接采用|给可发送的接受/.test(rule),false,'a digest never prescribes accepting an invitation');
   // Without declarations the rule must not appear anywhere in the prompt lane.
   const plain = digestSource({ id: 'private:plain-rule', type: 'private', role: 'user', use: 'discussion',
     at: '2026-09-30T18:00:00+08:00', revision: 'r1', text: plainNote(20) });

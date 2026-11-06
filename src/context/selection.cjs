@@ -6,7 +6,7 @@ const {bytes,sanitize,pick,digest}=require('./shared.cjs');
 const {supportedByAvailable,sameScopeIfPresent}=require('./source-snapshot.cjs');
 const {modelTopic,relevantTo,projectActualActions,projectObservations,actionSources,coreCatalog}=require('./catalog.cjs');
 const {quoteTarget}=require('./policy.cjs');
-const {boundedSource,sourceDeliveryManifest,rangedDelivery,completeBody}=require('./source-delivery.cjs');
+const {boundedSource,sourceDeliveryManifest,rangedDelivery,completeBody,currentRequestView}=require('./source-delivery.cjs');
 const {taskContext}=require('./timeline-view.cjs');
 const {trimEmptyNavigation}=require('./budget-manifest.cjs');
 const {digestSource}=require('./evidence-digest.cjs');
@@ -31,7 +31,7 @@ function selectPlanningContext({options,snapshot,candidates,view,budget,coreInve
   const degradation=[];const recordDegradation=(step,appliedTo,recoveredBytes,lookup)=>{
     degradation.push({step,appliedTo,recoveredBytes,remainingNeed:Math.max(0,bytes(payload)-(options.byteBudget||48000)),...(lookup?{lookupHandle:lookup}:{})});
   };
-  let taskTextReferences=true,compactedPlanningViews=false,humanContextView=true;const priorDirectionIds=new Set();
+  let taskTextReferences=true,compactedPlanningViews=false,humanContextView=true,currentReadBytes=Infinity;const priorDirectionIds=new Set();
   const explicitLookupRequests=[...retrievedSources,...sourceLookupIds.map(id=>({id:id.startsWith('private:')?id:`private:${id}`})).filter(source=>!retrievedSources.some(item=>item.id===source.id))];
   const explicitLookupIds=[...new Set(explicitLookupRequests.map(source=>source.id))];
   const discoveryPriorityIds=new Set(),sourceOrder=new Map(all.map((source,index)=>[source.id,index]));
@@ -61,12 +61,10 @@ function selectPlanningContext({options,snapshot,candidates,view,budget,coreInve
     // disclosed on both views and the undelivered remainder stays unknown.
     if(payload.userRequest){
       const requestSource=selected.get(payload.userRequest.sourceId);
-      if(requestSource)payload.userRequest={sourceId:requestSource.id,text:requestSource.text,
-        ...(requestSource.digest?{digest:requestSource.digest}:{}),
-        ...(requestSource.delivery?{delivery:requestSource.delivery,requestDeliveryRule:'range_delivered_request_body; undelivered parts are unknown, continue via delivery.lookup, never fabricate them'}:{})};
+      if(requestSource)payload.userRequest=currentRequestView(requestSource,byId.get(requestSource.id),retrievedSources,{maxReadBytes:currentReadBytes});
     }
     if(payload.consultationSupport){payload.consultationSupport.sourceIds=payload.consultationSupport.sourceIds.filter(id=>selected.has(id));if(!payload.consultationSupport.sourceIds.length)delete payload.consultationSupport;}
-    if(explicitLookupIds.length)payload.evidenceDelivery={version:'source-delivery-v1',explicitLookups:sourceDeliveryManifest(all,payload.sources,explicitLookupRequests).explicitLookups};
+    if(explicitLookupIds.length)payload.evidenceDelivery={version:'source-delivery-v1',explicitLookups:sourceDeliveryManifest(all,payload.sources,explicitLookupRequests,payload.userRequest).explicitLookups};
     for(const entry of payload.retrievedDiscussion||[])if(entry.role==='user'){const source=selected.get(entry.sourceId);entry.availability=source?source.delivery?.status||'delivered':'needs_lookup';if(source)entry.revision=source.revision;}
     if(payload.memoryDiscovery){
       const directory=options.memoryDiscovery?.directory,originals=Array.isArray(directory)?directory:directory?.items||directory?.entries||[];
@@ -224,6 +222,9 @@ function selectPlanningContext({options,snapshot,candidates,view,budget,coreInve
   // The single surviving hard rejection: the current request text itself
   // cannot be delivered even as a minimal explicit range (for example a
   // configured budget below the request envelope). Everything else degrades.
+  for(const cap of [24000,12000,6000,3000,1000])if(!fits(payload)&&payload.userRequest?.readRanges?.length){
+    currentReadBytes=cap;refresh();
+  }
   if (!fits(payload)) throw new Error('即使按最小显式范围交付当前问题并降级其余内容，本次上下文预算仍不足以组成有效请求；请提高本次预算或缩短当前问题；没有静默截断');
   // The current multi-turn interaction is considered before optional historical
   // summaries and their evidence closures. This allowance never enlarges the
@@ -843,7 +844,7 @@ function selectPlanningContext({options,snapshot,candidates,view,budget,coreInve
     }
   }
   settleSelection();
-  const delivery=sourceDeliveryManifest(all,payload.sources,explicitLookupRequests);
+  const delivery=sourceDeliveryManifest(all,payload.sources,explicitLookupRequests,payload.userRequest);
   if(delivery.explicitLookups.length)payload.evidenceDelivery={version:delivery.version,explicitLookups:delivery.explicitLookups};
   if(!fits(payload)){reclaimOptionalRecent(new Set(explicitLookupIds));settleSelection();}
   return {payload,coreItems,optionalRawLimit,optionalRawIds,optionalRetrieved,recentContextPlan,recentPriorityIds,recentInitialAdditionalBytes,degradation,consultationSupport:priorSupport.filter(fragment=>selected.has(fragment.sourceId)).map(fragment=>({...fragment,revision:byId.get(fragment.sourceId).revision}))};

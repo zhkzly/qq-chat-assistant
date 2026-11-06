@@ -5,8 +5,9 @@ const {validationError}=require('./validation-issues.cjs');
 const {sameScopeIfPresent}=require('./context/source-snapshot.cjs');
 const {sourceClosure}=require('./provenance.cjs');
 const {candidateFields,candidatePaths,candidateScopes,normalizeCandidatePath}=require('./candidate-field-paths.cjs');
-const VERSION='whole-answer-fidelity-v9';
+const VERSION='whole-answer-fidelity-v11';
 const AUDIT_PROTOCOL='sparse-defects-v1';
+const sparseIssueContract=require('./contracts/fidelity-result.contract.json').fields.issues.item;
 const marks=new WeakMap(),clone=value=>structuredClone(value);
 const plain=value=>value&&typeof value==='object'&&!Array.isArray(value);
 const hash=value=>createHash('sha256').update(JSON.stringify(value)).digest('hex');
@@ -72,6 +73,10 @@ function buildFidelityContext(prepared,result,info={}){
  const intentId=prepared.payload.intentAuthority?.sourceId;
  const required=new Set([intentId,...(prepared.essentialSourceIds||[]),
   ...(info.admittedContext?.payload.outboundQuotes||[]).map(item=>item.sourceId),
+  // Private-lane admitted facts (D006 privateEvidence) carry the same exact
+  // source/revision duty as outbound quotes: the audit must retain them as
+  // required evidence even though they never become disclosure-eligible.
+  ...(info.admittedContext?.payload.privateEvidence||[]).map(item=>item.sourceId),
   ...optionMaterials.flatMap(option=>option.fragments.map(fragment=>fragment.sourceId)),...Object.keys(info.optionAdmission?.sourceRevisions||{}),
   ...(prepared.payload.topicContext?.controlRefs||[]).map(item=>item.sourceId)]);
  const sourceMap=new Map(),contexts=[...(info.sourceContexts||[]),prepared];
@@ -124,8 +129,8 @@ function buildFidelityContext(prepared,result,info={}){
   if(original(source)&&source.type!=='note'){if(!sameScopeIfPresent(source,scope))throw fail('evidence','fidelity_binding_invalid','Recent human control belongs to another scope');sourceMap.set(id,{...source,...continuity(sourceMap.get(id))});revisions[id]=source.revision;required.add(id);}
  }
  for(const source of sourceMap.values())if(source.role==='user'&&['private','feedback'].includes(source.type))required.add(source.id);
- const evidence=[...sourceMap.values()].map(source=>({sourceId:source.id,type:source.type,role:source.role||'unknown',at:source.at||null,text:source.text,...continuity(source),
-  ...(source.type==='note'?{authority:'note_context_not_original_human_statement',lineage:source.evidenceSourceIds?.length?'derived':'authored_or_unattributed',evidenceSourceIds:source.evidenceSourceIds||[]}:{}),
+ const evidence=[...sourceMap.values()].map(source=>({sourceId:source.id,type:source.type,role:source.role||(source.type==='note'&&source.authoredBy==='user'?'user':'unknown'),at:source.at||null,text:source.text,...continuity(source),
+  ...(source.type==='note'?{authority:source.authoredBy==='user'?'user_authored_record':'note_context_not_original_human_statement',lineage:source.authoredBy==='user'?'user_authored':source.evidenceSourceIds?.length?'derived':'authored_or_unattributed',evidenceSourceIds:source.evidenceSourceIds||[],...(source.authoredBy==='user'?{authorship:'user_authored_record_author_is_account_owner_not_external_world_truth'}:{})}:{}),
   ...(source.delivery?.status==='partial'?{delivery:clone(source.delivery)}:{})}));
  const admitted=info.admittedContext?.payload.outboundQuotes||[];
  const admission=info.admittedContext?.manifest;
@@ -148,6 +153,7 @@ function buildFidelityContext(prepared,result,info={}){
  for(const ref of prepared.payload.preferences||[])offerInstruction(ref.sourceId,'standing_preference');
  const humanInstructions=[...instructionSelections].map(([sourceId,selection])=>({sourceId,selection,at:sourceMap.get(sourceId).at||null,bodyLocation:'evidence'}));
  const payload={purpose:'fidelity_check',version:VERSION,auditProtocol:info.auditProtocol||AUDIT_PROTOCOL,checkRef:'c1',asOf:prepared.payload.asOf||null,
+  ...(prepared.payload.promptVersion||prepared.manifest.promptVersion?{promptVersion:prepared.payload.promptVersion||prepared.manifest.promptVersion}:{}),
   ...(prepared.payload.goal!==undefined?{goal:clone(prepared.payload.goal)}:{}),
   ...(prepared.payload.viewerTimeZone?{viewerTimeZone:prepared.payload.viewerTimeZone}:{}),
   ...(prepared.payload.taskContext?.timeContext?{timeContext:clone(prepared.payload.taskContext.timeContext)}:{}),
@@ -161,7 +167,8 @@ function buildFidelityContext(prepared,result,info={}){
     ...(sourceMap.get(binding.permission.sourceId)?.text===binding.permission.text?{bodyLocation:'evidence'}:{quote:binding.permission.text})},
    authority:'model_interpreted_for_this_fact_only'
   })),
-  disclosureAuthority:{programSources:[...programDisclosureSources].map(sourceId=>({sourceId})),rule:'Truth support is not sharing authority. Private outward assertions require an admitted fragment; a narrower disclosure witness may select one.'},
+  disclosureAuthority:{programSources:[...programDisclosureSources].map(sourceId=>({sourceId})),permissionPaths:['program_source','admitted_fragment'],
+   rule:'Truth and sharing permission are independent. Either a current programSources grant OR the matching narrow admittedFragments span supplies permission; an empty fragment list does not revoke a program grant. A current explicit restriction or withdrawal takes precedence over either grant. A grant never establishes factual truth.'},
   humanInstructions,...(currentHumanId?{currentInstruction:{sourceId:currentHumanId}}:{}),
   ...(optionMaterials.some(option=>option.fragments.length)?{optionMaterials:clone(optionMaterials)}:{}),
   ...(info.admittedContext?.payload.currentHumanControl?{currentHumanControl:{sourceId:info.admittedContext.payload.currentHumanControl.sourceId,authority:'CONTROL_ONLY',bodyLocation:'evidence'}}:{}),
@@ -347,7 +354,7 @@ function incompleteFidelity(input,error){
  // Cancellation, actual identity drift and source mutation are not audit
  // failures. The controller checks current/stored source versions separately.
  if(error?.code==='fidelity_binding_invalid'||error?.name==='AbortError'||error?.name==='TimeoutError'&&input?.abortSignal?.aborted)throw error;
- return auditResult(input,{diagnostics:[{code:'audit_unavailable',message:String(error?.message||error||'Audit unavailable').slice(0,700)}]});
+ return auditResult(input,{diagnostics:[{code:'audit_unavailable',message:String(error?.message||error||'Audit unavailable').slice(0,700),blocking:true}]});
 }
 function parseSparseFidelityResult(value,input){
  const frame=input?.fidelityFrameSnapshot;if(!frame)throw fail('checkRef','fidelity_binding_invalid','An audit requires its captured frame');frame.assert();
@@ -357,90 +364,125 @@ function parseSparseFidelityResult(value,input){
  }
  let data;try{data=typeof value==='string'?parseModelJson(value):value;}catch(error){return incompleteFidelity(input,error);}
  const diagnostics=[],issues=[],concerns=[];
- const diagnostic=(code,message)=>diagnostics.push({code,message:String(message).slice(0,700)});
+ // Only malformed core/identity/path/source/required-witness data makes the
+ // required audit incomplete. Optional prose and mechanically disproved
+ // findings remain visible diagnostics without becoming publication vetoes.
+ const diagnostic=(code,message,blocking=false)=>diagnostics.push({code,message:String(message).slice(0,700),blocking});
  if(!plain(data))return incompleteFidelity(input,'Audit must be an object');
  const validEnvelope=data.checkRef==='c1'&&data.auditProtocol===AUDIT_PROTOCOL&&Array.isArray(data.issues);
- if(!validEnvelope)diagnostic('audit_protocol_incomplete','Sparse audit protocol/checkRef/issues was not returned; no exhaustive approval is inferred.');
+ if(!validEnvelope)diagnostic('audit_protocol_incomplete','Return the exact sparse audit protocol, checkRef and issues array; no exhaustive approval is inferred.',true);
  if(Object.keys(data).some(key=>!['checkRef','auditProtocol','issues','concerns'].includes(key)))diagnostic('audit_extra_metadata','Additional audit metadata is diagnostic, not publication authority.');
  const canonical=input.sourceWireSnapshot?.isCanonical?.(data);
  const decode=raw=>canonical||!input.sourceWireSnapshot?raw:input.sourceWireSnapshot.decode(raw);
  const address=path=>normalizeCandidatePath(path,input.payload.candidatePaths);
- const quoteAt=(path,quote)=>typeof quote==='string'&&quote.trim()&&quote.length<=6000&&typeof frame.bodyAt(path)==='string'&&frame.bodyAt(path).includes(quote);
+ const quoteAt=(path,quote,max=6000)=>typeof quote==='string'&&quote.trim()&&quote.length<=max&&typeof frame.bodyAt(path)==='string'&&frame.bodyAt(path).includes(quote);
  const witnesses=raw=>{
   if(!Array.isArray(raw)||raw.length>16)throw Error('Use bounded original source witnesses');
   return raw.map(ref=>{
    const source=plain(ref)&&frame.evidenceAt(ref.sourceId);
-   if(!source||typeof ref.quote!=='string'||!ref.quote.trim()||ref.quote.length>4000||!source.text.includes(ref.quote)||source.delivery?.status==='partial'||!input.manifest.sourceRevisions[ref.sourceId]||input.payload.coverage?.unavailableRootSourceIds?.includes(ref.sourceId))throw Error('The witness is not an exact complete offered original');
+   if(!source||typeof ref.quote!=='string'||!ref.quote.trim()||ref.quote.length>4000||!source.text.includes(ref.quote)||['partial','digest'].includes(source.delivery?.status)||!input.manifest.sourceRevisions[ref.sourceId]||input.payload.coverage?.unavailableRootSourceIds?.includes(ref.sourceId))throw Error('The witness is not an exact complete offered original');
    return {sourceId:ref.sourceId,quote:ref.quote};
   });
  };
  const addIssue=(raw,index)=>{
   try{
    if(!plain(raw))throw Error('Expected a concrete defect');
-   const reasonRaw=raw.reason,code=raw.code;
-   // Project code-relevant coordinates before decoding source handles. Extra
-   // metadata has no authority and cannot invalidate the independent finding.
-   const item=decode({path:raw.path,quote:raw.quote,code});
-   const path=address(item.path);if(path&&path!==item.path&&input.manifest){input.manifest.fidelity.addressNormalizations=[...(input.manifest.fidelity.addressNormalizations||[]),{field:`issues[${index}].path`,received:item.path,canonical:path}];}if(!path||!quoteAt(path,item.quote))throw Error('The defect lacks an exact candidate path/quote');
-   const reason=typeof reasonRaw==='string'&&reasonRaw.trim()?reasonRaw.trim().slice(0,1200):'The audit reported this concrete factual or disclosure defect.';
-   if(reasonRaw!==undefined&&(typeof reasonRaw!=='string'||!reasonRaw.trim()))diagnostic('audit_invalid_reason',`Finding ${index} optional reason is not usable`);
+   const reasonRaw=raw.reason,code=raw.code,item=decode({path:raw.path,quote:raw.quote,code}),path=address(item.path);
+   if(path&&path!==item.path&&input.manifest)input.manifest.fidelity.addressNormalizations=[...(input.manifest.fidelity.addressNormalizations||[]),{field:`issues[${index}].path`,received:item.path,canonical:path}];
+   if(!path||!quoteAt(path,item.quote))throw Error('The defect lacks an exact candidate path/quote');
+   const claim=raw.claim;
+   if(!plain(claim)||!sparseIssueContract.claim.kinds.includes(claim.kind)||!quoteAt(path,claim.quote,sparseIssueContract.claim.quote.maxLength)||!item.quote.includes(claim.quote))throw Error('A reported defect needs a short exact candidate claim and its proposition kind');
+   if(Object.keys(claim).some(key=>!['kind','quote'].includes(key)))diagnostic('audit_extra_claim_metadata',`Finding ${index} has extra proposition metadata`);
+   const reason=typeof reasonRaw==='string'&&reasonRaw.trim()?reasonRaw.trim().slice(0,1200):'The audit reported this candidate-bound source-fact or permission defect.';
+   if(reasonRaw!==undefined&&(typeof reasonRaw!=='string'||!reasonRaw.trim()||reasonRaw.length>1200))diagnostic('audit_invalid_reason',`Finding ${index} optional reason is not usable in full`);
    const needsEvidence=['evidence_mismatch','omitted_qualifier','private_disclosure'].includes(code),evidence=[];
-   if(needsEvidence){
-    if(!Array.isArray(raw.evidence))throw Error('This defect needs original source witnesses');
+   if(needsEvidence&&!Array.isArray(raw.evidence))throw Error('This defect needs original source witnesses');
+   // Even an otherwise optional evidence coordinate cannot cite unknown or
+   // unavailable originals. Valid independent witnesses survive a bad sibling.
+   if(raw.evidence!==undefined){
+    if(!Array.isArray(raw.evidence)||raw.evidence.length>16)throw Error('Use a bounded witness array');
     for(const ref of raw.evidence){try{
      if(!plain(ref))throw Error('Expected a source witness');
      if(Object.keys(ref).some(key=>!['sourceId','quote'].includes(key)))diagnostic('audit_extra_witness_metadata',`Finding ${index} has extraneous witness metadata`);
      evidence.push(...witnesses([decode({sourceId:ref.sourceId,quote:ref.quote})]));
-    }catch(error){if(error.code==='fidelity_binding_invalid')throw error;diagnostic('audit_invalid_witness',`Finding ${index}: ${error.message}`);}}
-   }else if(raw.evidence!==undefined)diagnostic('audit_irrelevant_evidence',`Finding ${index} does not need a source witness for this code`);
-
-   if(!['unsupported_fact','evidence_mismatch','omitted_qualifier','internal_conflict','private_disclosure'].includes(code)){
-    concerns.push({path,code:typeof code==='string'&&code.trim()?code.trim().slice(0,80):'untyped_concern',quote:item.quote,reason:reason||'An untyped semantic concern needs human judgment.'});
-    diagnostic('audit_untyped_finding',`Finding ${index} is diagnostic rather than a concrete typed defect`);return;
+    }catch(error){if(error.code==='fidelity_binding_invalid')throw error;diagnostic('audit_invalid_witness',`Finding ${index}: ${error.message}`,true);}}
    }
-   if(['evidence_mismatch','omitted_qualifier','private_disclosure'].includes(code)&&!evidence.length)throw Error('This defect needs an original source witness');
-   const extra=Object.keys(raw).filter(key=>!['path','code','quote','reason',...(needsEvidence?['evidence']:[]),...(code==='internal_conflict'?['related']:[])].includes(key));
+   if(needsEvidence&&!evidence.length)throw Error('This defect needs an exact original source witness');
+   if(!sparseIssueContract.code.sparse.includes(code)){
+    if(typeof index==='number'){diagnostic('audit_issue_code_invalid',`Finding ${index} is a native issue whose required protocol code is missing, empty, oversized or outside the sparse code domain; the core finding cannot be published as an untyped advisory`,true);return;}
+    concerns.push({path,code:typeof code==='string'&&code.trim()?code.trim().slice(0,80):'untyped_concern',quote:item.quote,reason});
+    diagnostic('audit_untyped_finding',`Finding ${index} is outside the source-fact/permission code domain`);return;
+   }
+   let privacyBasis;
+   if(code==='private_disclosure'){
+    privacyBasis=raw.privacyBasis;
+    if(!sparseIssueContract.privacyBasis.values.includes(privacyBasis))throw Error('A disclosure defect needs absence_of_grant or explicit_restriction');
+   }
+   const extra=Object.keys(raw).filter(key=>!['path','code','quote','claim','reason','evidence',...(code==='private_disclosure'?['privacyBasis']:[]),...(code==='internal_conflict'?['related']:[])].includes(key));
    if(extra.length)diagnostic('audit_extra_finding_metadata',`Finding ${index} extra keys: ${extra.join(', ')}`);
    let related;
    if(code==='internal_conflict'){
-    const target=plain(raw.related)?{path:raw.related.path,quote:raw.related.quote}:{};const p=address(target.path);if(!p||!quoteAt(p,target.quote)||p===path&&target.quote===item.quote)throw Error('A conflict needs a distinct exact candidate statement');
+    const target=plain(raw.related)?{path:raw.related.path,quote:raw.related.quote}:{},p=address(target.path);
+    if(!p||!quoteAt(p,target.quote)||p===path&&target.quote===item.quote)throw Error('A conflict needs a distinct exact candidate statement');
     related={path:p,quote:target.quote};
    }
+   // Proposition triage applies to truth-related defects only. Disclosure is
+   // a separate responsibility: a question, opinion or intent can still reveal
+   // an exact restricted phrase. Neither classification proves semantic truth.
+   if(sparseIssueContract.claim.hardFactCodes.includes(code)&&!sparseIssueContract.claim.hardFactKinds.includes(claim.kind)){
+    concerns.push({path,code,quote:item.quote,reason});diagnostic('audit_nonfactual_claim',`Finding ${index} reports ${claim.kind}, not an asserted fact or concrete factual presupposition`);return;
+   }
    if(code==='private_disclosure'){
+    // Explicit restrictions are a different witness role, even when the
+    // restriction is carried by the program-authorized source itself.
+    if(privacyBasis==='absence_of_grant'&&evidence.every(ref=>frame.canDisclose(ref))){diagnostic('program_disclosure_authority','The captured program grant or exact admitted fragment disproves absence of permission; explicit restrictions remain independent.');return;}
     if(frame.scopeAt(path)!=='copyable'&&!/^expressionOptions\[\d+\]\.label$/.test(path)){
      concerns.push({path,code,quote:item.quote,reason});return;
     }
-    if(evidence.every(ref=>frame.canDisclose(ref))){diagnostic('program_disclosure_authority','A checker cannot revoke already admitted exact material without an independent private restriction.');return;}
    }
-   issues.push({path,code,quote:item.quote,reason,...(evidence.length?{evidence}:{}),...(related?{related}:{})});
-  }catch(error){if(error.code==='fidelity_binding_invalid')throw error;diagnostic('audit_invalid_finding',`Finding ${index}: ${error.message}`);}
+   issues.push({path,code,quote:item.quote,claim:{kind:claim.kind,quote:claim.quote},reason,...(evidence.length?{evidence}:{}),...(privacyBasis?{privacyBasis}:{}),...(related?{related}:{})});
+  }catch(error){if(error.code==='fidelity_binding_invalid')throw error;diagnostic('audit_invalid_finding',`Finding ${index}: ${error.message}`,true);}
  };
- // Isolate each finding so bad optional metadata cannot erase an independently
- // well-grounded fabrication or privacy finding alongside it.
- if(Array.isArray(data.issues))data.issues.forEach(addIssue);
- // Old/captured producer shapes are never a native pass channel. Preserve
- // independently expressible concrete defects as incomplete diagnostic input.
- if(Array.isArray(data.factual))for(const field of data.factual){
-  if(!plain(field)||!Array.isArray(field.statements)){diagnostic('audit_invalid_legacy_container','Legacy census extras are not a statements array');continue;}
-  for(const statement of field.statements){
-  if(statement?.kind==='assertion'&&statement.support==='unsupported')addIssue({path:field.path,quote:statement.quote,
+ if(data.checkRef==='c1'&&Array.isArray(data.issues))data.issues.forEach(addIssue);
+ // Legacy census extras never supply native approval. Independently grounded
+ // assertions may still identify a concrete defect before incomplete metadata.
+ if(data.checkRef==='c1'&&Array.isArray(data.factual))for(const field of data.factual){
+  if(!plain(field)||!Array.isArray(field.statements)){diagnostic('audit_invalid_legacy_container','Optional legacy census extras are not a statements array');continue;}
+  for(const statement of field.statements)if(statement?.kind==='assertion'&&statement.support==='unsupported')addIssue({path:field.path,quote:statement.quote,claim:{kind:'assertion',quote:statement.quote},
    code:{no_support_in_supplied_evidence:'unsupported_fact',source_contradiction:'evidence_mismatch',necessary_factual_qualification:'omitted_qualifier',candidate_fact_conflict:'internal_conflict'}[statement.basis],
    evidence:statement.evidence||[],related:statement.related,reason:statement.reason||'The legacy assertion reports a concrete unsupported fact.'},'legacy');
-  }
  }
  if(data.concerns!==undefined&&!Array.isArray(data.concerns))diagnostic('audit_invalid_concern','Optional concerns are not an array');
- if(Array.isArray(data.concerns))for(const raw of data.concerns){try{
-  const item=decode(raw),path=address(item.path);
-  if(path&&typeof item.reason==='string'&&item.reason.trim()){
-   const normalizedCode=typeof item.code==='string'?item.code.trim():'',normalizedReason=item.reason.trim();
-   if(!normalizedCode||normalizedCode.length>80)diagnostic('audit_invalid_concern_code','Optional advisory code is missing or outside its bounded representation');
-   if(normalizedReason.length>1200)diagnostic('audit_concern_reason_bound','Optional advisory reason exceeds the visible bound');
-   if(item.quote!==undefined&&!quoteAt(path,item.quote))diagnostic('audit_invalid_concern_quote','Optional advisory quote is not an exact candidate span');
-   concerns.push({path,code:normalizedCode&&normalizedCode.length<=80?normalizedCode:'semantic_uncertainty',reason:normalizedReason.slice(0,1200),...(quoteAt(path,item.quote)?{quote:item.quote}:{})});
-  }else diagnostic('audit_invalid_concern','A concern is missing its candidate path or reason');
- }catch(error){diagnostic('audit_invalid_concern',error.message);}}
+ if(Array.isArray(data.concerns))for(const raw of data.concerns){
+  if(!plain(raw)){diagnostic('audit_invalid_concern','Optional concern must be an object');continue;}
+  // Optional presentation notes have no source/authority lane. Project only
+  // their displayed coordinates; unrecognized metadata cannot acquire one.
+  const path=address(raw.path),reason=typeof raw.reason==='string'?raw.reason.trim():'';
+  if(!path||!reason){diagnostic('audit_invalid_concern','Optional concern is missing its candidate path or reason');continue;}
+  const code=typeof raw.code==='string'?raw.code.trim():'';
+  if(!code||code.length>80)diagnostic('audit_invalid_concern_code','Optional advisory code is outside its bounded representation');
+  if(reason.length>1200)diagnostic('audit_concern_reason_bound','Optional advisory reason exceeds its visible bound');
+  if(raw.quote!==undefined&&!quoteAt(path,raw.quote))diagnostic('audit_invalid_concern_quote','Optional advisory quote is not an exact candidate span');
+  if(Object.keys(raw).some(key=>!['path','code','quote','reason'].includes(key)))diagnostic('audit_extra_concern_metadata','Optional note has no source or permission authority');
+  concerns.push({path,code:code&&code.length<=80?code:'semantic_uncertainty',reason:reason.slice(0,1200),...(quoteAt(path,raw.quote)?{quote:raw.quote}:{})});
+ }
  const unique=values=>[...new Map(values.map(item=>[JSON.stringify(item),item])).values()];
- return auditResult(input,{issues:unique(issues),concerns:unique(concerns),diagnostics,complete:validEnvelope&&!diagnostics.length});
+ // Architecture-review adjudication (context-memory-evaluation-20261105, B004 family):
+ // the visible candidate exposes the same promoted body at `text` and
+ // `suggestions[0].text`; identical findings over identical bodies are one defect
+ // seen through two alias paths, not two defects. Collapse only when code, quote
+ // and claim quote all match AND the two paths carry identical bodies; alternates
+ // with different bodies stay independent. Attribution-only, gate-neutral.
+ const bodyTextOf=path=>{const value=frame.bodyAt(path);return typeof value==='string'?value:undefined;};
+ const deduped=[];
+ for(const issue of unique(issues)){
+  const prior=deduped.find(item=>item.code===issue.code&&item.quote===issue.quote&&item.claim?.quote===issue.claim?.quote&&bodyTextOf(item.path)===bodyTextOf(issue.path));
+  if(prior){diagnostic('audit_duplicate_finding_collapsed',`Duplicate finding on an identical body collapsed from ${issue.path} into ${prior.path}`);continue;}
+  deduped.push(issue);
+ }
+ for(const issue of deduped)if(issue.code==='unsupported_fact'&&issue.evidence?.length)
+  diagnostic('audit_evidence_on_unsupported_fact','unsupported_fact finding cites evidence witnesses; retained for attribution (iter7 seq22 self-contradiction class), never rerouted');
+ return auditResult(input,{issues:deduped,concerns:unique(concerns),diagnostics,complete:validEnvelope&&!diagnostics.some(item=>item.blocking)});
 }
 function parseFidelityResult(value,input){
  return input?.payload?.auditProtocol===AUDIT_PROTOCOL?parseSparseFidelityResult(value,input):parseLegacyFidelityResult(value,input);
@@ -505,7 +547,8 @@ function buildFidelityRepairContext(prepared,checkedInput){
   // version. A reason string, summary or omitted remainder is not evidence.
   if(!original(source)||source.revision!==revision||source.text!==evidence.text||!sameScopeIfPresent(source,retry.manifest.scope))continue;
   if(!sources.has(source.id)||sources.get(source.id).text!==source.text||['partial','digest'].includes(sources.get(source.id).delivery?.status)){
-   sources.set(source.id,{...clone(source),...continuity(evidence)});restored.push(source.id);
+   const {delivery:staleFence,...restoredBody}=clone(source);
+   sources.set(source.id,{...restoredBody,...continuity(evidence)});restored.push(source.id);
   }
   retry.manifest.sourceRevisions[source.id]=revision;
  }

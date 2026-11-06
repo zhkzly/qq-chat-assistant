@@ -37,7 +37,7 @@ test('a correction after compaction clears retired request provenance and delive
   const answer=await controller.assist({text:command,taskId:'correct-after-compaction'});
   assert.equal(answer.text,'Here is help under the corrected direction.');
   assert.equal(calls.filter(p=>p.purpose==='discussion_compaction').length,1);assert.equal(helperCalls,2);
-  const task=controller.usage.get(scope,'correct-after-compaction');assert.equal(task.status,'complete');assert.equal(task.attempts,3);
+  const task=controller.usage.get(scope,'correct-after-compaction');assert.equal(task.status,'complete');assert.equal(task.attempts,4);assert.equal(calls.filter(p=>p.purpose==='fidelity_check').length,1);
   const companion=store.getCompanion(scope);assert.equal(companion.turns.find(turn=>turn.id===originalUser.id).text,'NEW_PRIVATE_DIRECTION');
   assert.equal(companion.turns.some(turn=>turn.id===originalAssistant.id),false);
   assert.equal(answer.discussionTurnFingerprints?.[originalAssistant.id],undefined);
@@ -47,7 +47,7 @@ test('a correction after compaction clears retired request provenance and delive
   assert.equal(store.db.prepare('SELECT count(*) n FROM discussion_compactions').get().n,0);
 });
 
-for(const limit of [4,5])test(limit===4?'a goal change keeps its new cache and completes four actual calls within cap four':'a goal change publishes freshly bound help and reuses its cache within a five-call allowance',async t=>{
+for(const limit of [4,5])test(limit===4?'a goal change reserves the answer and audit while skipping optional new compaction within cap four':'a goal change publishes freshly bound help and reuses its cache within a five-call allowance',async t=>{
   const store=new Store(':memory:'),calls=[],settings={model:'synthetic',baseUrl:'http://fixture.invalid/v1',anonymous:true,auto:false,assistantRequestLimit:limit};
   settings.realChatConsent={accountUid:scope.accountUid,peerUin:scope.peerUin,model:settings.model,baseUrl:settings.baseUrl};
   const command='Set my goal to NEW_ROMANTIC_GOAL and continue helping.';let compactCalls=0,helperCalls=0;
@@ -68,20 +68,20 @@ for(const limit of [4,5])test(limit===4?'a goal change keeps its new cache and c
   const originalAssistant=store.appendTurn(scope,{role:'assistant',kind:'discussion',text:'重复的讨论解释。'.repeat(550),sourceIds:[`private:${originalUser.id}`]});
   controller.live({scope,messages:[raw('90071992547409931001',false,{elements:[{textElement:{content:'虚构的游戏近况。'.repeat(560)}}]}),
     raw('90071992547409931002',true,{elements:[{textElement:{content:'虚构的近期回应。'.repeat(560)}}]})]});
-  const answer=await controller.assist({text:command,taskId:'goal-after-compaction'});assert.equal(answer.text,'Help with the new goal.');assert.equal(answer.semanticReview,undefined);
-  assert.equal(compactCalls,2);assert.equal(helperCalls,2);
-  const task=controller.usage.get(scope,'goal-after-compaction');assert.equal(task.status,'complete');assert.equal(task.attempts,4);assert.equal(task.remaining,limit-4);
+  const answer=await controller.assist({text:command,taskId:'goal-after-compaction'});assert.equal(answer.text,'Help with the new goal.');assert.equal(answer.semanticReview.exhaustive,false);
+  assert.equal(compactCalls,limit===4?1:2);assert.equal(helperCalls,2);
+  const task=controller.usage.get(scope,'goal-after-compaction');assert.equal(task.status,'complete');assert.equal(task.attempts,limit);assert.equal(task.remaining,0);
   const companion=store.getCompanion(scope);assert.equal(companion.goal.text,'NEW_ROMANTIC_GOAL');assert.equal(companion.goal.version,1);
   assert.equal(companion.turns.find(turn=>turn.id===originalAssistant.id).text,originalAssistant.text);
   const caches=store.db.prepare('SELECT record FROM discussion_compactions').all().map(row=>JSON.parse(row.record));
-  assert.equal(caches.length,1);assert.equal(caches[0].goalVersion,1);assert.ok(caches[0].summary.startsWith('COMPACT_META_2'));
+  assert.equal(caches.length,limit===4?0:1);if(limit===5){assert.equal(caches[0].goalVersion,1);assert.ok(caches[0].summary.startsWith('COMPACT_META_2'));}else{assert.equal(controller.snapshot().discussionCompaction.phase,'skipped');assert.equal(controller.snapshot().discussionCompaction.detail,'request_budget_reserved_for_answer');}
   const run=companion.runs.find(run=>run.id==='goal-after-compaction');assert.equal(JSON.stringify(run.requests).includes('COMPACT_META_1'),false);assert.equal(companion.turns.filter(turn=>turn.role==='assistant').length,2,'fresh primary help is added while the original private discussion remains');
-  assert.deepEqual(calls.map(payload=>payload.purpose),['discussion_compaction','discussion','discussion_compaction','discussion']);
+  assert.deepEqual(calls.map(payload=>payload.purpose),limit===4?['discussion_compaction','discussion','discussion','fidelity_check']:['discussion_compaction','discussion','discussion_compaction','discussion','fidelity_check']);
   if(limit===5){
     assert.equal(run.manifest.fidelity,undefined);assert.equal(run.manifest.publicationSeal.semanticCheck,false);assert.equal(controller.snapshot().discussionCompaction.phase,'applied');
     const reused=await controller.assist({text:'Continue helping under the current new goal.',taskId:'goal-after-compaction-reuse'});
     assert.equal(reused.text,'Help with the new goal.');assert.equal(compactCalls,2);assert.equal(helperCalls,3);
-    assert.equal(controller.usage.get(scope,'goal-after-compaction-reuse').attempts,1);assert.equal(controller.snapshot().discussionCompaction.phase,'reused');
+    assert.equal(controller.usage.get(scope,'goal-after-compaction-reuse').attempts,2);assert.equal(controller.snapshot().discussionCompaction.phase,'reused');
     assert.equal(store.getCompanion(scope).goal.text,'NEW_ROMANTIC_GOAL');
   }
 });
@@ -106,17 +106,14 @@ test('a repaired first compaction cannot buy an unbounded second goal epoch beyo
   const originalAssistant=store.appendTurn(scope,{role:'assistant',kind:'discussion',text:'重复的讨论解释。'.repeat(550),sourceIds:[`private:${originalUser.id}`]});
   controller.live({scope,messages:[raw('90071992547409931001',false,{elements:[{textElement:{content:'虚构的游戏近况。'.repeat(560)}}]}),
     raw('90071992547409931002',true,{elements:[{textElement:{content:'虚构的近期回应。'.repeat(560)}}]})]});
-  // Compaction is now an optional ladder step: with one attempt left after the
-  // repaired first epoch, the second epoch is skipped (budget reserved for the
-  // answer) instead of failing the request. The task still stays bounded by
-  // its declared cap and the answer itself completes within it.
-  const answer=await controller.assist({text:command,taskId:'goal-after-repaired-compaction'});
-  assert.equal(answer.text,'Update the requested goal.');
-  const task=controller.usage.get(scope,'goal-after-repaired-compaction');assert.equal(task.status,'complete');assert.equal(task.attempts,4);assert.equal(task.remaining,0);
-  assert.equal(calls.length,4);assert.equal(compactionHttp,2,'the second HTTP call is the one bounded repair, not a second plan');
-  assert.equal(controller.discussionCompaction.phase,'skipped');
-  assert.equal(controller.discussionCompaction.detail,'request_budget_reserved_for_answer');
+  // The two repaired compaction attempts and two goal-epoch producers use
+  // all four slots. A required audit cannot be purchased or silently skipped;
+  // preserve the applied goal receipt while withholding the new answer.
+  await assert.rejects(controller.assist({text:command,taskId:'goal-after-repaired-compaction'}),error=>error.code==='terminal_fact_audit_incomplete');
+  const task=controller.usage.get(scope,'goal-after-repaired-compaction');assert.equal(task.status,'failed');assert.equal(task.attempts,4);assert.equal(task.remaining,0);
+  assert.equal(calls.length,4);assert.equal(compactionHttp,2,'the second HTTP call is one bounded repair, not a second plan');
+  assert.equal(controller.discussionCompaction.phase,'skipped');assert.equal(controller.discussionCompaction.detail,'request_budget_reserved_for_answer');
   const companion=store.getCompanion(scope);assert.equal(companion.goal.text,'NEW_ROMANTIC_GOAL');assert.equal(companion.turns.find(turn=>turn.id===originalAssistant.id).text,originalAssistant.text);
-  assert.equal(companion.turns.filter(turn=>turn.role==='assistant').length,2,'the original discussion plus the delivered answer remain');
+  assert.equal(companion.turns.filter(turn=>turn.role==='assistant').length,1,'the original discussion remains and the unaudited new answer is absent');const run=companion.runs.find(r=>r.id==='goal-after-repaired-compaction');assert.ok(run.actionReceipts.some(r=>r.status==='applied'&&r.type==='set_goal'));assert.equal(run.status,'failed');
   assert.equal(store.db.prepare('SELECT count(*) n FROM discussion_compactions').get().n,0,'the old goal checkpoint remains invalid');
 });

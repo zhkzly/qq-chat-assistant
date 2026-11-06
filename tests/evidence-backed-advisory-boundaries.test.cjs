@@ -32,7 +32,7 @@ async function application(t,verdict){
 const badAdvisory={path:'suggestions[0].text',code:'style',sourceIds:['s999'],reason:DIAGNOSTIC};
 function noExtraRequests(app){
  const ledger=app.controller.usage.get(scope,'advisory-boundary');
- assert.equal(app.calls.length,1);assert.equal(ledger.attempts,1);assert.equal(ledger.limit,4);
+ assert.equal(app.calls.length,2);assert.equal(ledger.attempts,2);assert.equal(ledger.limit,4);
  assert.deepEqual(ledger.requests.map(request=>request.purpose),['discussion','fidelity_check']);
  assert.equal(app.store.messages(scope).some(message=>message.direction==='outgoing'),false);
  return ledger;
@@ -44,7 +44,15 @@ function noPublication(app){
  assert.equal(app.store.memoryStatus(scope).pendingProposals,0);
 }
 
-for(const style of ['unusable optional witnesses','targeted uncertainty','legacy global rejection'])test(`ordinary help never invokes an unrequested critic with ${style}`,async t=>{
- let checks=0;const app=await application(t,p=>{checks++;return {checkRef:p.checkRef,verdict:'reject',issues:[badAdvisory],concerns:[badAdvisory]};}),reply=await app.assist(),ledger=app.controller.usage.get(scope,'advisory-boundary');
- assert.equal(checks,0);assert.equal(app.calls.length,1);assert.equal(ledger.attempts,1);assert.equal(ledger.status,'complete');assert.equal(reply.suggestions[0].text,MESSAGE);assert.equal(reply.semanticReview,undefined);assert.equal(JSON.stringify(reply).includes(DIAGNOSTIC),false);assert.equal(app.contexts.some(input=>input.payload.purpose==='fidelity_check'),false);assert.equal(app.store.memorySources(scope).some(source=>source.id==='s999'),false);assert.equal(app.store.relationshipView(scope).claims.length,0);assert.equal(app.store.memoryStatus(scope).pendingProposals,0);assert.equal(app.store.messages(scope).some(message=>message.direction==='outgoing'),false);
+for(const style of ['unusable optional witnesses','targeted uncertainty','legacy global rejection'])test(`the required sparse audit keeps ${style} nonbinding without another generation call`,async t=>{
+ let checks=0;const app=await application(t,p=>{
+  checks++;
+  if(style==='unusable optional witnesses')return {checkRef:p.checkRef,auditProtocol:p.auditProtocol,issues:[],concerns:[badAdvisory]};
+  if(style==='targeted uncertainty')return {checkRef:p.checkRef,auditProtocol:p.auditProtocol,issues:[],concerns:[{path:'suggestions[0].text',code:'uncertain_interpretation',quote:MESSAGE,reason:DIAGNOSTIC}]};
+  return {checkRef:p.checkRef,auditProtocol:p.auditProtocol,issues:[],verdict:'reject',concerns:[]};
+ }),reply=await app.assist(),ledger=noExtraRequests(app),run=app.store.getCompanion(scope).runs.at(-1),audit=run.requests.find(request=>request.purpose==='fidelity_check').manifest.fidelity;
+ assert.equal(checks,1);assert.equal(ledger.status,'complete');assert.equal(reply.suggestions[0].text,MESSAGE);assert.equal(reply.semanticReview.status,'reviewed');assert.equal(reply.semanticReview.exhaustive,false);assert.equal(JSON.stringify(reply.suggestions).includes(DIAGNOSTIC),false);assert.equal(app.contexts.filter(input=>input.payload.purpose==='fidelity_check').length,1);assert.equal(run.requests.filter(request=>request.purpose==='delivery_repair').length,0);assert.ok(audit.diagnostics.every(item=>item.blocking===false));
+ if(style==='legacy global rejection'){assert.ok(audit.diagnostics.some(item=>item.code==='audit_extra_metadata'));assert.deepEqual(reply.semanticReview.findings,[]);}
+ else assert.ok(reply.semanticReview.findings.some(item=>item.kind==='concern'&&item.reason===DIAGNOSTIC));
+ assert.equal(app.store.memorySources(scope).some(source=>source.id==='s999'),false);assert.equal(app.store.relationshipView(scope).claims.length,0);assert.equal(app.store.memoryStatus(scope).pendingProposals,0);assert.equal(app.store.messages(scope).some(message=>message.direction==='outgoing'),false);
 });

@@ -339,8 +339,11 @@ function personUnderstanding(store,scope,options={}){
   const result={version:view.version,asOf:view.asOf,self:group(),contact:group(),dyad:group(),coverage:{...view.coverage,semanticReview:'evidence_based_not_entailment_proof'}};
   for(const claim of view.claims){
     if(claim.lifecycle!=='active')continue;
-    const uncertain=!claim.reviewComplete||claim.epistemicStatus!=='supported'||claim.assertionKind==='inferred'||['expired','not_yet_valid','needs_review','unspecified'].includes(claim.applicability);
-    const field=uncertain?'uncertainties':claim.aspect==='boundary'?'boundaries':['local','temporary'].includes(claim.applicabilityKind)?'recentCircumstances':'knownFacts';
+    // Evidence certainty and temporal applicability are separate axes. A fully
+    // reviewed report can be supported while its duration remains unspecified;
+    // keep it as a dated report, not uncertain content or a stable biography.
+    const uncertain=!claim.reviewComplete||claim.epistemicStatus!=='supported'||claim.assertionKind==='inferred'||claim.attribution==='hypothesis'||['expired','not_yet_valid','needs_review'].includes(claim.applicability);
+    const field=uncertain?'uncertainties':claim.applicability==='unspecified'?'recentCircumstances':claim.aspect==='boundary'?'boundaries':['local','temporary'].includes(claim.applicabilityKind)?'recentCircumstances':'knownFacts';
     result[claim.subject][field].push(claim);
   }
   return result;

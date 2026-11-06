@@ -72,7 +72,7 @@ test('actual013-shaped missing metadata repair uses the short choice again and r
   return new Response(JSON.stringify({choices:[{message:{content:JSON.stringify(wireSourceView(response,(wrapper.originalInput?context.extraRequests?.at(-1)?.manifest?.sourceHandles:undefined)||context.manifest.sourceHandles,(wrapper.originalInput?context.extraRequests?.at(-1)?.manifest?.primaryReferences:undefined)||context.manifest.primaryReferences,wrapper.originalInput?context.extraRequests.at(-1).payload.originalInput:context.payload))}}]}),{status:200});
  })});t.after(()=>controller.close());controller.updateStatus({phase:'ready',account:{uid:scope.accountUid,uin:scope.accountUin}});controller.scope={...scope};
  const reply=await controller.assist({text:f.currentRequestText,resumeTurnId:f.currentSourceId.slice(8),sourceTurnIds:[prior.id],taskId:'short-reference-actual013'});
- assert.equal(reply.suggestions.length,1);assert.equal(calls.length,2);assert.equal(store.getCompanion(scope).runs.at(-1).manifest.requestDelivery.status,'delivered');
+ assert.equal(reply.suggestions.length,1);assert.equal(calls.length,3);assert.equal(store.getCompanion(scope).runs.at(-1).manifest.requestDelivery.status,'delivered');
 });
 test('QQ/source changes and foreign scope cannot reuse a parsed editing choice',t=>{
  const {store,args,prepared}=fixture(t),parsed=parseAssistant(selectedResponse(),'discussion',prepared);

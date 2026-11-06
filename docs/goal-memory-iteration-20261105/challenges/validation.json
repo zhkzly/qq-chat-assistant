@@ -1,0 +1,119 @@
+{
+  "kind": "offline_challenge_contract_validation",
+  "status": "valid",
+  "cases": 12,
+  "families": [
+    {
+      "id": "stream-control-scope",
+      "cases": [
+        "stream-control-local",
+        "stream-control-recurring"
+      ]
+    },
+    {
+      "id": "stream-proposition-holder",
+      "cases": [
+        "stream-holder-third-party",
+        "stream-holder-first-person"
+      ]
+    },
+    {
+      "id": "stream-private-disclosure-scope",
+      "cases": [
+        "stream-private-reason-withheld",
+        "stream-private-reason-permitted"
+      ]
+    },
+    {
+      "id": "stream-closed-topic-current-choice",
+      "cases": [
+        "stream-topic-closed",
+        "stream-topic-reopened"
+      ]
+    },
+    {
+      "id": "stream-long-source-control-position",
+      "cases": [
+        "stream-long-source-head-veto",
+        "stream-long-source-tail-veto"
+      ]
+    },
+    {
+      "id": "stream-long-discussion-query-frame",
+      "cases": [
+        "stream-discussion-implicit-recall",
+        "stream-discussion-explicit-recall"
+      ]
+    }
+  ],
+  "requests": 42,
+  "dataset_hash": "b414736d227e81e66a5b81ad59cb4cdf97c92a1bc3fae617e86301687933d539",
+  "seed_provenance": "verified",
+  "model_calls": 0,
+  "semantic_evaluation": "not_run",
+  "negative_probe": "authored assistant event rejected before execution",
+  "lengths": [
+    {
+      "id": "stream-control-local",
+      "requests": 3,
+      "max_user_utf8_bytes": 144
+    },
+    {
+      "id": "stream-control-recurring",
+      "requests": 3,
+      "max_user_utf8_bytes": 150
+    },
+    {
+      "id": "stream-holder-third-party",
+      "requests": 3,
+      "max_user_utf8_bytes": 102
+    },
+    {
+      "id": "stream-holder-first-person",
+      "requests": 3,
+      "max_user_utf8_bytes": 102
+    },
+    {
+      "id": "stream-private-reason-withheld",
+      "requests": 3,
+      "max_user_utf8_bytes": 211
+    },
+    {
+      "id": "stream-private-reason-permitted",
+      "requests": 3,
+      "max_user_utf8_bytes": 211
+    },
+    {
+      "id": "stream-topic-closed",
+      "requests": 3,
+      "max_user_utf8_bytes": 120
+    },
+    {
+      "id": "stream-topic-reopened",
+      "requests": 3,
+      "max_user_utf8_bytes": 144
+    },
+    {
+      "id": "stream-long-source-head-veto",
+      "requests": 2,
+      "max_user_utf8_bytes": 46835
+    },
+    {
+      "id": "stream-long-source-tail-veto",
+      "requests": 2,
+      "max_user_utf8_bytes": 46835
+    },
+    {
+      "id": "stream-discussion-implicit-recall",
+      "requests": 7,
+      "max_user_utf8_bytes": 9988
+    },
+    {
+      "id": "stream-discussion-explicit-recall",
+      "requests": 7,
+      "max_user_utf8_bytes": 9988
+    }
+  ],
+  "reviewer_metadata_revision": "pre-freeze-clarification-v1",
+  "runtime_input_hashes_unchanged": true
+}

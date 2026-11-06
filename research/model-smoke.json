@@ -1,0 +1,10 @@
+{
+  "type": "live-model-with-synthetic-chat",
+  "timestamp": "2026-10-11T14:29:21.673Z",
+  "model": "gpt-6.1-sol",
+  "endpoint": "loopback CLIProxyAPI",
+  "alternatives": 3,
+  "nonempty": true,
+  "elapsedMs": 5991,
+  "noQQSend": true
+}

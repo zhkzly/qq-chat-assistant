@@ -15,7 +15,7 @@
 //   Notes are user records: their body may quote anyone, so a note never
 //   proves speech by itself; only its evidence lineage can attribute content.
 const SPEAKER_IDENTITY_MARKER='speaker-identity-v1';
-const SPEAKER_IDENTITY_RULE=`[speaker-identity-v1 身份词汇，全链路统一，不可从措辞猜测]你服务的用户=账号本人=QQ里的"我"：type:"qq" 的 direction:"outgoing"/role:"user"/speaker:"我"。所选QQ联系人=对方：type:"qq" 的 direction:"incoming"/role:"contact"/speaker:"对方"。type:"private" 或 "feedback" 且 role:"user" 的来源是用户本人在助手窗口对你说的话或反馈：其中第一人称（我/我的）一律指用户本人，绝不是对方发言，也不是已发送的QQ消息；记忆里它们的 author/subject 用 "self"。type:"note" 是用户记录的笔记，正文可能转述任何人，先按 evidenceSourceIds 溯源再定归属。relationshipContext.claims/understanding 的 subject："self"=用户本人，"contact"=所选联系人，"dyad"=双方共同。每条派生记录带 speakerBasis（程序从其证据闭包机械推导，非模型断言）：speakers 列出证据说话人（account_owner/contact/undetermined），holderLabel 说明该记录按证据只能如何呈现，例如 user_report_not_her_words 表示证据里没有对方原话，只能作为用户转述，不得渲染成她说的；her_words_evidence 才有对方原话支撑。缺方向或来源不明的QQ消息 speaker 记 undetermined，不得默认成任何一方；归属不明保留 unknown，禁止用猜测补齐。`;
+const SPEAKER_IDENTITY_RULE=`[speaker-identity-v1 身份词汇，全链路统一，不可从措辞猜测]你服务的用户=账号本人=QQ里的"我"：type:"qq" 的 direction:"outgoing"/role:"user"/speaker:"我"。所选QQ联系人=对方：type:"qq" 的 direction:"incoming"/role:"contact"/speaker:"对方"。type:"private" 或 "feedback" 且 role:"user" 的来源是用户本人在助手窗口对你说的话或反馈：其中第一人称（我/我的）一律指用户本人，绝不是对方发言，也不是已发送的QQ消息；记忆里它们的 author/subject 用 "self"。type:"note" 是用户记录的笔记，正文可能转述任何人，先按 evidenceSourceIds 溯源再定归属。type:"note" 且 authoredBy:"user" 的笔记是用户本人在助手窗口保存的原写记录：作者是记录作者，可支撑"用户亲述"的呈现，但不证明外部世界事实，正文引号里他人的话仍须保留归属。relationshipContext.claims/understanding 的 subject："self"=用户本人，"contact"=所选联系人，"dyad"=双方共同。每条派生记录带 speakerBasis（程序从其证据闭包机械推导，非模型断言）：speakers 列出证据说话人（account_owner/contact/undetermined），holderLabel 说明该记录按证据只能如何呈现，例如 user_report_not_her_words 表示证据里没有对方原话，只能作为用户转述，不得渲染成她说的；her_words_evidence 才有对方原话支撑。缺方向或来源不明的QQ消息 speaker 记 undetermined，不得默认成任何一方；归属不明保留 unknown，禁止用猜测补齐。`;
 
 // The authoritative speaker of one observation, derived mechanically from
 // the canonical projection fields. Never falls back to a default speaker.
@@ -27,6 +27,11 @@ function observationSpeaker(source) {
     return 'undetermined';
   }
   if ((source.type === 'private' || source.type === 'feedback') && source.role === 'user') return 'account_owner';
+  // A trusted user-authored note is the account owner's own written record:
+  // the note author is the owner, while quoted third parties inside the body
+  // keep their own attribution. Derived and legacy-unattributed notes stay
+  // undetermined here; their content attribution flows via evidence lineage.
+  if (source.type === 'note' && source.authoredBy === 'user') return 'account_owner';
   return 'undetermined';
 }
 // A source whose body is the account owner speaking: an actually sent
@@ -39,7 +44,8 @@ function contactSpeech(source) { return observationSpeaker(source) === 'contact'
 // to their roots instead, via the evidence closure).
 function ownerAuthoredRecord(source) {
   return accountOwnerSpeech(source) ||
-    (!!source && !source.deleted && source.type === 'note' && !(source.evidenceSourceIds || []).length);
+    (!!source && !source.deleted && source.type === 'note' &&
+      ((source.evidenceSourceIds || []).length ? source.authoredBy === 'user' : true));
 }
 
 // Single speech-attribution write gate (architecture M3: implement once,

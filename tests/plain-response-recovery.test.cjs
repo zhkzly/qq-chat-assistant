@@ -45,7 +45,7 @@ function fixture(t, purpose = 'discussion') {
   return { store, args, context: buildContext(args), prior, turn };
 }
 
-test('valid foreground help with rejected auxiliary metadata uses one primary without an automatic check while preserving pending intent', async t => {
+test('valid foreground help with rejected auxiliary metadata uses one primary and a required sparse audit while preserving pending intent', async t => {
   const { store, args } = fixture(t), calls = [], text = '按最新意思直接讨论邀请，保留实际交流中的未知。';
   const configured = { ...settings, auto: false, realChatConsent: { accountUid: scope.accountUid,
     peerUin: scope.peerUin, baseUrl: settings.baseUrl, model: settings.model } };
@@ -59,12 +59,12 @@ test('valid foreground help with rejected auxiliary metadata uses one primary wi
   await controller.bind(scope.peerUin);
   const before = store.getCompanion(scope), answer = await controller.assist({
     text: '我现在明确想直接邀请，先帮我商量。', taskId: 'retained-foreground-with-pending-metadata' });
-  assert.equal(calls.length, 1); assert.equal(answer.text, text); assert.equal(answer.responseRecovery, undefined);
+  assert.equal(calls.length, 2); assert.equal(calls.filter(call=>requestPayload(call).purpose==='fidelity_check').length,1);assert.equal(answer.semanticReview.exhaustive,false); assert.equal(answer.text, text); assert.equal(answer.responseRecovery, undefined);
   assert.equal(answer.privateReviewReceipt, undefined); assert.equal(answer.suggestions, undefined);
   assert.equal(answer.metadataReviewPending.reasonCode, 'auxiliary_metadata_rejected');
   const after = store.getCompanion(scope), run = after.runs.find(item => item.id === answer.requestId);
   assert.equal(after.state.version, before.state.version); assert.equal(after.topics.items.length, before.topics.items.length);
-  assert.equal(run.status, 'complete'); assert.equal(run.maintenance, 'partial_rejected'); assert.equal(run.requests.length, 1);
+  assert.equal(run.status, 'complete'); assert.equal(run.maintenance, 'partial_rejected'); assert.equal(run.requests.length, 2);assert.deepEqual(run.requests.map(request=>request.purpose),['discussion','fidelity_check']);
   assert.equal(run.auxiliaryErrors.length, 1); assert.equal(run.auxiliaryErrors[0].field, 'topicPatch');
   assert.equal(run.privateReviewReceipt, undefined); assert.equal(run.patchReceipt, null); assert.equal(run.topicReceipt, null);
   assert.equal(JSON.stringify(run).includes('MODEL_CANNOT_ASSIGN_AUTHORITY'), false, 'rejected model metadata is not retained');

@@ -1,0 +1,269 @@
+{
+  "status": "valid",
+  "policy_version": "raw-stream-replay-v1",
+  "dataset_hash": "b414736d227e81e66a5b81ad59cb4cdf97c92a1bc3fae617e86301687933d539",
+  "inference": "not_run",
+  "seed_provenance": {
+    "revision": "local-seed-source-sha256-v2-2026-11-05",
+    "status": "verified",
+    "records": [
+      {
+        "case_id": "stream-control-local",
+        "status": "verified",
+        "source": "evals/memory-understanding/cases.jsonl",
+        "source_sha256": "558be21ed1021bce08c96d061c50d2c865f40027edc6d1eff4272278eb37a5c7",
+        "seed_case_id": "mu-local-instruction-recurring-preference-and-quotation",
+        "raw_ids": [
+          "photo",
+          "short-once"
+        ],
+        "scope": "file bytes, cited case and source IDs; semantic adaptation reviewed separately"
+      },
+      {
+        "case_id": "stream-control-recurring",
+        "status": "verified",
+        "source": "evals/memory-understanding/cases.jsonl",
+        "source_sha256": "558be21ed1021bce08c96d061c50d2c865f40027edc6d1eff4272278eb37a5c7",
+        "seed_case_id": "mu-local-instruction-recurring-preference-and-quotation",
+        "raw_ids": [
+          "photo",
+          "short-once"
+        ],
+        "scope": "file bytes, cited case and source IDs; semantic adaptation reviewed separately"
+      },
+      {
+        "case_id": "stream-holder-third-party",
+        "status": "verified",
+        "source": "evals/memory-understanding/cases.jsonl",
+        "source_sha256": "558be21ed1021bce08c96d061c50d2c865f40027edc6d1eff4272278eb37a5c7",
+        "seed_case_id": "mu-local-instruction-recurring-preference-and-quotation",
+        "raw_ids": [
+          "photo"
+        ],
+        "scope": "file bytes, cited case and source IDs; semantic adaptation reviewed separately"
+      },
+      {
+        "case_id": "stream-holder-first-person",
+        "status": "verified",
+        "source": "evals/memory-understanding/cases.jsonl",
+        "source_sha256": "558be21ed1021bce08c96d061c50d2c865f40027edc6d1eff4272278eb37a5c7",
+        "seed_case_id": "mu-local-instruction-recurring-preference-and-quotation",
+        "raw_ids": [
+          "photo"
+        ],
+        "scope": "file bytes, cited case and source IDs; semantic adaptation reviewed separately"
+      },
+      {
+        "case_id": "stream-private-reason-withheld",
+        "status": "verified",
+        "source": "evals/assistant/replay/coverage-v2.jsonl",
+        "source_sha256": "ad6caf4bb7b2e269fd0fbd96f0d6561682fec41c83ace946c82fc182ea429f8c",
+        "seed_case_id": "coverage-private-source-withdrawal",
+        "raw_ids": [
+          "q1",
+          "p1"
+        ],
+        "scope": "file bytes, cited case and source IDs; semantic adaptation reviewed separately"
+      },
+      {
+        "case_id": "stream-private-reason-permitted",
+        "status": "verified",
+        "source": "evals/assistant/replay/coverage-v2.jsonl",
+        "source_sha256": "ad6caf4bb7b2e269fd0fbd96f0d6561682fec41c83ace946c82fc182ea429f8c",
+        "seed_case_id": "coverage-private-source-withdrawal",
+        "raw_ids": [
+          "q1",
+          "p1"
+        ],
+        "scope": "file bytes, cited case and source IDs; semantic adaptation reviewed separately"
+      },
+      {
+        "case_id": "stream-topic-closed",
+        "status": "verified",
+        "source": "evals/assistant/context-memory.jsonl",
+        "source_sha256": "e9ed4ad8210038587b7888ee286d0bffc1dc95250cf0eeb628e9030e3542833f",
+        "seed_case_id": "cm-closed-topic-not-restored",
+        "raw_ids": [
+          "cl-q1",
+          "cl-p1"
+        ],
+        "scope": "file bytes, cited case and source IDs; semantic adaptation reviewed separately"
+      },
+      {
+        "case_id": "stream-topic-reopened",
+        "status": "verified",
+        "source": "evals/assistant/context-memory.jsonl",
+        "source_sha256": "e9ed4ad8210038587b7888ee286d0bffc1dc95250cf0eeb628e9030e3542833f",
+        "seed_case_id": "cm-closed-topic-not-restored",
+        "raw_ids": [
+          "cl-q1",
+          "cl-p1"
+        ],
+        "scope": "file bytes, cited case and source IDs; semantic adaptation reviewed separately"
+      },
+      {
+        "case_id": "stream-long-source-head-veto",
+        "status": "verified",
+        "source": "evals/assistant/replay/coverage-v2.jsonl",
+        "source_sha256": "ad6caf4bb7b2e269fd0fbd96f0d6561682fec41c83ace946c82fc182ea429f8c",
+        "seed_case_id": "coverage-long-single-source",
+        "raw_ids": [
+          "ls-u1",
+          "q1"
+        ],
+        "scope": "file bytes, cited case and source IDs; semantic adaptation reviewed separately"
+      },
+      {
+        "case_id": "stream-long-source-tail-veto",
+        "status": "verified",
+        "source": "evals/assistant/replay/coverage-v2.jsonl",
+        "source_sha256": "ad6caf4bb7b2e269fd0fbd96f0d6561682fec41c83ace946c82fc182ea429f8c",
+        "seed_case_id": "coverage-long-single-source",
+        "raw_ids": [
+          "ls-u1",
+          "q1"
+        ],
+        "scope": "file bytes, cited case and source IDs; semantic adaptation reviewed separately"
+      },
+      {
+        "case_id": "stream-discussion-implicit-recall",
+        "status": "verified",
+        "source": "evals/assistant/replay/coverage-v2.jsonl",
+        "source_sha256": "ad6caf4bb7b2e269fd0fbd96f0d6561682fec41c83ace946c82fc182ea429f8c",
+        "seed_case_id": "coverage-long-private-consultation",
+        "raw_ids": [
+          "q1",
+          "lp-u0",
+          "lp-u1",
+          "lp-u2",
+          "lp-u3",
+          "lp-u4",
+          "lp-u5",
+          "lp-u6",
+          "lp-u7",
+          "lp-u8",
+          "lp-u9",
+          "lp-u10",
+          "lp-u11",
+          "lp-u12",
+          "lp-u13",
+          "lp-u14",
+          "lp-u15",
+          "lp-u16",
+          "lp-u17",
+          "lp-u18",
+          "lp-u19",
+          "lp-u20"
+        ],
+        "scope": "file bytes, cited case and source IDs; semantic adaptation reviewed separately"
+      },
+      {
+        "case_id": "stream-discussion-explicit-recall",
+        "status": "verified",
+        "source": "evals/assistant/replay/coverage-v2.jsonl",
+        "source_sha256": "ad6caf4bb7b2e269fd0fbd96f0d6561682fec41c83ace946c82fc182ea429f8c",
+        "seed_case_id": "coverage-long-private-consultation",
+        "raw_ids": [
+          "q1",
+          "lp-u0",
+          "lp-u1",
+          "lp-u2",
+          "lp-u3",
+          "lp-u4",
+          "lp-u5",
+          "lp-u6",
+          "lp-u7",
+          "lp-u8",
+          "lp-u9",
+          "lp-u10",
+          "lp-u11",
+          "lp-u12",
+          "lp-u13",
+          "lp-u14",
+          "lp-u15",
+          "lp-u16",
+          "lp-u17",
+          "lp-u18",
+          "lp-u19",
+          "lp-u20"
+        ],
+        "scope": "file bytes, cited case and source IDs; semantic adaptation reviewed separately"
+      }
+    ]
+  },
+  "cases": [
+    {
+      "id": "stream-control-local",
+      "family_id": "stream-control-scope",
+      "events": 7,
+      "requests": 3
+    },
+    {
+      "id": "stream-control-recurring",
+      "family_id": "stream-control-scope",
+      "events": 7,
+      "requests": 3
+    },
+    {
+      "id": "stream-holder-third-party",
+      "family_id": "stream-proposition-holder",
+      "events": 7,
+      "requests": 3
+    },
+    {
+      "id": "stream-holder-first-person",
+      "family_id": "stream-proposition-holder",
+      "events": 7,
+      "requests": 3
+    },
+    {
+      "id": "stream-private-reason-withheld",
+      "family_id": "stream-private-disclosure-scope",
+      "events": 6,
+      "requests": 3
+    },
+    {
+      "id": "stream-private-reason-permitted",
+      "family_id": "stream-private-disclosure-scope",
+      "events": 6,
+      "requests": 3
+    },
+    {
+      "id": "stream-topic-closed",
+      "family_id": "stream-closed-topic-current-choice",
+      "events": 6,
+      "requests": 3
+    },
+    {
+      "id": "stream-topic-reopened",
+      "family_id": "stream-closed-topic-current-choice",
+      "events": 6,
+      "requests": 3
+    },
+    {
+      "id": "stream-long-source-head-veto",
+      "family_id": "stream-long-source-control-position",
+      "events": 4,
+      "requests": 2
+    },
+    {
+      "id": "stream-long-source-tail-veto",
+      "family_id": "stream-long-source-control-position",
+      "events": 4,
+      "requests": 2
+    },
+    {
+      "id": "stream-discussion-implicit-recall",
+      "family_id": "stream-long-discussion-query-frame",
+      "events": 13,
+      "requests": 7
+    },
+    {
+      "id": "stream-discussion-explicit-recall",
+      "family_id": "stream-long-discussion-query-frame",
+      "events": 13,
+      "requests": 7
+    }
+  ],
+  "evidence": "visible fictional development streams; no quality rating"
+}

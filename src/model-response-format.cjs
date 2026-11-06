@@ -8,33 +8,40 @@ const {auxiliaryReview}=require('./help-behavior.cjs');
 const {compile}=require('./wire/compile.cjs');
 const lookupSchemaShape=compile('lookup').schema();
 const {candidatePaths}=require('./candidate-field-paths.cjs');
-const {deliveredDeclarationMaterials}=require('./context/mqa-registry.cjs');
+const sparseFidelityContract=require('./contracts/fidelity-result.contract.json').fields.issues.item;
+const {arrangementConsumptionState}=require('./context/mqa-registry.cjs');
 // B12: which declared-arrangement materials actually reached this payload
 // (mandatory materials plus the declarations riding on delivered digest
 // views), as sourceIds. Works on canonical payloads and their wire
 // projections alike: both keep the ids (handles on the wire) and the
 // declaration sentences, which is all the conditional exposure needs.
 function deliveredDeclarationSourceIds(payloadLike){
- const current=[],rest=[],seen=new Set();
- for(const root of [payloadLike,payloadLike?.originalInput]){
-  if(!root||typeof root!=='object')continue;
-  const asOf=root.asOf||null;
-  for(const material of Array.isArray(root.mandatoryMaterials)?root.mandatoryMaterials:[]){
-   if(!material||typeof material.sentence!=='string'||!material.sentence||typeof material.sourceId!=='string'||seen.has(material.sourceId))continue;
-   seen.add(material.sourceId);(material.current===false?rest:current).push(material.sourceId);
+ return [...new Set(arrangementConsumptionState(payloadLike).delivered.map(material=>material.sourceId))];
+}
+
+function offeredMaterialSchema(payload,{path='materials'}={}){
+ const refs=new Set(),partialRefs=new Set(),boundaries=new Set(),authorities=new Set();
+ if(payload.currentPermission?.authorityRef)authorities.add(payload.currentPermission.authorityRef);
+ for(const source of payload.sources||[]){
+  for(const item of [...(source.segments||[]),...(source.materialChoices||[])]){
+   if(item.materialRef){refs.add(item.materialRef);if(source.delivery&&source.delivery.status!=='delivered')partialRefs.add(item.materialRef);}
+   if(item.endBoundary)boundaries.add(item.endBoundary);
+   for(const [ref]of item.parts||[])if(ref)boundaries.add(ref);
   }
-  for(const material of deliveredDeclarationMaterials(root.sources,{asOf})){
-   if(seen.has(material.sourceId))continue;
-   seen.add(material.sourceId);(material.current===false?rest:current).push(material.sourceId);
-  }
+  for(const group of ['program','originalUserStatementCandidates'])for(const item of source.authorityChoices?.[group]||[])if(item.authorityRef)authorities.add(item.authorityRef);
  }
- return [...current,...rest];
+ const choices=[...refs],edges=[...boundaries],properties={...quote.properties};
+ if(choices.length)properties.materialRef={...quote.properties.materialRef,anyOf:[{enum:choices},...(edges.length?[{pattern:`^(?:${choices.join('|')})@(?:${edges.join('|')}):(?:${edges.join('|')})$`}]:[])]};
+ if(authorities.size)properties.authorityRef={...quote.properties.authorityRef,enum:[...authorities]};
+ const partial=[...partialRefs],item={...quote,properties,...(partial.length?{anyOf:[{required:['factQuote']},{properties:{materialRef:{not:{enum:partial}}}}]}:{})};
+ return {...array(item),maxItems:choices.length?8:0,
+  description:choices.length?`${path}: only actually used historical private facts from this exact HTTP menu. A bare materialRef from a partial source requires exact factQuote; valid displayed boundary refinements remain available. A generated summary or broad heading is not an unread fact. Public QQ needs no selector; current facts use currentFacts. Match authorityRef without expanding disclosure scope.`:`${path}: no historical private materialRef is offered in this HTTP request. Omit this lane or use []; public QQ needs no selector and current facts use currentFacts. Never guess an m#.`};
 }
 const string={type:'string'},integer={type:'integer'},boolean={type:'boolean'};
 const array=items=>({type:'array',items}),strings=array(string),choice=values=>({type:'string',enum:values});
 const object=(properties,required=[])=>({type:'object',properties,...(required.length?{required}:{}),additionalProperties:false});
 const reference=object({text:string,sourceIds:strings},['text','sourceIds']);
-const quote=object({materialRef:{...string,description:'Offered m# or m#@bSTART:bEND using displayed word boundaries only. Choose relevant outward material; never count offsets or copy bodies.'},authorityRef:{...string,description:'Choose the matching offered authority for this private material. currentPermission refers to the complete current human statement, a candidate NOT GRANT; do not slice negation or conditions.'},factQuote:{...string,description:'Optional exact narrower FACT span inside the selected materialRef; the fact is distinct from its permission sentence.'},permissionQuote:{...string,description:'Optional exact narrow permission from the selected authority original; full context, negation and conditions still apply.'}},['materialRef']);
+const quote=object({materialRef:{...string,description:'Offered m# or m#@bSTART:bEND using displayed word boundaries only. Choose relevant outward material; never count offsets or copy bodies.'},authorityRef:{...string,description:'Choose the matching offered authority for this private material. currentPermission refers to the complete current human statement, a candidate NOT GRANT; do not slice negation or conditions.'},factQuote:{...string,description:'Exact narrower FACT span inside the selected materialRef, distinct from its permission sentence. Required for a bare parent from a partially delivered source; a valid displayed boundary refinement already selects its exact span. Copy one contiguous substring of the delivered fragment VERBATIM, character for character: never paraphrase, trim leading words, merge sentences, or substitute pronouns. Context also carries derived memory summaries of the same events (e.g. sentences starting with 她说/她最近 that restate a delivered original) — those summaries are NOT valid currentFacts even when they look more memory-like; only text from the delivered original rows qualifies.'},permissionQuote:{...string,description:'Optional exact narrow permission from the selected authority original; full context, negation and conditions still apply.'}},['materialRef']);
 const guidance=object({objective:reference,allowedApproach:reference,avoidances:array(reference),currentStep:reference});
 const draftPlan=object({editingReference:object({choice:{...string,description:'Choose the offered short handle, such as e1. Do not reconstruct artifact IDs or versions.'},artifactId:string,version:integer}),quotes:array(quote),intent:choice(['reply']),style:choice(['natural','short','casual']),language:string,
  askFollowup:boolean,useEmoji:boolean,taskUse:choice(['continue','different','uncertain']),option:object({turnId:string,index:integer},['turnId','index']),guidance});
@@ -66,7 +73,7 @@ const memoryClaim={...claim,properties:{...claim.properties,activity:activitySel
 const retirement=object({id:{...string,description:'Offered prior typed record or legacy item; retire unsupported understanding without inventing a successor.'},expectedVersion:integer,sourceIds:strings,lifecycle:choice(['superseded','withdrawn'])},['id','expectedVersion','sourceIds','lifecycle']);
 const relationshipPatch=object({claims:array(claim),events:array(event),retire:array(retirement)});
 const memoryRelationshipPatch=object({claims:array(memoryClaim),events:array(memoryEvent),retire:array(retirement)});
-const expressionOption=object({label:string,quotes:{...array(quote),description:'Optional historical private fact quotes for THIS option only; with currentFacts combined at most 8.'},currentFacts:{...strings,description:'Optional exact current human fact spans for THIS option only. With quotes combined at most 8; source binding is not disclosure permission.'},style:string},['label']);
+const expressionOption=object({label:string,quotes:{...array(quote),description:'Optional historical private fact quotes for THIS option only; with currentFacts combined at most 8.'},currentFacts:{...strings,description:'Optional exact current human fact spans for THIS option only: either the verbatim delivered span or its readRange handle 「@r<n>」 (the program resolves the exact text). With quotes combined at most 8; source binding is not disclosure permission.'},style:string},['label']);
 const experienceProposal=object({text:string,applicability:string,methodId:string,sourceIds:strings,caseIds:strings},['text','applicability','methodId','sourceIds','caseIds']);
 const quoteRef=object({turnId:string,role:choice(['user','assistant']),field:choice(['text','discussionExplanation','suggestions','expressionOptions']),index:integer,quoteIndex:integer,text:string,
  artifactRef:object({artifactId:string,version:integer},['artifactId','version']),sourceIds:strings},['turnId','role','text']);
@@ -90,7 +97,7 @@ const schemas={
  assistant_result:object({operation:choice(['advise','prepare_message','lookup','clarify']),
  answer:{...object({privateExplanation:string,suggestions:array(object({style:string,text:string},['text']))},['suggestions']),description:'Only prepare_message: COMPLETE outward suggestions and its sole optional privateExplanation. No outer text, planning handoff or later composer.'},materials:{...array(quote),description:'Only actually used historical private facts; currentFacts plus materials total at most 8. Public QQ/control needs no material selector. Source/permission candidates are not new sharing grants.'},
  text:{...string,description:'Complete private coaching for advise; optional lookup audit note. Forbidden for prepare_message: answer.privateExplanation is the sole private explanation.'},
- currentFacts:{...strings,description:'Only actually used private facts, including task dates/items or personal events: exact spans from this current complete human statement, not control/reasons. currentFacts plus materials total at most 8. Binding is NOT blanket sharing permission; interpret full negation, quotations and conditions.'},
+ currentFacts:{...strings,description:'Only actually used private facts: exact spans from the delivered current body/readRanges — copy one contiguous substring VERBATIM, character for character; never drop leading words or pronouns, never paraphrase, trim, merge or rewrite, and a question or your own reasoning is never a currentFact. Never use unread gaps or a generated summary. Private-help evidence is not an outward permission. Outward current facts require complete delivered permission context. currentFacts plus materials total at most8; preserve negation, quotations, conditions and current restrictions. Contact/QQ message content is NEVER a currentFact: those are public sources you respond to directly; currentFacts are only private-window facts of the account user.'},
  editingReference:object({choice:string},['choice']),
  arrangementHandling:{...object({disposition:choice(['used','conflict','stale','missing']),evidenceRefs:strings,reason:string},['disposition','evidenceRefs']),description:'Only prepare_message with delivered declared arrangements: report the disposition. used must carry the declared time window (day/clock words from the declaration) inside the outward suggestions and cite the delivered declaration sourceIds in evidenceRefs, copied exactly as they appear with the delivered declaration; conflict/stale/missing need a concrete reason. Copy-ready used form: {"disposition":"used","evidenceRefs":["<delivered declaration sourceId>"]}'},
  draftPlan:{...draftPlan,description:'Only prepare_message: material choices and proposed controls; no clarification.'},
@@ -126,7 +133,9 @@ function responseEnvelope(settings,purpose,payload) {
  if(name==='assistant_result'){const properties={...schema.properties};delete properties.draftPlan;schema={...schema,properties};}
  if(name==='fidelity_result'&&(payload?.originalInput||payload)?.auditProtocol==='sparse-defects-v1')schema=object({
   checkRef:choice(['c1']),auditProtocol:choice(['sparse-defects-v1']),
-  issues:array(object({path:string,code:choice(['unsupported_fact','evidence_mismatch','omitted_qualifier','internal_conflict','private_disclosure']),quote:string,reason:string,evidence:array(evidenceWitness),related:candidateReference},['path','code','quote','reason'])),
+  issues:{...array(object({path:string,code:choice(sparseFidelityContract.code.sparse),quote:string,
+   claim:object({kind:choice(sparseFidelityContract.claim.kinds),quote:{...string,maxLength:sparseFidelityContract.claim.quote.maxLength}},['kind','quote']),
+   privacyBasis:choice(sparseFidelityContract.privacyBasis.values),reason:string,evidence:array(evidenceWitness),related:candidateReference},['path','code','quote','claim'])),description:'Report each distinct concrete defect once; do not emit the same finding twice with duplicate evidence. unsupported_fact means the claim introduces SPECIFICS absent from every delivered original (an invented event, detail, or a definite memory/experience state with no source). A faithful rephrasing of delivered original content, same specifics with different wording, is NOT a new fact: compare meaning against the complete delivered originals (including authored notes), not surface characters. Practical recommendations, comparisons of options, hedged conditionals, and general how-to advice are advice/opinion, not assertions: label claim.kind accordingly. The issues array itself is ALWAYS required: return it as an empty [] when nothing qualifies; 「leave out」 refers to individual findings, never to omitting the array. A source that grounds the claim means no defect.'},
   concerns:array(object({path:string,code:string,reason:string,quote:string},['path','code','reason']))
  },['checkRef','auditProtocol','issues']);
  if(name==='fidelity_result'&&(payload?.originalInput||payload)?.candidate){
@@ -159,6 +168,10 @@ function responseEnvelope(settings,purpose,payload) {
   delete properties.relationshipPatch;
   if(taskPayload.experienceProposalPolicy?.enabled!==true)delete properties.experienceProposals;
   if(taskPayload.generationOrigin==='qq_observation')delete properties.actions;
+  if(taskPayload.primaryReferenceProtocol){
+   properties.materials=offeredMaterialSchema(taskPayload);
+   properties.expressionOptions={...properties.expressionOptions,items:{...properties.expressionOptions.items,properties:{...properties.expressionOptions.items.properties,quotes:offeredMaterialSchema(taskPayload,{path:'expressionOptions[].quotes'})}}};
+  }
   // B12: the consumption field rides only when declared arrangements were
   // actually delivered; non-arrangement contexts never see it. When it is
   // offered, the description carries a copy-ready example citing this

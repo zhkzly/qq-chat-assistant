@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>QQ 聊天助手 · 界面草图</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f2f4f5;color:#263136;font:15px/1.6 system-ui,-apple-system,"Noto Sans CJK SC",sans-serif}button,input,select,textarea{font:inherit}button{cursor:pointer}button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid #77aaa1;outline-offset:2px}header.page{max-width:1260px;margin:auto;padding:30px 26px 16px;display:flex;justify-content:space-between;gap:18px;flex-wrap:wrap}h1{font-size:25px;line-height:1.3;margin:0 0 6px}p{margin:0}.sub{color:#687780;font-size:13px}.badge{font-size:12px;background:#e5eeeb;color:#345f54;border-radius:20px;padding:6px 12px;align-self:center}.layout{max-width:1260px;margin:0 auto;padding:8px 26px 30px;display:grid;grid-template-columns:minmax(0,1fr) 390px;gap:26px;align-items:start}.window{border:1px solid #dce2e5;background:white;border-radius:15px;box-shadow:0 12px 34px #2431360d;overflow:hidden}.titlebar{background:#fafbfc;border-bottom:1px solid #e9edef;padding:12px 17px;display:flex;align-items:center;justify-content:space-between;gap:12px}.dots{color:#aab3b8;letter-spacing:5px}.qq-header{padding:17px 20px;border-bottom:1px solid #edf0f1;display:flex;gap:14px;align-items:center;justify-content:space-between;flex-wrap:wrap}.avatar{width:41px;height:41px;border-radius:13px;display:grid;place-items:center;background:#e4ecea;color:#406a5e;font-weight:700}.who{display:flex;align-items:center;gap:12px}.who strong{font-size:16px}.primary{background:#3d7062;color:white;border:0;border-radius:9px;padding:9px 15px}.secondary{background:white;border:1px solid #d8e1e0;border-radius:8px;padding:6px 11px;color:#415a52}.muted-button{background:none;border:0;color:#6b7b82;padding:3px 6px}.chat{padding:21px 22px;background:#f8fafb;min-height:365px}.date{text-align:center;color:#9aa5ab;font-size:12px;margin-bottom:22px}.message{display:flex;gap:9px;align-items:flex-start;margin:14px 0}.message.mine{justify-content:flex-end}.bubble{background:#fff;border:1px solid #e6ebed;padding:10px 13px;border-radius:4px 13px 13px 13px;max-width:85%;word-break:break-word}.mine .bubble{background:#dcece6;border-color:#dcece6;border-radius:13px 4px 13px 13px}.speaker{font-size:11px;color:#91a09e;margin:3px 0 5px}.qq-bottom{padding:16px 20px;border-top:1px solid #e7ecee}.qq-placeholder{color:#a2afb4;border:1px dashed #d7e0e2;border-radius:8px;padding:17px;font-size:13px}.demo-controls{margin-top:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}.demo-controls label{font-size:12px;color:#75878f}.demo-controls select{max-width:100%;background:white;border:1px solid #d8e0e3;border-radius:7px;padding:5px 7px}.helper{background:#fbfcfb}.helper h2{font-size:17px;margin:0}.helper-content{padding:17px}.scope{display:flex;gap:9px;align-items:center;flex-wrap:wrap;margin-bottom:13px}.scope strong{font-size:14px}.signal{width:7px;height:7px;display:inline-block;background:#528b75;border-radius:50%;margin-right:4px}.mini{font-size:12px;color:#6e8078}.context{border-left:3px solid #c9dbd4;padding:7px 11px;margin:10px 0 16px;background:#f2f6f3;color:#586f64;font-size:13px}.field-label{display:block;font-size:13px;font-weight:600;margin-bottom:7px}.intent{width:100%;min-height:69px;resize:vertical;border:1px solid #d9e2dd;border-radius:8px;padding:9px 10px;background:white}.controls{margin:10px 0 14px;display:flex;gap:9px;align-items:center;justify-content:space-between;flex-wrap:wrap}.controls select{border:1px solid #d9e2dd;padding:5px;border-radius:7px;background:white;max-width:100%}.auto{font-size:12px;color:#678076;display:flex;gap:5px;align-items:center}.advice{display:grid;gap:10px}.option{border:1px solid #dce5e0;background:white;border-radius:10px;padding:12px}.option-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:7px;gap:10px}.option-top strong{font-size:12px;color:#48685b}.option p{font-size:14px;line-height:1.7}.reason{color:#91a399;font-size:11px;margin-top:6px}.editor{width:100%;resize:vertical;min-height:78px;background:white;border:1px solid #d8e3db;border-radius:8px;padding:10px;margin-top:6px}.copy-row{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:9px}.status{font-size:12px;color:#5e8070;min-height:20px;word-break:break-word}.section{border-top:1px solid #e6eee9;margin-top:17px;padding-top:13px}.footer-row{display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap}.demo-note{margin-top:13px;color:#8c9d93;font-size:11px}.empty{padding:30px 14px;text-align:center;color:#83948d}.closed-card{color:#6b7d74;padding:30px 20px;background:#f8faf8;border:1px dashed #d8e4db;border-radius:12px;font-size:14px}.closed-card h2{font-size:18px;margin:0 0 10px}.layout [hidden]{display:none!important}@media(max-width:860px){.layout{grid-template-columns:minmax(0,1fr);gap:18px}.helper{max-width:530px;width:100%;justify-self:center}.chat{min-height:270px}}@media(max-width:430px){header.page{padding:21px 15px 10px}.layout{padding:8px 12px 22px}.qq-header,.qq-bottom{padding:14px}.chat{padding:17px 12px}.helper-content{padding:13px}h1{font-size:21px}.bubble{max-width:90%}}
+</style>
+</head>
+<body>
+<header class="page"><div><h1>正常聊，旁边有个帮你想话的人。</h1><p class="sub">QQ 聊天助手 · 可点击界面草图 · 所有对话与建议都是示例</p></div><span class="badge">由你复制、修改和发送</span></header>
+<main id="chat-assistant-prototype" class="layout">
+  <section class="window" aria-label="正常 QQ 私聊的设计示意">
+    <div class="titlebar"><span class="sub">QQ 私聊 · 设计示意</span><span class="dots" aria-hidden="true">● ● ●</span></div>
+    <div class="qq-header"><div class="who"><div class="avatar" id="avatar">林</div><div><strong id="qq-contact">小林</strong><div class="sub">当前好友会话 · 演示联系人</div></div></div><button class="primary" id="open-helper" type="button">打开 AI 建议 ↗</button></div>
+    <div class="chat"><div class="date">今天 · 示例对话</div><div id="messages"></div></div>
+    <div class="qq-bottom"><div class="qq-placeholder">你继续在原来的 QQ 输入和发送。助手只给你参考文本。</div><div class="demo-controls"><label for="demo-contact">演示切换会话</label><select id="demo-contact"><option value="a">小林（示例 A）</option><option value="b">小周（示例 B）</option></select><button class="secondary" id="simulate-arrival" type="button">模拟一条新消息</button></div></div>
+  </section>
+  <aside id="helper" class="window helper" aria-label="独立 AI 辅助窗口的设计示意" hidden>
+    <div class="titlebar"><h2>AI 建议</h2><button class="muted-button" id="close-helper" type="button" aria-label="关闭辅助窗口">×</button></div>
+    <div class="helper-content">
+      <div class="scope"><strong id="helper-contact">小林</strong><span class="mini"><span class="signal" aria-hidden="true"></span>跟随当前会话</span></div>
+      <div class="context"><div id="sync-status">历史在后台自动加载</div><div id="context-preview"></div></div>
+      <label class="field-label" for="intent">你想怎么回应？</label><textarea class="intent" id="intent">自然一点，关心她今天累不累，顺着她的话聊。</textarea>
+      <div class="controls"><select id="tone" aria-label="建议语气"><option value="natural">自然接话</option><option value="light">轻松一点</option><option value="gentle">温柔一点</option></select><button class="primary" id="generate" type="button">给我几个建议</button></div>
+      <label class="auto"><input id="auto-refresh" type="checkbox" checked>来信后刷新建议，保留我正在编辑的草稿</label>
+      <div class="status" id="generation-status" aria-live="polite"></div>
+      <div class="advice" id="suggestions"></div>
+      <div class="section"><label class="field-label" for="draft">选一句，再改成你的说话方式</label><textarea class="editor" id="draft" placeholder="点击某条建议的“采用”，放到这里修改。"></textarea><div class="copy-row"><span class="status" id="copy-status" aria-live="polite">尚未复制</span><button class="primary" id="copy-draft" type="button">复制草稿</button></div></div>
+      <div class="section"><div class="footer-row"><span class="mini">导出是可选功能</span><div><button class="secondary" id="export-json" type="button">JSON</button> <button class="secondary" id="export-txt" type="button">TXT</button></div></div><p class="demo-note">本页演示“打开窗口 → 自动上下文 → 建议 → 编辑复制”。尚未连接真实 QQ 或模型，导出内容也仅为示例。</p></div>
+    </div>
+  </aside>
+  <div class="closed-card" id="closed-state"><h2>需要帮你想一句话时，打开它。</h2><p>点击 QQ 会话里的“打开 AI 建议”，旁边出现辅助窗口。历史自动加载，不需要先导出或导入。</p></div>
+</main>
+<script>
+(() => {
+  const root = document.getElementById('chat-assistant-prototype');
+  const get = id => root.querySelector('#' + id);
+  const contacts = {
+    a: {name:'小林', short:'林', messages:[{side:'mine',text:'今天那个项目进展怎么样？'},{side:'peer',text:'终于做完啦，但是忙了一整天，有点累。'},{side:'mine',text:'辛苦了，晚上准备怎么放松一下？'},{side:'peer',text:'想点份好吃的，然后躺着看会儿剧。'}],next:'不过我纠结吃什么，选择困难又犯了。'},
+    b: {name:'小周', short:'周', messages:[{side:'mine',text:'周末有什么安排吗？'},{side:'peer',text:'还没有，想出去走走，但不知道去哪。'}],next:'你最近有发现什么不错的地方吗？'}
+  };
+  let current = 'a';
+  let open = false;
+  let generation = 0;
+  let dirtyDraft = false;
+  const options = {
+    a:[['自然接话','这套安排听着就很舒服。那先解决晚饭，今天想吃点清淡的，还是奖励自己一顿？','接住她的晚饭话题。'],['轻松一点','今天的任务已经通关，晚饭就别再开困难模式了。要不要我帮你缩小一下选项？','轻松回应，不急着换话题。'],['温柔一点','忙了一天就好好放松一下吧。先吃点喜欢的，剧可以慢慢看。','简单关心，留出她接话的空间。']],
+    b:[['自然接话','我也想出去透透气。你更想逛逛街，还是找个安静一点的地方走走？','先问她的偏好。'],['轻松一点','看来周末计划还在加载中。要不要一起挑一个不赶时间的地方？','轻松提出一个选择。'],['温柔一点','出去走走挺好的。找个舒服、不用赶路的地方，慢慢逛一会儿。','回应她想放松的意思。']]
+  };
+  function renderMessages(){
+    const peer = contacts[current];
+    get('qq-contact').textContent = peer.name;
+    get('helper-contact').textContent = peer.name + ' · 示例联系人';
+    get('avatar').textContent = peer.short;
+    get('messages').replaceChildren();
+    for(const message of peer.messages){
+      const row = document.createElement('div');
+      row.className = 'message' + (message.side === 'mine' ? ' mine' : '');
+      const block = document.createElement('div');
+      const who = document.createElement('div');
+      who.className = 'speaker'; who.textContent = message.side === 'mine' ? '我' : peer.name;
+      const bubble = document.createElement('div');
+      bubble.className = 'bubble'; bubble.textContent = message.text;
+      block.append(who,bubble); row.append(block); get('messages').append(row);
+    }
+    get('sync-status').textContent = `示例历史自动载入 · ${peer.messages.length} 条 · 监听双方消息`;
+    const last = [...peer.messages].reverse().find(message => message.side === 'peer');
+    get('context-preview').textContent = '最近来信：' + last.text;
+  }
+  function generate(){
+    if(!open)return;
+    const id = ++generation; const peer = current;
+    get('generation-status').textContent = '准备示例建议…';
+    setTimeout(() => {
+      if(id !== generation || peer !== current || !open)return;
+      get('suggestions').replaceChildren();
+      const tone = get('tone').value;
+      const sorted = [...options[peer]];
+      if(tone === 'light')sorted.unshift(sorted.splice(1,1)[0]);
+      if(tone === 'gentle')sorted.unshift(sorted.splice(2,1)[0]);
+      for(const [style,text,reason] of sorted){
+        const article = document.createElement('article'); article.className = 'option';
+        const top = document.createElement('div'); top.className = 'option-top';
+        const label = document.createElement('strong'); label.textContent = style;
+        const button = document.createElement('button'); button.type='button';button.className='secondary';button.textContent='采用';
+        button.addEventListener('click',()=>{get('draft').value=text;dirtyDraft=true;get('copy-status').textContent='可继续修改，再复制';});
+        const body = document.createElement('p'); body.textContent=text;
+        const why = document.createElement('div');why.className='reason';why.textContent=reason;
+        top.append(label,button);article.append(top,body,why);get('suggestions').append(article);
+      }
+      get('generation-status').textContent = '3 条示例建议 · 不代表真实模型生成';
+    },260);
+  }
+  function setOpen(value){
+    open=value;get('helper').hidden=!open;get('closed-state').hidden=open;
+    get('open-helper').textContent=open?'AI 建议已打开 ↗':'打开 AI 建议 ↗';
+    if(open){renderMessages();generate();}else{generation++;}
+  }
+  get('open-helper').addEventListener('click',()=>setOpen(true));
+  get('close-helper').addEventListener('click',()=>setOpen(false));
+  get('generate').addEventListener('click',generate);
+  get('tone').addEventListener('change',generate);
+  get('draft').addEventListener('input',()=>{dirtyDraft=true;get('copy-status').textContent='草稿已修改';});
+  get('demo-contact').addEventListener('change',event=>{
+    current=event.target.value;generation++;dirtyDraft=false;get('draft').value='';get('copy-status').textContent='已切换会话，草稿重新开始';
+    get('suggestions').replaceChildren();renderMessages();if(open)generate();
+  });
+  get('simulate-arrival').addEventListener('click',()=>{
+    const peer=contacts[current];peer.messages.push({side:'peer',text:peer.next});renderMessages();
+    if(open && get('auto-refresh').checked)generate();
+    if(dirtyDraft)get('copy-status').textContent='新来信已同步，你的草稿保持原样';
+  });
+  get('copy-draft').addEventListener('click',async()=>{
+    const text=get('draft').value.trim();if(!text){get('copy-status').textContent='先采用或写一条草稿';return;}
+    try{await navigator.clipboard.writeText(text);get('copy-status').textContent='已复制，由你在 QQ 粘贴发送';}
+    catch{get('draft').focus();get('draft').select();get('copy-status').textContent='请按 Ctrl+C 复制选中的草稿';}
+  });
+  function exportHistory(format){
+    const peer=contacts[current];
+    const data={synthetic:true,contact:peer.name,messages:peer.messages,coverage:'interface-prototype-only'};
+    const content=format==='json'?JSON.stringify(data,null,2):peer.messages.map(message=>(message.side==='mine'?'我':peer.name)+'：'+message.text).join('\n');
+    const url=URL.createObjectURL(new Blob([content],{type:format==='json'?'application/json;charset=utf-8':'text/plain;charset=utf-8'}));
+    const link=document.createElement('a');link.href=url;link.download='示例聊天记录.'+format;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+  }
+  get('export-json').addEventListener('click',()=>exportHistory('json'));
+  get('export-txt').addEventListener('click',()=>exportHistory('txt'));
+  renderMessages();if(new URLSearchParams(location.search).get('preview')==='1')setOpen(true);
+})();
+</script>
+</body>
+</html>

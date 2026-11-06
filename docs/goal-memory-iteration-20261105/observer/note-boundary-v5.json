@@ -1,0 +1,14 @@
+{
+  "revision": "observer-v5-normal-note-api",
+  "raw_cases_changed": false,
+  "reviewer_rubric_changed": false,
+  "ordinary_notes": "authenticated product /api/note; actual saved result and controller trace",
+  "historical_notes": "separate explicit archive Store boundary, no claim of historical normal ingestion",
+  "unsupported_live_note_capabilities": "reject preference-kind/evidence-lineage authoring because the normal UI/API does not expose them",
+  "before_log": "/tmp/qq-note-boundary-before-20261105.log",
+  "after_log": "/tmp/qq-note-boundary-after-20261105.log",
+  "checks_passed": 62,
+  "old_observer_sources_preserved": ".goal-runs/context-memory-20261105/harness-snapshots/observer-v4",
+  "runtime_sha256": "7d634b23731a899ccbc3231bb23db045d660f63ec9d5c514a9885c1fdbdd4796",
+  "matched_original_baseline": ".goal-runs/context-memory-20261105/baseline-core-r8-observer-v5"
+}

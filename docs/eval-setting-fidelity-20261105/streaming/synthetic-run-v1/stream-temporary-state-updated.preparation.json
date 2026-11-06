@@ -1,0 +1,89 @@
+{
+  "version": "qq-prefix-preparation-v1",
+  "setting": "scheduled_prefix",
+  "status": "prepared",
+  "raw_input_sha256": "5944630d1455a87a4a48d62b93327156eddf13f6cbd841054d36068954cf4720",
+  "goal_sha256": "3a5523812fcb2857431356df7db6eb2fe3b2fd87c7857da6d693e66f6a198b97",
+  "raw_prefix": {
+    "integrity": "matched",
+    "counts": {
+      "qq": 0,
+      "archived_user": 0,
+      "archived_assistant": 0,
+      "authored_note": 0
+    },
+    "entries": [],
+    "qq_timestamp_precision": "native_boundary_seconds",
+    "scope": "restored_originals_only_not_historical_execution_or_semantic_quality"
+  },
+  "before": {
+    "as_of": "2026-09-01T10:29:59.000Z",
+    "memory_status": {
+      "pending": 0,
+      "processed": 0,
+      "preferenceCandidates": 0,
+      "pendingPreferenceUpgrades": 0,
+      "superseded": 0,
+      "semanticPending": 0,
+      "pendingProposals": 0,
+      "recoveryReady": 0,
+      "recoveryDeferred": 0,
+      "recoveryReasons": [],
+      "version": 0,
+      "counts": {
+        "sources": 0,
+        "items": 0,
+        "episodes": 0,
+        "claims": 0,
+        "events": 0
+      },
+      "errors": [],
+      "lastReview": null,
+      "busy": false
+    },
+    "raw_source_count": 0,
+    "derived_record_count": 0
+  },
+  "after": {
+    "as_of": "2026-09-01T10:29:59.000Z",
+    "memory_status": {
+      "pending": 0,
+      "processed": 0,
+      "preferenceCandidates": 0,
+      "pendingPreferenceUpgrades": 0,
+      "superseded": 0,
+      "semanticPending": 0,
+      "pendingProposals": 0,
+      "recoveryReady": 0,
+      "recoveryDeferred": 0,
+      "recoveryReasons": [],
+      "version": 0,
+      "counts": {
+        "sources": 0,
+        "items": 0,
+        "episodes": 0,
+        "claims": 0,
+        "events": 0
+      },
+      "errors": [],
+      "lastReview": null,
+      "busy": false
+    },
+    "raw_source_count": 0,
+    "derived_record_count": 0
+  },
+  "forced_maintenance_requests": 0,
+  "model_requests": 0,
+  "blocked_model_requests": 0,
+  "transport_invocations": 0,
+  "preparation_wall_elapsed_ms": 42,
+  "entire_history_reexecuted": false,
+  "scheduler_behavior_evaluated": false,
+  "semantic_quality": "not_evaluated",
+  "limits": [
+    "Raw text/role/time/use matching verifies restoration, not accurate derived understanding.",
+    "Archived assistant turns are supplied checkpoint context, not newly generated outputs.",
+    "Journal pending=0 does not establish semantic-review completion.",
+    "QQ native events and source time are replayed; desktop UI, restart persistence and concurrent ingress are not established."
+  ]
+}

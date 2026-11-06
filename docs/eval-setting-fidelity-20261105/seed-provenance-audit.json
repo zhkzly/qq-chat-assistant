@@ -1,0 +1,285 @@
+{
+  "kind": "fictional_seed_provenance_audit",
+  "status": "verified",
+  "references": [
+    {
+      "dataset": "evals/memory-decisions/cases.jsonl",
+      "case_id": "md-temporary-or-stable-temporary",
+      "source": "evals/memory-understanding/cases.jsonl",
+      "source_case_id": "mu-temporary-state-and-later-change",
+      "referenced_ids": [
+        "run-old"
+      ],
+      "missing_ids": [],
+      "source_sha256": "558be21ed1021bce08c96d061c50d2c865f40027edc6d1eff4272278eb37a5c7",
+      "embedded_expected_sha256": "558be21ed1021bce08c96d061c50d2c865f40027edc6d1eff4272278eb37a5c7",
+      "verified": true
+    },
+    {
+      "dataset": "evals/memory-decisions/cases.jsonl",
+      "case_id": "md-temporary-or-stable-changed",
+      "source": "evals/memory-understanding/cases.jsonl",
+      "source_case_id": "mu-temporary-state-and-later-change",
+      "referenced_ids": [
+        "run-old"
+      ],
+      "missing_ids": [],
+      "source_sha256": "558be21ed1021bce08c96d061c50d2c865f40027edc6d1eff4272278eb37a5c7",
+      "embedded_expected_sha256": "558be21ed1021bce08c96d061c50d2c865f40027edc6d1eff4272278eb37a5c7",
+      "verified": true
+    },
+    {
+      "dataset": "evals/memory-decisions/cases.jsonl",
+      "case_id": "md-local-or-recurring-local",
+      "source": "evals/memory-understanding/cases.jsonl",
+      "source_case_id": "mu-local-instruction-recurring-preference-and-quotation",
+      "referenced_ids": [
+        "short-once",
+        "work-pref"
+      ],
+      "missing_ids": [],
+      "source_sha256": "558be21ed1021bce08c96d061c50d2c865f40027edc6d1eff4272278eb37a5c7",
+      "embedded_expected_sha256": "558be21ed1021bce08c96d061c50d2c865f40027edc6d1eff4272278eb37a5c7",
+      "verified": true
+    },
+    {
+      "dataset": "evals/memory-decisions/cases.jsonl",
+      "case_id": "md-local-or-recurring-conditional-recurring",
+      "source": "evals/memory-understanding/cases.jsonl",
+      "source_case_id": "mu-local-instruction-recurring-preference-and-quotation",
+      "referenced_ids": [
+        "short-once",
+        "work-pref"
+      ],
+      "missing_ids": [],
+      "source_sha256": "558be21ed1021bce08c96d061c50d2c865f40027edc6d1eff4272278eb37a5c7",
+      "embedded_expected_sha256": "558be21ed1021bce08c96d061c50d2c865f40027edc6d1eff4272278eb37a5c7",
+      "verified": true
+    },
+    {
+      "dataset": "evals/memory-decisions/cases.jsonl",
+      "case_id": "md-quotation-subject-third-party",
+      "source": "evals/memory-understanding/cases.jsonl",
+      "source_case_id": "mu-local-instruction-recurring-preference-and-quotation",
+      "referenced_ids": [
+        "colleague-quote"
+      ],
+      "missing_ids": [],
+      "source_sha256": "558be21ed1021bce08c96d061c50d2c865f40027edc6d1eff4272278eb37a5c7",
+      "embedded_expected_sha256": "558be21ed1021bce08c96d061c50d2c865f40027edc6d1eff4272278eb37a5c7",
+      "verified": true
+    },
+    {
+      "dataset": "evals/memory-decisions/cases.jsonl",
+      "case_id": "md-quotation-subject-contact-self",
+      "source": "evals/memory-understanding/cases.jsonl",
+      "source_case_id": "mu-local-instruction-recurring-preference-and-quotation",
+      "referenced_ids": [
+        "colleague-quote"
+      ],
+      "missing_ids": [],
+      "source_sha256": "558be21ed1021bce08c96d061c50d2c865f40027edc6d1eff4272278eb37a5c7",
+      "embedded_expected_sha256": "558be21ed1021bce08c96d061c50d2c865f40027edc6d1eff4272278eb37a5c7",
+      "verified": true
+    },
+    {
+      "dataset": "evals/memory-decisions/cases.jsonl",
+      "case_id": "md-correction-or-change-correction",
+      "source": "evals/assistant/context-memory.jsonl",
+      "source_case_id": "cm-new-job-corrects-old-understanding",
+      "referenced_ids": [
+        "ju-q1",
+        "ju-q3"
+      ],
+      "missing_ids": [],
+      "source_sha256": "e9ed4ad8210038587b7888ee286d0bffc1dc95250cf0eeb628e9030e3542833f",
+      "embedded_expected_sha256": "e9ed4ad8210038587b7888ee286d0bffc1dc95250cf0eeb628e9030e3542833f",
+      "verified": true
+    },
+    {
+      "dataset": "evals/memory-decisions/cases.jsonl",
+      "case_id": "md-correction-or-change-time-change",
+      "source": "evals/assistant/context-memory.jsonl",
+      "source_case_id": "cm-new-job-corrects-old-understanding",
+      "referenced_ids": [
+        "ju-q1",
+        "ju-q3"
+      ],
+      "missing_ids": [],
+      "source_sha256": "e9ed4ad8210038587b7888ee286d0bffc1dc95250cf0eeb628e9030e3542833f",
+      "embedded_expected_sha256": "e9ed4ad8210038587b7888ee286d0bffc1dc95250cf0eeb628e9030e3542833f",
+      "verified": true
+    },
+    {
+      "dataset": "evals/memory-decisions/cases.jsonl",
+      "case_id": "md-duplicate-or-addition-duplicate",
+      "source": "evals/memory-understanding/cases.jsonl",
+      "source_case_id": "mu-local-instruction-recurring-preference-and-quotation",
+      "referenced_ids": [
+        "photo"
+      ],
+      "missing_ids": [],
+      "source_sha256": "558be21ed1021bce08c96d061c50d2c865f40027edc6d1eff4272278eb37a5c7",
+      "embedded_expected_sha256": "558be21ed1021bce08c96d061c50d2c865f40027edc6d1eff4272278eb37a5c7",
+      "verified": true
+    },
+    {
+      "dataset": "evals/memory-decisions/cases.jsonl",
+      "case_id": "md-duplicate-or-addition-addition",
+      "source": "evals/memory-understanding/cases.jsonl",
+      "source_case_id": "mu-local-instruction-recurring-preference-and-quotation",
+      "referenced_ids": [
+        "photo"
+      ],
+      "missing_ids": [],
+      "source_sha256": "558be21ed1021bce08c96d061c50d2c865f40027edc6d1eff4272278eb37a5c7",
+      "embedded_expected_sha256": "558be21ed1021bce08c96d061c50d2c865f40027edc6d1eff4272278eb37a5c7",
+      "verified": true
+    },
+    {
+      "dataset": "evals/memory-decisions/cases.jsonl",
+      "case_id": "md-conflict-or-time-same-time",
+      "source": "evals/memory-understanding/cases.jsonl",
+      "source_case_id": "mu-late-report-cancellation-and-withdrawal",
+      "referenced_ids": [
+        "invite",
+        "accept",
+        "cancel"
+      ],
+      "missing_ids": [],
+      "source_sha256": "558be21ed1021bce08c96d061c50d2c865f40027edc6d1eff4272278eb37a5c7",
+      "embedded_expected_sha256": "558be21ed1021bce08c96d061c50d2c865f40027edc6d1eff4272278eb37a5c7",
+      "verified": true
+    },
+    {
+      "dataset": "evals/memory-decisions/cases.jsonl",
+      "case_id": "md-conflict-or-time-different-time",
+      "source": "evals/memory-understanding/cases.jsonl",
+      "source_case_id": "mu-late-report-cancellation-and-withdrawal",
+      "referenced_ids": [
+        "invite",
+        "accept",
+        "cancel"
+      ],
+      "missing_ids": [],
+      "source_sha256": "558be21ed1021bce08c96d061c50d2c865f40027edc6d1eff4272278eb37a5c7",
+      "embedded_expected_sha256": "558be21ed1021bce08c96d061c50d2c865f40027edc6d1eff4272278eb37a5c7",
+      "verified": true
+    },
+    {
+      "dataset": "evals/memory-decisions/cases.jsonl",
+      "case_id": "md-withdrawal-or-cancel-withdrawal",
+      "source": "evals/memory-understanding/cases.jsonl",
+      "source_case_id": "mu-late-report-cancellation-and-withdrawal",
+      "referenced_ids": [
+        "invite",
+        "accept",
+        "cancel"
+      ],
+      "missing_ids": [],
+      "source_sha256": "558be21ed1021bce08c96d061c50d2c865f40027edc6d1eff4272278eb37a5c7",
+      "embedded_expected_sha256": "558be21ed1021bce08c96d061c50d2c865f40027edc6d1eff4272278eb37a5c7",
+      "verified": true
+    },
+    {
+      "dataset": "evals/memory-decisions/cases.jsonl",
+      "case_id": "md-withdrawal-or-cancel-cancellation",
+      "source": "evals/memory-understanding/cases.jsonl",
+      "source_case_id": "mu-late-report-cancellation-and-withdrawal",
+      "referenced_ids": [
+        "invite",
+        "accept",
+        "cancel"
+      ],
+      "missing_ids": [],
+      "source_sha256": "558be21ed1021bce08c96d061c50d2c865f40027edc6d1eff4272278eb37a5c7",
+      "embedded_expected_sha256": "558be21ed1021bce08c96d061c50d2c865f40027edc6d1eff4272278eb37a5c7",
+      "verified": true
+    },
+    {
+      "dataset": "evals/memory-decisions/cases.jsonl",
+      "case_id": "md-unknown-or-known-time-unknown",
+      "source": "evals/memory-understanding/cases.jsonl",
+      "source_case_id": "mu-unknown-past-occurrence",
+      "referenced_ids": [
+        "past-pottery"
+      ],
+      "missing_ids": [],
+      "source_sha256": "558be21ed1021bce08c96d061c50d2c865f40027edc6d1eff4272278eb37a5c7",
+      "embedded_expected_sha256": "558be21ed1021bce08c96d061c50d2c865f40027edc6d1eff4272278eb37a5c7",
+      "verified": true
+    },
+    {
+      "dataset": "evals/memory-decisions/cases.jsonl",
+      "case_id": "md-unknown-or-known-time-explicit-time",
+      "source": "evals/memory-understanding/cases.jsonl",
+      "source_case_id": "mu-unknown-past-occurrence",
+      "referenced_ids": [
+        "past-pottery"
+      ],
+      "missing_ids": [],
+      "source_sha256": "558be21ed1021bce08c96d061c50d2c865f40027edc6d1eff4272278eb37a5c7",
+      "embedded_expected_sha256": "558be21ed1021bce08c96d061c50d2c865f40027edc6d1eff4272278eb37a5c7",
+      "verified": true
+    },
+    {
+      "dataset": "evals/assistant-stream/cases.jsonl",
+      "case_id": "stream-temporary-state-unchanged",
+      "source": "evals/memory-understanding/cases.jsonl",
+      "source_case_id": "mu-temporary-state-and-later-change",
+      "referenced_ids": [
+        "run-old",
+        "run-new"
+      ],
+      "missing_ids": [],
+      "source_sha256": "558be21ed1021bce08c96d061c50d2c865f40027edc6d1eff4272278eb37a5c7",
+      "embedded_expected_sha256": null,
+      "verified": true
+    },
+    {
+      "dataset": "evals/assistant-stream/cases.jsonl",
+      "case_id": "stream-temporary-state-updated",
+      "source": "evals/memory-understanding/cases.jsonl",
+      "source_case_id": "mu-temporary-state-and-later-change",
+      "referenced_ids": [
+        "run-old",
+        "run-new"
+      ],
+      "missing_ids": [],
+      "source_sha256": "558be21ed1021bce08c96d061c50d2c865f40027edc6d1eff4272278eb37a5c7",
+      "embedded_expected_sha256": null,
+      "verified": true
+    },
+    {
+      "dataset": "evals/assistant-stream/cases.jsonl",
+      "case_id": "stream-material-retained",
+      "source": "evals/assistant/replay/withdrawal-v2.jsonl",
+      "source_case_id": "coverage-material-note-exclusion",
+      "referenced_ids": [
+        "q1",
+        "n1"
+      ],
+      "missing_ids": [],
+      "source_sha256": "9c6dbf0a36272cbdcff7898442a3354ef6ecdbc7d8dfd608c30af5157562974f",
+      "embedded_expected_sha256": null,
+      "verified": true
+    },
+    {
+      "dataset": "evals/assistant-stream/cases.jsonl",
+      "case_id": "stream-material-excluded",
+      "source": "evals/assistant/replay/withdrawal-v2.jsonl",
+      "source_case_id": "coverage-material-note-exclusion",
+      "referenced_ids": [
+        "q1",
+        "n1"
+      ],
+      "missing_ids": [],
+      "source_sha256": "9c6dbf0a36272cbdcff7898442a3354ef6ecdbc7d8dfd608c30af5157562974f",
+      "embedded_expected_sha256": null,
+      "verified": true
+    }
+  ],
+  "scope": "source file bytes, source case IDs and referenced raw IDs; adaptations and semantic labels require separate review",
+  "model_calls": 0,
+  "semantic_quality": "not_evaluated"
+}

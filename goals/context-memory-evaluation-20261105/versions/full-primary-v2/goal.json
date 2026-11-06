@@ -1,0 +1,239 @@
+{
+  "schema_version": 1,
+  "id": "context-memory-evaluation-20261105",
+  "version": "2026-11-05.2",
+  "baseline": {
+    "commit": "196cca3a924d025fc0e56dda9c59bb5628ed9360",
+    "scope": "current backend src, with experiment adapters separately frozen",
+    "previous_goal_role": "historical reference and regression only"
+  },
+  "outcome": {
+    "product": "Improve current QQ Assistant memory and context behavior through complete live new-primary evaluation, independent review, causal diagnosis, justified architecture changes and repeat comparisons.",
+    "completion": "Meet the frozen new-primary quality contract, preserve counterexamples and complete legacy regression comparisons. Do not equate executed runs, structural checks or a finite visible corpus with universal quality.",
+    "not_required": "A rewrite or JEV adoption if comparative evidence does not justify it; real romantic outcomes."
+  },
+  "authorization": {
+    "source": "Latest user requests: complete tests and iterative causal architecture improvement; current new datasets are primary, previous cases are regression; no global HTTP limit.",
+    "unlimited_http": true,
+    "model": "current selected gpt-6-luna",
+    "parallel_roles": true,
+    "old_goal_must_remain_unchanged": true,
+    "forbidden": [
+      "QQ sending/forwarding/auto replies/simulated send keys",
+      "production QQ or settings changes without separately applicable authorization",
+      "private records or credentials in Git/research archives",
+      "lowering criteria to rescue a candidate"
+    ]
+  },
+  "execution": {
+    "artifacts_root": ".goal-runs/context-memory-20261105/rounds",
+    "default_transport": "synthetic",
+    "unlimited_http_authorized": true,
+    "max_http_per_round": null,
+    "http_cap_scope": "experiment total; per-request deadlines and product retry rules remain declared separately",
+    "live_requires_explicit_activation_authorization": true
+  },
+  "datasets": {
+    "primary": [
+      {
+        "setting": "stream",
+        "file": "evals/assistant-stream/cases.jsonl",
+        "sha256": "467b6221fa5a772f8e03a58a9cf5ebcdb6e6ab046151af755ae3b4f4880d4138",
+        "cases": 4
+      },
+      {
+        "setting": "component",
+        "file": "evals/memory-decisions/cases.jsonl",
+        "sha256": "c06234c630414f65d32109074a4adbcf0db9ff5e4d3531f3f1598e3ff26151ce",
+        "cases": 16
+      },
+      {
+        "setting": "stream",
+        "file": "evals/assistant-stream/extensions/memory-context-v1.jsonl",
+        "sha256": "b414736d227e81e66a5b81ad59cb4cdf97c92a1bc3fae617e86301687933d539",
+        "cases": 12,
+        "requests": 42
+      }
+    ],
+    "regression": {
+      "setting": "regression",
+      "dataset_hash": "0435ce52ed415760eec3c0615c3a26837344a35fc95f6d64d0380b80c18c0294",
+      "cases": 43,
+      "steps": 89,
+      "purpose": "old cases protect against regressions; not the primary optimization target"
+    }
+  },
+  "quality_contract": {
+    "e2e": {
+      "all_requests_executed": true,
+      "hard_failures": 0,
+      "minimum_usable_fraction": 0.9,
+      "other_allowed_grade": "minor_edit only; no unresolved rewrite or insufficient_evidence"
+    },
+    "component": {
+      "all_cases_executed": true,
+      "minimum_usable_fraction": 0.9,
+      "critical_misattribution_or_scope_errors": 0,
+      "judge_basis": "original evidence and common semantic contract, not provisional reference label matching"
+    },
+    "regression": {
+      "all_declared_cases_executed_and_reviewed": true,
+      "no_new_hard_failures": true,
+      "no_material_regression_against_current_baseline": true
+    },
+    "speed_claim": "Only after same-input timed comparisons; JEV local speed does not establish end-to-end benefit.",
+    "references": "AI references remain provisional; preserve independent disagreements and calibration."
+  },
+  "evidence": {
+    "sut": "each implementation builds its own memory/context from original events; controlled component candidates are a separate setting",
+    "review": {
+      "requires_actual_outputs": true,
+      "independent_of_implementation": true,
+      "requires_hash_binding": true,
+      "unrun_review_is_ungraded": true
+    },
+    "blinding": "complete inline packet; hide implementation paths, preferred verdicts, hypothesis and provisional label references",
+    "lifecycle": "backend synthetic QQ boundary != desktop; sequential stream != concurrent ingress or restart persistence",
+    "frozen_inputs": "raw events, cutoffs, goals, controls, time policy, rubric/semantic contract, model settings, implementation and adapter",
+    "pre_implementation_data_review": "Independent raw-data review complete; reviewer-only wording clarified before freeze without runtime changes; goals/context-memory-evaluation-20261105/versions/initial-primary remains immutable."
+  },
+  "iteration_policy": {
+    "one_causal_hypothesis_per_candidate": true,
+    "before_changes": "complete baseline actual-output review and diagnose first supported cause; freeze targets plus paired countercases",
+    "after_changes": "functional checks, same-input live comparisons, independent blind review, expand according to shared impact",
+    "thrash": "when same failure recurs, change causal hypothesis instead of accumulating phrase-specific patches",
+    "no_shortcuts": "do not shorten a retained hard case, inject expected memory, edit old evidence or replace failing tasks"
+  },
+  "stages": [
+    {
+      "id": "new_stream",
+      "dataset_setting": "stream",
+      "dataset_file": "evals/assistant-stream/cases.jsonl",
+      "objective": "Current new empty-start E2E primary set",
+      "target_cases": [
+        "stream-temporary-state-unchanged",
+        "stream-temporary-state-updated",
+        "stream-material-retained",
+        "stream-material-excluded"
+      ],
+      "guardrail_cases": [
+        "stream-temporary-state-unchanged"
+      ]
+    },
+    {
+      "id": "new_component",
+      "dataset_setting": "component",
+      "dataset_file": "evals/memory-decisions/cases.jsonl",
+      "objective": "Current new controlled evidence-relation primary set",
+      "target_cases": [
+        "md-temporary-or-stable-temporary",
+        "md-temporary-or-stable-changed",
+        "md-local-or-recurring-local",
+        "md-local-or-recurring-conditional-recurring",
+        "md-quotation-subject-third-party",
+        "md-quotation-subject-contact-self",
+        "md-correction-or-change-correction",
+        "md-correction-or-change-time-change",
+        "md-duplicate-or-addition-duplicate",
+        "md-duplicate-or-addition-addition",
+        "md-conflict-or-time-same-time",
+        "md-conflict-or-time-different-time",
+        "md-withdrawal-or-cancel-withdrawal",
+        "md-withdrawal-or-cancel-cancellation",
+        "md-unknown-or-known-time-unknown",
+        "md-unknown-or-known-time-explicit-time"
+      ],
+      "guardrail_cases": [
+        "md-unknown-or-known-time-explicit-time"
+      ]
+    },
+    {
+      "id": "new_stream_challenge",
+      "dataset_setting": "stream",
+      "dataset_file": "evals/assistant-stream/extensions/memory-context-v1.jsonl",
+      "objective": "Pre-change independently reviewed new memory/context challenges",
+      "target_cases": [
+        "stream-control-local",
+        "stream-control-recurring",
+        "stream-holder-third-party",
+        "stream-holder-first-person",
+        "stream-private-reason-withheld",
+        "stream-private-reason-permitted",
+        "stream-topic-closed",
+        "stream-topic-reopened",
+        "stream-long-source-head-veto",
+        "stream-long-source-tail-veto",
+        "stream-discussion-implicit-recall",
+        "stream-discussion-explicit-recall"
+      ],
+      "guardrail_cases": [
+        "stream-control-local",
+        "stream-control-recurring",
+        "stream-holder-third-party",
+        "stream-holder-first-person",
+        "stream-private-reason-withheld",
+        "stream-private-reason-permitted",
+        "stream-topic-closed",
+        "stream-topic-reopened",
+        "stream-long-source-head-veto",
+        "stream-long-source-tail-veto",
+        "stream-discussion-implicit-recall",
+        "stream-discussion-explicit-recall"
+      ]
+    },
+    {
+      "id": "legacy_regression",
+      "dataset_setting": "regression",
+      "objective": "Old corpus regression only",
+      "target_cases": [
+        "cm-local-correction-continuity",
+        "cm-closed-topic-not-restored",
+        "cm-dated-fatigue-current-unknown",
+        "cm-new-job-corrects-old-understanding",
+        "cm-conditional-expression-scope",
+        "cm-stable-preference-quoted-wish",
+        "cm-generated-invitation-vs-actual",
+        "cm-ambiguous-interest-critical-availability",
+        "conv-reconnect-known-anchor",
+        "conv-reconnect-still-busy",
+        "conv-reconnect-no-anchor",
+        "conv-share-own-material",
+        "conv-share-own-material-missing",
+        "conv-puzzle-explicit-invite",
+        "conv-puzzle-interest-only",
+        "conv-friend-art-share",
+        "conv-work-handoff",
+        "conv-learning-missing-error",
+        "coverage-warm-reciprocity",
+        "coverage-low-reciprocity",
+        "coverage-emotional-disclosure",
+        "coverage-misunderstanding-repair",
+        "coverage-explicit-decline",
+        "coverage-welcomed-initiative",
+        "coverage-ambiguity-neutral",
+        "coverage-ambiguity-explicit",
+        "coverage-observed-output-feedback",
+        "coverage-permanent-goal-change",
+        "coverage-private-source-withdrawal",
+        "coverage-unavailable-image",
+        "coverage-long-private-consultation",
+        "coverage-long-single-source",
+        "replay-mixed-history-reciprocity",
+        "replay-job-change-later-recall",
+        "replay-incoming-then-human-send",
+        "coverage-feedback-current-material",
+        "hd-speaker-attribution-emotion",
+        "hd-deleted-reference-followup",
+        "hd-arrangement-window-conflict",
+        "hd-stale-fact-update",
+        "hd-consultation-thread-survival",
+        "coverage-material-note-exclusion",
+        "coverage-observed-qq-recall"
+      ],
+      "guardrail_cases": [
+        "cm-local-correction-continuity"
+      ],
+      "acceptance_mode": "no_new_regressions"
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "installed": true,
+  "nativeQQReadingVerified": true,
+  "nativeHistoryExportRecords": 739,
+  "behavioralChecksPassed": 57,
+  "browserChecksPassed": 13,
+  "mutationChecksPassed": 55,
+  "realChatModelDisclosure": "pending explicit user approval",
+  "noQQMessagesSent": true,
+  "originalQQInstallationUnchanged": true,
+  "previousAutomaticReplyConnector": "stopped / unless-stopped",
+  "personalArchive": "viking://user/default/resources/qq-chat-assistant-20261011",
+  "nativeRealtimeNewMessageCanary": "not yet observed for selected contact",
+  "nativeWindowBindingRaceFix": "installed and native history restoration verified",
+  "goalStatus": "blocked",
+  "blockingReason": "Fresh native incoming-message canary remains unobserved; user explicitly forbids sending test messages without confirmation.",
+  "currentTextConsent": true,
+  "privateImageConsent": false,
+  "nativeDraftFillVerified": true,
+  "automaticSourceWindowBindingVerified": true,
+  "qqMessagesSentByTests": 0
+}

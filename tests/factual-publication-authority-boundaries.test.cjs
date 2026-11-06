@@ -138,19 +138,19 @@ async function application(t,producer,{limit=4,human=HUMAN}={}){
 }
 const wireDecision=(p,statements={},extra={})=>({checkRef:p.checkRef,verdict:'allow',issues:[],factual:p.candidatePaths.map(path=>({path,statements:statements[path]||[]})),...extra});
 
-test('raw typed unsupported cannot masquerade as approval and is shown without replacing the primary answer',async t=>{
+test('raw typed unsupported survives optional metadata errors and requires complete regeneration and fresh audit',async t=>{
  let checks=0,primaries=0;const repaired='薄荷终于冒新叶了。',question='你最近有什么愿意分享的真实小事？';
  const app=await application(t,p=>{
   if(p.purpose==='fidelity_check'){
    checks++;if(checks===1)return wireDecision(p,{'suggestions[0].text':[unsupported()]},{concerns:[{path:'suggestions[0].text',code:'style',sourceIds:['s999'],reason:'Unusable optional source coordinate.'}]});
-   const mint=p.evidence.find(source=>source.type==='qq'&&source.text===MINT);assert.ok(mint);return wireDecision(p,{'suggestions[0].text':[{quote:repaired,kind:'assertion',support:'supported',evidence:[{sourceId:mint.sourceId,quote:MINT}]}],'discussionExplanation.text':[{quote:question,kind:'question'}]},{concerns:'malformed optional diagnostic'});
+   const mint=p.evidence.find(source=>source.type==='qq'&&source.text===MINT);assert.ok(mint);assert.equal(p.candidate.suggestions[0].text,repaired);return {checkRef:p.checkRef,auditProtocol:'sparse-defects-v1',issues:[]};
   }
   primaries++;return {operation:'prepare_message',answer:{suggestions:[{text:primaries===1?UNSUPPORTED:repaired}],privateExplanation:primaries===1?CAVEAT:question}};
  });
- const reply=await app.assist();assert.equal(app.calls.length,1);assert.equal(primaries,1);assert.equal(checks,0);assert.equal(reply.suggestions[0].text,UNSUPPORTED);assert.equal(reply.semanticReview,undefined);const ledger=app.controller.usage.get(scope,'factual-authority-task');assert.equal(ledger.attempts,1);assert.equal(ledger.requests.some(r=>r.purpose==='fidelity_check'||r.purpose==='delivery_repair'),false);assert.equal(app.store.messages(scope).some(m=>m.direction==='outgoing'),false);
+ const reply=await app.assist();assert.equal(app.calls.length,4);assert.equal(primaries,2);assert.equal(checks,2);assert.equal(reply.suggestions[0].text,repaired);assert.equal(reply.semanticReview.exhaustive,false);const ledger=app.controller.usage.get(scope,'factual-authority-task');assert.equal(ledger.attempts,4);assert.deepEqual(ledger.requests.map(r=>r.purpose),['discussion','fidelity_check','delivery_repair','fidelity_check']);assert.equal(app.store.messages(scope).some(m=>m.direction==='outgoing'),false);
 });
 
-for(const limit of [2,4])test(`an unsupported factual report cannot automatically consume the remaining task budget ${limit}`,async t=>{
+for(const limit of [2,4])test(`an unsupported factual report cannot publish after bounded task budget ${limit}`,async t=>{
  const app=await application(t,p=>p.purpose==='fidelity_check'?wireDecision(p,{'suggestions[0].text':[unsupported()]}):{operation:'prepare_message',answer:{suggestions:[{text:UNSUPPORTED}],privateExplanation:CAVEAT}},{limit});
- const reply=await app.assist();assert.equal(reply.suggestions[0].text,UNSUPPORTED);assert.equal(reply.semanticReview,undefined);const ledger=app.controller.usage.get(scope,'factual-authority-task');assert.equal(ledger.attempts,1);assert.equal(ledger.limit,limit);assert.equal(ledger.requests.some(r=>r.purpose==='fidelity_check'||r.purpose==='delivery_repair'),false);
+ await assert.rejects(app.assist(),e=>e.code===(limit===2?'terminal_fact_repair_budget':'terminal_fact_defect_unresolved'));assert.equal(app.store.getCompanion(scope).turns.some(turn=>turn.role==='assistant'),false);const ledger=app.controller.usage.get(scope,'factual-authority-task');assert.equal(ledger.attempts,limit);assert.equal(ledger.limit,limit);assert.equal(ledger.requests.filter(r=>r.purpose==='fidelity_check').length,limit===2?1:2);
 });

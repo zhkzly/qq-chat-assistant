@@ -1,0 +1,16 @@
+{
+  "checkedAt": "2026-10-11T15:50:50.156Z",
+  "httpStatus": 200,
+  "qqReady": true,
+  "selectedContactMatchesPending": true,
+  "accountMatchesPending": true,
+  "modelMatchesPending": true,
+  "baseUrlMatchesPending": true,
+  "modelConsent": false,
+  "modelRequestRunning": false,
+  "totalRecords": 58,
+  "incomingRecordsInView": 0,
+  "outgoingRecordsInView": 58,
+  "coverage": "accessible_end",
+  "permissionRecordState": "pending"
+}

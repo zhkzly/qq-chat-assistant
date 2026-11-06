@@ -84,3 +84,77 @@ test('feedback binds actual generated outputs, while goal and source actions use
  assert.ok(trace.some(e=>e.component==='product_http'&&e.route==='/api/assistant'&&e.args?.sourceTurnIds?.[0]===first.reply_id));
  assert.ok(snapshot.privateAliases.r1);assert.ok(snapshot.privateAliases.r2);
 });
+
+test('preparation receipt verifies raw prefix separately from derived state and stays frozen after later actions',async t=>{
+ const factory=createAdapterFactory({sourceRoot,maxHttp:12,condition:'scheduled_idle_public_memory_observation_v1'}),adapter=await factory.create();t.after(()=>adapter.close());
+ const initial={as_of:asOf,qq_events:[{id:'prefix-qq',at:'2026-10-29T11:58:00Z',speaker:'contact',text:'PREPARATION_QQ_ORIGINAL',provenance:'authored_external_qq'}],private_events:[
+  {id:'prefix-human',at:'2026-10-29T11:58:10Z',role:'user',text:'PREPARATION_PRIVATE_ORIGINAL',provenance:'archived_context'},
+  {id:'prefix-assistant',at:'2026-10-29T11:58:20Z',role:'assistant',text:'PREPARATION_ARCHIVED_SUGGESTION',provenance:'archived_context'},
+  {id:'prefix-note',at:'2026-10-29T11:59:00Z',role:'user',text:'PREPARATION_AUTHORED_MATERIAL',provenance:'authored_user_note',declared_use:'draft',note_kind:'material',evidence_source_ids:['prefix-human']}
+ ]};
+ await adapter.open(initial,{goal:'保持朋友间真实交流。'});
+ const {preparation}=await adapter.diagnostics();assert.ok(preparation,'actual adapter must expose a preparation receipt');
+ assert.equal(preparation.setting,'scheduled_prefix');assert.equal(preparation.status,'prepared');assert.equal(preparation.raw_prefix.integrity,'matched');
+ assert.deepEqual(preparation.raw_prefix.counts,{qq:1,archived_user:1,archived_assistant:1,authored_note:1});
+ assert.equal(preparation.forced_maintenance_requests,0);assert.equal(preparation.model_requests,0);assert.ok(preparation.after.memory_status.pending>0);
+ assert.equal(preparation.semantic_quality,'not_evaluated');assert.equal(preparation.entire_history_reexecuted,false);
+ assert.equal(JSON.stringify(preparation).includes('PREPARATION_'),false,'receipt fingerprints originals without duplicating bodies');
+ const {compareRawPrefix}=require('../scripts/eval-qq-preparation.cjs'),state=(await adapter.diagnostics()).snapshot;
+ for(const corrupt of [
+  snapshot=>{snapshot.sources.find(source=>source.type==='qq').role='user';},
+  snapshot=>{snapshot.sources.find(source=>source.type==='qq').at=asOf;},
+  snapshot=>{snapshot.companion.notes[0].use='discussion';},
+  snapshot=>{snapshot.companion.turns.find(turn=>turn.role==='assistant').text='Different archived content';}
+ ]){const changed=structuredClone(state);corrupt(changed);assert.equal(compareRawPrefix(initial,changed).integrity,'mismatch');}
+ await adapter.withdrawSources([{id:'prefix-human',at:asOf,channel:'private',operation:'delete'}]);
+ assert.deepEqual((await adapter.diagnostics()).preparation,preparation,'later lifecycle actions cannot rewrite the initial preparation evidence');
+});
+
+test('controlled preparation reports its actual maintenance calls without claiming normal scheduling',async t=>{
+ const factory=createAdapterFactory({sourceRoot,maxHttp:12}),adapter=await factory.create();t.after(()=>adapter.close());
+ await adapter.open({as_of:asOf,qq_events:[],private_events:[{id:'checkpoint-human',at:'2026-10-29T11:59:00Z',role:'user',text:'原始已知近况。',provenance:'archived_context'}]},{goal:'保持朋友间真实交流。'});
+ const {preparation}=await adapter.diagnostics();assert.equal(preparation.setting,'controlled_checkpoint');
+ assert.ok(preparation.forced_maintenance_requests>0);assert.equal(preparation.model_requests,factory.summary().http_attempts);
+ assert.equal(preparation.after.memory_status.pending,0);assert.equal(preparation.scheduler_behavior_evaluated,false);assert.equal(preparation.raw_prefix.integrity,'matched');
+});
+
+test('failed prefix preparation retains partial progress and the original failure in its receipt',async t=>{
+ const factory=createAdapterFactory({sourceRoot,maxHttp:1}),adapter=await factory.create();t.after(()=>adapter.close());
+ await assert.rejects(adapter.open({as_of:asOf,qq_events:[],private_events:[{id:'prefix-long',at:'2026-10-29T11:59:00Z',role:'user',text:'长'.repeat(16000),provenance:'archived_context'}]},{goal:'保持朋友间真实交流。'}),error=>error.code==='replay_http_limit');
+ const {preparation}=await adapter.diagnostics();assert.equal(preparation.status,'failed');assert.ok(preparation.error.message);
+ assert.ok(preparation.after.memory_status.pending>0);assert.equal(preparation.model_requests,1);assert.ok(factory.summary().blocked_attempts>0);
+ assert.ok(preparation.transport_invocations>preparation.model_requests);assert.equal(preparation.blocked_model_requests,factory.summary().blocked_attempts);
+ assert.equal(preparation.semantic_quality,'not_evaluated');assert.equal(preparation.raw_prefix.integrity,'matched');
+});
+
+test('effective replay configuration retains the memory request budget without exposing credentials',t=>{
+ const fs=require('node:fs'),os=require('node:os'),path=require('node:path');
+ const folder=fs.mkdtempSync(path.join(os.tmpdir(),'qq-setting-identity-'));t.after(()=>fs.rmSync(folder,{recursive:true,force:true}));
+ const filename=path.join(folder,'settings.json');fs.writeFileSync(filename,JSON.stringify({baseUrl:'http://fixture.invalid/v1',model:'luna-profile-fixture',apiKey:'NONSECRET_TEST_CREDENTIAL',memoryInputBytes:12345,assistantRequestBytes:30000,assistantRecentHours:24,instruction:'Follow the current user preference.',autoImages:true,memoryMaintenanceBatches:2}));
+ const factory=createAdapterFactory({sourceRoot,settingsFile:filename,live:true,maxHttp:1});
+ assert.equal(factory.identity.effective_settings.memoryInputBytes,12345);assert.equal(factory.identity.effective_settings.assistantRequestBytes,30000);
+ assert.equal(factory.identity.effective_settings.assistantRecentHours,24);assert.equal(factory.identity.effective_settings.instruction,'Follow the current user preference.');
+ assert.equal(factory.identity.effective_settings.autoImages,true);assert.equal(factory.identity.effective_settings.memoryMaintenanceBatches,2);
+ assert.equal(JSON.stringify(factory.identity).includes('NONSECRET_TEST_CREDENTIAL'),false);assert.ok(factory.identity.contract_json_identity.files>0);
+ assert.equal(factory.summary().http_attempts,0,'configuration inspection never dispatches a live request');
+});
+
+test('a contract change after factory creation is rejected before an episode loads different code',async t=>{
+ const fs=require('node:fs'),os=require('node:os'),path=require('node:path');
+ const folder=fs.mkdtempSync(path.join(os.tmpdir(),'qq-frozen-contract-'));t.after(()=>fs.rmSync(folder,{recursive:true,force:true}));
+ fs.cpSync(path.join(sourceRoot,'src'),path.join(folder,'src'),{recursive:true});
+ const factory=createAdapterFactory({sourceRoot:folder,maxHttp:1}),file=path.join(folder,'src/contracts/assistant-result.contract.json');
+ fs.appendFileSync(file,'\n');
+ await assert.rejects(factory.create(),error=>error.code==='replay_implementation_changed');assert.equal(factory.summary().http_attempts,0);
+});
+
+test('source drift between adapter creation and open fails without loading changed product or masking the error',async t=>{
+ const fs=require('node:fs'),os=require('node:os'),path=require('node:path');
+ const folder=fs.mkdtempSync(path.join(os.tmpdir(),'qq-open-source-drift-'));t.after(()=>fs.rmSync(folder,{recursive:true,force:true}));
+ fs.cpSync(path.join(sourceRoot,'src'),path.join(folder,'src'),{recursive:true});
+ const factory=createAdapterFactory({sourceRoot:folder,maxHttp:1}),adapter=await factory.create();t.after(()=>adapter.close());
+ fs.appendFileSync(path.join(folder,'src/controller.cjs'),'\n');
+ await assert.rejects(adapter.open({as_of:asOf,qq_events:[],private_events:[]},{goal:'保持真实交流。'}),error=>error.code==='replay_implementation_changed');
+ const {preparation}=await adapter.diagnostics();assert.equal(preparation.status,'failed');assert.equal(preparation.error.code,'replay_implementation_changed');
+ assert.equal(preparation.raw_prefix.integrity,'unverifiable');assert.equal(factory.summary().http_attempts,0);
+});

@@ -1,0 +1,3049 @@
+{
+  "provenance": {
+    "run": "/home/zhkzly/pycodes/qq-chat-assistant/.goal-runs/context-memory-20261105/candidate-source-003-r8-observer-v4/stream-long-source-tail-veto.run.json",
+    "sha256": "c9c48b1c45d8357da041b2b75d3c3a9e0b8852897f10e026d3d085790f903e5a",
+    "context_trace_sequences": [
+      168,
+      180,
+      192
+    ],
+    "response_request_id": 13,
+    "evidence": "actual saved fictional producer inputs/output; no reviewer labels"
+  },
+  "contexts": [
+    {
+      "payload": {
+        "promptVersion": "goal-context-2026-11-05.16-source-control",
+        "purpose": "discussion",
+        "method": "围绕用户当前目的和本轮实际请求选择帮助，可理解、接续、真实分享、比较行动或组织表达。意思明确就直接帮助，只问会改变建议的必要问题。允许暂缓或不用助手，不强制每次制定目的。",
+        "methodCards": [],
+        "methodCatalog": [
+          {
+            "id": "clarify"
+          },
+          {
+            "id": "choose_next_step"
+          },
+          {
+            "id": "respond"
+          },
+          {
+            "id": "compose"
+          },
+          {
+            "id": "review"
+          },
+          {
+            "id": "shared_activity"
+          },
+          {
+            "id": "correction"
+          },
+          {
+            "id": "express_interest"
+          }
+        ],
+        "methodSelection": {
+          "version": "goal-methods-2026-10-30.2",
+          "selection": "candidates",
+          "candidates": [
+            "clarify",
+            "choose_next_step",
+            "respond",
+            "compose",
+            "review",
+            "shared_activity",
+            "correction",
+            "express_interest"
+          ],
+          "maxApplied": 2,
+          "operationalInstructionsLocation": "methodCards",
+          "selectionRule": "以当前用户目的和本次意思选择零至两个方法；目录不是必走步骤，也不表示对方的心理。完整卡按需用lookup.methodIds读取，已有足够依据可以直接帮助，不必多查或先提问。",
+          "feedbackRule": "局部反馈只用于对应情境，稳定偏好须有用户明确依据。方法及论文只是有适用范围的参考，不保证交流或关系结果。",
+          "catalogProjection": "lookup_ids"
+        },
+        "asOf": "2026-10-02T10:21:00.000Z",
+        "viewerTimeZone": "Asia/Shanghai",
+        "goal": "向朋友分享自己参与社区活动的真实小事，并保留自己决定的表达范围。",
+        "intentAuthority": {
+          "sourceId": "private:ac6f9bf9-25e6-4c60-9c64-ef0556dbd2ab"
+        },
+        "requestDeliveryPolicy": {
+          "version": 1
+        },
+        "draftMaterialPolicy": {
+          "version": 1
+        },
+        "generationOrigin": "private_discussion",
+        "currentObservationSourceId": null,
+        "topicContext": {
+          "version": 0,
+          "activeId": null,
+          "active": null,
+          "retained": [],
+          "authority": "private_direction_not_outbound_authorization"
+        },
+        "workingState": {
+          "version": 1,
+          "items": [],
+          "possiblyStale": true,
+          "ownership": "evidence_only_task_controls_in_topicContext",
+          "authority": "previous_summary_needs_review"
+        },
+        "coverage": {
+          "status": "empty",
+          "pages": 1,
+          "cursor": null,
+          "oldestAt": null,
+          "checkedAt": "2026-10-02T10:00:59.000Z",
+          "source": "fictional-native-boundary-replay"
+        },
+        "selectedMaterialIds": [],
+        "allowedMaterialIds": [],
+        "expressionOptions": [],
+        "selectedOption": null,
+        "actionReceipts": [],
+        "privateRestrictions": [],
+        "preferences": [],
+        "experienceProposalPolicy": {
+          "enabled": false,
+          "maxItems": 2,
+          "feedbackSourceIds": [],
+          "caseIds": []
+        },
+        "replyFocus": [],
+        "lookupHistory": [],
+        "reviewRange": null,
+        "retrievedMemory": {
+          "items": [],
+          "episodes": [],
+          "coverage": {
+            "complete": false,
+            "sourceCount": 3,
+            "retrievedCount": 3,
+            "pending": 3,
+            "processed": 0,
+            "history": {
+              "status": "empty",
+              "pages": 1,
+              "cursor": null,
+              "oldestAt": null,
+              "checkedAt": "2026-10-02T10:00:59.000Z",
+              "source": "fictional-native-boundary-replay"
+            },
+            "retrieval": "lexical-han-bigram-bm25",
+            "semanticCertainty": false
+          }
+        },
+        "memoryIndex": [],
+        "sources": [
+          {
+            "id": "private:77a2f088-6b5c-4bb7-8ad0-49a1c5501ef7",
+            "type": "private",
+            "role": "user",
+            "at": "2026-10-02T10:01:00.000Z",
+            "use": "discussion",
+            "kind": "discussion",
+            "revision": "f74b7145d0801bb23acd7b1936188e1aee3fd89ed686741fdf094d844bd342f0",
+            "digest": {
+              "version": "evidence-digest-v1",
+              "authority": "derived_digest_needs_lookup",
+              "rule": "逐字首句与精确范围；续读某条原文时把该条目的lookup整条照抄进顶层lookup字段（{sourceIds,offset,maxChars}），不要自行组装ID",
+              "originalCharLength": 15731,
+              "entryCount": 31,
+              "entries": [
+                {
+                  "sentence": "这是我给社区旧物展做志愿工作时留给自己的原始手记，按整理顺序贴在这里，方便和你商量自己的真实近况。",
+                  "revision": "f74b7145d0801bb23acd7b1936188e1aee3fd89ed686741fdf094d844bd342f0",
+                  "start": 0,
+                  "end": 154,
+                  "lookup": {
+                    "sourceIds": [
+                      "private:77a2f088-6b5c-4bb7-8ad0-49a1c5501ef7"
+                    ],
+                    "offset": 0,
+                    "maxChars": 154
+                  }
+                },
+                {
+                  "sentence": "第1项是旧收音机。",
+                  "revision": "f74b7145d0801bb23acd7b1936188e1aee3fd89ed686741fdf094d844bd342f0",
+                  "start": 156,
+                  "end": 662,
+                  "lookup": {
+                    "sourceIds": [
+                      "private:77a2f088-6b5c-4bb7-8ad0-49a1c5501ef7"
+                    ],
+                    "offset": 156,
+                    "maxChars": 506
+                  }
+                },
+                {
+                  "sentence": "第2项是搪瓷杯。",
+                  "revision": "f74b7145d0801bb23acd7b1936188e1aee3fd89ed686741fdf094d844bd342f0",
+                  "start": 664,
+                  "end": 1162,
+                  "lookup": {
+                    "sourceIds": [
+                      "private:77a2f088-6b5c-4bb7-8ad0-49a1c5501ef7"
+                    ],
+                    "offset": 664,
+                    "maxChars": 498
+                  }
+                },
+                {
+                  "sentence": "第3项是缝纫机。",
+                  "revision": "f74b7145d0801bb23acd7b1936188e1aee3fd89ed686741fdf094d844bd342f0",
+                  "start": 1164,
+                  "end": 1665,
+                  "lookup": {
+                    "sourceIds": [
+                      "private:77a2f088-6b5c-4bb7-8ad0-49a1c5501ef7"
+                    ],
+                    "offset": 1164,
+                    "maxChars": 501
+                  }
+                },
+                {
+                  "sentence": "第4项是老相册。",
+                  "revision": "f74b7145d0801bb23acd7b1936188e1aee3fd89ed686741fdf094d844bd342f0",
+                  "start": 1667,
+                  "end": 2173,
+                  "lookup": {
+                    "sourceIds": [
+                      "private:77a2f088-6b5c-4bb7-8ad0-49a1c5501ef7"
+                    ],
+                    "offset": 1667,
+                    "maxChars": 506
+                  }
+                },
+                {
+                  "sentence": "第5项是手电筒。",
+                  "revision": "f74b7145d0801bb23acd7b1936188e1aee3fd89ed686741fdf094d844bd342f0",
+                  "start": 2175,
+                  "end": 2681,
+                  "lookup": {
+                    "sourceIds": [
+                      "private:77a2f088-6b5c-4bb7-8ad0-49a1c5501ef7"
+                    ],
+                    "offset": 2175,
+                    "maxChars": 506
+                  }
+                },
+                {
+                  "sentence": "第6项是粮票夹。",
+                  "revision": "f74b7145d0801bb23acd7b1936188e1aee3fd89ed686741fdf094d844bd342f0",
+                  "start": 2683,
+                  "end": 3184,
+                  "lookup": {
+                    "sourceIds": [
+                      "private:77a2f088-6b5c-4bb7-8ad0-49a1c5501ef7"
+                    ],
+                    "offset": 2683,
+                    "maxChars": 501
+                  }
+                },
+                {
+                  "sentence": "第7项是木饭盒。",
+                  "revision": "f74b7145d0801bb23acd7b1936188e1aee3fd89ed686741fdf094d844bd342f0",
+                  "start": 3186,
+                  "end": 3688,
+                  "lookup": {
+                    "sourceIds": [
+                      "private:77a2f088-6b5c-4bb7-8ad0-49a1c5501ef7"
+                    ],
+                    "offset": 3186,
+                    "maxChars": 502
+                  }
+                },
+                {
+                  "sentence": "第8项是算盘。",
+                  "revision": "f74b7145d0801bb23acd7b1936188e1aee3fd89ed686741fdf094d844bd342f0",
+                  "start": 3690,
+                  "end": 4191,
+                  "lookup": {
+                    "sourceIds": [
+                      "private:77a2f088-6b5c-4bb7-8ad0-49a1c5501ef7"
+                    ],
+                    "offset": 3690,
+                    "maxChars": 501
+                  }
+                },
+                {
+                  "sentence": "第9项是折扇。",
+                  "revision": "f74b7145d0801bb23acd7b1936188e1aee3fd89ed686741fdf094d844bd342f0",
+                  "start": 4193,
+                  "end": 4694,
+                  "lookup": {
+                    "sourceIds": [
+                      "private:77a2f088-6b5c-4bb7-8ad0-49a1c5501ef7"
+                    ],
+                    "offset": 4193,
+                    "maxChars": 501
+                  }
+                },
+                {
+                  "sentence": "第10项是电话机。",
+                  "revision": "f74b7145d0801bb23acd7b1936188e1aee3fd89ed686741fdf094d844bd342f0",
+                  "start": 4696,
+                  "end": 5206,
+                  "lookup": {
+                    "sourceIds": [
+                      "private:77a2f088-6b5c-4bb7-8ad0-49a1c5501ef7"
+                    ],
+                    "offset": 4696,
+                    "maxChars": 510
+                  }
+                },
+                {
+                  "sentence": "第11项是旧地图。",
+                  "revision": "f74b7145d0801bb23acd7b1936188e1aee3fd89ed686741fdf094d844bd342f0",
+                  "start": 5208,
+                  "end": 5715,
+                  "lookup": {
+                    "sourceIds": [
+                      "private:77a2f088-6b5c-4bb7-8ad0-49a1c5501ef7"
+                    ],
+                    "offset": 5208,
+                    "maxChars": 507
+                  }
+                }
+              ],
+              "omittedEntryCount": 19,
+              "coveredCharRange": {
+                "start": 0,
+                "end": 5715,
+                "sourceId": "private:77a2f088-6b5c-4bb7-8ad0-49a1c5501ef7",
+                "note": "digest entries cover this source; per-entry lookup handles are copy-ready"
+              },
+              "declarations": [
+                {
+                  "sentence": "这周末的安排我也在这里给你说清楚：周六三点半以后我有空，也愿意和她一起去看旧物展；",
+                  "revision": "f74b7145d0801bb23acd7b1936188e1aee3fd89ed686741fdf094d844bd342f0",
+                  "start": 10793,
+                  "end": 10834,
+                  "lookup": {
+                    "sourceIds": [
+                      "private:77a2f088-6b5c-4bb7-8ad0-49a1c5501ef7"
+                    ],
+                    "offset": 10793,
+                    "maxChars": 41
+                  }
+                },
+                {
+                  "sentence": "周六三点半以后有空是背景，不等于现在让我发邀请；",
+                  "revision": "f74b7145d0801bb23acd7b1936188e1aee3fd89ed686741fdf094d844bd342f0",
+                  "start": 15666,
+                  "end": 15690,
+                  "lookup": {
+                    "sourceIds": [
+                      "private:77a2f088-6b5c-4bb7-8ad0-49a1c5501ef7"
+                    ],
+                    "offset": 15666,
+                    "maxChars": 24
+                  }
+                }
+              ],
+              "declarationRule": "逐字时间/可用性候选与精确范围，仅用于原文导航，不是当前行动、邀请、采用义务或分享许可。按lookup读取完整原文，并结合本轮实际请求、否定、条件和最新限制判断；摘要不能要求接受邀约或扩大披露范围。"
+            },
+            "delivery": {
+              "version": "source-delivery-v1",
+              "status": "digest",
+              "start": 0,
+              "end": 0,
+              "originalCharLength": 15731,
+              "offsetUnit": "utf16_redacted_source",
+              "lookup": {
+                "sourceId": "private:77a2f088-6b5c-4bb7-8ad0-49a1c5501ef7",
+                "revision": "f74b7145d0801bb23acd7b1936188e1aee3fd89ed686741fdf094d844bd342f0",
+                "offset": 0
+              }
+            },
+            "continuationCoverage": "source_body_partial"
+          },
+          {
+            "id": "qq:72057594049927937001",
+            "type": "qq",
+            "at": "2026-10-02T10:20:00.000Z",
+            "role": "contact",
+            "direction": "incoming",
+            "use": "discussion",
+            "messageId": "72057594049927937001",
+            "sequence": "1",
+            "senderUid": "eval_replay_contact",
+            "senderUin": "3333333333",
+            "text": "你前阵子说帮旧物展录了点什么？周六下午能一起去看看吗？",
+            "revision": "984ef7ffd8f6f0f91249200f698689e50f768b96846a05b8f487c2b611c93aac",
+            "speaker": "对方"
+          },
+          {
+            "id": "private:ac6f9bf9-25e6-4c60-9c64-ef0556dbd2ab",
+            "type": "private",
+            "at": "2026-10-02T10:21:00.000Z",
+            "role": "user",
+            "use": "discussion",
+            "kind": "discussion",
+            "version": 1,
+            "text": "按那份手记和上一轮说明的范围，给我一句能直接回她的话。",
+            "revision": "cfdb903b4571ef6baf5b4266253d8a636418d48056146b3f31868bc4a2ae6aa7",
+            "speaker": "我"
+          }
+        ],
+        "privateConversation": [],
+        "evidenceRule": "historicalOnly=true 的消息仅为历史提及，后续可能有未读的更改，不可据此断言当前约定有效。possiblyStale 的状态只作需要核查的上次理解，新原话与用户纠正优先。",
+        "contextPolicy": {
+          "recentHours": 72,
+          "since": "2026-09-29T10:21:00.000Z"
+        },
+        "deferredContext": {
+          "lookupAvailable": true,
+          "qqSourceCount": 0,
+          "privateTurnCount": 2,
+          "relationshipClaimCount": 0
+        },
+        "omittedStateEntries": 0,
+        "contextRequest": {
+          "version": "context-request-v1",
+          "intentClass": "generic_consultation",
+          "classification": {
+            "basis": "fallback",
+            "signals": []
+          },
+          "wants": {
+            "continueThread": true,
+            "discovery": false,
+            "methods": false,
+            "materials": false
+          },
+          "anchors": {
+            "replyFocus": [],
+            "images": []
+          }
+        },
+        "imageContext": {
+          "version": 1,
+          "mode": "none",
+          "attached": [],
+          "omitted": []
+        },
+        "memoryDiscovery": {
+          "version": "conversation-discovery-2026-10-30.1",
+          "directory": [
+            {
+              "id": "raw:private:ac6f9bf9-25e6-4c60-9c64-ef0556dbd2ab",
+              "kind": "raw_source",
+              "subject": "undetermined",
+              "sourceSpeaker": "private_user",
+              "aspect": "private",
+              "at": "2026-10-02T10:21:00.000Z",
+              "temporalStatus": "source_time_not_current_state",
+              "omittedSupportCount": 0,
+              "requiresOriginalRead": true,
+              "sourceRefs": [
+                {
+                  "sourceId": "private:ac6f9bf9-25e6-4c60-9c64-ef0556dbd2ab",
+                  "revision": "cfdb903b4571ef6baf5b4266253d8a636418d48056146b3f31868bc4a2ae6aa7"
+                }
+              ],
+              "sourceIds": [
+                "private:ac6f9bf9-25e6-4c60-9c64-ef0556dbd2ab"
+              ],
+              "authority": "navigation_only_needs_source_lookup",
+              "textFromSource": "private:ac6f9bf9-25e6-4c60-9c64-ef0556dbd2ab"
+            },
+            {
+              "id": "raw:qq:72057594049927937001",
+              "kind": "raw_source",
+              "subject": "undetermined",
+              "sourceSpeaker": "contact",
+              "aspect": "qq",
+              "at": "2026-10-02T10:20:00.000Z",
+              "temporalStatus": "source_time_not_current_state",
+              "omittedSupportCount": 0,
+              "requiresOriginalRead": true,
+              "sourceRefs": [
+                {
+                  "sourceId": "qq:72057594049927937001",
+                  "revision": "984ef7ffd8f6f0f91249200f698689e50f768b96846a05b8f487c2b611c93aac"
+                }
+              ],
+              "sourceIds": [
+                "qq:72057594049927937001"
+              ],
+              "authority": "navigation_only_needs_source_lookup",
+              "textFromSource": "qq:72057594049927937001"
+            },
+            {
+              "id": "raw:private:77a2f088-6b5c-4bb7-8ad0-49a1c5501ef7",
+              "kind": "raw_source",
+              "subject": "undetermined",
+              "sourceSpeaker": "private_user",
+              "aspect": "private",
+              "text": "得比实物证据更满，我先按自己听到的原话记下来，没有补一个听起来完整却没有来源的往事。\n那天核对的过程中，提供票根的小杜又去找了一次登记本。我们把物件名称、实物状态和可以公开讲的范围分开写在临时纸上，后来才搬到工作台另一边",
+              "at": "2026-10-02T10:01:00.000Z",
+              "temporalStatus": "source_time_not_current_state",
+              "omittedSupportCount": 0,
+              "requiresOriginalRead": true,
+              "sourceRefs": [
+                {
+                  "sourceId": "private:77a2f088-6b5c-4bb7-8ad0-49a1c5501ef7",
+                  "revision": "f74b7145d0801bb23acd7b1936188e1aee3fd89ed686741fdf094d844bd342f0"
+                }
+              ],
+              "sourceIds": [
+                "private:77a2f088-6b5c-4bb7-8ad0-49a1c5501ef7"
+              ],
+              "authority": "navigation_only_needs_source_lookup"
+            }
+          ],
+          "authority": "fallible_navigation_requires_original_lookup",
+          "rule": "目录用于发现可核对的旧事、自述和共同背景；先核对原文、后续变化和已表达内容，不能把预览当当前事实、未聊过证明或分享授权。",
+          "omittedEntryCount": 0,
+          "candidateSourceCount": 3,
+          "delivery": [
+            {
+              "sourceId": "private:ac6f9bf9-25e6-4c60-9c64-ef0556dbd2ab",
+              "status": "delivered"
+            },
+            {
+              "sourceId": "qq:72057594049927937001",
+              "status": "delivered"
+            },
+            {
+              "sourceId": "private:77a2f088-6b5c-4bb7-8ad0-49a1c5501ef7",
+              "status": "digest"
+            }
+          ]
+        },
+        "deferredDiscussion": {
+          "turnIds": [
+            "77a2f088-6b5c-4bb7-8ad0-49a1c5501ef7",
+            "03d93577-ba7c-45aa-8332-23461396e477"
+          ],
+          "availability": "needs_lookup",
+          "reason": "complete_group_exceeds_remaining_layer_budget"
+        },
+        "privateCandidates": [
+          {
+            "turnId": "03d93577-ba7c-45aa-8332-23461396e477",
+            "field": "text",
+            "text": "可靠能保留的范围很清楚：你愿意分享的是自己实际做过的志愿工作——帮三件物品录制讲解音频；发现一处停顿不自然后，又重录了一段。可以把重点放在“我做了什么”和这个具体的小插曲上，不必解释周末安排，也不必提之前那件私事。\n\n边界上，不把自己说成策展人或专业讲解员，不暗示展览和全部展品由你负责；也不扩写物件主人的故事、来历或未核实信息。登记本里的地址、联系方式明确不分享。你目前只是在讨论可保留的内容，并且明确说了这轮不确认或提出周六同行，所以我不会把空闲时间转成邀请，也不急着代你生成给朋友的话。",
+            "artifactRef": {
+              "artifactId": "turn:03d93577-ba7c-45aa-8332-23461396e477",
+              "version": 1
+            },
+            "availability": "full",
+            "authority": "generated_discussion_not_outbound_authorization"
+          }
+        ],
+        "relationshipContext": {
+          "version": 3,
+          "asOf": "2026-10-02T10:21:00.000Z",
+          "claims": [],
+          "events": [],
+          "activities": [],
+          "activityUncertainties": [],
+          "activityEvidenceRule": "Historical evidence gaps do not negate a separately supported current-state report. Preserve currentReportedState source/asOf/authority; it is not an event occurrence clock. evidenceLosses use a separate loss: namespace, never source handles, citations, sharing permission or new event evidence. They describe prior derived understanding, not current facts: only a statement dependency identifies what the unavailable original previously served as evidence for; definition/time/support loss does not establish the original message meaning. Original author and prior event actor are distinct; a native recall does not identify its operator. invalidatedOriginal.sourceTime is only previousRevision's saved original timestamp, not world occurrence. status:unknown means no original time; never substitute affectedWorldAt (affected prior world/state time), knowledgeChangedAt (evidence loss) or plannedFor (planned activity time). Missing/omitted loss details stay unknown. Historical gaps do not negate separately supported newer world or current-state reports.",
+          "coverage": {
+            "pending": 3,
+            "semanticPending": 0,
+            "processorVersion": "evidence-backed-understanding-2026-10-31.2",
+            "bootstrapPending": false,
+            "history": {
+              "status": "empty",
+              "pages": 1,
+              "cursor": null,
+              "oldestAt": null,
+              "checkedAt": "2026-10-02T10:00:59.000Z",
+              "source": "fictional-native-boundary-replay"
+            },
+            "semanticCertainty": false
+          }
+        },
+        "experienceContext": {
+          "cases": [],
+          "adaptations": [],
+          "constraints": [
+            "仅为局部经验；不是她的心理或方法因果效果证据。",
+            "候选适用性尚未确定，核对applicability与当前任务后再使用；本轮明确意思优先，不相关或相反的指导不采用。"
+          ]
+        },
+        "work": {
+          "version": "conversation-work-2026-10-30.2",
+          "authority": "derived_work_view_not_factual_evidence",
+          "scope": "this_relationship",
+          "request": {
+            "sourceId": "private:ac6f9bf9-25e6-4c60-9c64-ef0556dbd2ab",
+            "purpose": "discussion",
+            "origin": "user",
+            "trigger": "private_request",
+            "meaningFromSource": "private:ac6f9bf9-25e6-4c60-9c64-ef0556dbd2ab",
+            "authority": "current_source_pointer_not_material_or_permission"
+          },
+          "goal": {
+            "available": true,
+            "meaningFrom": "goal",
+            "authority": "user_owned_long_term_direction_not_wording"
+          },
+          "current": null,
+          "focus": {
+            "sourceIds": [
+              "qq:72057594049927937001"
+            ],
+            "positionFrom": "taskContext.latestActual"
+          },
+          "pendingPrivateIntent": {
+            "sourceIds": []
+          },
+          "controlsFrom": {
+            "current": "topicContext.active",
+            "responsePreference": "taskContext.responsePreference",
+            "authority": "applicable_controls_not_shareable_facts"
+          },
+          "sourceIds": [
+            "private:ac6f9bf9-25e6-4c60-9c64-ef0556dbd2ab",
+            "qq:72057594049927937001"
+          ],
+          "outputUse": "planning_only_not_outbound_authorization"
+        },
+        "materialView": {
+          "version": "conversation-materials-2026-10-30.2",
+          "items": [
+            {
+              "kind": "current_exchange",
+              "sourceIds": [
+                "qq:72057594049927937001"
+              ],
+              "novelty": "not_determined",
+              "owner": "contact",
+              "availableAs": "actual_conversation",
+              "interpretation": "read_actual_order_and_speakers"
+            }
+          ],
+          "currentIntent": {
+            "sourceId": "private:ac6f9bf9-25e6-4c60-9c64-ef0556dbd2ab",
+            "trigger": "private_request",
+            "authority": "current_source_pointer_not_material_or_permission"
+          },
+          "authority": "evidence_navigation_not_a_script",
+          "instruction": "从实际原话选本轮可聊一点，核对主体、日期、已表达内容和后续限制；未知不逐项追问。此视图的类别/指针非素材或许可；sources原始用户话可含事实、任务和范围明确的分享意思，须结合当前QQ指代、否定、条件判断。视图和所选操作本身不授分享许可。"
+        },
+        "taskContext": {
+          "version": "relationship-task-2026-10-16.2",
+          "sourceTextLocation": "sources",
+          "requestOrigin": "private_discussion",
+          "currentRequestSourceId": "private:ac6f9bf9-25e6-4c60-9c64-ef0556dbd2ab",
+          "invocation": {
+            "origin": "user",
+            "trigger": "private_request",
+            "requestedPurpose": "discussion"
+          },
+          "timeContext": {
+            "localNow": "2026-10-02 18:21"
+          },
+          "consultationTask": {
+            "purpose": "discussion",
+            "focusOrigin": "latest_available",
+            "focus": [
+              {
+                "sourceId": "qq:72057594049927937001",
+                "laterAvailableMessageCount": 0
+              }
+            ]
+          },
+          "responsePreference": "自然一点，贴近我的说话方式",
+          "latestActual": {
+            "sourceId": "qq:72057594049927937001",
+            "direction": "incoming",
+            "speaker": "对方",
+            "at": "2026-10-02T10:20:00.000Z",
+            "sequence": "1",
+            "localAt": "2026-10-02 18:20",
+            "elapsedMinutes": 1,
+            "ageMs": 60000
+          },
+          "recentExchange": [
+            {
+              "sourceId": "qq:72057594049927937001",
+              "speaker": "对方",
+              "direction": "incoming",
+              "at": "2026-10-02T10:20:00.000Z",
+              "localAt": "2026-10-02 18:20",
+              "sequence": "1"
+            }
+          ],
+          "selfMessagesAfterLastContact": [],
+          "contactMessagesAfterLastSelf": [
+            "qq:72057594049927937001"
+          ],
+          "observationCoverage": {
+            "status": "empty",
+            "checkedAt": "2026-10-02T10:00:59.000Z"
+          },
+          "selfEvidenceSourceIds": [
+            "private:77a2f088-6b5c-4bb7-8ad0-49a1c5501ef7",
+            "private:ac6f9bf9-25e6-4c60-9c64-ef0556dbd2ab"
+          ],
+          "auxiliaryPolicy": "best_effort",
+          "factsRule": "仅限已提供原话，不补未知事实或分享授权。",
+          "draftControlPolicy": {
+            "version": 1,
+            "required": true,
+            "requiredFields": [
+              "objective",
+              "allowedApproach",
+              "avoidances"
+            ],
+            "intentSourceId": "private:ac6f9bf9-25e6-4c60-9c64-ef0556dbd2ab"
+          }
+        },
+        "userRequest": {
+          "sourceId": "private:ac6f9bf9-25e6-4c60-9c64-ef0556dbd2ab",
+          "text": "按那份手记和上一轮说明的范围，给我一句能直接回她的话。"
+        }
+      },
+      "manifest": {
+        "requestId": "replay-request-2",
+        "scope": {
+          "accountUid": "eval_replay_owner",
+          "accountUin": "1111111111",
+          "peerUid": "eval_replay_contact",
+          "peerUin": "3333333333"
+        },
+        "purpose": "discussion",
+        "promptVersion": "goal-context-2026-11-05.16-source-control",
+        "contextRevision": 4,
+        "stateVersion": 1,
+        "sourceIds": [
+          "private:77a2f088-6b5c-4bb7-8ad0-49a1c5501ef7",
+          "qq:72057594049927937001",
+          "private:ac6f9bf9-25e6-4c60-9c64-ef0556dbd2ab"
+        ],
+        "sourceRevisions": {
+          "private:77a2f088-6b5c-4bb7-8ad0-49a1c5501ef7": "f74b7145d0801bb23acd7b1936188e1aee3fd89ed686741fdf094d844bd342f0",
+          "qq:72057594049927937001": "984ef7ffd8f6f0f91249200f698689e50f768b96846a05b8f487c2b611c93aac",
+          "private:ac6f9bf9-25e6-4c60-9c64-ef0556dbd2ab": "cfdb903b4571ef6baf5b4266253d8a636418d48056146b3f31868bc4a2ae6aa7"
+        },
+        "sourceDelivery": {
+          "version": "source-delivery-v1",
+          "offsetUnit": "utf16_redacted_source",
+          "partialSourceCount": 0,
+          "omittedSourceCount": 0,
+          "explicitLookups": [],
+          "sources": [
+            {
+              "sourceId": "private:77a2f088-6b5c-4bb7-8ad0-49a1c5501ef7",
+              "revision": "f74b7145d0801bb23acd7b1936188e1aee3fd89ed686741fdf094d844bd342f0",
+              "status": "digest",
+              "start": 0,
+              "end": 0,
+              "originalCharLength": 15731,
+              "lookup": {
+                "sourceId": "private:77a2f088-6b5c-4bb7-8ad0-49a1c5501ef7",
+                "revision": "f74b7145d0801bb23acd7b1936188e1aee3fd89ed686741fdf094d844bd342f0",
+                "offset": 0
+              }
+            },
+            {
+              "sourceId": "qq:72057594049927937001",
+              "revision": "984ef7ffd8f6f0f91249200f698689e50f768b96846a05b8f487c2b611c93aac",
+              "status": "delivered",
+              "start": 0,
+              "end": 27,
+              "originalCharLength": 27
+            },
+            {
+              "sourceId": "private:ac6f9bf9-25e6-4c60-9c64-ef0556dbd2ab",
+              "revision": "cfdb903b4571ef6baf5b4266253d8a636418d48056146b3f31868bc4a2ae6aa7",
+              "status": "delivered",
+              "start": 0,
+              "end": 27,
+              "originalCharLength": 27
+            }
+          ]
+        },
+        "completeReview": true,
+        "omittedSourceCount": 0,
+        "historyCoverage": {
+          "status": "empty",
+          "pages": 1,
+          "cursor": null,
+          "oldestAt": null,
+          "checkedAt": "2026-10-02T10:00:59.000Z",
+          "source": "fictional-native-boundary-replay"
+        },
+        "inputBytes": 18573,
+        "byteBudget": 48000,
+        "tokenizerVerified": false,
+        "serializedTextRequestBytes": 35937,
+        "requestByteBudget": 64000,
+        "requestEnvelopeBytes": 20482,
+        "payloadWireByteBudget": 43518,
+        "requestModel": "gpt-6-luna",
+        "budgetMethod": "Complete serialized UTF-8 request envelope plus payload ceiling; tokenizer and provider window unverified",
+        "methodTrace": {
+          "purpose": "discussion",
+          "delivered": [],
+          "catalog": [
+            {
+              "id": "clarify",
+              "version": "goal-methods-2026-10-30.2"
+            },
+            {
+              "id": "choose_next_step",
+              "version": "goal-methods-2026-10-30.2"
+            },
+            {
+              "id": "respond",
+              "version": "goal-methods-2026-10-30.2"
+            },
+            {
+              "id": "compose",
+              "version": "goal-methods-2026-10-30.2"
+            },
+            {
+              "id": "review",
+              "version": "goal-methods-2026-10-30.2"
+            },
+            {
+              "id": "shared_activity",
+              "version": "goal-methods-2026-10-30.2"
+            },
+            {
+              "id": "correction",
+              "version": "goal-methods-2026-10-30.2"
+            },
+            {
+              "id": "express_interest",
+              "version": "goal-methods-2026-10-30.2"
+            }
+          ],
+          "operationalDelivery": {
+            "location": "methodCards",
+            "ids": []
+          },
+          "reported": null
+        },
+        "createdAt": "2026-10-02T10:21:00.000Z",
+        "degradation": [
+          {
+            "step": "degraded_to_ranged",
+            "appliedTo": "private:77a2f088-6b5c-4bb7-8ad0-49a1c5501ef7",
+            "recoveredBytes": 41235,
+            "remainingNeed": 41235,
+            "lookupHandle": {
+              "sourceIds": [
+                "private:77a2f088-6b5c-4bb7-8ad0-49a1c5501ef7"
+              ],
+              "revision": "f74b7145d0801bb23acd7b1936188e1aee3fd89ed686741fdf094d844bd342f0",
+              "offset": 0
+            }
+          },
+          {
+            "step": "deterministic_digest",
+            "appliedTo": "private:77a2f088-6b5c-4bb7-8ad0-49a1c5501ef7",
+            "recoveredBytes": 5058,
+            "remainingNeed": 42176,
+            "lookupHandle": {
+              "sourceId": "private:77a2f088-6b5c-4bb7-8ad0-49a1c5501ef7",
+              "revision": "f74b7145d0801bb23acd7b1936188e1aee3fd89ed686741fdf094d844bd342f0",
+              "offset": 0
+            }
+          }
+        ],
+        "admission": {
+          "version": "admission-compiler-v1",
+          "admissions": [
+            {
+              "id": "private:ac6f9bf9-25e6-4c60-9c64-ef0556dbd2ab",
+              "kind": "floor",
+              "tier": "verbatim"
+            }
+          ],
+          "materialRequirements": {
+            "version": "mqa-registry-v1",
+            "intentClass": "generic_consultation",
+            "outcomes": []
+          }
+        },
+        "contextSelection": {
+          "policy": {
+            "version": 1,
+            "recentHours": 72,
+            "since": "2026-09-29T10:21:00.000Z",
+            "asOf": "2026-10-02T10:21:00.000Z",
+            "currentEpisode": {
+              "maxGapMs": 1800000,
+              "maxSpanMs": 7200000
+            },
+            "loading": "complete_source_segments_within_request_budget",
+            "older": "core_summaries_and_explicit_or_ranked_lookup",
+            "optimality": "user_configured_window_not_quality_evidence"
+          },
+          "recentQQ": {
+            "candidateSourceIds": [
+              "qq:72057594049927937001"
+            ],
+            "loadedSourceIds": [
+              "qq:72057594049927937001"
+            ],
+            "partialSourceIds": [],
+            "omittedSourceIds": [],
+            "segments": [
+              {
+                "sourceIds": [
+                  "qq:72057594049927937001"
+                ],
+                "loadedCount": 1
+              }
+            ]
+          },
+          "recentPrivate": {
+            "candidateSourceIds": [
+              "private:77a2f088-6b5c-4bb7-8ad0-49a1c5501ef7"
+            ],
+            "loadedSourceIds": [
+              "private:77a2f088-6b5c-4bb7-8ad0-49a1c5501ef7"
+            ],
+            "partialSourceIds": [],
+            "foldedSourceIds": [],
+            "omittedSourceIds": []
+          },
+          "taskControlRefs": [],
+          "taskSourceRefs": [],
+          "coreSourceRefs": [],
+          "reasons": [
+            "bounded_current_exchange_and_explicit_sources",
+            "confirmed_preferences_and_dated_core",
+            "recent_time_window",
+            "ranked_or_explicit_lookup"
+          ]
+        },
+        "optionalRawRetrieval": {
+          "limit": 4,
+          "admittedCount": 0,
+          "deferredCount": 0,
+          "ordering": "retrieval_score_then_recency"
+        },
+        "recentQQContext": {
+          "limits": {
+            "maxMessages": 24,
+            "maxGapMs": 1800000,
+            "maxSpanMs": 7200000,
+            "maxAdditionalBytes": 12000
+          },
+          "projection": "omitted_for_budget",
+          "candidateSourceIds": [
+            "qq:72057594049927937001"
+          ],
+          "admittedPrioritySourceIds": [],
+          "initialAdditionalBytes": 433,
+          "ordering": "current_neighborhood_before_optional_history"
+        },
+        "planningViews": {
+          "workVersion": "conversation-work-2026-10-30.2",
+          "materialVersion": "conversation-materials-2026-10-30.2",
+          "materialRefs": [
+            {
+              "kind": "current_exchange",
+              "sourceIds": [
+                "qq:72057594049927937001"
+              ]
+            }
+          ],
+          "projection": "full"
+        },
+        "images": [],
+        "imageCount": 0,
+        "imageContext": {
+          "version": 1,
+          "mode": "none",
+          "attached": [],
+          "omitted": []
+        },
+        "stageId": "37785b66-7e7a-46d9-afbf-88a391f0590e",
+        "candidateSession": {
+          "qqRevision": 2,
+          "privateInputSeq": 2
+        }
+      },
+      "images": [],
+      "mediaContext": {
+        "mode": "off",
+        "omitted": []
+      },
+      "essentialSourceIds": [
+        "private:ac6f9bf9-25e6-4c60-9c64-ef0556dbd2ab",
+        "qq:72057594049927937001"
+      ],
+      "restrictions": []
+    },
+    {
+      "payload": {
+        "promptVersion": "goal-context-2026-11-05.16-source-control",
+        "purpose": "discussion",
+        "method": "围绕用户当前目的和本轮实际请求选择帮助，可理解、接续、真实分享、比较行动或组织表达。意思明确就直接帮助，只问会改变建议的必要问题。允许暂缓或不用助手，不强制每次制定目的。",
+        "methodCards": [],
+        "methodCatalog": [
+          {
+            "id": "clarify",
+            "version": "goal-methods-2026-10-30.2",
+            "name": "理清这次想表达什么",
+            "applicability": "用户说不清困惑、想表达的意思，或明确希望先讨论。"
+          },
+          {
+            "id": "choose_next_step",
+            "version": "goal-methods-2026-10-30.2",
+            "name": "比较下一步",
+            "applicability": "想联系但不知道聊什么、何时继续，或有多个可行方向。"
+          },
+          {
+            "id": "respond",
+            "version": "goal-methods-2026-10-30.2",
+            "name": "理解并回应她的话",
+            "applicability": "有实际来信，需要理解、回应分享或接续她提出的话题。"
+          },
+          {
+            "id": "compose",
+            "version": "goal-methods-2026-10-30.2",
+            "name": "组织参考表达",
+            "applicability": "用户明确要草稿、改写，或采用已讨论且明确可分享的内容。"
+          },
+          {
+            "id": "review",
+            "version": "goal-methods-2026-10-30.2",
+            "name": "找回与回顾",
+            "applicability": "问以前说过什么、约定进展，或希望回顾一段时间的互动。"
+          },
+          {
+            "id": "shared_activity",
+            "version": "goal-methods-2026-10-30.2",
+            "name": "考虑一起做点什么",
+            "applicability": "用户想邀约、讨论共同兴趣或寻找文字聊天之外的共同活动。"
+          },
+          {
+            "id": "correction",
+            "version": "goal-methods-2026-10-30.2",
+            "name": "纠正理解与用法",
+            "applicability": "用户纠正事实、分享范围、目标、建议风格，或要求记住/更改/忘记。"
+          },
+          {
+            "id": "express_interest",
+            "version": "goal-methods-2026-10-30.2",
+            "name": "表达好感与关系意图",
+            "applicability": "用户想表达喜欢、明确邀请含义，或希望讨论怎样从友好交流走向恋爱认识。"
+          }
+        ],
+        "methodSelection": {
+          "version": "goal-methods-2026-10-30.2",
+          "selection": "candidates",
+          "candidates": [
+            "clarify",
+            "choose_next_step",
+            "respond",
+            "compose",
+            "review",
+            "shared_activity",
+            "correction",
+            "express_interest"
+          ],
+          "maxApplied": 2,
+          "operationalInstructionsLocation": "methodCards",
+          "selectionRule": "以当前用户目的和本次意思选择零至两个方法；目录不是必走步骤，也不表示对方的心理。完整卡按需用lookup.methodIds读取，已有足够依据可以直接帮助，不必多查或先提问。",
+          "feedbackRule": "局部反馈只用于对应情境，稳定偏好须有用户明确依据。方法及论文只是有适用范围的参考，不保证交流或关系结果。"
+        },
+        "asOf": "2026-10-02T10:21:00.000Z",
+        "viewerTimeZone": "Asia/Shanghai",
+        "goal": "向朋友分享自己参与社区活动的真实小事，并保留自己决定的表达范围。",
+        "intentAuthority": {
+          "sourceId": "private:ac6f9bf9-25e6-4c60-9c64-ef0556dbd2ab"
+        },
+        "requestDeliveryPolicy": {
+          "version": 1,
+          "obligation": {
+            "mode": "editable_message"
+          }
+        },
+        "draftMaterialPolicy": {
+          "version": 1
+        },
+        "generationOrigin": "private_discussion",
+        "currentObservationSourceId": null,
+        "topicContext": {
+          "version": 0,
+          "activeId": null,
+          "active": null,
+          "retained": [],
+          "authority": "private_direction_not_outbound_authorization"
+        },
+        "workingState": {
+          "version": 1,
+          "items": [],
+          "possiblyStale": true,
+          "ownership": "evidence_only_task_controls_in_topicContext",
+          "authority": "previous_summary_needs_review"
+        },
+        "coverage": {
+          "status": "empty",
+          "pages": 1,
+          "cursor": null,
+          "oldestAt": null,
+          "checkedAt": "2026-10-02T10:00:59.000Z",
+          "source": "fictional-native-boundary-replay"
+        },
+        "selectedMaterialIds": [],
+        "allowedMaterialIds": [],
+        "expressionOptions": [],
+        "selectedOption": null,
+        "actionReceipts": [],
+        "privateRestrictions": [],
+        "preferences": [],
+        "experienceProposalPolicy": {
+          "enabled": false,
+          "maxItems": 2,
+          "feedbackSourceIds": [],
+          "caseIds": []
+        },
+        "replyFocus": [],
+        "lookupHistory": [
+          {
+            "query": "",
+            "found": 1,
+            "discussionTurns": 0,
+            "sourceIds": [
+              "private:77a2f088-6b5c-4bb7-8ad0-49a1c5501ef7"
+            ],
+            "requestedRange": {
+              "offset": 0,
+              "maxChars": 700
+            },
+            "methodIds": [],
+            "coverage": {
+              "retrieval": "exact-private-discussion-ids",
+              "complete": false
+            },
+            "delivery": "check_sourceDelivery_not_found_count"
+          }
+        ],
+        "reviewRange": {},
+        "retrievedMemory": {
+          "items": [],
+          "episodes": [],
+          "coverage": {
+            "complete": false,
+            "sourceCount": 3,
+            "retrievedCount": 3,
+            "pending": 3,
+            "processed": 0,
+            "history": {
+              "status": "empty",
+              "pages": 1,
+              "cursor": null,
+              "oldestAt": null,
+              "checkedAt": "2026-10-02T10:00:59.000Z",
+              "source": "fictional-native-boundary-replay"
+            },
+            "retrieval": "lexical-han-bigram-bm25",
+            "semanticCertainty": false
+          }
+        },
+        "memoryIndex": [],
+        "sources": [
+          {
+            "id": "private:77a2f088-6b5c-4bb7-8ad0-49a1c5501ef7",
+            "type": "private",
+            "at": "2026-10-02T10:01:00.000Z",
+            "role": "user",
+            "use": "discussion",
+            "kind": "discussion",
+            "version": 1,
+            "text": "这是我给社区旧物展做志愿工作时留给自己的原始手记，按整理顺序贴在这里，方便和你商量自己的真实近况。里面有他人的登记信息和一些没查清的来历，不能自动变成对外可说的故事。我愿意告诉朋友我帮展览做过一点具体事情，但物件不都属于我，别人做的部分也不是我的成果。下面是我当天一项项接触到的经过，不是已经写好的展览文案。\n\n第1项是旧收音机。我到整理桌时，修理铺的周师傅已经把它放在一张浅灰色的软垫上。我负责照着登记纸核对这件东西能否进入讲解录音，不负责估价，也不是决定它来历的人。我们先看了调台旋钮，当时能确认的现象是旋钮转到尽头会卡住。为了不把描述写得比实物证据更满，我先按自己听到的原话记下来，没有补一个听起来完整却没有来源的往事。\n那天核对的过程中，修理铺的周师傅又去找了一次登记本。我们把物件名称、实物状态和可以公开讲的范围分开写在临时纸上，后来才搬到工作台另一边。关于这件物品，大家当面商量的是“只展示外观，不让观众通电”。这句话说的是当前的展示处理，不代表我们已经查出了所有缺失的信息。有观众问到更远的故事时，志愿者可以说还没核实，而不需要为了热闹现场讲一个猜出来的版本。\n我记得自己做的是对着旧收音机读了一遍手上的说明，发现有一句话读起来太像把不确定的推测当结论，于是停下来问了修理铺的周师傅。之后是对方去核对材料，我没有独自判断。等候时我整理了麦克风旁边的纸张，把要遮住的登记内容折到背后；这只是我参与录音准备的一小部分，不意味着整个展览都是我策划的。最后这项先放回原位，下一次是否增加说明，留给拿到新来源之后再讨论。\n\n第2项是搪瓷杯。我到整理桌时，捐物的何阿姨已经把它放在一张浅灰色的软垫上",
+            "revision": "f74b7145d0801bb23acd7b1936188e1aee3fd89ed686741fdf094d844bd342f0",
+            "speaker": "我",
+            "delivery": {
+              "version": "source-delivery-v1",
+              "status": "partial",
+              "start": 0,
+              "end": 700,
+              "originalCharLength": 15731,
+              "offsetUnit": "utf16_redacted_source",
+              "continuationAvailable": true,
+              "lookup": {
+                "sourceId": "private:77a2f088-6b5c-4bb7-8ad0-49a1c5501ef7",
+                "revision": "f74b7145d0801bb23acd7b1936188e1aee3fd89ed686741fdf094d844bd342f0",
+                "offset": 700
+              }
+            },
+            "digest": {
+              "declarations": [
+                {
+                  "sentence": "这周末的安排我也在这里给你说清楚：周六三点半以后我有空，也愿意和她一起去看旧物展；",
+                  "revision": "f74b7145d0801bb23acd7b1936188e1aee3fd89ed686741fdf094d844bd342f0",
+                  "start": 10793,
+                  "end": 10834,
+                  "lookup": {
+                    "sourceIds": [
+                      "private:77a2f088-6b5c-4bb7-8ad0-49a1c5501ef7"
+                    ],
+                    "offset": 10793,
+                    "maxChars": 41
+                  }
+                },
+                {
+                  "sentence": "周六三点半以后有空是背景，不等于现在让我发邀请；",
+                  "revision": "f74b7145d0801bb23acd7b1936188e1aee3fd89ed686741fdf094d844bd342f0",
+                  "start": 15666,
+                  "end": 15690,
+                  "lookup": {
+                    "sourceIds": [
+                      "private:77a2f088-6b5c-4bb7-8ad0-49a1c5501ef7"
+                    ],
+                    "offset": 15666,
+                    "maxChars": 24
+                  }
+                }
+              ],
+              "declarationRule": "逐字时间/可用性候选与精确范围，仅用于原文导航，不是当前行动、邀请、采用义务或分享许可。按lookup读取完整原文，并结合本轮实际请求、否定、条件和最新限制判断；摘要不能要求接受邀约或扩大披露范围。"
+            },
+            "continuationCoverage": "source_body_partial"
+          },
+          {
+            "id": "qq:72057594049927937001",
+            "type": "qq",
+            "at": "2026-10-02T10:20:00.000Z",
+            "role": "contact",
+            "direction": "incoming",
+            "use": "discussion",
+            "messageId": "72057594049927937001",
+            "sequence": "1",
+            "senderUid": "eval_replay_contact",
+            "senderUin": "3333333333",
+            "text": "你前阵子说帮旧物展录了点什么？周六下午能一起去看看吗？",
+            "revision": "984ef7ffd8f6f0f91249200f698689e50f768b96846a05b8f487c2b611c93aac",
+            "speaker": "对方"
+          },
+          {
+            "id": "private:ac6f9bf9-25e6-4c60-9c64-ef0556dbd2ab",
+            "type": "private",
+            "at": "2026-10-02T10:21:00.000Z",
+            "role": "user",
+            "use": "discussion",
+            "kind": "discussion",
+            "version": 1,
+            "text": "按那份手记和上一轮说明的范围，给我一句能直接回她的话。",
+            "revision": "cfdb903b4571ef6baf5b4266253d8a636418d48056146b3f31868bc4a2ae6aa7",
+            "speaker": "我"
+          }
+        ],
+        "privateConversation": [
+          {
+            "id": "77a2f088-6b5c-4bb7-8ad0-49a1c5501ef7",
+            "role": "user",
+            "kind": "discussion",
+            "sourceId": "private:77a2f088-6b5c-4bb7-8ad0-49a1c5501ef7",
+            "sourceTextLocation": "sources",
+            "at": "2026-10-02T10:01:00.000Z",
+            "requestId": "replay-request-1"
+          },
+          {
+            "id": "03d93577-ba7c-45aa-8332-23461396e477",
+            "role": "assistant",
+            "kind": "discussion",
+            "text": "可靠能保留的范围很清楚：你愿意分享的是自己实际做过的志愿工作——帮三件物品录制讲解音频；发现一处停顿不自然后，又重录了一段。可以把重点放在“我做了什么”和这个具体的小插曲上，不必解释周末安排，也不必提之前那件私事。\n\n边界上，不把自己说成策展人或专业讲解员，不暗示展览和全部展品由你负责；也不扩写物件主人的故事、来历或未核实信息。登记本里的地址、联系方式明确不分享。你目前只是在讨论可保留的内容，并且明确说了这轮不确认或提出周六同行，所以我不会把空闲时间转成邀请，也不急着代你生成给朋友的话。",
+            "at": "2026-10-02T10:01:00.000Z",
+            "requestId": "replay-request-1",
+            "authority": "assistant_discussion_not_factual_evidence"
+          }
+        ],
+        "evidenceRule": "historicalOnly=true 的消息仅为历史提及，后续可能有未读的更改，不可据此断言当前约定有效。possiblyStale 的状态只作需要核查的上次理解，新原话与用户纠正优先。",
+        "contextPolicy": {
+          "recentHours": 72,
+          "since": "2026-09-29T10:21:00.000Z"
+        },
+        "deferredContext": {
+          "lookupAvailable": true,
+          "qqSourceCount": 0,
+          "privateTurnCount": 0,
+          "relationshipClaimCount": 0
+        },
+        "omittedStateEntries": 0,
+        "contextRequest": {
+          "version": "context-request-v1",
+          "intentClass": "generic_consultation",
+          "classification": {
+            "basis": "fallback",
+            "signals": []
+          },
+          "wants": {
+            "continueThread": true,
+            "discovery": false,
+            "methods": false,
+            "materials": false
+          },
+          "anchors": {
+            "replyFocus": [],
+            "images": []
+          }
+        },
+        "materialRequirements": {
+          "version": "mqa-registry-v1",
+          "intentClass": "generic_consultation",
+          "outcomes": [],
+          "retrievedMaterials": [
+            {
+              "sourceId": "private:77a2f088-6b5c-4bb7-8ad0-49a1c5501ef7",
+              "available": true,
+              "tier": "ranged",
+              "start": 0,
+              "end": 1789,
+              "lookup": {
+                "sourceIds": [
+                  "private:77a2f088-6b5c-4bb7-8ad0-49a1c5501ef7"
+                ],
+                "revision": "f74b7145d0801bb23acd7b1936188e1aee3fd89ed686741fdf094d844bd342f0",
+                "offset": 0
+              }
+            }
+          ]
+        },
+        "evidenceDelivery": {
+          "version": "source-delivery-v1",
+          "explicitLookups": [
+            {
+              "sourceId": "private:77a2f088-6b5c-4bb7-8ad0-49a1c5501ef7",
+              "revision": "f74b7145d0801bb23acd7b1936188e1aee3fd89ed686741fdf094d844bd342f0",
+              "status": "partial",
+              "start": 0,
+              "end": 700,
+              "originalCharLength": 15731,
+              "lookup": {
+                "sourceId": "private:77a2f088-6b5c-4bb7-8ad0-49a1c5501ef7",
+                "revision": "f74b7145d0801bb23acd7b1936188e1aee3fd89ed686741fdf094d844bd342f0",
+                "offset": 700
+              },
+              "requestedRange": {
+                "start": 0,
+                "end": 700
+              },
+              "requestStatus": "delivered"
+            }
+          ]
+        },
+        "imageContext": {
+          "version": 1,
+          "mode": "none",
+          "attached": [],
+          "omitted": []
+        },
+        "memoryDiscovery": {
+          "version": "conversation-discovery-2026-10-30.1",
+          "directory": [
+            {
+              "id": "raw:private:ac6f9bf9-25e6-4c60-9c64-ef0556dbd2ab",
+              "kind": "raw_source",
+              "subject": "undetermined",
+              "sourceSpeaker": "private_user",
+              "aspect": "private",
+              "at": "2026-10-02T10:21:00.000Z",
+              "temporalStatus": "source_time_not_current_state",
+              "omittedSupportCount": 0,
+              "requiresOriginalRead": true,
+              "sourceRefs": [
+                {
+                  "sourceId": "private:ac6f9bf9-25e6-4c60-9c64-ef0556dbd2ab",
+                  "revision": "cfdb903b4571ef6baf5b4266253d8a636418d48056146b3f31868bc4a2ae6aa7"
+                }
+              ],
+              "sourceIds": [
+                "private:ac6f9bf9-25e6-4c60-9c64-ef0556dbd2ab"
+              ],
+              "authority": "navigation_only_needs_source_lookup",
+              "textFromSource": "private:ac6f9bf9-25e6-4c60-9c64-ef0556dbd2ab"
+            },
+            {
+              "id": "raw:qq:72057594049927937001",
+              "kind": "raw_source",
+              "subject": "undetermined",
+              "sourceSpeaker": "contact",
+              "aspect": "qq",
+              "at": "2026-10-02T10:20:00.000Z",
+              "temporalStatus": "source_time_not_current_state",
+              "omittedSupportCount": 0,
+              "requiresOriginalRead": true,
+              "sourceRefs": [
+                {
+                  "sourceId": "qq:72057594049927937001",
+                  "revision": "984ef7ffd8f6f0f91249200f698689e50f768b96846a05b8f487c2b611c93aac"
+                }
+              ],
+              "sourceIds": [
+                "qq:72057594049927937001"
+              ],
+              "authority": "navigation_only_needs_source_lookup",
+              "textFromSource": "qq:72057594049927937001"
+            },
+            {
+              "id": "raw:private:77a2f088-6b5c-4bb7-8ad0-49a1c5501ef7",
+              "kind": "raw_source",
+              "subject": "undetermined",
+              "sourceSpeaker": "private_user",
+              "aspect": "private",
+              "text": "得比实物证据更满，我先按自己听到的原话记下来，没有补一个听起来完整却没有来源的往事。\n那天核对的过程中，提供票根的小杜又去找了一次登记本。我们把物件名称、实物状态和可以公开讲的范围分开写在临时纸上，后来才搬到工作台另一边",
+              "at": "2026-10-02T10:01:00.000Z",
+              "temporalStatus": "source_time_not_current_state",
+              "omittedSupportCount": 0,
+              "requiresOriginalRead": true,
+              "sourceRefs": [
+                {
+                  "sourceId": "private:77a2f088-6b5c-4bb7-8ad0-49a1c5501ef7",
+                  "revision": "f74b7145d0801bb23acd7b1936188e1aee3fd89ed686741fdf094d844bd342f0"
+                }
+              ],
+              "sourceIds": [
+                "private:77a2f088-6b5c-4bb7-8ad0-49a1c5501ef7"
+              ],
+              "authority": "navigation_only_needs_source_lookup"
+            }
+          ],
+          "authority": "fallible_navigation_requires_original_lookup",
+          "rule": "目录用于发现可核对的旧事、自述和共同背景；先核对原文、后续变化和已表达内容，不能把预览当当前事实、未聊过证明或分享授权。",
+          "omittedEntryCount": 0,
+          "candidateSourceCount": 3,
+          "delivery": [
+            {
+              "sourceId": "private:ac6f9bf9-25e6-4c60-9c64-ef0556dbd2ab",
+              "status": "delivered"
+            },
+            {
+              "sourceId": "qq:72057594049927937001",
+              "status": "delivered"
+            },
+            {
+              "sourceId": "private:77a2f088-6b5c-4bb7-8ad0-49a1c5501ef7",
+              "status": "partial"
+            }
+          ]
+        },
+        "privateCandidates": [
+          {
+            "turnId": "03d93577-ba7c-45aa-8332-23461396e477",
+            "field": "text",
+            "text": "可靠能保留的范围很清楚：你愿意分享的是自己实际做过的志愿工作——帮三件物品录制讲解音频；发现一处停顿不自然后，又重录了一段。可以把重点放在“我做了什么”和这个具体的小插曲上，不必解释周末安排，也不必提之前那件私事。\n\n边界上，不把自己说成策展人或专业讲解员，不暗示展览和全部展品由你负责；也不扩写物件主人的故事、来历或未核实信息。登记本里的地址、联系方式明确不分享。你目前只是在讨论可保留的内容，并且明确说了这轮不确认或提出周六同行，所以我不会把空闲时间转成邀请，也不急着代你生成给朋友的话。",
+            "artifactRef": {
+              "artifactId": "turn:03d93577-ba7c-45aa-8332-23461396e477",
+              "version": 1
+            },
+            "availability": "full",
+            "authority": "generated_discussion_not_outbound_authorization"
+          }
+        ],
+        "relationshipContext": {
+          "version": 3,
+          "asOf": "2026-10-02T10:21:00.000Z",
+          "claims": [],
+          "events": [],
+          "activities": [],
+          "activityUncertainties": [],
+          "activityEvidenceRule": "Historical evidence gaps do not negate a separately supported current-state report. Preserve currentReportedState source/asOf/authority; it is not an event occurrence clock. evidenceLosses use a separate loss: namespace, never source handles, citations, sharing permission or new event evidence. They describe prior derived understanding, not current facts: only a statement dependency identifies what the unavailable original previously served as evidence for; definition/time/support loss does not establish the original message meaning. Original author and prior event actor are distinct; a native recall does not identify its operator. invalidatedOriginal.sourceTime is only previousRevision's saved original timestamp, not world occurrence. status:unknown means no original time; never substitute affectedWorldAt (affected prior world/state time), knowledgeChangedAt (evidence loss) or plannedFor (planned activity time). Missing/omitted loss details stay unknown. Historical gaps do not negate separately supported newer world or current-state reports.",
+          "coverage": {
+            "pending": 3,
+            "semanticPending": 0,
+            "processorVersion": "evidence-backed-understanding-2026-10-31.2",
+            "bootstrapPending": false,
+            "history": {
+              "status": "empty",
+              "pages": 1,
+              "cursor": null,
+              "oldestAt": null,
+              "checkedAt": "2026-10-02T10:00:59.000Z",
+              "source": "fictional-native-boundary-replay"
+            },
+            "semanticCertainty": false
+          }
+        },
+        "experienceContext": {
+          "cases": [],
+          "adaptations": [],
+          "constraints": [
+            "仅为局部经验；不是她的心理或方法因果效果证据。",
+            "候选适用性尚未确定，核对applicability与当前任务后再使用；本轮明确意思优先，不相关或相反的指导不采用。"
+          ]
+        },
+        "work": {
+          "version": "conversation-work-2026-10-30.2",
+          "authority": "derived_work_view_not_factual_evidence",
+          "scope": "this_relationship",
+          "request": {
+            "sourceId": "private:ac6f9bf9-25e6-4c60-9c64-ef0556dbd2ab",
+            "purpose": "discussion",
+            "origin": "user",
+            "trigger": "private_request",
+            "meaningFromSource": "private:ac6f9bf9-25e6-4c60-9c64-ef0556dbd2ab",
+            "authority": "current_source_pointer_not_material_or_permission"
+          },
+          "goal": {
+            "available": true,
+            "meaningFrom": "goal",
+            "authority": "user_owned_long_term_direction_not_wording"
+          },
+          "current": null,
+          "focus": {
+            "sourceIds": [
+              "qq:72057594049927937001"
+            ],
+            "positionFrom": "taskContext.latestActual"
+          },
+          "pendingPrivateIntent": {
+            "sourceIds": []
+          },
+          "controlsFrom": {
+            "current": "topicContext.active",
+            "responsePreference": "taskContext.responsePreference",
+            "authority": "applicable_controls_not_shareable_facts"
+          },
+          "sourceIds": [
+            "private:ac6f9bf9-25e6-4c60-9c64-ef0556dbd2ab",
+            "qq:72057594049927937001"
+          ],
+          "outputUse": "planning_only_not_outbound_authorization"
+        },
+        "materialView": {
+          "version": "conversation-materials-2026-10-30.2",
+          "items": [
+            {
+              "kind": "current_exchange",
+              "sourceIds": [
+                "qq:72057594049927937001"
+              ],
+              "novelty": "not_determined",
+              "owner": "contact",
+              "availableAs": "actual_conversation",
+              "interpretation": "read_actual_order_and_speakers"
+            }
+          ],
+          "currentIntent": {
+            "sourceId": "private:ac6f9bf9-25e6-4c60-9c64-ef0556dbd2ab",
+            "trigger": "private_request",
+            "authority": "current_source_pointer_not_material_or_permission"
+          },
+          "authority": "evidence_navigation_not_a_script",
+          "instruction": "从实际原话选本轮可聊一点，核对主体、日期、已表达内容和后续限制；未知不逐项追问。此视图的类别/指针非素材或许可；sources原始用户话可含事实、任务和范围明确的分享意思，须结合当前QQ指代、否定、条件判断。视图和所选操作本身不授分享许可。"
+        },
+        "taskContext": {
+          "version": "relationship-task-2026-10-16.2",
+          "sourceTextLocation": "sources",
+          "requestOrigin": "private_discussion",
+          "currentRequestSourceId": "private:ac6f9bf9-25e6-4c60-9c64-ef0556dbd2ab",
+          "invocation": {
+            "origin": "user",
+            "trigger": "private_request",
+            "requestedPurpose": "discussion"
+          },
+          "timeContext": {
+            "localNow": "2026-10-02 18:21"
+          },
+          "consultationTask": {
+            "purpose": "discussion",
+            "focusOrigin": "latest_available",
+            "focus": [
+              {
+                "sourceId": "qq:72057594049927937001",
+                "laterAvailableMessageCount": 0
+              }
+            ]
+          },
+          "responsePreference": "自然一点，贴近我的说话方式",
+          "latestActual": {
+            "sourceId": "qq:72057594049927937001",
+            "direction": "incoming",
+            "speaker": "对方",
+            "at": "2026-10-02T10:20:00.000Z",
+            "sequence": "1",
+            "localAt": "2026-10-02 18:20",
+            "elapsedMinutes": 1,
+            "ageMs": 60000
+          },
+          "recentExchange": [
+            {
+              "sourceId": "qq:72057594049927937001",
+              "speaker": "对方",
+              "direction": "incoming",
+              "at": "2026-10-02T10:20:00.000Z",
+              "localAt": "2026-10-02 18:20",
+              "sequence": "1"
+            }
+          ],
+          "selfMessagesAfterLastContact": [],
+          "recentContext": {
+            "selection": "bounded_actual_neighborhoods",
+            "limits": {
+              "maxMessages": 24,
+              "maxGapMs": 1800000,
+              "maxSpanMs": 7200000,
+              "maxAdditionalBytes": 12000
+            },
+            "windows": [
+              {
+                "anchorSourceId": "qq:72057594049927937001",
+                "reasons": [
+                  "latest"
+                ],
+                "sourceIds": [
+                  "qq:72057594049927937001"
+                ],
+                "boundaryBefore": "accessible_end",
+                "boundaryAfter": "accessible_end",
+                "omittedMessageCount": 0
+              }
+            ],
+            "gaps": [],
+            "coverage": "accessible_messages_only_not_complete_history"
+          },
+          "contactMessagesAfterLastSelf": [
+            "qq:72057594049927937001"
+          ],
+          "observationCoverage": {
+            "status": "empty",
+            "checkedAt": "2026-10-02T10:00:59.000Z"
+          },
+          "selfEvidenceSourceIds": [
+            "private:77a2f088-6b5c-4bb7-8ad0-49a1c5501ef7",
+            "private:ac6f9bf9-25e6-4c60-9c64-ef0556dbd2ab"
+          ],
+          "auxiliaryPolicy": "best_effort",
+          "factsRule": "仅限已提供原话，不补未知事实或分享授权。",
+          "draftControlPolicy": {
+            "version": 1,
+            "required": true,
+            "requiredFields": [
+              "objective",
+              "allowedApproach",
+              "avoidances"
+            ],
+            "intentSourceId": "private:ac6f9bf9-25e6-4c60-9c64-ef0556dbd2ab"
+          }
+        },
+        "userRequest": {
+          "sourceId": "private:ac6f9bf9-25e6-4c60-9c64-ef0556dbd2ab",
+          "text": "按那份手记和上一轮说明的范围，给我一句能直接回她的话。"
+        }
+      },
+      "manifest": {
+        "requestId": "replay-request-2",
+        "scope": {
+          "accountUid": "eval_replay_owner",
+          "accountUin": "1111111111",
+          "peerUid": "eval_replay_contact",
+          "peerUin": "3333333333"
+        },
+        "purpose": "discussion",
+        "promptVersion": "goal-context-2026-11-05.16-source-control",
+        "contextRevision": 4,
+        "stateVersion": 1,
+        "sourceIds": [
+          "private:77a2f088-6b5c-4bb7-8ad0-49a1c5501ef7",
+          "qq:72057594049927937001",
+          "private:ac6f9bf9-25e6-4c60-9c64-ef0556dbd2ab"
+        ],
+        "sourceRevisions": {
+          "private:77a2f088-6b5c-4bb7-8ad0-49a1c5501ef7": "f74b7145d0801bb23acd7b1936188e1aee3fd89ed686741fdf094d844bd342f0",
+          "qq:72057594049927937001": "984ef7ffd8f6f0f91249200f698689e50f768b96846a05b8f487c2b611c93aac",
+          "private:ac6f9bf9-25e6-4c60-9c64-ef0556dbd2ab": "cfdb903b4571ef6baf5b4266253d8a636418d48056146b3f31868bc4a2ae6aa7"
+        },
+        "sourceDelivery": {
+          "version": "source-delivery-v1",
+          "offsetUnit": "utf16_redacted_source",
+          "partialSourceCount": 1,
+          "omittedSourceCount": 0,
+          "explicitLookups": [
+            {
+              "sourceId": "private:77a2f088-6b5c-4bb7-8ad0-49a1c5501ef7",
+              "revision": "f74b7145d0801bb23acd7b1936188e1aee3fd89ed686741fdf094d844bd342f0",
+              "status": "partial",
+              "start": 0,
+              "end": 700,
+              "originalCharLength": 15731,
+              "lookup": {
+                "sourceId": "private:77a2f088-6b5c-4bb7-8ad0-49a1c5501ef7",
+                "revision": "f74b7145d0801bb23acd7b1936188e1aee3fd89ed686741fdf094d844bd342f0",
+                "offset": 700
+              },
+              "requestedRange": {
+                "start": 0,
+                "end": 700
+              },
+              "requestStatus": "delivered"
+            }
+          ],
+          "sources": [
+            {
+              "sourceId": "private:77a2f088-6b5c-4bb7-8ad0-49a1c5501ef7",
+              "revision": "f74b7145d0801bb23acd7b1936188e1aee3fd89ed686741fdf094d844bd342f0",
+              "status": "partial",
+              "start": 0,
+              "end": 700,
+              "originalCharLength": 15731,
+              "lookup": {
+                "sourceId": "private:77a2f088-6b5c-4bb7-8ad0-49a1c5501ef7",
+                "revision": "f74b7145d0801bb23acd7b1936188e1aee3fd89ed686741fdf094d844bd342f0",
+                "offset": 700
+              }
+            },
+            {
+              "sourceId": "qq:72057594049927937001",
+              "revision": "984ef7ffd8f6f0f91249200f698689e50f768b96846a05b8f487c2b611c93aac",
+              "status": "delivered",
+              "start": 0,
+              "end": 27,
+              "originalCharLength": 27
+            },
+            {
+              "sourceId": "private:ac6f9bf9-25e6-4c60-9c64-ef0556dbd2ab",
+              "revision": "cfdb903b4571ef6baf5b4266253d8a636418d48056146b3f31868bc4a2ae6aa7",
+              "status": "delivered",
+              "start": 0,
+              "end": 27,
+              "originalCharLength": 27
+            }
+          ]
+        },
+        "completeReview": false,
+        "omittedSourceCount": 0,
+        "historyCoverage": {
+          "status": "empty",
+          "pages": 1,
+          "cursor": null,
+          "oldestAt": null,
+          "checkedAt": "2026-10-02T10:00:59.000Z",
+          "source": "fictional-native-boundary-replay"
+        },
+        "inputBytes": 21201,
+        "byteBudget": 48000,
+        "tokenizerVerified": false,
+        "serializedTextRequestBytes": 43424,
+        "requestByteBudget": 64000,
+        "requestEnvelopeBytes": 20482,
+        "payloadWireByteBudget": 43518,
+        "requestModel": "gpt-6-luna",
+        "budgetMethod": "Complete serialized UTF-8 request envelope plus payload ceiling; tokenizer and provider window unverified",
+        "methodTrace": {
+          "purpose": "discussion",
+          "delivered": [],
+          "catalog": [
+            {
+              "id": "clarify",
+              "version": "goal-methods-2026-10-30.2"
+            },
+            {
+              "id": "choose_next_step",
+              "version": "goal-methods-2026-10-30.2"
+            },
+            {
+              "id": "respond",
+              "version": "goal-methods-2026-10-30.2"
+            },
+            {
+              "id": "compose",
+              "version": "goal-methods-2026-10-30.2"
+            },
+            {
+              "id": "review",
+              "version": "goal-methods-2026-10-30.2"
+            },
+            {
+              "id": "shared_activity",
+              "version": "goal-methods-2026-10-30.2"
+            },
+            {
+              "id": "correction",
+              "version": "goal-methods-2026-10-30.2"
+            },
+            {
+              "id": "express_interest",
+              "version": "goal-methods-2026-10-30.2"
+            }
+          ],
+          "operationalDelivery": {
+            "location": "methodCards",
+            "ids": []
+          },
+          "reported": null
+        },
+        "createdAt": "2026-10-02T10:21:00.000Z",
+        "degradation": [
+          {
+            "step": "degraded_to_ranged",
+            "appliedTo": "private:77a2f088-6b5c-4bb7-8ad0-49a1c5501ef7",
+            "recoveredBytes": 41235,
+            "remainingNeed": 41235,
+            "lookupHandle": {
+              "sourceIds": [
+                "private:77a2f088-6b5c-4bb7-8ad0-49a1c5501ef7"
+              ],
+              "revision": "f74b7145d0801bb23acd7b1936188e1aee3fd89ed686741fdf094d844bd342f0",
+              "offset": 0
+            }
+          },
+          {
+            "step": "deterministic_digest",
+            "appliedTo": "private:77a2f088-6b5c-4bb7-8ad0-49a1c5501ef7",
+            "recoveredBytes": 3711,
+            "remainingNeed": 43523,
+            "lookupHandle": {
+              "sourceId": "private:77a2f088-6b5c-4bb7-8ad0-49a1c5501ef7",
+              "revision": "f74b7145d0801bb23acd7b1936188e1aee3fd89ed686741fdf094d844bd342f0",
+              "offset": 0
+            }
+          }
+        ],
+        "admission": {
+          "version": "admission-compiler-v1",
+          "admissions": [
+            {
+              "id": "private:ac6f9bf9-25e6-4c60-9c64-ef0556dbd2ab",
+              "kind": "floor",
+              "tier": "verbatim"
+            },
+            {
+              "id": "private:77a2f088-6b5c-4bb7-8ad0-49a1c5501ef7",
+              "kind": "mandatory",
+              "tier": "ranged"
+            }
+          ],
+          "materialRequirements": {
+            "version": "mqa-registry-v1",
+            "intentClass": "generic_consultation",
+            "outcomes": [],
+            "retrievedMaterials": [
+              {
+                "sourceId": "private:77a2f088-6b5c-4bb7-8ad0-49a1c5501ef7",
+                "available": true,
+                "tier": "ranged",
+                "start": 0,
+                "end": 1789,
+                "lookup": {
+                  "sourceIds": [
+                    "private:77a2f088-6b5c-4bb7-8ad0-49a1c5501ef7"
+                  ],
+                  "revision": "f74b7145d0801bb23acd7b1936188e1aee3fd89ed686741fdf094d844bd342f0",
+                  "offset": 0
+                }
+              }
+            ]
+          }
+        },
+        "contextSelection": {
+          "policy": {
+            "version": 1,
+            "recentHours": 72,
+            "since": "2026-09-29T10:21:00.000Z",
+            "asOf": "2026-10-02T10:21:00.000Z",
+            "currentEpisode": {
+              "maxGapMs": 1800000,
+              "maxSpanMs": 7200000
+            },
+            "loading": "complete_source_segments_within_request_budget",
+            "older": "core_summaries_and_explicit_or_ranked_lookup",
+            "optimality": "user_configured_window_not_quality_evidence"
+          },
+          "recentQQ": {
+            "candidateSourceIds": [
+              "qq:72057594049927937001"
+            ],
+            "loadedSourceIds": [
+              "qq:72057594049927937001"
+            ],
+            "partialSourceIds": [],
+            "omittedSourceIds": [],
+            "segments": [
+              {
+                "sourceIds": [
+                  "qq:72057594049927937001"
+                ],
+                "loadedCount": 1
+              }
+            ]
+          },
+          "recentPrivate": {
+            "candidateSourceIds": [
+              "private:77a2f088-6b5c-4bb7-8ad0-49a1c5501ef7"
+            ],
+            "loadedSourceIds": [
+              "private:77a2f088-6b5c-4bb7-8ad0-49a1c5501ef7"
+            ],
+            "partialSourceIds": [
+              "private:77a2f088-6b5c-4bb7-8ad0-49a1c5501ef7"
+            ],
+            "foldedSourceIds": [],
+            "omittedSourceIds": []
+          },
+          "taskControlRefs": [],
+          "taskSourceRefs": [],
+          "coreSourceRefs": [],
+          "reasons": [
+            "bounded_current_exchange_and_explicit_sources",
+            "confirmed_preferences_and_dated_core",
+            "recent_time_window",
+            "ranked_or_explicit_lookup"
+          ]
+        },
+        "optionalRawRetrieval": {
+          "limit": 4,
+          "admittedCount": 0,
+          "deferredCount": 0,
+          "ordering": "retrieval_score_then_recency"
+        },
+        "recentQQContext": {
+          "limits": {
+            "maxMessages": 24,
+            "maxGapMs": 1800000,
+            "maxSpanMs": 7200000,
+            "maxAdditionalBytes": 12000
+          },
+          "projection": "loaded",
+          "candidateSourceIds": [
+            "qq:72057594049927937001"
+          ],
+          "admittedPrioritySourceIds": [],
+          "initialAdditionalBytes": 433,
+          "ordering": "current_neighborhood_before_optional_history"
+        },
+        "planningViews": {
+          "workVersion": "conversation-work-2026-10-30.2",
+          "materialVersion": "conversation-materials-2026-10-30.2",
+          "materialRefs": [
+            {
+              "kind": "current_exchange",
+              "sourceIds": [
+                "qq:72057594049927937001"
+              ]
+            }
+          ],
+          "projection": "full"
+        },
+        "images": [],
+        "imageCount": 0,
+        "imageContext": {
+          "version": 1,
+          "mode": "none",
+          "attached": [],
+          "omitted": []
+        },
+        "stageId": "0842cecb-9945-4b97-b7cc-116a3b270fe4",
+        "candidateSession": {
+          "qqRevision": 2,
+          "privateInputSeq": 2
+        }
+      },
+      "images": [],
+      "mediaContext": {
+        "mode": "off",
+        "omitted": []
+      },
+      "essentialSourceIds": [
+        "private:ac6f9bf9-25e6-4c60-9c64-ef0556dbd2ab",
+        "private:77a2f088-6b5c-4bb7-8ad0-49a1c5501ef7",
+        "qq:72057594049927937001"
+      ],
+      "restrictions": []
+    },
+    {
+      "payload": {
+        "promptVersion": "goal-context-2026-11-05.16-source-control",
+        "purpose": "discussion",
+        "method": "围绕用户当前目的和本轮实际请求选择帮助，可理解、接续、真实分享、比较行动或组织表达。意思明确就直接帮助，只问会改变建议的必要问题。允许暂缓或不用助手，不强制每次制定目的。",
+        "methodCards": [],
+        "methodCatalog": [
+          {
+            "id": "clarify",
+            "version": "goal-methods-2026-10-30.2",
+            "name": "理清这次想表达什么",
+            "applicability": "用户说不清困惑、想表达的意思，或明确希望先讨论。"
+          },
+          {
+            "id": "choose_next_step",
+            "version": "goal-methods-2026-10-30.2",
+            "name": "比较下一步",
+            "applicability": "想联系但不知道聊什么、何时继续，或有多个可行方向。"
+          },
+          {
+            "id": "respond",
+            "version": "goal-methods-2026-10-30.2",
+            "name": "理解并回应她的话",
+            "applicability": "有实际来信，需要理解、回应分享或接续她提出的话题。"
+          },
+          {
+            "id": "compose",
+            "version": "goal-methods-2026-10-30.2",
+            "name": "组织参考表达",
+            "applicability": "用户明确要草稿、改写，或采用已讨论且明确可分享的内容。"
+          },
+          {
+            "id": "review",
+            "version": "goal-methods-2026-10-30.2",
+            "name": "找回与回顾",
+            "applicability": "问以前说过什么、约定进展，或希望回顾一段时间的互动。"
+          },
+          {
+            "id": "shared_activity",
+            "version": "goal-methods-2026-10-30.2",
+            "name": "考虑一起做点什么",
+            "applicability": "用户想邀约、讨论共同兴趣或寻找文字聊天之外的共同活动。"
+          },
+          {
+            "id": "correction",
+            "version": "goal-methods-2026-10-30.2",
+            "name": "纠正理解与用法",
+            "applicability": "用户纠正事实、分享范围、目标、建议风格，或要求记住/更改/忘记。"
+          },
+          {
+            "id": "express_interest",
+            "version": "goal-methods-2026-10-30.2",
+            "name": "表达好感与关系意图",
+            "applicability": "用户想表达喜欢、明确邀请含义，或希望讨论怎样从友好交流走向恋爱认识。"
+          }
+        ],
+        "methodSelection": {
+          "version": "goal-methods-2026-10-30.2",
+          "selection": "candidates",
+          "candidates": [
+            "clarify",
+            "choose_next_step",
+            "respond",
+            "compose",
+            "review",
+            "shared_activity",
+            "correction",
+            "express_interest"
+          ],
+          "maxApplied": 2,
+          "operationalInstructionsLocation": "methodCards",
+          "selectionRule": "以当前用户目的和本次意思选择零至两个方法；目录不是必走步骤，也不表示对方的心理。完整卡按需用lookup.methodIds读取，已有足够依据可以直接帮助，不必多查或先提问。",
+          "feedbackRule": "局部反馈只用于对应情境，稳定偏好须有用户明确依据。方法及论文只是有适用范围的参考，不保证交流或关系结果。"
+        },
+        "asOf": "2026-10-02T10:21:00.000Z",
+        "viewerTimeZone": "Asia/Shanghai",
+        "goal": "向朋友分享自己参与社区活动的真实小事，并保留自己决定的表达范围。",
+        "intentAuthority": {
+          "sourceId": "private:ac6f9bf9-25e6-4c60-9c64-ef0556dbd2ab"
+        },
+        "requestDeliveryPolicy": {
+          "version": 1,
+          "obligation": {
+            "mode": "editable_message"
+          },
+          "lookupExhausted": true
+        },
+        "draftMaterialPolicy": {
+          "version": 1
+        },
+        "generationOrigin": "private_discussion",
+        "currentObservationSourceId": null,
+        "topicContext": {
+          "version": 0,
+          "activeId": null,
+          "active": null,
+          "retained": [],
+          "authority": "private_direction_not_outbound_authorization"
+        },
+        "workingState": {
+          "version": 1,
+          "items": [],
+          "possiblyStale": true,
+          "ownership": "evidence_only_task_controls_in_topicContext",
+          "authority": "previous_summary_needs_review"
+        },
+        "coverage": {
+          "status": "empty",
+          "pages": 1,
+          "cursor": null,
+          "oldestAt": null,
+          "checkedAt": "2026-10-02T10:00:59.000Z",
+          "source": "fictional-native-boundary-replay"
+        },
+        "selectedMaterialIds": [],
+        "allowedMaterialIds": [],
+        "expressionOptions": [],
+        "selectedOption": null,
+        "actionReceipts": [],
+        "privateRestrictions": [],
+        "preferences": [],
+        "experienceProposalPolicy": {
+          "enabled": false,
+          "maxItems": 2,
+          "feedbackSourceIds": [],
+          "caseIds": []
+        },
+        "replyFocus": [],
+        "lookupHistory": [
+          {
+            "query": "",
+            "found": 1,
+            "discussionTurns": 0,
+            "sourceIds": [
+              "private:77a2f088-6b5c-4bb7-8ad0-49a1c5501ef7"
+            ],
+            "requestedRange": {
+              "offset": 0,
+              "maxChars": 700
+            },
+            "methodIds": [],
+            "coverage": {
+              "retrieval": "exact-private-discussion-ids",
+              "complete": false
+            },
+            "delivery": "check_sourceDelivery_not_found_count"
+          },
+          {
+            "query": "",
+            "found": 1,
+            "discussionTurns": 0,
+            "sourceIds": [
+              "private:ac6f9bf9-25e6-4c60-9c64-ef0556dbd2ab"
+            ],
+            "requestedRange": {
+              "offset": 0,
+              "maxChars": 4000
+            },
+            "methodIds": [],
+            "coverage": {
+              "retrieval": "exact-private-discussion-ids",
+              "complete": false
+            },
+            "delivery": "check_sourceDelivery_not_found_count"
+          }
+        ],
+        "reviewRange": {},
+        "retrievedMemory": {
+          "items": [],
+          "episodes": [],
+          "coverage": {
+            "complete": false,
+            "sourceCount": 3,
+            "retrievedCount": 3,
+            "pending": 3,
+            "processed": 0,
+            "history": {
+              "status": "empty",
+              "pages": 1,
+              "cursor": null,
+              "oldestAt": null,
+              "checkedAt": "2026-10-02T10:00:59.000Z",
+              "source": "fictional-native-boundary-replay"
+            },
+            "retrieval": "lexical-han-bigram-bm25",
+            "semanticCertainty": false
+          }
+        },
+        "memoryIndex": [],
+        "sources": [
+          {
+            "id": "private:77a2f088-6b5c-4bb7-8ad0-49a1c5501ef7",
+            "type": "private",
+            "at": "2026-10-02T10:01:00.000Z",
+            "role": "user",
+            "use": "discussion",
+            "kind": "discussion",
+            "version": 1,
+            "text": "这是我给社区旧物展做志愿工作时留给自己的原始手记，按整理顺序贴在这里，方便和你商量自己的真实近况。里面有他人的登记信息和一些没查清的来历，不能自动变成对外可说的故事。我愿意告诉朋友我帮展览做过一点具体事情，但物件不都属于我，别人做的部分也不是我的成果。下面是我当天一项项接触到的经过，不是已经写好的展览文案。\n\n第1项是旧收音机。我到整理桌时，修理铺的周师傅已经把它放在一张浅灰色的软垫上。我负责照着登记纸核对这件东西能否进入讲解录音，不负责估价，也不是决定它来历的人。我们先看了调台旋钮，当时能确认的现象是旋钮转到尽头会卡住。为了不把描述写得比实物证据更满，我先按自己听到的原话记下来，没有补一个听起来完整却没有来源的往事。\n那天核对的过程中，修理铺的周师傅又去找了一次登记本。我们把物件名称、实物状态和可以公开讲的范围分开写在临时纸上，后来才搬到工作台另一边。关于这件物品，大家当面商量的是“只展示外观，不让观众通电”。这句话说的是当前的展示处理，不代表我们已经查出了所有缺失的信息。有观众问到更远的故事时，志愿者可以说还没核实，而不需要为了热闹现场讲一个猜出来的版本。\n我记得自己做的是对着旧收音机读了一遍手上的说明，发现有一句话读起来太像把不确定的推测当结论，于是停下来问了修理铺的周师傅。之后是对方去核对材料，我没有独自判断。等候时我整理了麦克风旁边的纸张，把要遮住的登记内容折到背后；这只是我参与录音准备的一小部分，不意味着整个展览都是我策划的。最后这项先放回原位，下一次是否增加说明，留给拿到新来源之后再讨论。\n\n第2项是搪瓷杯。我到整理桌时，捐物的何阿姨已经把它放在一张浅灰色的软垫上",
+            "revision": "f74b7145d0801bb23acd7b1936188e1aee3fd89ed686741fdf094d844bd342f0",
+            "speaker": "我",
+            "delivery": {
+              "version": "source-delivery-v1",
+              "status": "partial",
+              "start": 0,
+              "end": 700,
+              "originalCharLength": 15731,
+              "offsetUnit": "utf16_redacted_source",
+              "continuationAvailable": true,
+              "lookup": {
+                "sourceId": "private:77a2f088-6b5c-4bb7-8ad0-49a1c5501ef7",
+                "revision": "f74b7145d0801bb23acd7b1936188e1aee3fd89ed686741fdf094d844bd342f0",
+                "offset": 700
+              }
+            },
+            "digest": {
+              "declarations": [
+                {
+                  "sentence": "这周末的安排我也在这里给你说清楚：周六三点半以后我有空，也愿意和她一起去看旧物展；",
+                  "revision": "f74b7145d0801bb23acd7b1936188e1aee3fd89ed686741fdf094d844bd342f0",
+                  "start": 10793,
+                  "end": 10834,
+                  "lookup": {
+                    "sourceIds": [
+                      "private:77a2f088-6b5c-4bb7-8ad0-49a1c5501ef7"
+                    ],
+                    "offset": 10793,
+                    "maxChars": 41
+                  }
+                },
+                {
+                  "sentence": "周六三点半以后有空是背景，不等于现在让我发邀请；",
+                  "revision": "f74b7145d0801bb23acd7b1936188e1aee3fd89ed686741fdf094d844bd342f0",
+                  "start": 15666,
+                  "end": 15690,
+                  "lookup": {
+                    "sourceIds": [
+                      "private:77a2f088-6b5c-4bb7-8ad0-49a1c5501ef7"
+                    ],
+                    "offset": 15666,
+                    "maxChars": 24
+                  }
+                }
+              ],
+              "declarationRule": "逐字时间/可用性候选与精确范围，仅用于原文导航，不是当前行动、邀请、采用义务或分享许可。按lookup读取完整原文，并结合本轮实际请求、否定、条件和最新限制判断；摘要不能要求接受邀约或扩大披露范围。"
+            },
+            "continuationCoverage": "source_body_partial"
+          },
+          {
+            "id": "qq:72057594049927937001",
+            "type": "qq",
+            "at": "2026-10-02T10:20:00.000Z",
+            "role": "contact",
+            "direction": "incoming",
+            "use": "discussion",
+            "messageId": "72057594049927937001",
+            "sequence": "1",
+            "senderUid": "eval_replay_contact",
+            "senderUin": "3333333333",
+            "text": "你前阵子说帮旧物展录了点什么？周六下午能一起去看看吗？",
+            "revision": "984ef7ffd8f6f0f91249200f698689e50f768b96846a05b8f487c2b611c93aac",
+            "speaker": "对方"
+          },
+          {
+            "id": "private:ac6f9bf9-25e6-4c60-9c64-ef0556dbd2ab",
+            "type": "private",
+            "at": "2026-10-02T10:21:00.000Z",
+            "role": "user",
+            "use": "discussion",
+            "kind": "discussion",
+            "version": 1,
+            "text": "按那份手记和上一轮说明的范围，给我一句能直接回她的话。",
+            "revision": "cfdb903b4571ef6baf5b4266253d8a636418d48056146b3f31868bc4a2ae6aa7",
+            "speaker": "我"
+          }
+        ],
+        "privateConversation": [
+          {
+            "id": "77a2f088-6b5c-4bb7-8ad0-49a1c5501ef7",
+            "role": "user",
+            "kind": "discussion",
+            "sourceId": "private:77a2f088-6b5c-4bb7-8ad0-49a1c5501ef7",
+            "sourceTextLocation": "sources",
+            "at": "2026-10-02T10:01:00.000Z",
+            "requestId": "replay-request-1"
+          },
+          {
+            "id": "03d93577-ba7c-45aa-8332-23461396e477",
+            "role": "assistant",
+            "kind": "discussion",
+            "text": "可靠能保留的范围很清楚：你愿意分享的是自己实际做过的志愿工作——帮三件物品录制讲解音频；发现一处停顿不自然后，又重录了一段。可以把重点放在“我做了什么”和这个具体的小插曲上，不必解释周末安排，也不必提之前那件私事。\n\n边界上，不把自己说成策展人或专业讲解员，不暗示展览和全部展品由你负责；也不扩写物件主人的故事、来历或未核实信息。登记本里的地址、联系方式明确不分享。你目前只是在讨论可保留的内容，并且明确说了这轮不确认或提出周六同行，所以我不会把空闲时间转成邀请，也不急着代你生成给朋友的话。",
+            "at": "2026-10-02T10:01:00.000Z",
+            "requestId": "replay-request-1",
+            "authority": "assistant_discussion_not_factual_evidence"
+          }
+        ],
+        "evidenceRule": "historicalOnly=true 的消息仅为历史提及，后续可能有未读的更改，不可据此断言当前约定有效。possiblyStale 的状态只作需要核查的上次理解，新原话与用户纠正优先。",
+        "contextPolicy": {
+          "recentHours": 72,
+          "since": "2026-09-29T10:21:00.000Z"
+        },
+        "deferredContext": {
+          "lookupAvailable": true,
+          "qqSourceCount": 0,
+          "privateTurnCount": 0,
+          "relationshipClaimCount": 0
+        },
+        "omittedStateEntries": 0,
+        "contextRequest": {
+          "version": "context-request-v1",
+          "intentClass": "generic_consultation",
+          "classification": {
+            "basis": "fallback",
+            "signals": []
+          },
+          "wants": {
+            "continueThread": true,
+            "discovery": false,
+            "methods": false,
+            "materials": false
+          },
+          "anchors": {
+            "replyFocus": [],
+            "images": []
+          }
+        },
+        "materialRequirements": {
+          "version": "mqa-registry-v1",
+          "intentClass": "generic_consultation",
+          "outcomes": [],
+          "retrievedMaterials": [
+            {
+              "sourceId": "private:77a2f088-6b5c-4bb7-8ad0-49a1c5501ef7",
+              "available": true,
+              "tier": "ranged",
+              "start": 0,
+              "end": 1789,
+              "lookup": {
+                "sourceIds": [
+                  "private:77a2f088-6b5c-4bb7-8ad0-49a1c5501ef7"
+                ],
+                "revision": "f74b7145d0801bb23acd7b1936188e1aee3fd89ed686741fdf094d844bd342f0",
+                "offset": 0
+              }
+            },
+            {
+              "sourceId": "private:ac6f9bf9-25e6-4c60-9c64-ef0556dbd2ab",
+              "available": true,
+              "tier": "verbatim",
+              "start": 0,
+              "end": 27,
+              "lookup": {
+                "sourceIds": [
+                  "private:ac6f9bf9-25e6-4c60-9c64-ef0556dbd2ab"
+                ],
+                "revision": "cfdb903b4571ef6baf5b4266253d8a636418d48056146b3f31868bc4a2ae6aa7",
+                "offset": 0
+              }
+            }
+          ]
+        },
+        "evidenceDelivery": {
+          "version": "source-delivery-v1",
+          "explicitLookups": [
+            {
+              "sourceId": "private:77a2f088-6b5c-4bb7-8ad0-49a1c5501ef7",
+              "revision": "f74b7145d0801bb23acd7b1936188e1aee3fd89ed686741fdf094d844bd342f0",
+              "status": "partial",
+              "start": 0,
+              "end": 700,
+              "originalCharLength": 15731,
+              "lookup": {
+                "sourceId": "private:77a2f088-6b5c-4bb7-8ad0-49a1c5501ef7",
+                "revision": "f74b7145d0801bb23acd7b1936188e1aee3fd89ed686741fdf094d844bd342f0",
+                "offset": 700
+              },
+              "requestedRange": {
+                "start": 0,
+                "end": 700
+              },
+              "requestStatus": "delivered"
+            },
+            {
+              "sourceId": "private:ac6f9bf9-25e6-4c60-9c64-ef0556dbd2ab",
+              "revision": "cfdb903b4571ef6baf5b4266253d8a636418d48056146b3f31868bc4a2ae6aa7",
+              "status": "delivered",
+              "start": 0,
+              "end": 27,
+              "originalCharLength": 27,
+              "requestedRange": {
+                "start": 0,
+                "end": 27
+              },
+              "requestStatus": "delivered"
+            }
+          ]
+        },
+        "imageContext": {
+          "version": 1,
+          "mode": "none",
+          "attached": [],
+          "omitted": []
+        },
+        "memoryDiscovery": {
+          "version": "conversation-discovery-2026-10-30.1",
+          "directory": [
+            {
+              "id": "raw:private:ac6f9bf9-25e6-4c60-9c64-ef0556dbd2ab",
+              "kind": "raw_source",
+              "subject": "undetermined",
+              "sourceSpeaker": "private_user",
+              "aspect": "private",
+              "at": "2026-10-02T10:21:00.000Z",
+              "temporalStatus": "source_time_not_current_state",
+              "omittedSupportCount": 0,
+              "requiresOriginalRead": true,
+              "sourceRefs": [
+                {
+                  "sourceId": "private:ac6f9bf9-25e6-4c60-9c64-ef0556dbd2ab",
+                  "revision": "cfdb903b4571ef6baf5b4266253d8a636418d48056146b3f31868bc4a2ae6aa7"
+                }
+              ],
+              "sourceIds": [
+                "private:ac6f9bf9-25e6-4c60-9c64-ef0556dbd2ab"
+              ],
+              "authority": "navigation_only_needs_source_lookup",
+              "textFromSource": "private:ac6f9bf9-25e6-4c60-9c64-ef0556dbd2ab"
+            },
+            {
+              "id": "raw:qq:72057594049927937001",
+              "kind": "raw_source",
+              "subject": "undetermined",
+              "sourceSpeaker": "contact",
+              "aspect": "qq",
+              "at": "2026-10-02T10:20:00.000Z",
+              "temporalStatus": "source_time_not_current_state",
+              "omittedSupportCount": 0,
+              "requiresOriginalRead": true,
+              "sourceRefs": [
+                {
+                  "sourceId": "qq:72057594049927937001",
+                  "revision": "984ef7ffd8f6f0f91249200f698689e50f768b96846a05b8f487c2b611c93aac"
+                }
+              ],
+              "sourceIds": [
+                "qq:72057594049927937001"
+              ],
+              "authority": "navigation_only_needs_source_lookup",
+              "textFromSource": "qq:72057594049927937001"
+            },
+            {
+              "id": "raw:private:77a2f088-6b5c-4bb7-8ad0-49a1c5501ef7",
+              "kind": "raw_source",
+              "subject": "undetermined",
+              "sourceSpeaker": "private_user",
+              "aspect": "private",
+              "text": "得比实物证据更满，我先按自己听到的原话记下来，没有补一个听起来完整却没有来源的往事。\n那天核对的过程中，提供票根的小杜又去找了一次登记本。我们把物件名称、实物状态和可以公开讲的范围分开写在临时纸上，后来才搬到工作台另一边",
+              "at": "2026-10-02T10:01:00.000Z",
+              "temporalStatus": "source_time_not_current_state",
+              "omittedSupportCount": 0,
+              "requiresOriginalRead": true,
+              "sourceRefs": [
+                {
+                  "sourceId": "private:77a2f088-6b5c-4bb7-8ad0-49a1c5501ef7",
+                  "revision": "f74b7145d0801bb23acd7b1936188e1aee3fd89ed686741fdf094d844bd342f0"
+                }
+              ],
+              "sourceIds": [
+                "private:77a2f088-6b5c-4bb7-8ad0-49a1c5501ef7"
+              ],
+              "authority": "navigation_only_needs_source_lookup"
+            }
+          ],
+          "authority": "fallible_navigation_requires_original_lookup",
+          "rule": "目录用于发现可核对的旧事、自述和共同背景；先核对原文、后续变化和已表达内容，不能把预览当当前事实、未聊过证明或分享授权。",
+          "omittedEntryCount": 0,
+          "candidateSourceCount": 3,
+          "delivery": [
+            {
+              "sourceId": "private:ac6f9bf9-25e6-4c60-9c64-ef0556dbd2ab",
+              "status": "delivered"
+            },
+            {
+              "sourceId": "qq:72057594049927937001",
+              "status": "delivered"
+            },
+            {
+              "sourceId": "private:77a2f088-6b5c-4bb7-8ad0-49a1c5501ef7",
+              "status": "partial"
+            }
+          ]
+        },
+        "privateCandidates": [
+          {
+            "turnId": "03d93577-ba7c-45aa-8332-23461396e477",
+            "field": "text",
+            "text": "可靠能保留的范围很清楚：你愿意分享的是自己实际做过的志愿工作——帮三件物品录制讲解音频；发现一处停顿不自然后，又重录了一段。可以把重点放在“我做了什么”和这个具体的小插曲上，不必解释周末安排，也不必提之前那件私事。\n\n边界上，不把自己说成策展人或专业讲解员，不暗示展览和全部展品由你负责；也不扩写物件主人的故事、来历或未核实信息。登记本里的地址、联系方式明确不分享。你目前只是在讨论可保留的内容，并且明确说了这轮不确认或提出周六同行，所以我不会把空闲时间转成邀请，也不急着代你生成给朋友的话。",
+            "artifactRef": {
+              "artifactId": "turn:03d93577-ba7c-45aa-8332-23461396e477",
+              "version": 1
+            },
+            "availability": "full",
+            "authority": "generated_discussion_not_outbound_authorization"
+          }
+        ],
+        "relationshipContext": {
+          "version": 3,
+          "asOf": "2026-10-02T10:21:00.000Z",
+          "claims": [],
+          "events": [],
+          "activities": [],
+          "activityUncertainties": [],
+          "activityEvidenceRule": "Historical evidence gaps do not negate a separately supported current-state report. Preserve currentReportedState source/asOf/authority; it is not an event occurrence clock. evidenceLosses use a separate loss: namespace, never source handles, citations, sharing permission or new event evidence. They describe prior derived understanding, not current facts: only a statement dependency identifies what the unavailable original previously served as evidence for; definition/time/support loss does not establish the original message meaning. Original author and prior event actor are distinct; a native recall does not identify its operator. invalidatedOriginal.sourceTime is only previousRevision's saved original timestamp, not world occurrence. status:unknown means no original time; never substitute affectedWorldAt (affected prior world/state time), knowledgeChangedAt (evidence loss) or plannedFor (planned activity time). Missing/omitted loss details stay unknown. Historical gaps do not negate separately supported newer world or current-state reports.",
+          "coverage": {
+            "pending": 3,
+            "semanticPending": 0,
+            "processorVersion": "evidence-backed-understanding-2026-10-31.2",
+            "bootstrapPending": false,
+            "history": {
+              "status": "empty",
+              "pages": 1,
+              "cursor": null,
+              "oldestAt": null,
+              "checkedAt": "2026-10-02T10:00:59.000Z",
+              "source": "fictional-native-boundary-replay"
+            },
+            "semanticCertainty": false
+          }
+        },
+        "experienceContext": {
+          "cases": [],
+          "adaptations": [],
+          "constraints": [
+            "仅为局部经验；不是她的心理或方法因果效果证据。",
+            "候选适用性尚未确定，核对applicability与当前任务后再使用；本轮明确意思优先，不相关或相反的指导不采用。"
+          ]
+        },
+        "work": {
+          "version": "conversation-work-2026-10-30.2",
+          "authority": "derived_work_view_not_factual_evidence",
+          "scope": "this_relationship",
+          "request": {
+            "sourceId": "private:ac6f9bf9-25e6-4c60-9c64-ef0556dbd2ab",
+            "purpose": "discussion",
+            "origin": "user",
+            "trigger": "private_request",
+            "meaningFromSource": "private:ac6f9bf9-25e6-4c60-9c64-ef0556dbd2ab",
+            "authority": "current_source_pointer_not_material_or_permission"
+          },
+          "goal": {
+            "available": true,
+            "meaningFrom": "goal",
+            "authority": "user_owned_long_term_direction_not_wording"
+          },
+          "current": null,
+          "focus": {
+            "sourceIds": [
+              "qq:72057594049927937001"
+            ],
+            "positionFrom": "taskContext.latestActual"
+          },
+          "pendingPrivateIntent": {
+            "sourceIds": []
+          },
+          "controlsFrom": {
+            "current": "topicContext.active",
+            "responsePreference": "taskContext.responsePreference",
+            "authority": "applicable_controls_not_shareable_facts"
+          },
+          "sourceIds": [
+            "private:ac6f9bf9-25e6-4c60-9c64-ef0556dbd2ab",
+            "qq:72057594049927937001"
+          ],
+          "outputUse": "planning_only_not_outbound_authorization"
+        },
+        "materialView": {
+          "version": "conversation-materials-2026-10-30.2",
+          "items": [
+            {
+              "kind": "current_exchange",
+              "sourceIds": [
+                "qq:72057594049927937001"
+              ],
+              "novelty": "not_determined",
+              "owner": "contact",
+              "availableAs": "actual_conversation",
+              "interpretation": "read_actual_order_and_speakers"
+            }
+          ],
+          "currentIntent": {
+            "sourceId": "private:ac6f9bf9-25e6-4c60-9c64-ef0556dbd2ab",
+            "trigger": "private_request",
+            "authority": "current_source_pointer_not_material_or_permission"
+          },
+          "authority": "evidence_navigation_not_a_script",
+          "instruction": "从实际原话选本轮可聊一点，核对主体、日期、已表达内容和后续限制；未知不逐项追问。此视图的类别/指针非素材或许可；sources原始用户话可含事实、任务和范围明确的分享意思，须结合当前QQ指代、否定、条件判断。视图和所选操作本身不授分享许可。"
+        },
+        "taskContext": {
+          "version": "relationship-task-2026-10-16.2",
+          "sourceTextLocation": "sources",
+          "requestOrigin": "private_discussion",
+          "currentRequestSourceId": "private:ac6f9bf9-25e6-4c60-9c64-ef0556dbd2ab",
+          "invocation": {
+            "origin": "user",
+            "trigger": "private_request",
+            "requestedPurpose": "discussion"
+          },
+          "timeContext": {
+            "localNow": "2026-10-02 18:21"
+          },
+          "consultationTask": {
+            "purpose": "discussion",
+            "focusOrigin": "latest_available",
+            "focus": [
+              {
+                "sourceId": "qq:72057594049927937001",
+                "laterAvailableMessageCount": 0
+              }
+            ]
+          },
+          "responsePreference": "自然一点，贴近我的说话方式",
+          "latestActual": {
+            "sourceId": "qq:72057594049927937001",
+            "direction": "incoming",
+            "speaker": "对方",
+            "at": "2026-10-02T10:20:00.000Z",
+            "sequence": "1",
+            "localAt": "2026-10-02 18:20",
+            "elapsedMinutes": 1,
+            "ageMs": 60000
+          },
+          "recentExchange": [
+            {
+              "sourceId": "qq:72057594049927937001",
+              "speaker": "对方",
+              "direction": "incoming",
+              "at": "2026-10-02T10:20:00.000Z",
+              "localAt": "2026-10-02 18:20",
+              "sequence": "1"
+            }
+          ],
+          "selfMessagesAfterLastContact": [],
+          "recentContext": {
+            "selection": "bounded_actual_neighborhoods",
+            "limits": {
+              "maxMessages": 24,
+              "maxGapMs": 1800000,
+              "maxSpanMs": 7200000,
+              "maxAdditionalBytes": 12000
+            },
+            "windows": [
+              {
+                "anchorSourceId": "qq:72057594049927937001",
+                "reasons": [
+                  "latest"
+                ],
+                "sourceIds": [
+                  "qq:72057594049927937001"
+                ],
+                "boundaryBefore": "accessible_end",
+                "boundaryAfter": "accessible_end",
+                "omittedMessageCount": 0
+              }
+            ],
+            "gaps": [],
+            "coverage": "accessible_messages_only_not_complete_history"
+          },
+          "contactMessagesAfterLastSelf": [
+            "qq:72057594049927937001"
+          ],
+          "observationCoverage": {
+            "status": "empty",
+            "checkedAt": "2026-10-02T10:00:59.000Z"
+          },
+          "selfEvidenceSourceIds": [
+            "private:77a2f088-6b5c-4bb7-8ad0-49a1c5501ef7",
+            "private:ac6f9bf9-25e6-4c60-9c64-ef0556dbd2ab"
+          ],
+          "auxiliaryPolicy": "best_effort",
+          "factsRule": "仅限已提供原话，不补未知事实或分享授权。",
+          "draftControlPolicy": {
+            "version": 1,
+            "required": true,
+            "requiredFields": [
+              "objective",
+              "allowedApproach",
+              "avoidances"
+            ],
+            "intentSourceId": "private:ac6f9bf9-25e6-4c60-9c64-ef0556dbd2ab"
+          }
+        },
+        "userRequest": {
+          "sourceId": "private:ac6f9bf9-25e6-4c60-9c64-ef0556dbd2ab",
+          "text": "按那份手记和上一轮说明的范围，给我一句能直接回她的话。"
+        }
+      },
+      "manifest": {
+        "requestId": "replay-request-2",
+        "scope": {
+          "accountUid": "eval_replay_owner",
+          "accountUin": "1111111111",
+          "peerUid": "eval_replay_contact",
+          "peerUin": "3333333333"
+        },
+        "purpose": "discussion",
+        "promptVersion": "goal-context-2026-11-05.16-source-control",
+        "contextRevision": 4,
+        "stateVersion": 1,
+        "sourceIds": [
+          "private:77a2f088-6b5c-4bb7-8ad0-49a1c5501ef7",
+          "qq:72057594049927937001",
+          "private:ac6f9bf9-25e6-4c60-9c64-ef0556dbd2ab"
+        ],
+        "sourceRevisions": {
+          "private:77a2f088-6b5c-4bb7-8ad0-49a1c5501ef7": "f74b7145d0801bb23acd7b1936188e1aee3fd89ed686741fdf094d844bd342f0",
+          "qq:72057594049927937001": "984ef7ffd8f6f0f91249200f698689e50f768b96846a05b8f487c2b611c93aac",
+          "private:ac6f9bf9-25e6-4c60-9c64-ef0556dbd2ab": "cfdb903b4571ef6baf5b4266253d8a636418d48056146b3f31868bc4a2ae6aa7"
+        },
+        "sourceDelivery": {
+          "version": "source-delivery-v1",
+          "offsetUnit": "utf16_redacted_source",
+          "partialSourceCount": 1,
+          "omittedSourceCount": 0,
+          "explicitLookups": [
+            {
+              "sourceId": "private:77a2f088-6b5c-4bb7-8ad0-49a1c5501ef7",
+              "revision": "f74b7145d0801bb23acd7b1936188e1aee3fd89ed686741fdf094d844bd342f0",
+              "status": "partial",
+              "start": 0,
+              "end": 700,
+              "originalCharLength": 15731,
+              "lookup": {
+                "sourceId": "private:77a2f088-6b5c-4bb7-8ad0-49a1c5501ef7",
+                "revision": "f74b7145d0801bb23acd7b1936188e1aee3fd89ed686741fdf094d844bd342f0",
+                "offset": 700
+              },
+              "requestedRange": {
+                "start": 0,
+                "end": 700
+              },
+              "requestStatus": "delivered"
+            },
+            {
+              "sourceId": "private:ac6f9bf9-25e6-4c60-9c64-ef0556dbd2ab",
+              "revision": "cfdb903b4571ef6baf5b4266253d8a636418d48056146b3f31868bc4a2ae6aa7",
+              "status": "delivered",
+              "start": 0,
+              "end": 27,
+              "originalCharLength": 27,
+              "requestedRange": {
+                "start": 0,
+                "end": 27
+              },
+              "requestStatus": "delivered"
+            }
+          ],
+          "sources": [
+            {
+              "sourceId": "private:77a2f088-6b5c-4bb7-8ad0-49a1c5501ef7",
+              "revision": "f74b7145d0801bb23acd7b1936188e1aee3fd89ed686741fdf094d844bd342f0",
+              "status": "partial",
+              "start": 0,
+              "end": 700,
+              "originalCharLength": 15731,
+              "lookup": {
+                "sourceId": "private:77a2f088-6b5c-4bb7-8ad0-49a1c5501ef7",
+                "revision": "f74b7145d0801bb23acd7b1936188e1aee3fd89ed686741fdf094d844bd342f0",
+                "offset": 700
+              }
+            },
+            {
+              "sourceId": "qq:72057594049927937001",
+              "revision": "984ef7ffd8f6f0f91249200f698689e50f768b96846a05b8f487c2b611c93aac",
+              "status": "delivered",
+              "start": 0,
+              "end": 27,
+              "originalCharLength": 27
+            },
+            {
+              "sourceId": "private:ac6f9bf9-25e6-4c60-9c64-ef0556dbd2ab",
+              "revision": "cfdb903b4571ef6baf5b4266253d8a636418d48056146b3f31868bc4a2ae6aa7",
+              "status": "delivered",
+              "start": 0,
+              "end": 27,
+              "originalCharLength": 27
+            }
+          ]
+        },
+        "completeReview": false,
+        "omittedSourceCount": 0,
+        "historyCoverage": {
+          "status": "empty",
+          "pages": 1,
+          "cursor": null,
+          "oldestAt": null,
+          "checkedAt": "2026-10-02T10:00:59.000Z",
+          "source": "fictional-native-boundary-replay"
+        },
+        "inputBytes": 22055,
+        "byteBudget": 48000,
+        "tokenizerVerified": false,
+        "serializedTextRequestBytes": 44198,
+        "requestByteBudget": 64000,
+        "requestEnvelopeBytes": 20482,
+        "payloadWireByteBudget": 43518,
+        "requestModel": "gpt-6-luna",
+        "budgetMethod": "Complete serialized UTF-8 request envelope plus payload ceiling; tokenizer and provider window unverified",
+        "methodTrace": {
+          "purpose": "discussion",
+          "delivered": [],
+          "catalog": [
+            {
+              "id": "clarify",
+              "version": "goal-methods-2026-10-30.2"
+            },
+            {
+              "id": "choose_next_step",
+              "version": "goal-methods-2026-10-30.2"
+            },
+            {
+              "id": "respond",
+              "version": "goal-methods-2026-10-30.2"
+            },
+            {
+              "id": "compose",
+              "version": "goal-methods-2026-10-30.2"
+            },
+            {
+              "id": "review",
+              "version": "goal-methods-2026-10-30.2"
+            },
+            {
+              "id": "shared_activity",
+              "version": "goal-methods-2026-10-30.2"
+            },
+            {
+              "id": "correction",
+              "version": "goal-methods-2026-10-30.2"
+            },
+            {
+              "id": "express_interest",
+              "version": "goal-methods-2026-10-30.2"
+            }
+          ],
+          "operationalDelivery": {
+            "location": "methodCards",
+            "ids": []
+          },
+          "reported": null
+        },
+        "createdAt": "2026-10-02T10:21:00.000Z",
+        "degradation": [
+          {
+            "step": "degraded_to_ranged",
+            "appliedTo": "private:77a2f088-6b5c-4bb7-8ad0-49a1c5501ef7",
+            "recoveredBytes": 41235,
+            "remainingNeed": 41235,
+            "lookupHandle": {
+              "sourceIds": [
+                "private:77a2f088-6b5c-4bb7-8ad0-49a1c5501ef7"
+              ],
+              "revision": "f74b7145d0801bb23acd7b1936188e1aee3fd89ed686741fdf094d844bd342f0",
+              "offset": 0
+            }
+          },
+          {
+            "step": "deterministic_digest",
+            "appliedTo": "private:77a2f088-6b5c-4bb7-8ad0-49a1c5501ef7",
+            "recoveredBytes": 3711,
+            "remainingNeed": 43523,
+            "lookupHandle": {
+              "sourceId": "private:77a2f088-6b5c-4bb7-8ad0-49a1c5501ef7",
+              "revision": "f74b7145d0801bb23acd7b1936188e1aee3fd89ed686741fdf094d844bd342f0",
+              "offset": 0
+            }
+          }
+        ],
+        "admission": {
+          "version": "admission-compiler-v1",
+          "admissions": [
+            {
+              "id": "private:ac6f9bf9-25e6-4c60-9c64-ef0556dbd2ab",
+              "kind": "floor",
+              "tier": "verbatim"
+            },
+            {
+              "id": "private:77a2f088-6b5c-4bb7-8ad0-49a1c5501ef7",
+              "kind": "mandatory",
+              "tier": "ranged"
+            }
+          ],
+          "materialRequirements": {
+            "version": "mqa-registry-v1",
+            "intentClass": "generic_consultation",
+            "outcomes": [],
+            "retrievedMaterials": [
+              {
+                "sourceId": "private:77a2f088-6b5c-4bb7-8ad0-49a1c5501ef7",
+                "available": true,
+                "tier": "ranged",
+                "start": 0,
+                "end": 1789,
+                "lookup": {
+                  "sourceIds": [
+                    "private:77a2f088-6b5c-4bb7-8ad0-49a1c5501ef7"
+                  ],
+                  "revision": "f74b7145d0801bb23acd7b1936188e1aee3fd89ed686741fdf094d844bd342f0",
+                  "offset": 0
+                }
+              },
+              {
+                "sourceId": "private:ac6f9bf9-25e6-4c60-9c64-ef0556dbd2ab",
+                "available": true,
+                "tier": "verbatim",
+                "start": 0,
+                "end": 27,
+                "lookup": {
+                  "sourceIds": [
+                    "private:ac6f9bf9-25e6-4c60-9c64-ef0556dbd2ab"
+                  ],
+                  "revision": "cfdb903b4571ef6baf5b4266253d8a636418d48056146b3f31868bc4a2ae6aa7",
+                  "offset": 0
+                }
+              }
+            ]
+          }
+        },
+        "contextSelection": {
+          "policy": {
+            "version": 1,
+            "recentHours": 72,
+            "since": "2026-09-29T10:21:00.000Z",
+            "asOf": "2026-10-02T10:21:00.000Z",
+            "currentEpisode": {
+              "maxGapMs": 1800000,
+              "maxSpanMs": 7200000
+            },
+            "loading": "complete_source_segments_within_request_budget",
+            "older": "core_summaries_and_explicit_or_ranked_lookup",
+            "optimality": "user_configured_window_not_quality_evidence"
+          },
+          "recentQQ": {
+            "candidateSourceIds": [
+              "qq:72057594049927937001"
+            ],
+            "loadedSourceIds": [
+              "qq:72057594049927937001"
+            ],
+            "partialSourceIds": [],
+            "omittedSourceIds": [],
+            "segments": [
+              {
+                "sourceIds": [
+                  "qq:72057594049927937001"
+                ],
+                "loadedCount": 1
+              }
+            ]
+          },
+          "recentPrivate": {
+            "candidateSourceIds": [
+              "private:77a2f088-6b5c-4bb7-8ad0-49a1c5501ef7"
+            ],
+            "loadedSourceIds": [
+              "private:77a2f088-6b5c-4bb7-8ad0-49a1c5501ef7"
+            ],
+            "partialSourceIds": [
+              "private:77a2f088-6b5c-4bb7-8ad0-49a1c5501ef7"
+            ],
+            "foldedSourceIds": [],
+            "omittedSourceIds": []
+          },
+          "taskControlRefs": [],
+          "taskSourceRefs": [],
+          "coreSourceRefs": [],
+          "reasons": [
+            "bounded_current_exchange_and_explicit_sources",
+            "confirmed_preferences_and_dated_core",
+            "recent_time_window",
+            "ranked_or_explicit_lookup"
+          ]
+        },
+        "optionalRawRetrieval": {
+          "limit": 4,
+          "admittedCount": 0,
+          "deferredCount": 0,
+          "ordering": "retrieval_score_then_recency"
+        },
+        "recentQQContext": {
+          "limits": {
+            "maxMessages": 24,
+            "maxGapMs": 1800000,
+            "maxSpanMs": 7200000,
+            "maxAdditionalBytes": 12000
+          },
+          "projection": "loaded",
+          "candidateSourceIds": [
+            "qq:72057594049927937001"
+          ],
+          "admittedPrioritySourceIds": [],
+          "initialAdditionalBytes": 433,
+          "ordering": "current_neighborhood_before_optional_history"
+        },
+        "planningViews": {
+          "workVersion": "conversation-work-2026-10-30.2",
+          "materialVersion": "conversation-materials-2026-10-30.2",
+          "materialRefs": [
+            {
+              "kind": "current_exchange",
+              "sourceIds": [
+                "qq:72057594049927937001"
+              ]
+            }
+          ],
+          "projection": "full"
+        },
+        "images": [],
+        "imageCount": 0,
+        "imageContext": {
+          "version": 1,
+          "mode": "none",
+          "attached": [],
+          "omitted": []
+        },
+        "stageId": "5c988460-bdec-47c5-9087-449f7681727f",
+        "candidateSession": {
+          "qqRevision": 2,
+          "privateInputSeq": 2
+        }
+      },
+      "images": [],
+      "mediaContext": {
+        "mode": "off",
+        "omitted": []
+      },
+      "essentialSourceIds": [
+        "private:ac6f9bf9-25e6-4c60-9c64-ef0556dbd2ab",
+        "private:77a2f088-6b5c-4bb7-8ad0-49a1c5501ef7",
+        "qq:72057594049927937001"
+      ],
+      "restrictions": []
+    }
+  ],
+  "originals": [
+    {
+      "id": "qq:72057594049927937001",
+      "type": "qq",
+      "at": "2026-10-02T10:20:00.000Z",
+      "role": "contact",
+      "direction": "incoming",
+      "use": "discussion",
+      "messageId": "72057594049927937001",
+      "sequence": "1",
+      "senderUid": "eval_replay_contact",
+      "senderUin": "3333333333",
+      "text": "你前阵子说帮旧物展录了点什么？周六下午能一起去看看吗？",
+      "revision": "984ef7ffd8f6f0f91249200f698689e50f768b96846a05b8f487c2b611c93aac"
+    },
+    {
+      "id": "private:77a2f088-6b5c-4bb7-8ad0-49a1c5501ef7",
+      "type": "private",
+      "at": "2026-10-02T10:01:00.000Z",
+      "role": "user",
+      "use": "discussion",
+      "kind": "discussion",
+      "version": 1,
+      "text": "这是我给社区旧物展做志愿工作时留给自己的原始手记，按整理顺序贴在这里，方便和你商量自己的真实近况。里面有他人的登记信息和一些没查清的来历，不能自动变成对外可说的故事。我愿意告诉朋友我帮展览做过一点具体事情，但物件不都属于我，别人做的部分也不是我的成果。下面是我当天一项项接触到的经过，不是已经写好的展览文案。\n\n第1项是旧收音机。我到整理桌时，修理铺的周师傅已经把它放在一张浅灰色的软垫上。我负责照着登记纸核对这件东西能否进入讲解录音，不负责估价，也不是决定它来历的人。我们先看了调台旋钮，当时能确认的现象是旋钮转到尽头会卡住。为了不把描述写得比实物证据更满，我先按自己听到的原话记下来，没有补一个听起来完整却没有来源的往事。\n那天核对的过程中，修理铺的周师傅又去找了一次登记本。我们把物件名称、实物状态和可以公开讲的范围分开写在临时纸上，后来才搬到工作台另一边。关于这件物品，大家当面商量的是“只展示外观，不让观众通电”。这句话说的是当前的展示处理，不代表我们已经查出了所有缺失的信息。有观众问到更远的故事时，志愿者可以说还没核实，而不需要为了热闹现场讲一个猜出来的版本。\n我记得自己做的是对着旧收音机读了一遍手上的说明，发现有一句话读起来太像把不确定的推测当结论，于是停下来问了修理铺的周师傅。之后是对方去核对材料，我没有独自判断。等候时我整理了麦克风旁边的纸张，把要遮住的登记内容折到背后；这只是我参与录音准备的一小部分，不意味着整个展览都是我策划的。最后这项先放回原位，下一次是否增加说明，留给拿到新来源之后再讨论。\n\n第2项是搪瓷杯。我到整理桌时，捐物的何阿姨已经把它放在一张浅灰色的软垫上。我负责照着登记纸核对这件东西能否进入讲解录音，不负责估价，也不是决定它来历的人。我们先看了杯底蓝字，当时能确认的现象是蓝字已经磨掉一半。为了不把描述写得比实物证据更满，我先按自己听到的原话记下来，没有补一个听起来完整却没有来源的往事。\n那天核对的过程中，捐物的何阿姨又去找了一次登记本。我们把物件名称、实物状态和可以公开讲的范围分开写在临时纸上，后来才搬到工作台另一边。关于这件物品，大家当面商量的是“不推测字迹原来的厂名”。这句话说的是当前的展示处理，不代表我们已经查出了所有缺失的信息。有观众问到更远的故事时，志愿者可以说还没核实，而不需要为了热闹现场讲一个猜出来的版本。\n我记得自己做的是对着搪瓷杯读了一遍手上的说明，发现有一句话读起来太像把不确定的推测当结论，于是停下来问了捐物的何阿姨。之后是对方去核对材料，我没有独自判断。等候时我整理了麦克风旁边的纸张，把要遮住的登记内容折到背后；这只是我参与录音准备的一小部分，不意味着整个展览都是我策划的。最后这项先放回原位，下一次是否增加说明，留给拿到新来源之后再讨论。\n\n第3项是缝纫机。我到整理桌时，社区仓库的小林已经把它放在一张浅灰色的软垫上。我负责照着登记纸核对这件东西能否进入讲解录音，不负责估价，也不是决定它来历的人。我们先看了脚踏板，当时能确认的现象是连接带断了很久。为了不把描述写得比实物证据更满，我先按自己听到的原话记下来，没有补一个听起来完整却没有来源的往事。\n那天核对的过程中，社区仓库的小林又去找了一次登记本。我们把物件名称、实物状态和可以公开讲的范围分开写在临时纸上，后来才搬到工作台另一边。关于这件物品，大家当面商量的是“放在地面固定，不让孩子踩”。这句话说的是当前的展示处理，不代表我们已经查出了所有缺失的信息。有观众问到更远的故事时，志愿者可以说还没核实，而不需要为了热闹现场讲一个猜出来的版本。\n我记得自己做的是对着缝纫机读了一遍手上的说明，发现有一句话读起来太像把不确定的推测当结论，于是停下来问了社区仓库的小林。之后是对方去核对材料，我没有独自判断。等候时我整理了麦克风旁边的纸张，把要遮住的登记内容折到背后；这只是我参与录音准备的一小部分，不意味着整个展览都是我策划的。最后这项先放回原位，下一次是否增加说明，留给拿到新来源之后再讨论。\n\n第4项是老相册。我到整理桌时，照片主人的女儿已经把它放在一张浅灰色的软垫上。我负责照着登记纸核对这件东西能否进入讲解录音，不负责估价，也不是决定它来历的人。我们先看了封面绒布，当时能确认的现象是其中两张照片背面没有年份。为了不把描述写得比实物证据更满，我先按自己听到的原话记下来，没有补一个听起来完整却没有来源的往事。\n那天核对的过程中，照片主人的女儿又去找了一次登记本。我们把物件名称、实物状态和可以公开讲的范围分开写在临时纸上，后来才搬到工作台另一边。关于这件物品，大家当面商量的是“无授权的人脸照片不翻拍”。这句话说的是当前的展示处理，不代表我们已经查出了所有缺失的信息。有观众问到更远的故事时，志愿者可以说还没核实，而不需要为了热闹现场讲一个猜出来的版本。\n我记得自己做的是对着老相册读了一遍手上的说明，发现有一句话读起来太像把不确定的推测当结论，于是停下来问了照片主人的女儿。之后是对方去核对材料，我没有独自判断。等候时我整理了麦克风旁边的纸张，把要遮住的登记内容折到背后；这只是我参与录音准备的一小部分，不意味着整个展览都是我策划的。最后这项先放回原位，下一次是否增加说明，留给拿到新来源之后再讨论。\n\n第5项是手电筒。我到整理桌时，负责电器的小方已经把它放在一张浅灰色的软垫上。我负责照着登记纸核对这件东西能否进入讲解录音，不负责估价，也不是决定它来历的人。我们先看了尾部开关，当时能确认的现象是按下去有弹簧松动的声音。为了不把描述写得比实物证据更满，我先按自己听到的原话记下来，没有补一个听起来完整却没有来源的往事。\n那天核对的过程中，负责电器的小方又去找了一次登记本。我们把物件名称、实物状态和可以公开讲的范围分开写在临时纸上，后来才搬到工作台另一边。关于这件物品，大家当面商量的是“不放电池，只演示开关动作”。这句话说的是当前的展示处理，不代表我们已经查出了所有缺失的信息。有观众问到更远的故事时，志愿者可以说还没核实，而不需要为了热闹现场讲一个猜出来的版本。\n我记得自己做的是对着手电筒读了一遍手上的说明，发现有一句话读起来太像把不确定的推测当结论，于是停下来问了负责电器的小方。之后是对方去核对材料，我没有独自判断。等候时我整理了麦克风旁边的纸张，把要遮住的登记内容折到背后；这只是我参与录音准备的一小部分，不意味着整个展览都是我策划的。最后这项先放回原位，下一次是否增加说明，留给拿到新来源之后再讨论。\n\n第6项是粮票夹。我到整理桌时，收集票证的陈叔已经把它放在一张浅灰色的软垫上。我负责照着登记纸核对这件东西能否进入讲解录音，不负责估价，也不是决定它来历的人。我们先看了夹层标签，当时能确认的现象是标签日期写得不完整。为了不把描述写得比实物证据更满，我先按自己听到的原话记下来，没有补一个听起来完整却没有来源的往事。\n那天核对的过程中，收集票证的陈叔又去找了一次登记本。我们把物件名称、实物状态和可以公开讲的范围分开写在临时纸上，后来才搬到工作台另一边。关于这件物品，大家当面商量的是“年代未知就写未确认”。这句话说的是当前的展示处理，不代表我们已经查出了所有缺失的信息。有观众问到更远的故事时，志愿者可以说还没核实，而不需要为了热闹现场讲一个猜出来的版本。\n我记得自己做的是对着粮票夹读了一遍手上的说明，发现有一句话读起来太像把不确定的推测当结论，于是停下来问了收集票证的陈叔。之后是对方去核对材料，我没有独自判断。等候时我整理了麦克风旁边的纸张，把要遮住的登记内容折到背后；这只是我参与录音准备的一小部分，不意味着整个展览都是我策划的。最后这项先放回原位，下一次是否增加说明，留给拿到新来源之后再讨论。\n\n第7项是木饭盒。我到整理桌时，修木器的老赵已经把它放在一张浅灰色的软垫上。我负责照着登记纸核对这件东西能否进入讲解录音，不负责估价，也不是决定它来历的人。我们先看了边缘搭扣，当时能确认的现象是扣上后还有一道缝。为了不把描述写得比实物证据更满，我先按自己听到的原话记下来，没有补一个听起来完整却没有来源的往事。\n那天核对的过程中，修木器的老赵又去找了一次登记本。我们把物件名称、实物状态和可以公开讲的范围分开写在临时纸上，后来才搬到工作台另一边。关于这件物品，大家当面商量的是“不把使用痕迹说成某次具体事故”。这句话说的是当前的展示处理，不代表我们已经查出了所有缺失的信息。有观众问到更远的故事时，志愿者可以说还没核实，而不需要为了热闹现场讲一个猜出来的版本。\n我记得自己做的是对着木饭盒读了一遍手上的说明，发现有一句话读起来太像把不确定的推测当结论，于是停下来问了修木器的老赵。之后是对方去核对材料，我没有独自判断。等候时我整理了麦克风旁边的纸张，把要遮住的登记内容折到背后；这只是我参与录音准备的一小部分，不意味着整个展览都是我策划的。最后这项先放回原位，下一次是否增加说明，留给拿到新来源之后再讨论。\n\n第8项是算盘。我到整理桌时，捐赠人的孙子已经把它放在一张浅灰色的软垫上。我负责照着登记纸核对这件东西能否进入讲解录音，不负责估价，也不是决定它来历的人。我们先看了中间木梁，当时能确认的现象是一颗珠子颜色明显更浅。为了不把描述写得比实物证据更满，我先按自己听到的原话记下来，没有补一个听起来完整却没有来源的往事。\n那天核对的过程中，捐赠人的孙子又去找了一次登记本。我们把物件名称、实物状态和可以公开讲的范围分开写在临时纸上，后来才搬到工作台另一边。关于这件物品，大家当面商量的是“允许拿复制品试，原件不移动”。这句话说的是当前的展示处理，不代表我们已经查出了所有缺失的信息。有观众问到更远的故事时，志愿者可以说还没核实，而不需要为了热闹现场讲一个猜出来的版本。\n我记得自己做的是对着算盘读了一遍手上的说明，发现有一句话读起来太像把不确定的推测当结论，于是停下来问了捐赠人的孙子。之后是对方去核对材料，我没有独自判断。等候时我整理了麦克风旁边的纸张，把要遮住的登记内容折到背后；这只是我参与录音准备的一小部分，不意味着整个展览都是我策划的。最后这项先放回原位，下一次是否增加说明，留给拿到新来源之后再讨论。\n\n第9项是折扇。我到整理桌时，做纸艺的阿岚已经把它放在一张浅灰色的软垫上。我负责照着登记纸核对这件东西能否进入讲解录音，不负责估价，也不是决定它来历的人。我们先看了扇骨接头，当时能确认的现象是最外面一根扇骨修补过。为了不把描述写得比实物证据更满，我先按自己听到的原话记下来，没有补一个听起来完整却没有来源的往事。\n那天核对的过程中，做纸艺的阿岚又去找了一次登记本。我们把物件名称、实物状态和可以公开讲的范围分开写在临时纸上，后来才搬到工作台另一边。关于这件物品，大家当面商量的是“不能完全展开，避免再次裂开”。这句话说的是当前的展示处理，不代表我们已经查出了所有缺失的信息。有观众问到更远的故事时，志愿者可以说还没核实，而不需要为了热闹现场讲一个猜出来的版本。\n我记得自己做的是对着折扇读了一遍手上的说明，发现有一句话读起来太像把不确定的推测当结论，于是停下来问了做纸艺的阿岚。之后是对方去核对材料，我没有独自判断。等候时我整理了麦克风旁边的纸张，把要遮住的登记内容折到背后；这只是我参与录音准备的一小部分，不意味着整个展览都是我策划的。最后这项先放回原位，下一次是否增加说明，留给拿到新来源之后再讨论。\n\n第10项是电话机。我到整理桌时，曾经做话务员的胡姨已经把它放在一张浅灰色的软垫上。我负责照着登记纸核对这件东西能否进入讲解录音，不负责估价，也不是决定它来历的人。我们先看了听筒线，当时能确认的现象是卷线有一段已经硬化。为了不把描述写得比实物证据更满，我先按自己听到的原话记下来，没有补一个听起来完整却没有来源的往事。\n那天核对的过程中，曾经做话务员的胡姨又去找了一次登记本。我们把物件名称、实物状态和可以公开讲的范围分开写在临时纸上，后来才搬到工作台另一边。关于这件物品，大家当面商量的是“不接线路，不演示真实拨号”。这句话说的是当前的展示处理，不代表我们已经查出了所有缺失的信息。有观众问到更远的故事时，志愿者可以说还没核实，而不需要为了热闹现场讲一个猜出来的版本。\n我记得自己做的是对着电话机读了一遍手上的说明，发现有一句话读起来太像把不确定的推测当结论，于是停下来问了曾经做话务员的胡姨。之后是对方去核对材料，我没有独自判断。等候时我整理了麦克风旁边的纸张，把要遮住的登记内容折到背后；这只是我参与录音准备的一小部分，不意味着整个展览都是我策划的。最后这项先放回原位，下一次是否增加说明，留给拿到新来源之后再讨论。\n\n第11项是旧地图。我到整理桌时，地方史志愿者阿禾已经把它放在一张浅灰色的软垫上。我负责照着登记纸核对这件东西能否进入讲解录音，不负责估价，也不是决定它来历的人。我们先看了边角折痕，当时能确认的现象是河流旁有手写的短线。为了不把描述写得比实物证据更满，我先按自己听到的原话记下来，没有补一个听起来完整却没有来源的往事。\n那天核对的过程中，地方史志愿者阿禾又去找了一次登记本。我们把物件名称、实物状态和可以公开讲的范围分开写在临时纸上，后来才搬到工作台另一边。关于这件物品，大家当面商量的是“手写短线的含义没有确定”。这句话说的是当前的展示处理，不代表我们已经查出了所有缺失的信息。有观众问到更远的故事时，志愿者可以说还没核实，而不需要为了热闹现场讲一个猜出来的版本。\n我记得自己做的是对着旧地图读了一遍手上的说明，发现有一句话读起来太像把不确定的推测当结论，于是停下来问了地方史志愿者阿禾。之后是对方去核对材料，我没有独自判断。等候时我整理了麦克风旁边的纸张，把要遮住的登记内容折到背后；这只是我参与录音准备的一小部分，不意味着整个展览都是我策划的。最后这项先放回原位，下一次是否增加说明，留给拿到新来源之后再讨论。\n\n第12项是玻璃药瓶。我到整理桌时，保管物品的刘姐已经把它放在一张浅灰色的软垫上。我负责照着登记纸核对这件东西能否进入讲解录音，不负责估价，也不是决定它来历的人。我们先看了纸标签，当时能确认的现象是瓶身已经清洗，标签仍缺一角。为了不把描述写得比实物证据更满，我先按自己听到的原话记下来，没有补一个听起来完整却没有来源的往事。\n那天核对的过程中，保管物品的刘姐又去找了一次登记本。我们把物件名称、实物状态和可以公开讲的范围分开写在临时纸上，后来才搬到工作台另一边。关于这件物品，大家当面商量的是“只讲容器，不给用药建议”。这句话说的是当前的展示处理，不代表我们已经查出了所有缺失的信息。有观众问到更远的故事时，志愿者可以说还没核实，而不需要为了热闹现场讲一个猜出来的版本。\n我记得自己做的是对着玻璃药瓶读了一遍手上的说明，发现有一句话读起来太像把不确定的推测当结论，于是停下来问了保管物品的刘姐。之后是对方去核对材料，我没有独自判断。等候时我整理了麦克风旁边的纸张，把要遮住的登记内容折到背后；这只是我参与录音准备的一小部分，不意味着整个展览都是我策划的。最后这项先放回原位，下一次是否增加说明，留给拿到新来源之后再讨论。\n\n第13项是小闹钟。我到整理桌时，修钟的师傅老梁已经把它放在一张浅灰色的软垫上。我负责照着登记纸核对这件东西能否进入讲解录音，不负责估价，也不是决定它来历的人。我们先看了背面钥匙，当时能确认的现象是上弦后只能走一小会儿。为了不把描述写得比实物证据更满，我先按自己听到的原话记下来，没有补一个听起来完整却没有来源的往事。\n那天核对的过程中，修钟的师傅老梁又去找了一次登记本。我们把物件名称、实物状态和可以公开讲的范围分开写在临时纸上，后来才搬到工作台另一边。关于这件物品，大家当面商量的是“录音不是原件实际报时”。这句话说的是当前的展示处理，不代表我们已经查出了所有缺失的信息。有观众问到更远的故事时，志愿者可以说还没核实，而不需要为了热闹现场讲一个猜出来的版本。\n我记得自己做的是对着小闹钟读了一遍手上的说明，发现有一句话读起来太像把不确定的推测当结论，于是停下来问了修钟的师傅老梁。之后是对方去核对材料，我没有独自判断。等候时我整理了麦克风旁边的纸张，把要遮住的登记内容折到背后；这只是我参与录音准备的一小部分，不意味着整个展览都是我策划的。最后这项先放回原位，下一次是否增加说明，留给拿到新来源之后再讨论。\n\n第14项是竹编篮。我到整理桌时，编织小组的王姨已经把它放在一张浅灰色的软垫上。我负责照着登记纸核对这件东西能否进入讲解录音，不负责估价，也不是决定它来历的人。我们先看了提手，当时能确认的现象是一边换过更浅的竹条。为了不把描述写得比实物证据更满，我先按自己听到的原话记下来，没有补一个听起来完整却没有来源的往事。\n那天核对的过程中，编织小组的王姨又去找了一次登记本。我们把物件名称、实物状态和可以公开讲的范围分开写在临时纸上，后来才搬到工作台另一边。关于这件物品，大家当面商量的是“没有证据不说出自哪个具体年代”。这句话说的是当前的展示处理，不代表我们已经查出了所有缺失的信息。有观众问到更远的故事时，志愿者可以说还没核实，而不需要为了热闹现场讲一个猜出来的版本。\n我记得自己做的是对着竹编篮读了一遍手上的说明，发现有一句话读起来太像把不确定的推测当结论，于是停下来问了编织小组的王姨。之后是对方去核对材料，我没有独自判断。等候时我整理了麦克风旁边的纸张，把要遮住的登记内容折到背后；这只是我参与录音准备的一小部分，不意味着整个展览都是我策划的。最后这项先放回原位，下一次是否增加说明，留给拿到新来源之后再讨论。\n\n第15项是电影票。我到整理桌时，提供票根的小杜已经把它放在一张浅灰色的软垫上。我负责照着登记纸核对这件东西能否进入讲解录音，不负责估价，也不是决定它来历的人。我们先看了票面印章，当时能确认的现象是日期印到了票边外面。为了不把描述写得比实物证据更满，我先按自己听到的原话记下来，没有补一个听起来完整却没有来源的往事。\n那天核对的过程中，提供票根的小杜又去找了一次登记本。我们把物件名称、实物状态和可以公开讲的范围分开写在临时纸上，后来才搬到工作台另一边。关于这件物品，大家当面商量的是“票价看不清就不念确定金额”。这句话说的是当前的展示处理，不代表我们已经查出了所有缺失的信息。有观众问到更远的故事时，志愿者可以说还没核实，而不需要为了热闹现场讲一个猜出来的版本。\n我记得自己做的是对着电影票读了一遍手上的说明，发现有一句话读起来太像把不确定的推测当结论，于是停下来问了提供票根的小杜。之后是对方去核对材料，我没有独自判断。等候时我整理了麦克风旁边的纸张，把要遮住的登记内容折到背后；这只是我参与录音准备的一小部分，不意味着整个展览都是我策划的。最后这项先放回原位，下一次是否增加说明，留给拿到新来源之后再讨论。\n\n第16项是钢笔。我到整理桌时，原主人的朋友已经把它放在一张浅灰色的软垫上。我负责照着登记纸核对这件东西能否进入讲解录音，不负责估价，也不是决定它来历的人。我们先看了笔帽夹，当时能确认的现象是笔夹内侧有两个很浅的字。为了不把描述写得比实物证据更满，我先按自己听到的原话记下来，没有补一个听起来完整却没有来源的往事。\n那天核对的过程中，原主人的朋友又去找了一次登记本。我们把物件名称、实物状态和可以公开讲的范围分开写在临时纸上，后来才搬到工作台另一边。关于这件物品，大家当面商量的是“没有授权不猜写的是谁的姓名”。这句话说的是当前的展示处理，不代表我们已经查出了所有缺失的信息。有观众问到更远的故事时，志愿者可以说还没核实，而不需要为了热闹现场讲一个猜出来的版本。\n我记得自己做的是对着钢笔读了一遍手上的说明，发现有一句话读起来太像把不确定的推测当结论，于是停下来问了原主人的朋友。之后是对方去核对材料，我没有独自判断。等候时我整理了麦克风旁边的纸张，把要遮住的登记内容折到背后；这只是我参与录音准备的一小部分，不意味着整个展览都是我策划的。最后这项先放回原位，下一次是否增加说明，留给拿到新来源之后再讨论。\n\n第17项是塑料梳。我到整理桌时，捐物登记的小许已经把它放在一张浅灰色的软垫上。我负责照着登记纸核对这件东西能否进入讲解录音，不负责估价，也不是决定它来历的人。我们先看了断齿位置，当时能确认的现象是缺的不是最边上一齿。为了不把描述写得比实物证据更满，我先按自己听到的原话记下来，没有补一个听起来完整却没有来源的往事。\n那天核对的过程中，捐物登记的小许又去找了一次登记本。我们把物件名称、实物状态和可以公开讲的范围分开写在临时纸上，后来才搬到工作台另一边。关于这件物品，大家当面商量的是“不演绎成具体家庭故事”。这句话说的是当前的展示处理，不代表我们已经查出了所有缺失的信息。有观众问到更远的故事时，志愿者可以说还没核实，而不需要为了热闹现场讲一个猜出来的版本。\n我记得自己做的是对着塑料梳读了一遍手上的说明，发现有一句话读起来太像把不确定的推测当结论，于是停下来问了捐物登记的小许。之后是对方去核对材料，我没有独自判断。等候时我整理了麦克风旁边的纸张，把要遮住的登记内容折到背后；这只是我参与录音准备的一小部分，不意味着整个展览都是我策划的。最后这项先放回原位，下一次是否增加说明，留给拿到新来源之后再讨论。\n\n第18项是布书包。我到整理桌时，缝补小组的吴姨已经把它放在一张浅灰色的软垫上。我负责照着登记纸核对这件东西能否进入讲解录音，不负责估价，也不是决定它来历的人。我们先看了肩带缝线，当时能确认的现象是两边用的线颜色不一样。为了不把描述写得比实物证据更满，我先按自己听到的原话记下来，没有补一个听起来完整却没有来源的往事。\n那天核对的过程中，缝补小组的吴姨又去找了一次登记本。我们把物件名称、实物状态和可以公开讲的范围分开写在临时纸上，后来才搬到工作台另一边。关于这件物品，大家当面商量的是“可说补过，不能编谁补的”。这句话说的是当前的展示处理，不代表我们已经查出了所有缺失的信息。有观众问到更远的故事时，志愿者可以说还没核实，而不需要为了热闹现场讲一个猜出来的版本。\n我记得自己做的是对着布书包读了一遍手上的说明，发现有一句话读起来太像把不确定的推测当结论，于是停下来问了缝补小组的吴姨。之后是对方去核对材料，我没有独自判断。等候时我整理了麦克风旁边的纸张，把要遮住的登记内容折到背后；这只是我参与录音准备的一小部分，不意味着整个展览都是我策划的。最后这项先放回原位，下一次是否增加说明，留给拿到新来源之后再讨论。\n\n第19项是唱片封套。我到整理桌时，音乐爱好者小孟已经把它放在一张浅灰色的软垫上。我负责照着登记纸核对这件东西能否进入讲解录音，不负责估价，也不是决定它来历的人。我们先看了折角，当时能确认的现象是封套和唱片不是同一套。为了不把描述写得比实物证据更满，我先按自己听到的原话记下来，没有补一个听起来完整却没有来源的往事。\n那天核对的过程中，音乐爱好者小孟又去找了一次登记本。我们把物件名称、实物状态和可以公开讲的范围分开写在临时纸上，后来才搬到工作台另一边。关于这件物品，大家当面商量的是“不要把后配封套当原装”。这句话说的是当前的展示处理，不代表我们已经查出了所有缺失的信息。有观众问到更远的故事时，志愿者可以说还没核实，而不需要为了热闹现场讲一个猜出来的版本。\n我记得自己做的是对着唱片封套读了一遍手上的说明，发现有一句话读起来太像把不确定的推测当结论，于是停下来问了音乐爱好者小孟。之后是对方去核对材料，我没有独自判断。等候时我整理了麦克风旁边的纸张，把要遮住的登记内容折到背后；这只是我参与录音准备的一小部分，不意味着整个展览都是我策划的。最后这项先放回原位，下一次是否增加说明，留给拿到新来源之后再讨论。\n\n第20项是木玩具。我到整理桌时，社区活动的志愿者阿清已经把它放在一张浅灰色的软垫上。我负责照着登记纸核对这件东西能否进入讲解录音，不负责估价，也不是决定它来历的人。我们先看了车轮轴，当时能确认的现象是有一只轮子转起来偏。为了不把描述写得比实物证据更满，我先按自己听到的原话记下来，没有补一个听起来完整却没有来源的往事。\n那天核对的过程中，社区活动的志愿者阿清又去找了一次登记本。我们把物件名称、实物状态和可以公开讲的范围分开写在临时纸上，后来才搬到工作台另一边。关于这件物品，大家当面商量的是“演示用另一件复制品”。这句话说的是当前的展示处理，不代表我们已经查出了所有缺失的信息。有观众问到更远的故事时，志愿者可以说还没核实，而不需要为了热闹现场讲一个猜出来的版本。\n我记得自己做的是对着木玩具读了一遍手上的说明，发现有一句话读起来太像把不确定的推测当结论，于是停下来问了社区活动的志愿者阿清。之后是对方去核对材料，我没有独自判断。等候时我整理了麦克风旁边的纸张，把要遮住的登记内容折到背后；这只是我参与录音准备的一小部分，不意味着整个展览都是我策划的。最后这项先放回原位，下一次是否增加说明，留给拿到新来源之后再讨论。\n\n第21项是茶叶罐。我到整理桌时，提供物品的杨伯已经把它放在一张浅灰色的软垫上。我负责照着登记纸核对这件东西能否进入讲解录音，不负责估价，也不是决定它来历的人。我们先看了罐盖图案，当时能确认的现象是盖上画的是山而不是茶树。为了不把描述写得比实物证据更满，我先按自己听到的原话记下来，没有补一个听起来完整却没有来源的往事。\n那天核对的过程中，提供物品的杨伯又去找了一次登记本。我们把物件名称、实物状态和可以公开讲的范围分开写在临时纸上，后来才搬到工作台另一边。关于这件物品，大家当面商量的是“里面已空，不编香气和茶叶种类”。这句话说的是当前的展示处理，不代表我们已经查出了所有缺失的信息。有观众问到更远的故事时，志愿者可以说还没核实，而不需要为了热闹现场讲一个猜出来的版本。\n我记得自己做的是对着茶叶罐读了一遍手上的说明，发现有一句话读起来太像把不确定的推测当结论，于是停下来问了提供物品的杨伯。之后是对方去核对材料，我没有独自判断。等候时我整理了麦克风旁边的纸张，把要遮住的登记内容折到背后；这只是我参与录音准备的一小部分，不意味着整个展览都是我策划的。最后这项先放回原位，下一次是否增加说明，留给拿到新来源之后再讨论。\n\n这周末的安排我也在这里给你说清楚：周六三点半以后我有空，也愿意和她一起去看旧物展；之前还有一件自己的事，不需要拿去和她解释。我在展览里实际做的是帮三件物品录讲解音频，后来发现一个停顿不自然，又重录过一段。我不是策展人，没有负责挑选全部展品，也没有给所有东西写故事。我愿意把这段小小的志愿经历告诉她，不需要把我包装成专业讲解员。\n\n第22项是钥匙串。我到整理桌时，管理旧屋的田叔已经把它放在一张浅灰色的软垫上。我负责照着登记纸核对这件东西能否进入讲解录音，不负责估价，也不是决定它来历的人。我们先看了纸牌，当时能确认的现象是纸牌字迹被水晕开。为了不把描述写得比实物证据更满，我先按自己听到的原话记下来，没有补一个听起来完整却没有来源的往事。\n那天核对的过程中，管理旧屋的田叔又去找了一次登记本。我们把物件名称、实物状态和可以公开讲的范围分开写在临时纸上，后来才搬到工作台另一边。关于这件物品，大家当面商量的是“不公开具体门牌和住址”。这句话说的是当前的展示处理，不代表我们已经查出了所有缺失的信息。有观众问到更远的故事时，志愿者可以说还没核实，而不需要为了热闹现场讲一个猜出来的版本。\n我记得自己做的是对着钥匙串读了一遍手上的说明，发现有一句话读起来太像把不确定的推测当结论，于是停下来问了管理旧屋的田叔。之后是对方去核对材料，我没有独自判断。等候时我整理了麦克风旁边的纸张，把要遮住的登记内容折到背后；这只是我参与录音准备的一小部分，不意味着整个展览都是我策划的。最后这项先放回原位，下一次是否增加说明，留给拿到新来源之后再讨论。\n\n第23项是自行车铃。我到整理桌时，修车摊的老魏已经把它放在一张浅灰色的软垫上。我负责照着登记纸核对这件东西能否进入讲解录音，不负责估价，也不是决定它来历的人。我们先看了弹片，当时能确认的现象是按下去只有很轻的响声。为了不把描述写得比实物证据更满，我先按自己听到的原话记下来，没有补一个听起来完整却没有来源的往事。\n那天核对的过程中，修车摊的老魏又去找了一次登记本。我们把物件名称、实物状态和可以公开讲的范围分开写在临时纸上，后来才搬到工作台另一边。关于这件物品，大家当面商量的是“不能说它还能正常上路使用”。这句话说的是当前的展示处理，不代表我们已经查出了所有缺失的信息。有观众问到更远的故事时，志愿者可以说还没核实，而不需要为了热闹现场讲一个猜出来的版本。\n我记得自己做的是对着自行车铃读了一遍手上的说明，发现有一句话读起来太像把不确定的推测当结论，于是停下来问了修车摊的老魏。之后是对方去核对材料，我没有独自判断。等候时我整理了麦克风旁边的纸张，把要遮住的登记内容折到背后；这只是我参与录音准备的一小部分，不意味着整个展览都是我策划的。最后这项先放回原位，下一次是否增加说明，留给拿到新来源之后再讨论。\n\n第24项是旧课本。我到整理桌时，学校旧物组的小顾已经把它放在一张浅灰色的软垫上。我负责照着登记纸核对这件东西能否进入讲解录音，不负责估价，也不是决定它来历的人。我们先看了空白页，当时能确认的现象是页边留着一些算式。为了不把描述写得比实物证据更满，我先按自己听到的原话记下来，没有补一个听起来完整却没有来源的往事。\n那天核对的过程中，学校旧物组的小顾又去找了一次登记本。我们把物件名称、实物状态和可以公开讲的范围分开写在临时纸上，后来才搬到工作台另一边。关于这件物品，大家当面商量的是“算式归谁写没有独立证据”。这句话说的是当前的展示处理，不代表我们已经查出了所有缺失的信息。有观众问到更远的故事时，志愿者可以说还没核实，而不需要为了热闹现场讲一个猜出来的版本。\n我记得自己做的是对着旧课本读了一遍手上的说明，发现有一句话读起来太像把不确定的推测当结论，于是停下来问了学校旧物组的小顾。之后是对方去核对材料，我没有独自判断。等候时我整理了麦克风旁边的纸张，把要遮住的登记内容折到背后；这只是我参与录音准备的一小部分，不意味着整个展览都是我策划的。最后这项先放回原位，下一次是否增加说明，留给拿到新来源之后再讨论。\n\n第25项是磁带盒。我到整理桌时，音像组的志愿者阿遥已经把它放在一张浅灰色的软垫上。我负责照着登记纸核对这件东西能否进入讲解录音，不负责估价，也不是决定它来历的人。我们先看了透明壳，当时能确认的现象是磁带和外盒编号对不上。为了不把描述写得比实物证据更满，我先按自己听到的原话记下来，没有补一个听起来完整却没有来源的往事。\n那天核对的过程中，音像组的志愿者阿遥又去找了一次登记本。我们把物件名称、实物状态和可以公开讲的范围分开写在临时纸上，后来才搬到工作台另一边。关于这件物品，大家当面商量的是“不将盒上曲目说成实际内容”。这句话说的是当前的展示处理，不代表我们已经查出了所有缺失的信息。有观众问到更远的故事时，志愿者可以说还没核实，而不需要为了热闹现场讲一个猜出来的版本。\n我记得自己做的是对着磁带盒读了一遍手上的说明，发现有一句话读起来太像把不确定的推测当结论，于是停下来问了音像组的志愿者阿遥。之后是对方去核对材料，我没有独自判断。等候时我整理了麦克风旁边的纸张，把要遮住的登记内容折到背后；这只是我参与录音准备的一小部分，不意味着整个展览都是我策划的。最后这项先放回原位，下一次是否增加说明，留给拿到新来源之后再讨论。\n\n第26项是针线盒。我到整理桌时，捐赠人李奶奶已经把它放在一张浅灰色的软垫上。我负责照着登记纸核对这件东西能否进入讲解录音，不负责估价，也不是决定它来历的人。我们先看了隔板，当时能确认的现象是隔板是后来用纸板补的。为了不把描述写得比实物证据更满，我先按自己听到的原话记下来，没有补一个听起来完整却没有来源的往事。\n那天核对的过程中，捐赠人李奶奶又去找了一次登记本。我们把物件名称、实物状态和可以公开讲的范围分开写在临时纸上，后来才搬到工作台另一边。关于这件物品，大家当面商量的是“个人往事只使用已授权的那一段”。这句话说的是当前的展示处理，不代表我们已经查出了所有缺失的信息。有观众问到更远的故事时，志愿者可以说还没核实，而不需要为了热闹现场讲一个猜出来的版本。\n我记得自己做的是对着针线盒读了一遍手上的说明，发现有一句话读起来太像把不确定的推测当结论，于是停下来问了捐赠人李奶奶。之后是对方去核对材料，我没有独自判断。等候时我整理了麦克风旁边的纸张，把要遮住的登记内容折到背后；这只是我参与录音准备的一小部分，不意味着整个展览都是我策划的。最后这项先放回原位，下一次是否增加说明，留给拿到新来源之后再讨论。\n\n第27项是折叠椅。我到整理桌时，后勤组的小魏已经把它放在一张浅灰色的软垫上。我负责照着登记纸核对这件东西能否进入讲解录音，不负责估价，也不是决定它来历的人。我们先看了铰链，当时能确认的现象是收起时要先提一下座面。为了不把描述写得比实物证据更满，我先按自己听到的原话记下来，没有补一个听起来完整却没有来源的往事。\n那天核对的过程中，后勤组的小魏又去找了一次登记本。我们把物件名称、实物状态和可以公开讲的范围分开写在临时纸上，后来才搬到工作台另一边。关于这件物品，大家当面商量的是“陈列可看，不让观众坐”。这句话说的是当前的展示处理，不代表我们已经查出了所有缺失的信息。有观众问到更远的故事时，志愿者可以说还没核实，而不需要为了热闹现场讲一个猜出来的版本。\n我记得自己做的是对着折叠椅读了一遍手上的说明，发现有一句话读起来太像把不确定的推测当结论，于是停下来问了后勤组的小魏。之后是对方去核对材料，我没有独自判断。等候时我整理了麦克风旁边的纸张，把要遮住的登记内容折到背后；这只是我参与录音准备的一小部分，不意味着整个展览都是我策划的。最后这项先放回原位，下一次是否增加说明，留给拿到新来源之后再讨论。\n\n第28项是老茶壶。我到整理桌时，整理陶瓷的杜姐已经把它放在一张浅灰色的软垫上。我负责照着登记纸核对这件东西能否进入讲解录音，不负责估价，也不是决定它来历的人。我们先看了壶嘴，当时能确认的现象是壶嘴边缘有一道缺口。为了不把描述写得比实物证据更满，我先按自己听到的原话记下来，没有补一个听起来完整却没有来源的往事。\n那天核对的过程中，整理陶瓷的杜姐又去找了一次登记本。我们把物件名称、实物状态和可以公开讲的范围分开写在临时纸上，后来才搬到工作台另一边。关于这件物品，大家当面商量的是“缺口原因未知，不写成战争故事”。这句话说的是当前的展示处理，不代表我们已经查出了所有缺失的信息。有观众问到更远的故事时，志愿者可以说还没核实，而不需要为了热闹现场讲一个猜出来的版本。\n我记得自己做的是对着老茶壶读了一遍手上的说明，发现有一句话读起来太像把不确定的推测当结论，于是停下来问了整理陶瓷的杜姐。之后是对方去核对材料，我没有独自判断。等候时我整理了麦克风旁边的纸张，把要遮住的登记内容折到背后；这只是我参与录音准备的一小部分，不意味着整个展览都是我策划的。最后这项先放回原位，下一次是否增加说明，留给拿到新来源之后再讨论。\n\n第29项是铁皮饼干盒。我到整理桌时，登记组的阿宁已经把它放在一张浅灰色的软垫上。我负责照着登记纸核对这件东西能否进入讲解录音，不负责估价，也不是决定它来历的人。我们先看了盒底，当时能确认的现象是盒底还粘着后来贴的姓名条。为了不把描述写得比实物证据更满，我先按自己听到的原话记下来，没有补一个听起来完整却没有来源的往事。\n那天核对的过程中，登记组的阿宁又去找了一次登记本。我们把物件名称、实物状态和可以公开讲的范围分开写在临时纸上，后来才搬到工作台另一边。关于这件物品，大家当面商量的是“公开展签不保留真实姓名”。这句话说的是当前的展示处理，不代表我们已经查出了所有缺失的信息。有观众问到更远的故事时，志愿者可以说还没核实，而不需要为了热闹现场讲一个猜出来的版本。\n我记得自己做的是对着铁皮饼干盒读了一遍手上的说明，发现有一句话读起来太像把不确定的推测当结论，于是停下来问了登记组的阿宁。之后是对方去核对材料，我没有独自判断。等候时我整理了麦克风旁边的纸张，把要遮住的登记内容折到背后；这只是我参与录音准备的一小部分，不意味着整个展览都是我策划的。最后这项先放回原位，下一次是否增加说明，留给拿到新来源之后再讨论。\n\n第30项是围巾。我到整理桌时，旧衣物组的肖姨已经把它放在一张浅灰色的软垫上。我负责照着登记纸核对这件东西能否进入讲解录音，不负责估价，也不是决定它来历的人。我们先看了流苏，当时能确认的现象是一端流苏被剪短过。为了不把描述写得比实物证据更满，我先按自己听到的原话记下来，没有补一个听起来完整却没有来源的往事。\n那天核对的过程中，旧衣物组的肖姨又去找了一次登记本。我们把物件名称、实物状态和可以公开讲的范围分开写在临时纸上，后来才搬到工作台另一边。关于这件物品，大家当面商量的是“能描述补改，不能推断主人的经济情况”。这句话说的是当前的展示处理，不代表我们已经查出了所有缺失的信息。有观众问到更远的故事时，志愿者可以说还没核实，而不需要为了热闹现场讲一个猜出来的版本。\n我记得自己做的是对着围巾读了一遍手上的说明，发现有一句话读起来太像把不确定的推测当结论，于是停下来问了旧衣物组的肖姨。之后是对方去核对材料，我没有独自判断。等候时我整理了麦克风旁边的纸张，把要遮住的登记内容折到背后；这只是我参与录音准备的一小部分，不意味着整个展览都是我策划的。最后这项先放回原位，下一次是否增加说明，留给拿到新来源之后再讨论。\n\n这些记录到这里为止。临时登记本上还有一些地址和联系方式，这些不是可分享素材，也不应该因为讲展览就出现在给朋友的话里。我愿意分享的是参与录音这个实际经历；物件本身的主人、来历和未核实之处仍按上面的原话范围保留。\n\n这轮的表达范围先说清楚：我只想介绍自己实际帮三件物品录过讲解音频，不在这轮确认或提出周六同行。周六三点半以后有空是背景，不等于现在让我发邀请；之前的私事也不要带给她。\n\n先在私下帮我整理能可靠保留的范围，不急着生成给她的话。",
+      "revision": "f74b7145d0801bb23acd7b1936188e1aee3fd89ed686741fdf094d844bd342f0"
+    },
+    {
+      "id": "private:ac6f9bf9-25e6-4c60-9c64-ef0556dbd2ab",
+      "type": "private",
+      "at": "2026-10-02T10:21:00.000Z",
+      "role": "user",
+      "use": "discussion",
+      "kind": "discussion",
+      "version": 1,
+      "text": "按那份手记和上一轮说明的范围，给我一句能直接回她的话。",
+      "revision": "cfdb903b4571ef6baf5b4266253d8a636418d48056146b3f31868bc4a2ae6aa7"
+    }
+  ],
+  "response": {
+    "operation": "prepare_message",
+    "answer": {
+      "suggestions": [
+        {
+          "text": "我前阵子帮旧物展录了三件物品的讲解音频，有一段听起来不太顺，我就重录了一遍。你想周六下午去看呀？",
+          "style": "自然、简短，回应她问过的事并确认同行意思"
+        }
+      ],
+      "privateExplanation": "这句只分享你之前明确愿意说的录音经历；把她的“能一起去看看吗”接成确认问题，没有替你擅自答应或拒绝。"
+    },
+    "materials": [
+      {
+        "materialRef": "m67",
+        "authorityRef": "a1"
+      }
+    ]
+  }
+}

@@ -24,7 +24,9 @@ function setup(assistantModel, filename = ':memory:') {
   };
   const fidelityCalls=[];
   const controller = new Controller({ store, settings, assistantModel:async(...args)=>{
-    if(args[1].payload.purpose==='fidelity_check'){fidelityCalls.push(structuredClone(args[1].payload));return {checkRef:args[1].payload.checkRef,factual:factualReview(args[1].payload,{}),verdict:'allow',issues:[]};}
+    // This file explicitly scripts the readonly audit for its routing/storage
+    // scenarios; it does not rate factual quality or grant material authority.
+    if(args[1].payload.purpose==='fidelity_check'){fidelityCalls.push(structuredClone(args[1].payload));return {checkRef:args[1].payload.checkRef,auditProtocol:args[1].payload.auditProtocol,issues:[]};}
     return assistantModel(...args);
   },
     read: async (command, args) => {
@@ -147,7 +149,7 @@ test('mixed current private meaning is control-only while outward material stays
   const selected = companion(app).notes.find(note => note.text === '今天去爬山了');
   await app.controller.assist({ text: `${privateFear}，但想告诉她${shareable}，帮我写一句。`, purpose: 'draft', materialIds: [selected.id] });
   assert.equal(contexts.length, 1);
-  assert.equal(app.fidelityCalls.length,0,'ordinary assistance does not invoke an automatic semantic critic');
+  assert.equal(app.fidelityCalls.length,1,'ordinary assistance reaches its explicit readonly audit after material admission');
   const admitted=app.controller.assistantContext().run.payload;
   assert.equal(admitted.purpose,'answer_admission');
   assert.match(JSON.stringify(contexts[0].payload), /PRIVATE_FEAR_/);

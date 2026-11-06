@@ -30,7 +30,7 @@ function fixture(t,{pause=false}={}){
 }
 test('separate permission evidence is an artifact dependency and its deletion purges dependent output feedback',async t=>{
  const {store,controller,permission,inputs,respond}=fixture(t),reply=await respond(),id=`private:${permission.id}`;
- assert.equal(inputs.length,1);assert.notEqual(inputs[0].payload.purpose,'fidelity_check');assert.ok(inputs[0].payload.sources.some(source=>source.id===id&&source.text.includes('愿意告诉她')),'the primary reads original permission without a separate critic');
+ assert.equal(inputs.length,2);assert.equal(inputs[1].payload.purpose,'fidelity_check');assert.notEqual(inputs[0].payload.purpose,'fidelity_check');assert.ok(inputs[0].payload.sources.some(source=>source.id===id&&source.text.includes('愿意告诉她')),'the primary and readonly audit retain original permission');
  const draft=controller.assistantContext().run;assert.equal(draft.payload.purpose,'answer_admission');
  assert.ok(draft.manifest.sourceRevisions[id]);
  assert.equal(JSON.stringify(draft.payload).includes('私人原因'),false);

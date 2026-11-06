@@ -1,0 +1,45 @@
+{
+  "evidence": "observed-desktop-runtime",
+  "activeVersion": "3.2.33-52892",
+  "electron": "40.0.0",
+  "request": {
+    "channel": "RM_IPCFROM_RENDERER<id>",
+    "header": {
+      "type": "request",
+      "eventName": "ntApi",
+      "callbackId": "per-call opaque string",
+      "peerId": "number"
+    },
+    "command": {
+      "cmdName": "allowlisted read route",
+      "cmdType": "invoke",
+      "payload": "structured argument array"
+    }
+  },
+  "response": {
+    "channel": "RM_IPCFROM_MAIN<id>",
+    "type": "response",
+    "promiseStatue": "full"
+  },
+  "latest": {
+    "route": "nodeIKernelMsgService/getAioFirstViewLatestMsgsAndAddActiveChat",
+    "parameters": [
+      "peer",
+      "cnt"
+    ]
+  },
+  "older": {
+    "route": "nodeIKernelMsgService/getMsgs",
+    "parameters": [
+      "peer",
+      "msgId string",
+      "cnt number",
+      "queryOrder true for older"
+    ]
+  },
+  "event": {
+    "cmdName": "nodeIKernelMsgListener/onRecvActiveMsg",
+    "payload": "{msgList: RawMessage[]}"
+  },
+  "privacy": "No real identifiers, message text, secrets or tokens included"
+}

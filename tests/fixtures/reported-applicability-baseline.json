@@ -1,0 +1,394 @@
+{
+  "provenance": {
+    "source": "baseline-stream-core/stream-temporary-state-updated.run.json",
+    "sha256": "c58bebf66daba4de98bf272b1b3c4ee43ed3cc3421700dae17e35427eead8284",
+    "evidence": "actual_selected_model_fictional_stream",
+    "scope": "bounded derived records plus supplied original sources; no provider settings"
+  },
+  "scenes": [
+    {
+      "event_id": "idle-before-first",
+      "as_of": "2026-09-01T18:47:59+08:00",
+      "scope": {
+        "accountUid": "eval_replay_owner",
+        "accountUin": "1111111111",
+        "peerUid": "eval_replay_contact",
+        "peerUin": "3333333333"
+      },
+      "records": [
+        {
+          "text": "She said she still likes running.",
+          "sourceIds": [
+            "qq:72057594049927937001"
+          ],
+          "subject": "contact",
+          "aspect": "interest",
+          "assertionKind": "stated",
+          "epistemicStatus": "supported",
+          "lifecycle": "active",
+          "applicabilityKind": "unspecified",
+          "attribution": "speaker",
+          "topicKeys": [
+            "running"
+          ],
+          "id": "436315ac-e98f-4b48-938f-2dcd983ec613",
+          "kind": "relationship_claim",
+          "recordType": "claim",
+          "version": 1,
+          "sourceRevisions": {
+            "qq:72057594049927937001": "6771a0261020a2d2c6f72ef0dc7714dd2bf1eaf790092ebf2d93c15f1b43c1fb"
+          },
+          "reviewComplete": true,
+          "evidenceValidity": "valid",
+          "semanticSignature": "e47fefd7ce15785c3a071dad62ee303e708effcabf35af9924584efe8ac5241f",
+          "firstEvidenceAt": "2026-09-01T10:30:00.000Z",
+          "lastEvidenceAt": "2026-09-01T10:30:00.000Z",
+          "at": "2026-09-01T10:30:00.000Z",
+          "reportedAt": "2026-09-01T10:30:00.000Z",
+          "reviewedAt": "2026-09-01T10:40:00.000Z",
+          "semanticReview": {
+            "status": "evidence_reviewed",
+            "reviewedAt": "2026-09-01T10:40:00.000Z",
+            "coverage": {
+              "version": "original-evidence-v1",
+              "scope": {
+                "accountUid": "eval_replay_owner",
+                "accountUin": "1111111111",
+                "peerUid": "eval_replay_contact",
+                "peerUin": "3333333333"
+              },
+              "sourceRevisions": {
+                "qq:72057594049927937001": "6771a0261020a2d2c6f72ef0dc7714dd2bf1eaf790092ebf2d93c15f1b43c1fb"
+              },
+              "reads": [
+                {
+                  "sourceId": "qq:72057594049927937001",
+                  "revision": "6771a0261020a2d2c6f72ef0dc7714dd2bf1eaf790092ebf2d93c15f1b43c1fb",
+                  "start": 0,
+                  "end": 23,
+                  "total": 23,
+                  "complete": true,
+                  "bodyHash": "490de7c38de76a21b6aef935354738790948481f8ab520d3a975c7622a6f7844"
+                }
+              ],
+              "completeSourceIds": [
+                "qq:72057594049927937001"
+              ],
+              "requiredSourceIds": [
+                "qq:72057594049927937001"
+              ],
+              "missingSourceIds": [],
+              "partialSourceIds": [],
+              "complete": true
+            }
+          },
+          "knowledgeSchemaVersion": 2,
+          "createdAt": "2026-09-01T10:40:00.000Z",
+          "updatedAt": "2026-09-01T10:40:00.000Z"
+        }
+      ],
+      "sources": [
+        {
+          "id": "qq:72057594049927937001",
+          "type": "qq",
+          "at": "2026-09-01T10:30:00.000Z",
+          "role": "contact",
+          "direction": "incoming",
+          "use": "discussion",
+          "messageId": "72057594049927937001",
+          "sequence": "1",
+          "senderUid": "eval_replay_contact",
+          "senderUin": "3333333333",
+          "text": "这周换班有点累，暂时没空跑步，跑步还是喜欢的。",
+          "revision": "6771a0261020a2d2c6f72ef0dc7714dd2bf1eaf790092ebf2d93c15f1b43c1fb"
+        }
+      ]
+    },
+    {
+      "event_id": "idle-before-second",
+      "as_of": "2026-09-21T18:47:59+08:00",
+      "scope": {
+        "accountUid": "eval_replay_owner",
+        "accountUin": "1111111111",
+        "peerUid": "eval_replay_contact",
+        "peerUin": "3333333333"
+      },
+      "records": [
+        {
+          "text": "She said she still likes running.",
+          "sourceIds": [
+            "qq:72057594049927937001",
+            "qq:72057594049927937002"
+          ],
+          "subject": "contact",
+          "aspect": "interest",
+          "assertionKind": "stated",
+          "epistemicStatus": "supported",
+          "lifecycle": "active",
+          "applicabilityKind": "unspecified",
+          "attribution": "speaker",
+          "topicKeys": [
+            "running"
+          ],
+          "id": "436315ac-e98f-4b48-938f-2dcd983ec613",
+          "kind": "relationship_claim",
+          "recordType": "claim",
+          "version": 2,
+          "sourceRevisions": {
+            "qq:72057594049927937001": "6771a0261020a2d2c6f72ef0dc7714dd2bf1eaf790092ebf2d93c15f1b43c1fb",
+            "qq:72057594049927937002": "d4af4c75d209335e4a32b16b990ba1e35287cd43249e865b1fc56a364d6c88e3"
+          },
+          "reviewComplete": true,
+          "evidenceValidity": "valid",
+          "semanticSignature": "59c62ecfe2e8117f823b6a425e2b743979633493d91cb04c595e200421f024b7",
+          "firstEvidenceAt": "2026-09-01T10:30:00.000Z",
+          "lastEvidenceAt": "2026-09-21T10:30:00.000Z",
+          "at": "2026-09-21T10:30:00.000Z",
+          "reportedAt": "2026-09-21T10:30:00.000Z",
+          "reviewedAt": "2026-09-21T10:30:15.000Z",
+          "semanticReview": {
+            "status": "evidence_reviewed",
+            "reviewedAt": "2026-09-21T10:30:15.000Z",
+            "coverage": {
+              "version": "original-evidence-v1",
+              "scope": {
+                "accountUid": "eval_replay_owner",
+                "accountUin": "1111111111",
+                "peerUid": "eval_replay_contact",
+                "peerUin": "3333333333"
+              },
+              "sourceRevisions": {
+                "private:97b85e55-8f18-46b5-b205-16bf6c22e525": "f05220ba03b0140408c9c49bffc8a10bee71a3de8289aa4526033f9f056e1cc1",
+                "qq:72057594049927937002": "d4af4c75d209335e4a32b16b990ba1e35287cd43249e865b1fc56a364d6c88e3",
+                "qq:72057594049927937001": "6771a0261020a2d2c6f72ef0dc7714dd2bf1eaf790092ebf2d93c15f1b43c1fb"
+              },
+              "reads": [
+                {
+                  "sourceId": "private:97b85e55-8f18-46b5-b205-16bf6c22e525",
+                  "revision": "f05220ba03b0140408c9c49bffc8a10bee71a3de8289aa4526033f9f056e1cc1",
+                  "start": 0,
+                  "end": 24,
+                  "total": 24,
+                  "complete": true,
+                  "bodyHash": "f59e61c9126e8e010da50df5f3ac46e9a47e749474e9dc922b6dac10ccda9128"
+                },
+                {
+                  "sourceId": "qq:72057594049927937002",
+                  "revision": "d4af4c75d209335e4a32b16b990ba1e35287cd43249e865b1fc56a364d6c88e3",
+                  "start": 0,
+                  "end": 23,
+                  "total": 23,
+                  "complete": true,
+                  "bodyHash": "fa5e15f16f20dcd57a7e5833744477f8c16f973b9097ddcddc27fb718095d19f"
+                },
+                {
+                  "sourceId": "qq:72057594049927937001",
+                  "revision": "6771a0261020a2d2c6f72ef0dc7714dd2bf1eaf790092ebf2d93c15f1b43c1fb",
+                  "start": 0,
+                  "end": 23,
+                  "total": 23,
+                  "complete": true,
+                  "bodyHash": "490de7c38de76a21b6aef935354738790948481f8ab520d3a975c7622a6f7844"
+                }
+              ],
+              "completeSourceIds": [
+                "private:97b85e55-8f18-46b5-b205-16bf6c22e525",
+                "qq:72057594049927937002",
+                "qq:72057594049927937001"
+              ],
+              "requiredSourceIds": [
+                "qq:72057594049927937001",
+                "qq:72057594049927937002"
+              ],
+              "missingSourceIds": [],
+              "partialSourceIds": [],
+              "complete": true
+            }
+          },
+          "knowledgeSchemaVersion": 2,
+          "createdAt": "2026-09-01T10:40:00.000Z",
+          "updatedAt": "2026-09-21T10:30:15.000Z",
+          "revisions": [
+            {
+              "version": 1,
+              "semanticSignature": "e47fefd7ce15785c3a071dad62ee303e708effcabf35af9924584efe8ac5241f",
+              "operation": "reaffirm",
+              "reviewedAt": "2026-09-21T10:30:15.000Z"
+            }
+          ],
+          "transition": {
+            "operation": "reaffirm",
+            "targets": [
+              {
+                "id": "436315ac-e98f-4b48-938f-2dcd983ec613",
+                "expectedVersion": 1
+              }
+            ],
+            "reviewedAt": "2026-09-21T10:30:15.000Z",
+            "proposal": {
+              "text": "She said she still likes running.",
+              "sourceIds": [
+                "qq:72057594049927937001",
+                "qq:72057594049927937002"
+              ],
+              "subject": "contact",
+              "aspect": "interest",
+              "assertionKind": "stated",
+              "epistemicStatus": "supported",
+              "lifecycle": "active",
+              "applicabilityKind": "unspecified",
+              "attribution": "speaker",
+              "topicKeys": [
+                "running"
+              ]
+            },
+            "sourceIds": [
+              "qq:72057594049927937001",
+              "qq:72057594049927937002"
+            ],
+            "sourceRevisions": {
+              "qq:72057594049927937001": "6771a0261020a2d2c6f72ef0dc7714dd2bf1eaf790092ebf2d93c15f1b43c1fb",
+              "qq:72057594049927937002": "d4af4c75d209335e4a32b16b990ba1e35287cd43249e865b1fc56a364d6c88e3"
+            },
+            "evidenceValidity": "valid"
+          }
+        },
+        {
+          "text": "On 2026-09-21, she said she had returned to her normal work schedule and had gone running once during the just-past weekend.",
+          "sourceIds": [
+            "qq:72057594049927937002"
+          ],
+          "subject": "contact",
+          "aspect": "recent_context",
+          "assertionKind": "stated",
+          "epistemicStatus": "supported",
+          "lifecycle": "active",
+          "applicabilityKind": "unspecified",
+          "attribution": "speaker",
+          "validFrom": "2026-09-21T00:00:00.000Z",
+          "topicKeys": [
+            "work schedule",
+            "running"
+          ],
+          "id": "abca8e35-fda3-4614-af2e-1ede07fada12",
+          "kind": "relationship_claim",
+          "recordType": "claim",
+          "version": 1,
+          "sourceRevisions": {
+            "qq:72057594049927937002": "d4af4c75d209335e4a32b16b990ba1e35287cd43249e865b1fc56a364d6c88e3"
+          },
+          "reviewComplete": true,
+          "evidenceValidity": "valid",
+          "semanticSignature": "440bb89182614035217673d367787051d564696db641bad9fd7329e9d6220df2",
+          "firstEvidenceAt": "2026-09-21T10:30:00.000Z",
+          "lastEvidenceAt": "2026-09-21T10:30:00.000Z",
+          "at": "2026-09-21T10:30:00.000Z",
+          "reportedAt": "2026-09-21T10:30:00.000Z",
+          "reviewedAt": "2026-09-21T10:30:15.000Z",
+          "semanticReview": {
+            "status": "evidence_reviewed",
+            "reviewedAt": "2026-09-21T10:30:15.000Z",
+            "coverage": {
+              "version": "original-evidence-v1",
+              "scope": {
+                "accountUid": "eval_replay_owner",
+                "accountUin": "1111111111",
+                "peerUid": "eval_replay_contact",
+                "peerUin": "3333333333"
+              },
+              "sourceRevisions": {
+                "private:97b85e55-8f18-46b5-b205-16bf6c22e525": "f05220ba03b0140408c9c49bffc8a10bee71a3de8289aa4526033f9f056e1cc1",
+                "qq:72057594049927937002": "d4af4c75d209335e4a32b16b990ba1e35287cd43249e865b1fc56a364d6c88e3",
+                "qq:72057594049927937001": "6771a0261020a2d2c6f72ef0dc7714dd2bf1eaf790092ebf2d93c15f1b43c1fb"
+              },
+              "reads": [
+                {
+                  "sourceId": "private:97b85e55-8f18-46b5-b205-16bf6c22e525",
+                  "revision": "f05220ba03b0140408c9c49bffc8a10bee71a3de8289aa4526033f9f056e1cc1",
+                  "start": 0,
+                  "end": 24,
+                  "total": 24,
+                  "complete": true,
+                  "bodyHash": "f59e61c9126e8e010da50df5f3ac46e9a47e749474e9dc922b6dac10ccda9128"
+                },
+                {
+                  "sourceId": "qq:72057594049927937002",
+                  "revision": "d4af4c75d209335e4a32b16b990ba1e35287cd43249e865b1fc56a364d6c88e3",
+                  "start": 0,
+                  "end": 23,
+                  "total": 23,
+                  "complete": true,
+                  "bodyHash": "fa5e15f16f20dcd57a7e5833744477f8c16f973b9097ddcddc27fb718095d19f"
+                },
+                {
+                  "sourceId": "qq:72057594049927937001",
+                  "revision": "6771a0261020a2d2c6f72ef0dc7714dd2bf1eaf790092ebf2d93c15f1b43c1fb",
+                  "start": 0,
+                  "end": 23,
+                  "total": 23,
+                  "complete": true,
+                  "bodyHash": "490de7c38de76a21b6aef935354738790948481f8ab520d3a975c7622a6f7844"
+                }
+              ],
+              "completeSourceIds": [
+                "private:97b85e55-8f18-46b5-b205-16bf6c22e525",
+                "qq:72057594049927937002",
+                "qq:72057594049927937001"
+              ],
+              "requiredSourceIds": [
+                "qq:72057594049927937002"
+              ],
+              "missingSourceIds": [],
+              "partialSourceIds": [],
+              "complete": true
+            }
+          },
+          "knowledgeSchemaVersion": 2,
+          "createdAt": "2026-09-21T10:30:15.000Z",
+          "updatedAt": "2026-09-21T10:30:15.000Z"
+        }
+      ],
+      "sources": [
+        {
+          "id": "qq:72057594049927937001",
+          "type": "qq",
+          "at": "2026-09-01T10:30:00.000Z",
+          "role": "contact",
+          "direction": "incoming",
+          "use": "discussion",
+          "messageId": "72057594049927937001",
+          "sequence": "1",
+          "senderUid": "eval_replay_contact",
+          "senderUin": "3333333333",
+          "text": "这周换班有点累，暂时没空跑步，跑步还是喜欢的。",
+          "revision": "6771a0261020a2d2c6f72ef0dc7714dd2bf1eaf790092ebf2d93c15f1b43c1fb"
+        },
+        {
+          "id": "qq:72057594049927937002",
+          "type": "qq",
+          "at": "2026-09-21T10:30:00.000Z",
+          "role": "contact",
+          "direction": "incoming",
+          "use": "discussion",
+          "messageId": "72057594049927937002",
+          "sequence": "2",
+          "senderUid": "eval_replay_contact",
+          "senderUin": "3333333333",
+          "text": "最近恢复正常下班了，刚过去的周末又去跑了一次。",
+          "revision": "d4af4c75d209335e4a32b16b990ba1e35287cd43249e865b1fc56a364d6c88e3"
+        },
+        {
+          "id": "private:97b85e55-8f18-46b5-b205-16bf6c22e525",
+          "type": "private",
+          "at": "2026-09-01T10:48:00.000Z",
+          "role": "user",
+          "use": "discussion",
+          "kind": "discussion",
+          "version": 1,
+          "text": "关于她现在的生活节奏和跑步，我目前可靠知道什么？",
+          "revision": "f05220ba03b0140408c9c49bffc8a10bee71a3de8289aa4526033f9f056e1cc1"
+        }
+      ]
+    }
+  ]
+}

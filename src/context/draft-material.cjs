@@ -7,7 +7,7 @@ const usable=source=>source&&!source.deleted&&!source.excluded&&source.use!=='di
 const originalUser=source=>usable(source)&&source.role==='user'&&['private','feedback'].includes(source.type)&&!['feedback_continue','user_control'].includes(source.kind);
 const DRAFT_MATERIAL_PROTOCOL='旧私下quote附authorization:{permission:{sourceId,text},referent:{sourceId,text}}。permission取原始用户范围许可：当前明确要为已识别QQ问题写回应且指代清楚，可用对应原话，无需“授权”或重抄。referent取素材sourceId且原文含quote。核对完整上下文、指代、已满足条件及最新限制；转述、引用、否定、假设、未满足条件非许可，“这些”不延至无关私事。禁仅私下/禁用/排除/撤回素材；historicalOnly旧许可须lookup/核对，遗漏非许可或撤回。selectedOption限原素材；视图/requestDelivery/authorizationQuote/生成回答不授权。不明私下核对。';
 const MATERIAL_POLICY={version:1};
-function resolveDraftMaterial(payload,plan,{restrictions=payload.privateRestrictions||[],issues:sharedIssues,explicitCurrentPermission=false,reportedOnly=false,allowEmpty=false}={}){
+function resolveDraftMaterial(payload,plan,{restrictions=payload.privateRestrictions||[],issues:sharedIssues,explicitCurrentPermission=false,reportedOnly=false,allowEmpty=false,evidence,privateEvidenceOnly=false}={}){
  const issues=sharedIssues||new ValidationIssues(),start=issues.mark();
  if(payload.draftMaterialPolicy&&payload.draftMaterialPolicy.version!==1)throw new Error('Unsupported draft material authorization policy');
  const byId=new Map((payload.sources||[]).map(source=>[source.id,source]));
@@ -29,9 +29,10 @@ function resolveDraftMaterial(payload,plan,{restrictions=payload.privateRestrict
  const allowed=new Set([...(explicitCurrentPermission?[]:[payload.userRequest?.sourceId,intentSourceId]),...(payload.allowedMaterialIds||payload.selectedMaterialIds||[])]);
  if(explicitCurrentPermission){allowed.delete(intentSourceId);allowed.delete(payload.userRequest?.sourceId);}
  const bindings=[],sourceIds=new Set(),missingAuthorizations=[],ignoredAuthorizations=[];
+ const contains=(source,text)=>evidence?.get(source?.id)?.contains(text)??String(source?.text||'').includes(text);
  const reference=(ref,label,path)=>{
   const source=plain(ref)&&byId.get(ref.sourceId);
-  if(!source||!usable(source)||Object.keys(ref).some(key=>!['sourceId','text'].includes(key))||typeof ref.text!=='string'||!ref.text.trim()||ref.text.length>4000&&!(explicitCurrentPermission&&label==='permission'&&ref.text===source.text&&ref.text.length<=16000)||!source.text.includes(ref.text))
+  if(!source||!usable(source)||Object.keys(ref).some(key=>!['sourceId','text'].includes(key))||typeof ref.text!=='string'||!ref.text.trim()||ref.text.length>4000&&!(explicitCurrentPermission&&label==='permission'&&ref.text===(evidence?.get(source.id)?.completeText??source.text)&&ref.text.length<=16000)||!contains(source,ref.text))
    throw validationError(`${path}.authorization.${label}`,'draft_material_reference_invalid',`draftPlan.quotes.authorization.${label}: 披露依据必须逐字对应本次提供的原始来源`);
   return source;
  };
@@ -41,12 +42,13 @@ function resolveDraftMaterial(payload,plan,{restrictions=payload.privateRestrict
   const source=byId.get(q.sourceId);
   if(source?.type==='request'||['feedback_continue','user_control'].includes(source?.kind))throw new Error('invocation/task control 只能作为控制依据，不能作为外发素材或披露授权');
   if(!usable(source)||!['private','request','feedback','note','qq'].includes(source.type)||
-   ['private','request','feedback'].includes(source.type)&&source.role!=='user'||typeof q.text!=='string'||!q.text.trim()||q.text.length>4000||!source.text.includes(q.text))
+   ['private','request','feedback'].includes(source.type)&&source.role!=='user'||typeof q.text!=='string'||!q.text.trim()||q.text.length>4000||!contains(source,q.text))
    throw new Error('拟表达内容未能对应本次明确请求或已选分享素材，请具体说明想说哪件事');
-  if(restricted.some(r=>r.sourceId===q.sourceId||r.text?.length>2&&q.text.length>2&&(q.text.includes(r.text)||r.text.includes(q.text))))
+  if(!privateEvidenceOnly&&restricted.some(r=>r.sourceId===q.sourceId||r.text?.length>2&&q.text.length>2&&(q.text.includes(r.text)||r.text.includes(q.text))))
    throw new Error('拟表达内容未能对应已选分享素材：这段内容仍标记为仅供私下讨论，请先明确更改它的分享范围');
   const selected=!!payload.selectedOption&&option?.quotes.some(item=>item.sourceId===q.sourceId&&item.text===q.text&&item.revision===source.revision);
   if(payload.selectedOption&&option&&!selected)throw new Error('已选表达的原始素材或版本已变化，请重新选择');
+  if(privateEvidenceOnly){sourceIds.add(source.id);return {sourceId:source.id,text:q.text};}
   // Program-owned authority is already sufficient for this exact fragment.
   // Redundant model metadata cannot narrow it, add dependencies, or redirect
   // the grant to another quote. Hard source/restriction/selection checks above
@@ -63,7 +65,7 @@ function resolveDraftMaterial(payload,plan,{restrictions=payload.privateRestrict
    const permission=permissionCheck.value,referent=referentCheck.value;
    if(permissionCheck.ok){
     issues.check(`${path}.authorization.permission`,'draft_material_permission_role_invalid',()=>{if(!originalUser(permission))throw validationError(`${path}.authorization.permission`,'draft_material_permission_role_invalid','draftPlan.quotes.authorization.referent: 披露依据必须指向这一素材片段，不能将其他材料的许可转移过来');});
-    issues.check(`${path}.authorization.permission`,'draft_material_permission_partial',()=>{if(['partial','digest'].includes(permission.delivery?.status))throw validationError(`${path}.authorization.permission`,'draft_material_permission_partial','披露依据只是部分原文；请先取回完整许可语境，或由用户明确本次分享范围');});
+    issues.check(`${path}.authorization.permission`,'draft_material_permission_partial',()=>{if(evidence?.has(permission.id)?!evidence.get(permission.id).complete:['partial','digest'].includes(permission.delivery?.status))throw validationError(`${path}.authorization.permission`,'draft_material_permission_partial','披露依据只是部分原文；请先取回完整许可语境，或由用户明确本次分享范围');});
     issues.check(`${path}.authorization.permission`,'draft_material_permission_historical',()=>{if(permission.id!==intentSourceId&&permission.historicalOnly)throw validationError(`${path}.authorization.permission`,'draft_material_permission_historical','披露依据的后续私下来源未完整提供；请检索核对后续限制或由用户明确本次分享范围');});
    }
    if(referentCheck.ok)issues.check(`${path}.authorization.referent`,'draft_material_referent_mismatch',()=>{if(referent.id!==source.id||!auth.referent.text.includes(q.text))throw validationError(`${path}.authorization.referent`,'draft_material_referent_mismatch','draftPlan.quotes.authorization.referent: 披露依据必须指向这一素材片段，不能将其他材料的许可转移过来');});
@@ -86,7 +88,7 @@ function resolveDraftMaterial(payload,plan,{restrictions=payload.privateRestrict
  }
  if(!sharedIssues)issues.throwIfAny();
  if(issues.hasSince(start))return undefined;
- return {quotes,sourceIds:[...sourceIds],bindings,...(ignoredAuthorizations.length?{ignoredAuthorizations}:{})};
+ return {quotes,sourceIds:[...sourceIds],bindings,...(privateEvidenceOnly?{privateEvidenceOnly:true}:{}),...(ignoredAuthorizations.length?{ignoredAuthorizations}:{})};
 }
 function assertDraftSourcesCurrent(prepared,ids,info){
  const current=info.availableSources||info.store?.memorySources(info.scope);

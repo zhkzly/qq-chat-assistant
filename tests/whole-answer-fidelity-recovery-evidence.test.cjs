@@ -13,7 +13,11 @@ const FULL='我看过朋友组装书架。那次只是旁观，我没有亲手�
 const PREFIX='我看过朋友组装书架。';
 const body=source=>source.segments.map(segment=>segment.text??segment.parts.map(part=>part[1]).join('')).join('');
 function whole(source){const first=source.segments[0].materialRef,last=source.segments.at(-1).materialRef;return first===last?first:source.materialChoices.find(item=>item.from===first&&item.to===last).materialRef;}
-function candidate(p,text){const note=p.sources.find(source=>source.type==='note');return {operation:'prepare_message',materials:[{materialRef:whole(note),authorityRef:note.authorityChoices.program[0].authorityRef}],answer:{suggestions:[{text}]}};}
+function candidate(p,text){const note=p.sources.find(source=>source.type==='note');const materialRef=whole(note);
+ // Union citation contract: a bare parent materialRef on a partially delivered
+ // source must carry the exact fact span actually read (D006 requiresFactWitness).
+ const deliveredBody=body(note);
+ return {operation:'prepare_message',materials:[{materialRef,authorityRef:note.authorityChoices.program[0].authorityRef,...(['partial','digest'].includes(note.delivery?.status)?{factQuote:deliveredBody}:{})}],answer:{suggestions:[{text}]}};}
 async function app(t,producer,{partial=false}={}){
  const store=new Store(':memory:'),calls=[],model='synthetic-recovery-evidence',baseUrl='http://fixture.invalid/v1',settings={anonymous:true,auto:false,model,baseUrl,modelResponseMode:'result_tool',assistantRequestBytes:64000,assistantRequestLimit:8,discussionCompactionEnabled:false,realChatConsent:{...scope,model,baseUrl}};
  let initial=true;
@@ -24,13 +28,13 @@ async function app(t,producer,{partial=false}={}){
  return {store,controller,calls,note,assist:()=>controller.assist({text:'用已选原话回应她，准确保留我的实际经历。',materialIds:[note.id],taskId:'recovery-evidence'})};
 }
 
-test('the private review retains complete original qualifiers without a regeneration wrapper',async t=>{
+test('private audit and bounded regeneration retain complete original qualifiers',async t=>{
  let checks=0;const repaired='我看过朋友装书架，不过那次只是旁观，还没有亲手装过。',a=await app(t,(p,wrapper)=>{
-  if(p.purpose==='fidelity_check'){checks++;assert.ok(p.evidence.some(source=>source.text===FULL));const source=p.evidence.find(source=>source.text===FULL);return checks===1?{checkRef:p.checkRef,factual:factualReview(p,{'suggestions[0].text':[{quote:p.candidate.suggestions[0].text,kind:'assertion',support:'unsupported',basis:'necessary_factual_qualification',qualification:'negation',evidence:[{sourceId:source.sourceId,quote:source.text}]}]}),verdict:'reject',issues:[{path:'suggestions[0].text',code:'omitted_qualifier',quote:p.candidate.suggestions[0].text,evidence:[{sourceId:source.sourceId,quote:source.text}],reason:'The candidate drops a decisive original qualification.'}]}:{checkRef:p.checkRef,auditProtocol:'sparse-defects-v1',issues:[]};}
+  if(p.purpose==='fidelity_check'){checks++;assert.ok(p.evidence.some(source=>source.text===FULL));const source=p.evidence.find(source=>source.text===FULL);return {checkRef:p.checkRef,auditProtocol:'sparse-defects-v1',issues:checks===1?[{path:'suggestions[0].text',code:'omitted_qualifier',quote:p.candidate.suggestions[0].text,claim:{kind:'assertion',quote:p.candidate.suggestions[0].text},evidence:[{sourceId:source.sourceId,quote:source.text}],reason:'The candidate drops a decisive original qualification.'}]:[]};}
   const note=p.sources.find(source=>source.type==='note');if(!wrapper.originalInput){assert.equal(body(note),PREFIX);return candidate(p,'我亲手装过书架。');}
   assert.equal(body(note),FULL,'repair must read the actual omitted qualifier, not infer it from a checker reason');return candidate(p,repaired);
  },{partial:true});
- const reply=await a.assist();assert.equal(a.calls.length,1);assert.equal(checks,0);assert.equal(reply.suggestions[0].text,'我亲手装过书架。');assert.equal(reply.semanticReview,undefined);assert.equal(a.calls.some(call=>call.wrapper.fidelityIssues),false);assert.equal(a.store.getCompanion(scope).runs.at(-1).manifest.publicationSeal.semanticCheck,false);assert.equal(a.store.messages(scope).some(message=>message.direction==='outgoing'),false);
+ const reply=await a.assist();assert.equal(a.calls.length,4);assert.equal(checks,2);assert.equal(reply.suggestions[0].text,repaired);assert.equal(reply.semanticReview.exhaustive,false);assert.equal(a.calls.filter(call=>call.wrapper.fidelityIssues).length,1);assert.equal(a.store.getCompanion(scope).runs.at(-1).manifest.publicationSeal.semanticCheck,false);assert.equal(a.store.messages(scope).some(message=>message.direction==='outgoing'),false);
 });
 
 test('every retained earlier-only body gets its original revision fence and stale earlier bodies are omitted',t=>{
@@ -40,18 +44,18 @@ test('every retained earlier-only body gets its original revision fence and stal
  const revised={...prepared,fullAvailableSources:all.map(item=>item.id===source.id?{...item,revision:'new-original-revision'}:item)};const next=buildFidelityContext(revised,{text:'这次仅解释。'},info);assert.equal(next.payload.evidence.some(item=>item.sourceId===source.id),false);assert.equal(next.manifest.sourceRevisions[source.id],undefined);
 });
 
-for(const failure of ['transport','http'])test(`a checker ${failure} failure consumes exactly one attempt without retry and labels delivery incomplete`,async t=>{
+for(const failure of ['transport','http'])test(`a checker ${failure} failure consumes exactly one attempt without retry and blocks incomplete publication`,async t=>{
  const a=await app(t,p=>{if(p.purpose==='fidelity_check')throw Error('Scripted checker failure');return {operation:'advise',text:'A complete private answer.'};});
  if(failure==='http'){const old=a.controller.assistantModel;a.controller.assistantModel=(settings,input,signal)=>input.payload.purpose==='fidelity_check'?assistModel(settings,input,signal,async()=>{a.calls.push({p:{purpose:'fidelity_check'}});return new Response('{}',{status:503});}):old(settings,input,signal);}
- const reply=await a.assist();assert.equal(reply.semanticReview,undefined);assert.equal(a.calls.length,1);assert.equal(a.controller.usage.get(scope,'recovery-evidence').attempts,1);assert.equal(a.store.getCompanion(scope).turns.filter(turn=>turn.role==='assistant').length,1);
+ await assert.rejects(a.assist(),e=>e.code==='terminal_fact_audit_incomplete');assert.equal(a.calls.length,2);assert.equal(a.controller.usage.get(scope,'recovery-evidence').attempts,2);assert.equal(a.store.getCompanion(scope).turns.filter(turn=>turn.role==='assistant').length,0);
 });
 
-for(const allow of [true,false])test(`terminal state and pending understanding proposals ${allow?'commit after a no-defect report':'remain independent of a semantic criticism'}`,async t=>{
+for(const allow of [true,false])test(`terminal state and pending understanding proposals ${allow?'commit after a no-defect report':'are discarded with a rejected producer'}`,async t=>{
  let checks=0;const marker='我周六下午有空',a=await app(t,(p,wrapper)=>{
-  if(p.purpose==='fidelity_check'){assert.equal(a.store.relationshipView(scope).claims.length,0);assert.equal(a.store.getCompanion(scope).state.items.length,0);checks++;const source=p.evidence.find(source=>source.text===FULL);return !allow&&checks===1?{checkRef:p.checkRef,factual:factualReview(p,{text:[{quote:p.candidate.text,kind:'assertion',support:'unsupported',basis:'source_contradiction',evidence:[{sourceId:source.sourceId,quote:source.text}]}]}),verdict:'reject',issues:[{path:'text',code:'evidence_mismatch',quote:p.candidate.text,evidence:[{sourceId:source.sourceId,quote:source.text}],reason:'Scripted concrete first-hand claim rejection tests proposal staging.'}]}:{checkRef:p.checkRef,auditProtocol:'sparse-defects-v1',issues:[]};}
+  if(p.purpose==='fidelity_check'){assert.equal(a.store.relationshipView(scope).claims.length,0);assert.equal(a.store.getCompanion(scope).state.items.length,0);checks++;const source=p.evidence.find(source=>source.text===FULL);return {checkRef:p.checkRef,auditProtocol:'sparse-defects-v1',issues:!allow&&checks===1?[{path:'text',code:'evidence_mismatch',quote:p.candidate.text,claim:{kind:'assertion',quote:p.candidate.text},evidence:[{sourceId:source.sourceId,quote:source.text}],reason:'Scripted concrete first-hand claim rejection tests proposal staging.'}]:[]};}
   return {operation:'advise',text:!allow&&!wrapper.originalInput?'我昨天亲手装过一个四层书架。':'A complete private explanation.',...(!wrapper.originalInput?{statePatch:{items:[{text:marker,sourceIds:[p.intentAuthority.sourceId]}]},relationshipPatch:{claims:[{text:marker,sourceIds:[p.intentAuthority.sourceId],subject:'self',aspect:'recent_context',assertionKind:'reported',epistemicStatus:'supported'}]}}:{})};
  });
- await a.assist();assert.equal(a.store.relationshipView(scope).claims.length,0,'foreground proposals never become active profile knowledge');assert.equal(a.store.memoryStatus(scope).pendingProposals,1);if(allow)assert.equal(a.store.getCompanion(scope).runs.at(-1).relationshipReceipt.queued,true);assert.equal(a.store.getCompanion(scope).state.items.length,1);assert.equal(a.store.getCompanion(scope).turns.filter(turn=>turn.role==='assistant').length,1);
+ await a.assist();assert.equal(a.store.relationshipView(scope).claims.length,0,'foreground proposals never become active profile knowledge');assert.equal(a.store.memoryStatus(scope).pendingProposals,allow?1:0);if(allow)assert.equal(a.store.getCompanion(scope).runs.at(-1).relationshipReceipt.queued,true);else assert.equal(a.store.getCompanion(scope).runs.at(-1).relationshipReceipt,null);assert.equal(a.store.getCompanion(scope).state.items.length,allow?1:0);assert.equal(a.store.getCompanion(scope).turns.filter(turn=>turn.role==='assistant').length,1);
 });
 
 

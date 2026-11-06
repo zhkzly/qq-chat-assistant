@@ -98,7 +98,7 @@ test('actual UI consumer renders grouped read projection, preserves exact correc
  vm.createContext(context);const app=fs.readFileSync(path.resolve(__dirname,'../ui/app.js'),'utf8'),start=app.indexOf('function renderRelationship(){'),end=app.indexOf('\nfunction openExperienceReview',start);
  vm.runInContext(app.slice(start,end),context);context.renderRelationship();
  const all=()=>flatten(root),text=()=>all().map(e=>e.textContent).join('\n');
- for(const expected of ['已核对的认识','近期处境','仍不确定','条件与边界','REAL_SELF_FACT','REAL_RECENT','REAL_UNCERTAIN','ORIGINAL_CONDITION','旧记录，尚待原文核查','ORIGINAL_SOURCE:private:source-a'])assert.ok(text().includes(expected),expected);
+ for(const expected of ['已核对的认识','近期处境／有据报告','仍待核对的理解或适用情况','条件与边界','REAL_SELF_FACT','REAL_RECENT','REAL_UNCERTAIN','ORIGINAL_CONDITION','旧记录，尚待原文核查','ORIGINAL_SOURCE:private:source-a'])assert.ok(text().includes(expected),expected);
  assert.ok(!text().includes('STALE_FLAT_COPY'));assert.deepEqual(actions,[]);
  const card=all().find(e=>e.dataset.claimId==='claim-self');card.children.find(e=>e.textContent==='不再采用').action();
  assert.equal(actions.length,1);assert.equal(actions[0].route,'/api/claim-action');assert.equal(actions[0].args.id,'claim-self');assert.equal(actions[0].args.expectedVersion,3);

@@ -180,7 +180,7 @@ test('live chain: non-used dispositions and complete adoptions pass without any 
 
 test('live chain: without delivered declarations the validation adds no blocking', async () => {
   const payload = consumptionPayload();
-  delete payload.mandatoryMaterials; delete payload.consumptionContract;
+  delete payload.mandatoryMaterials; // The explicit active request contract remains; declarations alone are navigation.
   const context = { payload, manifest: {} };
   const calls = [];
   const result = await assistModel(settings, context, undefined, async (_, request) => {
@@ -197,7 +197,7 @@ test('live chain: without delivered declarations the validation adds no blocking
 
 test('live chain: a used claim is enforced even when only riding digest declarations were delivered', async () => {
   const payload = consumptionPayload();
-  delete payload.mandatoryMaterials; delete payload.consumptionContract;
+  delete payload.mandatoryMaterials; // The explicit active request contract remains; declarations alone are navigation.
   payload.sources.push({ id: 'note:2', type: 'private', role: 'user', at: '2026-09-30T18:00:00+08:00', revision: 'r1',
     digest: { declarations: [{ sentence: DECLARATION, revision: 'r1', start: DECLARATION_START,
       end: DECLARATION_START + DECLARATION.length,

@@ -4,7 +4,7 @@ const { normalize, sameScope, compare } = require('./messages.cjs');
 const {publicRecord}=require('./media.cjs');
 const {selectVisionContext}=require('./vision-context.cjs');
 const { generate, replyFocusFor, redact } = require('./model.cjs');
-const {boundedSourceView}=require('./context/source-delivery.cjs');
+const {boundedSourceView,mergeSourceReads}=require('./context/source-delivery.cjs');
 const {discoverConversationEvidence}=require('./conversation-discovery.cjs');
 const {focusSourceOffset}=require('./memory-search.cjs');
 const { randomUUID, createHash } = require('node:crypto');
@@ -16,6 +16,7 @@ const FORGOTTEN_REQUEST='所选来源已从助手参考中移除。仅使用仍�
 const {SourceHandleOwner}=require('./source-handles.cjs');
 const {primaryOperationFor}=require('./primary-operation.cjs');
 const {createPublicationSeal}=require('./publication-seal.cjs');
+const {buildFidelityContext,buildFidelityRepairContext,parseFidelityResult,incompleteFidelity,deliveryFor,visibleCandidate}=require('./whole-answer-fidelity.cjs');
 const {assertDraftSourcesCurrent}=require('./context/draft-material.cjs');
 const {editable,validateTerminalDelivery,blockerRenderingWitness,deliveryStatus,clarificationBody}=require('./request-delivery.cjs');
 function inFlightMessageRequirement(owner,scope){
@@ -343,7 +344,7 @@ class Controller extends EventEmitter {
     if(this.error===oldAssistantError)this.error='';
     this.changed();return result;
   }
-  saveNote(args) { const result = this.store.saveNote(this.requireScope(), args); this.changedContext(); return result; }
+  saveNote(args) { const result = this.store.saveNote(this.requireScope(), { ...args, authoredBy: 'user' }); this.changedContext(); return result; }
   deleteNote(id) { const scope=this.requireScope(),result = this.store.deleteNote(scope, id);this.usage.redactInputs(scope); this.changedContext(); return result; }
   deleteTurn(id) { const scope=this.requireScope(),result = this.store.deleteTurn(scope, id);this.usage.redactInputs(scope); this.changedContext(); return result; }
   addFeedback(args) {
@@ -621,12 +622,12 @@ class Controller extends EventEmitter {
           if(activeCompaction){this.discussionCompaction={scope,phase:'reused',coveredTurns:activeCompaction.sourceTurnIds.length};this.changed();}
           return attachImages(input);
         }
-        // Reserve room for at least one subsequent assistance call and, for
-        // explicit expression/reply, its restricted final drafting call.
+        // Reserve the subsequent producer and mandatory terminal audit, plus
+        // the existing restricted-draft allowance for explicit expression/reply.
         // Compaction is an optional quality ladder step, never a feasibility
         // gate: without request headroom (or when the compaction call itself
         // fails), the answer proceeds on the degraded deterministic context.
-        const needed=purpose==='draft'||purpose==='reply'?3:2;
+        const needed=purpose==='draft'||purpose==='reply'?4:3;
         const proceedWithoutCompaction=detail=>{
           this.discussionCompaction={scope,phase:'skipped',coveredTurns:plan.sourceTurnIds.length,detail};this.changed();
           if(capacityError)throw capacityError;
@@ -701,6 +702,12 @@ class Controller extends EventEmitter {
           }
           if(result.requestDelivery){
             requestDelivery=result.requestDelivery;
+            // A declared editable delivery persists for this assist task
+            // (including QQ resume): the user-visible editing session must
+            // survive repair cycles and incoming-message interruptions. The
+            // anti-fixation safeguard lives in the repair contract (the
+            // originalInput requiredArtifact rule and the clarify escape), not
+            // in dropping persistence.
             if(editable(requestDelivery))requestDeliveryObligation={mode:requestDelivery.mode,sourceId:requestDelivery.sourceId,sourceRevision:resultInput.manifest.sourceRevisions[requestDelivery.sourceId]};
             if(current()&&this.activeAssist?.taskId===budget.id)this.activeAssist.args.requestDeliveryObligation=requestDeliveryObligation;
           }
@@ -830,7 +837,7 @@ class Controller extends EventEmitter {
             return {...projected,requestedRange:requested,...(result.lookup.reads?.length?{requestedReads:result.lookup.reads.length}:{})};
           });
           const queryReads=found.sources.map(source=>({...source,focusOffset:focusSourceOffset(redact(source.text),result.lookup.query)}));
-          retrievedSources=[...new Map([...retrievedSources,...queryReads,...direct].map(source=>[source.id,source])).values()];
+          retrievedSources=mergeSourceReads(retrievedSources,[...queryReads,...direct]);
           if(result.lookup.methodIds?.length)methodLookupIds=[...result.lookup.methodIds];
           if(result.lookup.discover)discoveryRequested=true;
           lookupHistory.push({query:result.lookup.query,found:found.sources.length+direct.length,discussionTurns:requestedTurns.length,sourceIds:direct.map(source=>source.id),...(result.lookup.reads?.length?{batchedReads:result.lookup.reads.length}:direct.length?{requestedRange:{offset:result.lookup.offset||0,maxChars:result.lookup.maxChars||4000}}:{}),methodIds:result.lookup.methodIds||[],coverage:found.coverage,delivery:'check_sourceDelivery_not_found_count'});if(result.lookup.query)query=result.lookup.query;
@@ -839,8 +846,14 @@ class Controller extends EventEmitter {
         break;
       }
       if(!result||result.lookup)throw new Error('本次信息整理未能完成，请重试；原始输入已保存');
-      let reviewed,discussionExplanation,expressionOptions,optionAdmission,publication;
-      {
+      let reviewed,discussionExplanation,expressionOptions,optionAdmission,publication,semanticReview,projected,projectionInput;
+      // This policy consumes fallible, candidate-bound defect reports. A sparse
+      // no-defect report is explicitly nonexhaustive; the publication seal still
+      // proves identity/provenance only. Neither lane can mint disclosure rights.
+      const terminalFactCoverage={version:'terminal-fact-coverage-v1',policy:'required_sparse_audit_one_regeneration',exhaustive:false,status:'pending',audits:[]};
+      const terminalFailure=(code,message)=>{const error=new Error(message);error.code=code;return error;};
+      const discardUncommitted=()=>{relationshipProposals.length=0;topicProposals.length=0;experienceProposals.length=0;stagedReview=null;};
+      for(let regeneration=0;regeneration<=1;regeneration++){
         const proposal=topicProposals.at(-1);
         if(proposal?.context===context&&this.store.previewTopicPatch){
           const preview=this.store.previewTopicPatch(scope,proposal.patch,topicOptions(proposal));
@@ -851,7 +864,7 @@ class Controller extends EventEmitter {
             context.manifest.auxiliaryErrors=[...(context.manifest.auxiliaryErrors||[]),{field:'topicPatch',code:preview.reason,message:preview.detail}];
           }
         }
-        const primaryContext=context,primaryResult=result,state=primaryOperationFor(result);
+        const primaryContext=context,state=primaryOperationFor(result);
         reviewed=context;stagedReview={context,result};
         expressionOptions=[];
         try{optionAdmission=buildOptionAdmission(primaryContext,result.expressionOptions||[],{scope,store:this.store});expressionOptions=optionAdmission.options;}
@@ -870,12 +883,87 @@ class Controller extends EventEmitter {
           context.manifest.preparedResponse={owner:'primary_candidate',message:'provided',privateExplanation:result.discussionExplanation?'provided':'absent'};
         }else if(state?.admittedMaterials){admitted={payload:{outboundQuotes:state.admittedMaterials},manifest:primaryContext.manifest};}
         discussionExplanation=result.requestDelivery?.blocker||result.deliveryBlocker?undefined:result.discussionExplanation;
+        // Audit the actual visible projection. Previewing on a cloned registry
+        // must not consume pending-question bookkeeping for a rejected candidate.
+        projectionInput={scopeKey:canonicalScopeKey(scope),kind:result.kind,text:result.text,discussionExplanation};
+        projected=projectAssistantTurn(structuredClone(this.pendingClarifications),projectionInput);
+        result={...result,text:projected.text};
+        if(projected.discussionExplanation)result.discussionExplanation=projected.discussionExplanation;
+        else delete result.discussionExplanation;
+        discussionExplanation=projected.discussionExplanation;
         validateTerminalDelivery(result,requestDeliveryObligation);
+        context.manifest.terminalFactCoverage=terminalFactCoverage;
+        const attempt={generation:regeneration,candidateHash:fingerprint(visibleCandidate(result,expressionOptions)),status:'pending'};
+        terminalFactCoverage.audits.push(attempt);
+        let checker,checked;
+        try{
+          checker=buildFidelityContext(primaryContext,result,{scope,requestId,settings,expressionOptions,optionAdmission,admittedContext:admitted,sourceContexts:capturedRequests});
+          checker.abortSignal=abort.signal;
+          const stage=budget.forStage('fidelity_check');checker.manifest.stageId=stage.stageId;
+          const fence=()=>{
+            checker.fidelityFrameSnapshot.assert();
+            assertDraftSourcesCurrent(checker,Object.keys(checker.manifest.sourceRevisions),{scope,store:this.store});
+            assertArtifactInputs(checker);
+          };
+          fence();
+          try{
+            // Deliberately bypass invoke(): the auditor has no proposal/action
+            // staging lane and cannot become the active producer context.
+            const output=await this.assistantModel({...settings,requestBudget:stage},checker,abort.signal);
+            if(!current())return;
+            fence();checked=parseFidelityResult(output,checker);
+          }catch(error){
+            if(!current())return;
+            fence();checked=incompleteFidelity(checker,error);
+          }
+          fence();
+          Object.assign(attempt,{bindingHash:checker.fidelityFrameSnapshot.bindingHash,status:checked.verdict,reviewStatus:checked.reviewStatus,findings:structuredClone(checked.issues),diagnostics:structuredClone(checked.diagnostics)});
+        }catch(error){
+          discardUncommitted();attempt.status='unavailable';attempt.error={code:error.code||'audit_unavailable',message:String(error.message).slice(0,700)};terminalFactCoverage.status='unavailable';
+          // Identity/source drift is a hard fence, never an audit opinion.
+          if(checker||error.code==='fidelity_binding_invalid')throw error;
+          throw terminalFailure('terminal_fact_audit_unavailable','本次回复未能完成事实核对，尚未发布；你的问题已保留，请重试。');
+        }finally{
+          if(checker)capturedRequests.push({purpose:'fidelity_check',payload:checker.payload,manifest:checker.manifest});
+        }
+        if(!current())return;
+        // Concrete independently validated defects survive malformed optional
+        // metadata. Process them before an incomplete/no-defect audit status.
+        if(checked.issues.length){
+          discardUncommitted();terminalFactCoverage.status='reported_defect';
+          if(regeneration===1)throw terminalFailure('terminal_fact_defect_unresolved','本次回复仍有未解决的事实或隐私问题，尚未发布；你的问题已保留。');
+          // A repair without its own fresh audit cannot publish. Transport or
+          // format retries may consume this reserve; those paths fail closed.
+          if(budget.snapshot().remaining<2)throw terminalFailure('terminal_fact_repair_budget','本次剩余调用不足以重新生成并核对回复，尚未发布；你的问题已保留。');
+          checker.fidelityFrameSnapshot.assert();
+          assertDraftSourcesCurrent(checker,Object.keys(checker.manifest.sourceRevisions),{scope,store:this.store});assertArtifactInputs(checker);
+          const retry=buildFidelityRepairContext(primaryContext,checker);
+          retry.requestStage='delivery_repair';retry.fidelityRepair={candidate:structuredClone(checker.payload.candidate),issues:structuredClone(checked.issues)};
+          retry.manifest.terminalFactCoverage=terminalFactCoverage;context=retry;
+          result=await invoke(retry);
+          if(!current())return;
+          checker.fidelityFrameSnapshot.assert();
+          assertDraftSourcesCurrent(checker,Object.keys(checker.manifest.sourceRevisions),{scope,store:this.store});assertArtifactInputs(retry);
+          if(result.lookup||result.actions?.length){discardUncommitted();throw terminalFailure('terminal_fact_repair_operation','重新生成的回复请求了额外操作，尚未发布；你的问题已保留。');}
+          continue;
+        }
+        if(checked.reviewStatus!=='reviewed'){
+          discardUncommitted();terminalFactCoverage.status='incomplete';
+          throw terminalFailure('terminal_fact_audit_incomplete','本次回复的事实核对未能完成，尚未发布；你的问题已保留，请重试。');
+        }
+        const deliveredAudit=deliveryFor(checked,checker);
+        if(!deliveredAudit||deliveredAudit.reviewStatus!=='reviewed'){
+          discardUncommitted();terminalFactCoverage.status='incomplete';
+          throw terminalFailure('terminal_fact_audit_incomplete','本次回复的核对记录未能完整保存，尚未发布；你的问题已保留。');
+        }
+        semanticReview={status:'reviewed',candidateHash:deliveredAudit.candidateHash,bindingHash:deliveredAudit.bindingHash,exhaustive:false,findings:deliveredAudit.findings};
+        terminalFactCoverage.status='no_concrete_defect_reported';
         publication=createPublicationSeal({result,expressionOptions,contexts:[...capturedRequests,primaryContext,admitted],optionAdmission,scope,requestId});
         publication.assert(result,expressionOptions);
         assertDraftSourcesCurrent(publication.context,Object.keys(publication.context.manifest.sourceRevisions),{scope,store:this.store});
         assertArtifactInputs(publication.context);
         context.manifest.publicationSeal=publication.receipt;
+        break;
       }
 
       const methodIds=(result.methodIds||[]).filter(id=>methodFor(id));
@@ -890,17 +978,13 @@ class Controller extends EventEmitter {
         sourceRevisions:context.manifest.sourceRevisions,replyDisposition:result.replyDisposition});
       if(!this.candidateSession.bindPlan(candidateTicket,validatedPlanDigest))return;
       context.manifest.candidateSession={qqRevision:revision,privateInputSeq:candidateTicket.privateInputSeq,validatedPlanDigest};
-      // B16: project the visible companion turn — strip clarification
-      // portions a later human send already superseded, keep draft and
-      // suggestion content untouched, and detect new pending clarifications
-      // in what remains visible. Recording happens only after the turn is
-      // actually saved below, so the registry never describes an invisible turn.
-      const projected=projectAssistantTurn(this.pendingClarifications,{scopeKey:canonicalScopeKey(scope),kind:result.kind,text:result.text,discussionExplanation});
       const reply=this.store._atomic(()=>{
         if(!current())return null;
         publication.assert(result,expressionOptions);
         assertDraftSourcesCurrent(publication.context,Object.keys(publication.context.manifest.sourceRevisions),{scope,store:this.store});
         assertArtifactInputs(publication.context);
+        const currentProjection=projectAssistantTurn(structuredClone(this.pendingClarifications),projectionInput);
+        if(fingerprint(currentProjection)!==fingerprint(projected))throw terminalFailure('terminal_fact_projection_changed','可见回复的上下文已变化，本次旧结果未发布；问题已保留。');
         const rejectedAux=capturedRequests.flatMap(r=>r.manifest?.auxiliaryErrors||[]);
         const recordRejection=(field,receipt)=>{if(receipt&&receipt.applied===false)rejectedAux.push({field,code:'rejected_auxiliary_metadata',message:String(receipt.detail||receipt.reason||'metadata rejected').slice(0,500)});};
         const topic=topicProposals.at(-1);
@@ -944,10 +1028,11 @@ class Controller extends EventEmitter {
         assertDraftSourcesCurrent(publication.context,Object.keys(publication.context.manifest.sourceRevisions),{scope,store:this.store});
         assertArtifactInputs(publication.context);
         const saved=this.store.appendTurn(scope,{role:'assistant',kind:result.kind,text:projected.text,discussionExplanation:projected.discussionExplanation,requestId,suggestions:result.suggestions,origin:invocation.origin,replyDisposition:result.replyDisposition||(purpose==='reply'&&!result.suggestions?.length?'unavailable':undefined),
-          sourceIds:publication.context.manifest.sourceIds,expressionOptions,methodIds,actionReceipts:receipts,generationStages,responseRecovery,privateReviewReceipt,metadataReviewPending,
+          sourceIds:publication.context.manifest.sourceIds,expressionOptions,methodIds,actionReceipts:receipts,generationStages,responseRecovery,privateReviewReceipt,metadataReviewPending,semanticReview,
           artifactMetadata:{generationStages,goalVersion:companion.goal.version,inputArtifactRefs:assertArtifactInputs(publication.context),inputEvidenceLossRefs:[...new Map([...capturedRequests.flatMap(request=>request.manifest?.inputEvidenceLossRefs||[]),...(publication.context.manifest.inputEvidenceLossRefs||[])].map(ref=>[`${ref.lossRef}:${ref.fingerprint}`,ref])).values()],inputSourceRefs:
             Object.entries(publication.context.manifest.sourceRevisions).filter(([sourceId])=>/^(qq|private|note):/.test(sourceId)).map(([sourceId,revision])=>({sourceId,revision})),
             discussionTurnFingerprints:Object.assign({},...capturedRequests.map(request=>({...request.manifest?.discussionCompaction?.turnFingerprints,...Object.fromEntries((request.manifest?.discussionReads||[]).filter(read=>['delivered','partial'].includes(read.delivery?.status)&&read.turnFingerprint).map(read=>[read.turnId,read.turnFingerprint]))}))),model:settings.model,promptVersion:context.payload.promptVersion}});
+        projectAssistantTurn(this.pendingClarifications,projectionInput);
         if(projected.detectedQuestions.length)recordPendingClarifications(this.pendingClarifications,{scopeKey:canonicalScopeKey(scope),questions:projected.detectedQuestions,turnId:saved.id,requestId,at:saved.createdAt});
         if(requestDelivery)context.manifest.requestDelivery.status=deliveryStatus(requestDelivery,result,{restricted:context.payload.purpose==='draft'});
         this.store.saveRun(scope,{id:requestId,baseRevision,purpose:context.payload.purpose,status:'complete',payload:context.payload,manifest:context.manifest,

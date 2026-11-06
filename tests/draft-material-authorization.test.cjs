@@ -135,7 +135,7 @@ async function currentOptionApplication(t,{human,options,wrongSelection=false,re
    if(rejectConditions){
     const label=p.candidate.expressionOptions[0].label,current=p.evidence.find(source=>source.sourceId===p.currentHumanControl.sourceId);
     assert.equal(current.text,human);
-    return {checkRef:p.checkRef,factual:factualReview(p,{}),verdict:'reject',issues:[{path:'expressionOptions[0].label',code:'private_disclosure',quote:label,evidence:[{sourceId:current.sourceId,quote:current.text}],reason:'Scripted refusal tests retention of the complete unmet condition and private reason, not classifier quality.'}]};
+    return {checkRef:p.checkRef,auditProtocol:p.auditProtocol,issues:[{path:'expressionOptions[0].label',code:'private_disclosure',quote:label,claim:{kind:'advice',quote:'实验终于成功了'},privacyBasis:'explicit_restriction',evidence:[{sourceId:current.sourceId,quote:current.text}],reason:'Scripted refusal tests retention of the complete unmet condition and private reason, not classifier quality.'}]};
    }
    return {checkRef:p.checkRef,auditProtocol:'sparse-defects-v1',issues:[]};
   }
@@ -157,31 +157,35 @@ const OPTION_HUMAN='今天实验终于成功了，而且我周末去爬山了。
 const CURRENT_OPTIONS=[{label:'分享实验进展',currentFacts:['实验终于成功了']},{label:'分享周末爬山',currentFacts:['我周末去爬山了']}];
 test('normal current fact options persist separate exact tuples and each UI selection admits only its own fact',async t=>{
  const app=await currentOptionApplication(t,{human:OPTION_HUMAN,options:CURRENT_OPTIONS}),turn=await app.initial(),source=app.store.memorySources(scope).find(source=>source.text===OPTION_HUMAN);
- assert.equal(app.calls.length,1);assert.equal(app.calls[0].payload.sources.find(item=>item.id===source.id).text,OPTION_HUMAN);assert.deepEqual(app.store.getCompanion(scope).runs.at(-1).payload.outboundQuotes,[]);assert.equal(app.checks.length,0);
+ assert.equal(app.calls.length,2);assert.equal(app.calls[0].payload.sources.find(item=>item.id===source.id).text,OPTION_HUMAN);assert.deepEqual(app.store.getCompanion(scope).runs.at(-1).payload.outboundQuotes,[]);assert.equal(app.checks.length,1);assert.equal(turn.semanticReview.exhaustive,false);
  assert.deepEqual(turn.expressionOptions.map((option,index)=>({index,fragments:option.quotes})),[{index:0,fragments:[{sourceId:source.id,text:'实验终于成功了',revision:source.revision}]},{index:1,fragments:[{sourceId:source.id,text:'我周末去爬山了',revision:source.revision}]}]);
  assert.equal(app.calls[0].primaryFrameSnapshot.payload.sources.some(item=>item.id===source.id),false,'the current request has no outward material menu');
  for(const [index,fact]of ['实验终于成功了','我周末去爬山了'].entries()){
   assert.deepEqual(turn.expressionOptions[index].quotes,[{sourceId:source.id,text:fact,revision:source.revision}]);assert.equal(turn.expressionOptions[index].quotes[0].authorization,undefined,'an option stores a tuple, never an enduring grant');
   const reply=await app.select(turn,index),run=app.store.getCompanion(scope).runs.at(-1);
-  assert.equal(reply.suggestions[0].text,fact);assert.equal(app.checks.length,0);assert.deepEqual(run.payload.outboundQuotes.map(quote=>quote.text),[fact]);
-  assert.equal(app.calls.at(-1).payload.sources.find(item=>item.id===source.id).text,OPTION_HUMAN);assert.equal(reply.suggestions[0].text.includes('PRIVATE_OPTION_REASON'),false);
+  assert.equal(reply.suggestions[0].text,fact);assert.equal(app.checks.length,index+2);assert.deepEqual(run.payload.outboundQuotes.map(quote=>quote.text),[fact]);
+  assert.equal(app.calls.filter(input=>input.payload.purpose!=='fidelity_check').at(-1).payload.sources.find(item=>item.id===source.id).text,OPTION_HUMAN);assert.equal(reply.suggestions[0].text.includes('PRIVATE_OPTION_REASON'),false);
  }
- assert.equal(app.calls.length,3);assert.equal(app.store.messages(scope).some(message=>message.direction==='outgoing'),false);
+ assert.equal(app.calls.length,6);assert.equal(app.checks.length,3);assert.equal(app.calls.filter(input=>input.payload.purpose!=='fidelity_check').length,3);assert.equal(app.store.messages(scope).some(message=>message.direction==='outgoing'),false);
 });
 test('a control-only option stores no fact tuple and its selection needs no invented private material',async t=>{
  const human='先接她说的小事，不补我的经历，给我一个方向。',app=await currentOptionApplication(t,{human,options:[{label:'先接她的小事'}]}),turn=await app.initial();
  assert.deepEqual(turn.expressionOptions[0].quotes,[]);const reply=await app.select(turn,0);
- assert.equal(reply.suggestions[0].text,'听起来挺有意思的。');assert.deepEqual(app.store.getCompanion(scope).runs.at(-1).payload.outboundQuotes,[]);assert.equal(app.calls.length,2);
+ assert.equal(reply.suggestions[0].text,'听起来挺有意思的。');assert.deepEqual(app.store.getCompanion(scope).runs.at(-1).payload.outboundQuotes,[]);assert.equal(app.calls.length,4);assert.equal(app.checks.length,2);
 });
 test('facts used by the main advice example do not become a control-only option tuple',async t=>{
  const human='实验终于成功了，可以把这个进展告诉她。先给一个例子，再给我一个只接她小事的方向。',app=await currentOptionApplication(t,{human,currentFacts:['实验终于成功了'],options:[{label:'先接她的小事'}]}),turn=await app.initial();
- assert.equal(app.store.getCompanion(scope).runs.at(-1).payload.outboundQuotes[0].text,'实验终于成功了');assert.deepEqual(turn.expressionOptions[0].quotes,[]);assert.equal(app.checks.length,0);
- await app.select(turn,0);assert.deepEqual(app.store.getCompanion(scope).runs.at(-1).payload.outboundQuotes,[]);
+ // Union carrier (recorded D4b decision): the advice-example fact is admitted
+ // with provenance through the private lane and never becomes a control-only
+ // option tuple; the later selected draft admits nothing outward.
+ const admittedQuote=app.store.getCompanion(scope).runs.at(-1).payload.privateEvidence[0];
+ assert.equal(admittedQuote.text,'实验终于成功了');assert.deepEqual(turn.expressionOptions[0].quotes,[]);assert.equal(app.checks.length,1);
+ await app.select(turn,0);assert.equal(app.calls.length,4);assert.equal(app.checks.length,2);assert.deepEqual(app.store.getCompanion(scope).runs.at(-1).payload.outboundQuotes,[]);
 });
 test('one selected current fact cannot borrow the other option fact or its sharing interpretation',async t=>{
  const app=await currentOptionApplication(t,{human:OPTION_HUMAN,options:CURRENT_OPTIONS,wrongSelection:true}),turn=await app.initial(),before=app.store.getCompanion(scope).turns.filter(turn=>turn.role==='assistant').length;
  await assert.rejects(app.select(turn,0),/authority|target|原始素材|分享素材/);
- assert.equal(app.checks.length,0,'a sibling fact must fail mechanical selection admission without calling a critic');assert.equal(app.store.getCompanion(scope).turns.filter(turn=>turn.role==='assistant').length,before);
+ assert.equal(app.checks.length,1,'the sibling-fact failure must precede any second audit; the initial option had its own audit');assert.equal(app.store.getCompanion(scope).turns.filter(turn=>turn.role==='assistant').length,before);
 });
 test('an invalid option fact cannot silently disappear before an otherwise authorized note action',async t=>{
  const human='记住：实验终于成功了。先给我一个方向。',app=await currentOptionApplication(t,{human,options:[{label:'分享进展',currentFacts:['UNPROVIDED_OPTION_FACT']}],actions:[{type:'save_note',text:'实验终于成功了',use:'discussion',evidenceQuote:'记住：实验终于成功了'}]});
@@ -196,10 +200,10 @@ test('an option cannot exceed eight facts by splitting five current and five val
  app.store.saveNote(scope,{text:'旧的独立事实。',use:'draft'});
  await assert.rejects(app.initial(),/eight|八|at most|limit|最多|currentFacts and/);assert.equal(app.checks.length,0);assert.equal(app.store.getCompanion(scope).turns.some(turn=>turn.role==='assistant'),false);
 });
-test('the complete private condition remains available without inventing a durable sharing grant or calling a critic',async t=>{
+test('the complete private condition blocks a persistent outward option after one audited regeneration',async t=>{
  const human='实验终于成功了，但只有确认可以公开之后才告诉她；现在还没有确认。PRIVATE_CONDITION_REASON只在这里讨论。先帮我想一个方向。',app=await currentOptionApplication(t,{human,options:[{label:'分享实验终于成功了',currentFacts:['实验终于成功了']}],rejectConditions:true});
- const reply=await app.initial();assert.equal(app.checks.length,0);assert.equal(reply.semanticReview,undefined);assert.equal(app.calls[0].payload.sources.find(source=>source.id===app.calls[0].payload.intentAuthority.sourceId).text,human);assert.equal(reply.expressionOptions[0].quotes[0].authorization,undefined);
- assert.equal(app.store.getCompanion(scope).turns.filter(turn=>turn.role==='assistant').length,1);
+ await assert.rejects(app.initial(),error=>error.code==='terminal_fact_defect_unresolved');assert.equal(app.checks.length,2);assert.equal(app.calls.length,4);assert.equal(app.calls[0].payload.sources.find(source=>source.id===app.calls[0].payload.intentAuthority.sourceId).text,human);assert.ok(app.checks.every(check=>check.evidence.find(source=>source.sourceId===check.currentHumanControl.sourceId).text===human));
+ const companion=app.store.getCompanion(scope);assert.equal(companion.turns.filter(turn=>turn.role==='assistant').length,0);assert.equal(companion.turns.filter(turn=>turn.role==='user').at(-1).text,human);assert.equal(companion.runs.at(-1).requests.filter(request=>request.purpose==='delivery_repair').length,1);assert.equal(app.controller.advice,null);assert.equal(app.store.messages(scope).some(message=>message.direction==='outgoing'),false);
 });
 for(const change of ['withdraw','revision'])test(`a stored current fact option cannot reuse its exact tuple after source ${change}`,async t=>{
  const app=await currentOptionApplication(t,{human:OPTION_HUMAN,options:CURRENT_OPTIONS}),turn=await app.initial(),quote=turn.expressionOptions[0].quotes[0],before=app.calls.length;

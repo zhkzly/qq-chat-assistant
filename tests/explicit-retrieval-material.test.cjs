@@ -115,8 +115,8 @@ test('selection keeps declared arrangements riding when a range view replaces th
   const declarations = (delivered.digest && delivered.digest.declarations) || [];
   assert.ok(declarations.some(item => item.sentence.includes('周六三点半以后我有空')),
     'the declared arrangement rides on the ranged view instead of disappearing');
-  assert.ok(String(delivered.digest.declarationRule || '').includes('arrangementHandling'),
-    'the riding rule names the consumption duty');
+  assert.ok(String(delivered.digest.declarationRule || '').includes('仅用于原文导航'),
+    'the riding declaration stays navigation rather than creating a consumption duty');
 });
 
 test('under a tight budget the retrieved range still cannot silently vanish', t => {

@@ -1,0 +1,14 @@
+{
+  "type": "native-local-only-window-account-binding-update",
+  "timestamp": "2026-10-11T15:44:17.323Z",
+  "nativeReady": true,
+  "contactRestored": true,
+  "records": 58,
+  "coverage": "accessible_end",
+  "pages": 2,
+  "modelConsent": false,
+  "modelBusy": false,
+  "error": "",
+  "noQQTestSend": true,
+  "noRealChatModelTransmission": true
+}

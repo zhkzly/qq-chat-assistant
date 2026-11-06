@@ -1,0 +1,14 @@
+{
+  "type": "native-local-only-final-check",
+  "timestamp": "2026-10-11T15:15:08.950Z",
+  "qqReady": true,
+  "restoredSelectedContact": true,
+  "records": 58,
+  "historyPages": 2,
+  "coverage": "accessible_end",
+  "modelConsent": false,
+  "modelGenerationDisabled": true,
+  "nativeExportRecords": 58,
+  "stringMessageIds": true,
+  "noQQTestSend": true
+}

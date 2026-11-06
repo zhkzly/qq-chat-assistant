@@ -1,0 +1,31 @@
+{
+  "createdAt": "2026-10-11T15:14:57.519545+00:00",
+  "scope": "personal",
+  "files": [
+    "research/contract_CN.md",
+    "docs/requirements_CN.md",
+    "docs/research_CN.md",
+    "research/negative-results_CN.md",
+    "docs/architecture_CN.md",
+    "docs/usage_CN.md",
+    "docs/verification_CN.md",
+    "README.md",
+    "research/sources.json",
+    "research/qq-ipc-contract.json",
+    "research/model-smoke.json",
+    "research/browser-evidence.json",
+    "research/mutation-evidence.json",
+    "research/research-and-delivery_CN.md",
+    "design/sidebar-prototype.html",
+    "design/assistant-tested-synthetic.png",
+    "research/window-binding-update_CN.md",
+    "research/native-binding-update-evidence.json",
+    "research/delivery-status.json"
+  ],
+  "containsRealChat": false,
+  "containsCredentials": false,
+  "sha256": "1bde1a7bcaba3627e4413c4a77872bfe6cd3c5a41dbc590951b0b1b2d90c1999",
+  "resourceSource": "research/research-and-delivery_CN.md",
+  "modelDisclosurePending": true,
+  "supplementUri": "viking://~/resources/qq-chat-assistant-window-binding-update-20261011"
+}

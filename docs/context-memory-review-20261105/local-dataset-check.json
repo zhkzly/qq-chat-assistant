@@ -1,0 +1,15 @@
+{
+  "status": "valid",
+  "cases": 18,
+  "steps": 34,
+  "goal_types": [
+    "relationship",
+    "friendship",
+    "support",
+    "work",
+    "learning"
+  ],
+  "dataset_hash": "80bd56e2f922165506e0df4f212aac1a2071b2af44bd290ec88bb8f309ef64fe",
+  "rubric_version": "assistant-help-v1",
+  "semantic_evaluation": "not_run"
+}

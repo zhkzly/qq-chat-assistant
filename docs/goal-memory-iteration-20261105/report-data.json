@@ -1,0 +1,128 @@
+{
+  "generated_at": "2026-11-05T14:21:44+08:00",
+  "overall_acceptance": false,
+  "runs": [
+    {
+      "label": "原结构 · 新核心",
+      "condition": "Luna · R4 · observer v3",
+      "status": "全部执行",
+      "completed_requests": 8,
+      "declared_requests": 8,
+      "http": 20,
+      "path": ".goal-runs/context-memory-20261105/baseline-stream-core"
+    },
+    {
+      "label": "关系探针 · 原指令",
+      "condition": "Luna · 独立语义判别",
+      "status": "全部执行",
+      "completed_requests": null,
+      "declared_requests": null,
+      "http": 16,
+      "path": ".goal-runs/context-memory-20261105/baseline-component"
+    },
+    {
+      "label": "原结构 · 新核心重跑",
+      "condition": "Luna · R8 · observer v4",
+      "status": "全部执行",
+      "completed_requests": 8,
+      "declared_requests": 8,
+      "http": 19,
+      "path": ".goal-runs/context-memory-20261105/baseline-core-r8-observer-v4"
+    },
+    {
+      "label": "原结构 · 新扩展",
+      "condition": "Luna · R8 · observer v4",
+      "status": "存在失败或缺失",
+      "completed_requests": 33,
+      "declared_requests": 42,
+      "http": 95,
+      "path": ".goal-runs/context-memory-20261105/baseline-challenges-r8-observer-v4"
+    },
+    {
+      "label": "A001 · 报告与时效",
+      "condition": "Luna · R4 · observer v3",
+      "status": "全部执行",
+      "completed_requests": 4,
+      "declared_requests": 4,
+      "http": 11,
+      "path": ".goal-runs/context-memory-20261105/candidate-reported-001-core"
+    },
+    {
+      "label": "B002 · 首轮事实检查",
+      "condition": "Luna · R8 · observer v4",
+      "status": "存在失败或缺失",
+      "completed_requests": 1,
+      "declared_requests": 4,
+      "http": 12,
+      "path": ".goal-runs/context-memory-20261105/candidate-fact-002-r8-observer-v4"
+    },
+    {
+      "label": "D003 · 输入与范围",
+      "condition": "Luna · R8 · observer v4",
+      "status": "存在失败或缺失",
+      "completed_requests": 16,
+      "declared_requests": 18,
+      "http": 51,
+      "path": ".goal-runs/context-memory-20261105/candidate-source-003-r8-observer-v4"
+    },
+    {
+      "label": "B004 · 事实责任修订",
+      "condition": "Luna · R8 · observer v4",
+      "status": "存在失败或缺失",
+      "completed_requests": 7,
+      "declared_requests": 8,
+      "http": 31,
+      "path": ".goal-runs/context-memory-20261105/candidate-fact-004-r8-observer-v4"
+    },
+    {
+      "label": "C005 · 关系语义修订",
+      "condition": "Luna · 独立语义判别",
+      "status": "全部执行",
+      "completed_requests": null,
+      "declared_requests": null,
+      "http": 16,
+      "path": ".goal-runs/context-memory-20261105/component-semantics-005"
+    },
+    {
+      "label": "旧43条 · 原结构",
+      "condition": "仅回归 · R4",
+      "status": "存在失败或缺失",
+      "completed_requests": null,
+      "declared_requests": null,
+      "http": 190,
+      "path": ".goal-runs/context-memory-20261105/regression-baseline"
+    }
+  ],
+  "rounds": [
+    {
+      "title": "A001 · 有据报告与适用时间",
+      "status": "局部对比接受",
+      "class": "good",
+      "note": "两条轨迹、四次请求均被独立评为可用。只接受这个诊断范围；还未证明整套系统达标。"
+    },
+    {
+      "title": "B002 · 首轮终态事实检查",
+      "status": "拒绝",
+      "class": "bad",
+      "note": "真实模型测试阻断合法分享，缺失后续帮助；原生独立评审未支持接受。失败与所有评审原文保留。"
+    },
+    {
+      "title": "D003 · 输入范围与摘要权限",
+      "status": "修订中",
+      "class": "pending",
+      "note": "三条轨迹执行完成，一条失败。已确认实际读到的续读事实仍被主片段准入拒绝；D006继续统一消费者。"
+    },
+    {
+      "title": "B004 / B007 · 事实与披露责任",
+      "status": "真实测试与反例验证",
+      "class": "pending",
+      "note": "B004修复误报与澄清出口；源码复核又发现问句可能泄密的责任边界，另建B007，保留冻结版本。"
+    },
+    {
+      "title": "C005 · 受控关系判别",
+      "status": "16条执行，待独立比较",
+      "class": "pending",
+      "note": "仅调整独立探针指令，不变原文或语义契约，不代表生产记忆写入器性能。"
+    }
+  ]
+}

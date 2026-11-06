@@ -1,0 +1,196 @@
+{
+  "schema_version": 1,
+  "identity": {
+    "dataset_hash": "541b7176a1ca2c725123a335300de3caafc622326e815e0250039c266e45d8ab",
+    "policy_version": "raw-stream-replay-v1",
+    "setting": "stream_from_empty",
+    "adapter_condition": "scheduled_idle_public_memory_observation_v1",
+    "runner_hash": "1693852cd852af9b1d06ef80e16828560c2d98030b1f578566c2a79a3e875ee0",
+    "portable_projection_hash": "4d32c07beffdc93429dfcb8dccf41ee2c078dbbed80dff444c5a46956e2ed875",
+    "adapter_hash": "9302bd97338ca467148a5dd622bed70703b9285dcb18304d6c31ccb0bc3d23ae",
+    "global_http_cap": 64,
+    "event_wall_timeout_ms": 300000
+  },
+  "adapter": {
+    "name": "qq-assistant-public-api",
+    "version": "3",
+    "implementation_hash": "1b3a2cfa8cbde306dd6899307d13e6cb6354365d79f2a77207f01d8b6ec57e77",
+    "source_root": "/home/zhkzly/pycodes/qq-chat-assistant",
+    "contract_json_identity": {
+      "hash": "d3f96c565a1139ba244befe39daa398c8ae8cf19dc0c3bb6b73cf140e9e32c5d",
+      "scope": "src/contracts/**/*.json",
+      "files": 6
+    },
+    "effective_settings": {
+      "model": "synthetic-replay-only",
+      "anonymous": true
+    },
+    "isolated_overrides": {
+      "automatic": false,
+      "consent": "fictional_scope_current_destination",
+      "storage": "in_memory_sqlite"
+    },
+    "adapter_runtime_hash": "f3ee49b005179f146f4d7acc05aff639867602f1c1635f83784a2341fa5f8ab9",
+    "evidence": "synthetic_transport_product_integration",
+    "desktop_qq": false,
+    "prefix_preparation": "scheduled_only_no_forced_prefix",
+    "preparation_is_scheduler_test": false,
+    "condition": "scheduled_idle_public_memory_observation_v1",
+    "native_idle_deadline_ms": 65000,
+    "idle_outer_headroom_ms": 2000,
+    "foreground_wall_timeout_ms": 300000,
+    "ordinary_actions_wait": "foreground_only",
+    "idle_wait": "declared_scheduled_work_only",
+    "clock": "virtual_source_events_native_provider_elapsed",
+    "model": "synthetic-replay-only",
+    "destination": {
+      "origin": "http://fixture.invalid",
+      "path": "/v1"
+    },
+    "settings_hash": null,
+    "max_http": 64
+  },
+  "selected_cases": [
+    "stream-temporary-state-unchanged",
+    "stream-temporary-state-updated",
+    "stream-material-retained",
+    "stream-material-excluded"
+  ],
+  "status": "executed_review_required",
+  "semantic_evaluation": "not_run",
+  "episodes": [
+    {
+      "id": "stream-temporary-state-unchanged",
+      "status": "executed_review_required",
+      "memory_observation_status": "complete",
+      "events": [
+        {
+          "id": "run-old",
+          "status": "executed_review_required"
+        },
+        {
+          "id": "idle-before-first",
+          "status": "executed_review_required"
+        },
+        {
+          "id": "r-s1",
+          "status": "executed_review_required"
+        },
+        {
+          "id": "run-new",
+          "status": "executed_review_required"
+        },
+        {
+          "id": "idle-before-second",
+          "status": "executed_review_required"
+        },
+        {
+          "id": "r-s2",
+          "status": "executed_review_required"
+        }
+      ],
+      "unexecuted_events": []
+    },
+    {
+      "id": "stream-temporary-state-updated",
+      "status": "executed_review_required",
+      "memory_observation_status": "complete",
+      "events": [
+        {
+          "id": "run-old",
+          "status": "executed_review_required"
+        },
+        {
+          "id": "idle-before-first",
+          "status": "executed_review_required"
+        },
+        {
+          "id": "r-s1",
+          "status": "executed_review_required"
+        },
+        {
+          "id": "run-new",
+          "status": "executed_review_required"
+        },
+        {
+          "id": "idle-before-second",
+          "status": "executed_review_required"
+        },
+        {
+          "id": "r-s2",
+          "status": "executed_review_required"
+        }
+      ],
+      "unexecuted_events": []
+    },
+    {
+      "id": "stream-material-retained",
+      "status": "executed_review_required",
+      "memory_observation_status": "incomplete",
+      "events": [
+        {
+          "id": "q1",
+          "status": "executed_review_required"
+        },
+        {
+          "id": "n1",
+          "status": "executed_review_required"
+        },
+        {
+          "id": "r1",
+          "status": "executed_review_required"
+        },
+        {
+          "id": "q2",
+          "status": "executed_review_required"
+        },
+        {
+          "id": "idle-before-followup",
+          "status": "executed_review_required"
+        },
+        {
+          "id": "r2",
+          "status": "executed_review_required"
+        }
+      ],
+      "unexecuted_events": []
+    },
+    {
+      "id": "stream-material-excluded",
+      "status": "executed_review_required",
+      "memory_observation_status": "incomplete",
+      "events": [
+        {
+          "id": "q1",
+          "status": "executed_review_required"
+        },
+        {
+          "id": "n1",
+          "status": "executed_review_required"
+        },
+        {
+          "id": "r1",
+          "status": "executed_review_required"
+        },
+        {
+          "id": "exclude-material-note",
+          "status": "executed_review_required"
+        },
+        {
+          "id": "q2",
+          "status": "executed_review_required"
+        },
+        {
+          "id": "idle-before-followup",
+          "status": "executed_review_required"
+        },
+        {
+          "id": "r2",
+          "status": "executed_review_required"
+        }
+      ],
+      "unexecuted_events": []
+    }
+  ],
+  "unexecuted_cases": []
+}

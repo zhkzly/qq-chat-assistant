@@ -1,0 +1,352 @@
+{
+  "status": "inventory",
+  "policy_version": "observed-history-replay-v2",
+  "dataset_hash": "0435ce52ed415760eec3c0615c3a26837344a35fc95f6d64d0380b80c18c0294",
+  "cases": [
+    {
+      "id": "cm-local-correction-continuity",
+      "cutoff": "2026-10-29T20:02:00+08:00",
+      "prefix_qq": 1,
+      "prefix_private": 2,
+      "steps": 3,
+      "adaptations": 1
+    },
+    {
+      "id": "cm-closed-topic-not-restored",
+      "cutoff": "2026-10-29T20:02:00+08:00",
+      "prefix_qq": 1,
+      "prefix_private": 2,
+      "steps": 2,
+      "adaptations": 0
+    },
+    {
+      "id": "cm-dated-fatigue-current-unknown",
+      "cutoff": "2026-10-28T19:00:00+08:00",
+      "prefix_qq": 2,
+      "prefix_private": 0,
+      "steps": 2,
+      "adaptations": 1
+    },
+    {
+      "id": "cm-new-job-corrects-old-understanding",
+      "cutoff": "2026-10-28T19:00:00+08:00",
+      "prefix_qq": 2,
+      "prefix_private": 0,
+      "steps": 2,
+      "adaptations": 2
+    },
+    {
+      "id": "cm-conditional-expression-scope",
+      "cutoff": "2026-10-29T15:00:00+08:00",
+      "prefix_qq": 1,
+      "prefix_private": 2,
+      "steps": 2,
+      "adaptations": 0
+    },
+    {
+      "id": "cm-stable-preference-quoted-wish",
+      "cutoff": "2026-10-29T15:00:00+08:00",
+      "prefix_qq": 1,
+      "prefix_private": 2,
+      "steps": 3,
+      "adaptations": 0
+    },
+    {
+      "id": "cm-generated-invitation-vs-actual",
+      "cutoff": "2026-10-29T16:00:00+08:00",
+      "prefix_qq": 1,
+      "prefix_private": 2,
+      "steps": 3,
+      "adaptations": 2
+    },
+    {
+      "id": "cm-ambiguous-interest-critical-availability",
+      "cutoff": "2026-10-29T17:00:00+08:00",
+      "prefix_qq": 2,
+      "prefix_private": 0,
+      "steps": 3,
+      "adaptations": 3
+    },
+    {
+      "id": "conv-reconnect-known-anchor",
+      "cutoff": "2026-10-29T19:00:00+08:00",
+      "prefix_qq": 3,
+      "prefix_private": 0,
+      "steps": 2,
+      "adaptations": 0
+    },
+    {
+      "id": "conv-reconnect-still-busy",
+      "cutoff": "2026-10-29T19:00:00+08:00",
+      "prefix_qq": 2,
+      "prefix_private": 0,
+      "steps": 1,
+      "adaptations": 0
+    },
+    {
+      "id": "conv-reconnect-no-anchor",
+      "cutoff": "2026-10-29T19:00:00+08:00",
+      "prefix_qq": 2,
+      "prefix_private": 0,
+      "steps": 1,
+      "adaptations": 0
+    },
+    {
+      "id": "conv-share-own-material",
+      "cutoff": "2026-10-29T18:40:00+08:00",
+      "prefix_qq": 1,
+      "prefix_private": 1,
+      "steps": 2,
+      "adaptations": 0
+    },
+    {
+      "id": "conv-share-own-material-missing",
+      "cutoff": "2026-10-29T18:40:00+08:00",
+      "prefix_qq": 1,
+      "prefix_private": 0,
+      "steps": 1,
+      "adaptations": 0
+    },
+    {
+      "id": "conv-puzzle-explicit-invite",
+      "cutoff": "2026-10-29T20:00:00+08:00",
+      "prefix_qq": 1,
+      "prefix_private": 2,
+      "steps": 1,
+      "adaptations": 0
+    },
+    {
+      "id": "conv-puzzle-interest-only",
+      "cutoff": "2026-10-29T20:00:00+08:00",
+      "prefix_qq": 1,
+      "prefix_private": 2,
+      "steps": 1,
+      "adaptations": 0
+    },
+    {
+      "id": "conv-friend-art-share",
+      "cutoff": "2026-10-29T17:30:00+08:00",
+      "prefix_qq": 1,
+      "prefix_private": 0,
+      "steps": 1,
+      "adaptations": 0
+    },
+    {
+      "id": "conv-work-handoff",
+      "cutoff": "2026-10-29T18:00:00+08:00",
+      "prefix_qq": 1,
+      "prefix_private": 0,
+      "steps": 2,
+      "adaptations": 0
+    },
+    {
+      "id": "conv-learning-missing-error",
+      "cutoff": "2026-10-29T20:30:00+08:00",
+      "prefix_qq": 1,
+      "prefix_private": 0,
+      "steps": 2,
+      "adaptations": 0
+    },
+    {
+      "id": "coverage-warm-reciprocity",
+      "cutoff": "2026-10-01T18:05:00+08:00",
+      "prefix_qq": 2,
+      "prefix_private": 1,
+      "steps": 2,
+      "adaptations": 0
+    },
+    {
+      "id": "coverage-low-reciprocity",
+      "cutoff": "2026-10-01T18:05:00+08:00",
+      "prefix_qq": 3,
+      "prefix_private": 0,
+      "steps": 3,
+      "adaptations": 0
+    },
+    {
+      "id": "coverage-emotional-disclosure",
+      "cutoff": "2026-10-01T18:05:00+08:00",
+      "prefix_qq": 1,
+      "prefix_private": 0,
+      "steps": 3,
+      "adaptations": 0
+    },
+    {
+      "id": "coverage-misunderstanding-repair",
+      "cutoff": "2026-10-01T18:05:00+08:00",
+      "prefix_qq": 2,
+      "prefix_private": 1,
+      "steps": 3,
+      "adaptations": 0
+    },
+    {
+      "id": "coverage-explicit-decline",
+      "cutoff": "2026-10-01T18:05:00+08:00",
+      "prefix_qq": 2,
+      "prefix_private": 0,
+      "steps": 2,
+      "adaptations": 0
+    },
+    {
+      "id": "coverage-welcomed-initiative",
+      "cutoff": "2026-10-01T18:05:00+08:00",
+      "prefix_qq": 2,
+      "prefix_private": 1,
+      "steps": 2,
+      "adaptations": 0
+    },
+    {
+      "id": "coverage-ambiguity-neutral",
+      "cutoff": "2026-10-01T18:05:00+08:00",
+      "prefix_qq": 2,
+      "prefix_private": 0,
+      "steps": 2,
+      "adaptations": 0
+    },
+    {
+      "id": "coverage-ambiguity-explicit",
+      "cutoff": "2026-10-01T18:05:00+08:00",
+      "prefix_qq": 2,
+      "prefix_private": 0,
+      "steps": 2,
+      "adaptations": 0
+    },
+    {
+      "id": "coverage-observed-output-feedback",
+      "cutoff": "2026-10-01T18:05:00+08:00",
+      "prefix_qq": 1,
+      "prefix_private": 1,
+      "steps": 2,
+      "adaptations": 0
+    },
+    {
+      "id": "coverage-permanent-goal-change",
+      "cutoff": "2026-10-01T18:05:00+08:00",
+      "prefix_qq": 1,
+      "prefix_private": 0,
+      "steps": 3,
+      "adaptations": 0
+    },
+    {
+      "id": "coverage-private-source-withdrawal",
+      "cutoff": "2026-10-01T18:05:00+08:00",
+      "prefix_qq": 1,
+      "prefix_private": 1,
+      "steps": 2,
+      "adaptations": 0
+    },
+    {
+      "id": "coverage-unavailable-image",
+      "cutoff": "2026-10-01T18:05:00+08:00",
+      "prefix_qq": 2,
+      "prefix_private": 0,
+      "steps": 2,
+      "adaptations": 0
+    },
+    {
+      "id": "coverage-long-private-consultation",
+      "cutoff": "2026-10-01T18:05:00+08:00",
+      "prefix_qq": 1,
+      "prefix_private": 42,
+      "steps": 2,
+      "adaptations": 0
+    },
+    {
+      "id": "coverage-long-single-source",
+      "cutoff": "2026-10-01T18:05:00+08:00",
+      "prefix_qq": 1,
+      "prefix_private": 1,
+      "steps": 2,
+      "adaptations": 0
+    },
+    {
+      "id": "replay-mixed-history-reciprocity",
+      "cutoff": "2026-10-29T19:00:00+08:00",
+      "prefix_qq": 90,
+      "prefix_private": 1,
+      "steps": 3,
+      "adaptations": 0
+    },
+    {
+      "id": "replay-job-change-later-recall",
+      "cutoff": "2026-10-14T18:00:00+08:00",
+      "prefix_qq": 92,
+      "prefix_private": 0,
+      "steps": 3,
+      "adaptations": 0
+    },
+    {
+      "id": "replay-incoming-then-human-send",
+      "cutoff": "2026-10-29T20:00:00+08:00",
+      "prefix_qq": 2,
+      "prefix_private": 0,
+      "steps": 3,
+      "adaptations": 0
+    },
+    {
+      "id": "coverage-feedback-current-material",
+      "cutoff": "2026-10-01T18:05:00+08:00",
+      "prefix_qq": 1,
+      "prefix_private": 1,
+      "steps": 2,
+      "adaptations": 1
+    },
+    {
+      "id": "hd-speaker-attribution-emotion",
+      "cutoff": "2026-10-26T20:05:00+08:00",
+      "prefix_qq": 2,
+      "prefix_private": 1,
+      "steps": 1,
+      "adaptations": 0
+    },
+    {
+      "id": "hd-deleted-reference-followup",
+      "cutoff": "2026-10-27T15:35:00+08:00",
+      "prefix_qq": 2,
+      "prefix_private": 0,
+      "steps": 1,
+      "adaptations": 0
+    },
+    {
+      "id": "hd-arrangement-window-conflict",
+      "cutoff": "2026-10-26T19:05:00+08:00",
+      "prefix_qq": 2,
+      "prefix_private": 1,
+      "steps": 1,
+      "adaptations": 0
+    },
+    {
+      "id": "hd-stale-fact-update",
+      "cutoff": "2026-10-26T12:25:00+08:00",
+      "prefix_qq": 1,
+      "prefix_private": 0,
+      "steps": 2,
+      "adaptations": 0
+    },
+    {
+      "id": "hd-consultation-thread-survival",
+      "cutoff": "2026-10-27T14:05:00+08:00",
+      "prefix_qq": 0,
+      "prefix_private": 1,
+      "steps": 3,
+      "adaptations": 0
+    },
+    {
+      "id": "coverage-material-note-exclusion",
+      "cutoff": "2026-10-29T18:05:00+08:00",
+      "prefix_qq": 1,
+      "prefix_private": 1,
+      "steps": 2,
+      "adaptations": 0
+    },
+    {
+      "id": "coverage-observed-qq-recall",
+      "cutoff": "2026-10-29T18:05:00+08:00",
+      "prefix_qq": 1,
+      "prefix_private": 1,
+      "steps": 2,
+      "adaptations": 0
+    }
+  ],
+  "inference": "not_run"
+}

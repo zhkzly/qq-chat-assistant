@@ -62,7 +62,7 @@ async function application(t,producer,{noteText,noteUse='discussion'}={}){
 test('pure current control needs no outward material, dead draft plan or additional composer call',async t=>{
  const why='先接住她实际分享的小变化，私下说明到这里即可。',app=await application(t,p=>p.purpose==='fidelity_check'?{checkRef:p.checkRef,auditProtocol:'sparse-defects-v1',issues:[]}:primary(undefined,{why})),reply=await app.assist();
  assert.equal(reply.kind,'draft');assert.equal(reply.text,'这两片新叶看着挺精神。','the promoted sole suggestion is the reply main text (B13)');assert.equal(reply.suggestions[0].text,'这两片新叶看着挺精神。');assert.equal(reply.discussionExplanation.text,why);
- assert.equal(app.calls.length,1);assert.equal(app.calls[0].p.purpose,'discussion');assert.deepEqual(app.run().payload.outboundQuotes,[]);assert.equal(app.calls.some(call=>call.p.purpose==='draft'),false);
+ assert.equal(app.calls.length,2);assert.equal(app.calls.filter(call=>call.p.purpose==='fidelity_check').length,1);assert.equal(app.calls[0].p.purpose,'discussion');assert.deepEqual(app.run().payload.outboundQuotes,[]);assert.equal(app.calls.some(call=>call.p.purpose==='draft'),false);
  const schema=app.calls[0].request.tools[0].function.parameters;
  assert.equal(schema.properties.draftPlan,undefined);assert.equal(schema.properties.guidance,undefined);assert.equal(schema.required.includes('draftPlan'),false);
  for(const item of app.calls[0].p.sources.filter(item=>item.type==='qq'||item.id===app.calls[0].p.intentAuthority.sourceId)){assert.equal(item.materialChoices,undefined);assert.equal(item.authorityChoices,undefined);}
@@ -70,15 +70,15 @@ test('pure current control needs no outward material, dead draft plan or additio
 });
 
 test('mixed current facts bind exact genuine spans while full original privacy and factual limits remain bound through admission',async t=>{
- const human=FACT+'这句可以告诉她。'+PRIVATE+'我没有自己装过书架；只有我之后明确说想一起做，才准备邀请，这次不邀请。',app=await application(t,p=>p.purpose==='fidelity_check'?{checkRef:p.checkRef,factual:actualFactReview(p),verdict:'allow',issues:[]}:primary(FACT,{currentFacts:[FACT],why:'只把本次愿意分享的网页近况写进消息。'})),reply=await app.assist(human),packet=app.run().payload;
- assert.equal(app.calls.length,1);assert.equal(reply.suggestions[0].text,FACT);assert.deepEqual(packet.outboundQuotes.map(item=>item.text),[FACT]);
+ const human=FACT+'这句可以告诉她。'+PRIVATE+'我没有自己装过书架；只有我之后明确说想一起做，才准备邀请，这次不邀请。',app=await application(t,p=>p.purpose==='fidelity_check'?(actualFactReview(p),{checkRef:p.checkRef,auditProtocol:p.auditProtocol,issues:[]}):primary(FACT,{currentFacts:[FACT],why:'只把本次愿意分享的网页近况写进消息。'})),reply=await app.assist(human),packet=app.run().payload;
+ assert.equal(app.calls.length,2);assert.equal(app.calls.filter(call=>call.p.purpose==='fidelity_check').length,1);assert.equal(reply.suggestions[0].text,FACT);assert.deepEqual(packet.outboundQuotes.map(item=>item.text),[FACT]);
  const current=packet.currentHumanControl;assert.equal(current.text,human);assert.equal(packet.currentHumanControl.authority,'CONTROL_ONLY');
  assert.equal(packet.outboundQuotes.some(item=>item.text.includes(PRIVATE)),false);assert.equal(reply.suggestions[0].text,FACT);
 });
 
 test('a short current fact remains usable in a supported long current original with its final privacy qualifier intact',async t=>{
- const human=FACT+'这句可以告诉她。'+('PRIVATE_CONTEXT_PADDING '.repeat(200))+PRIVATE,app=await application(t,p=>p.purpose==='fidelity_check'?{checkRef:p.checkRef,factual:actualFactReview(p),verdict:'allow',issues:[]}:primary(FACT,{currentFacts:[FACT]})),reply=await app.assist(human);
- assert.ok(human.length>4000&&human.length<16000);assert.equal(app.calls.length,1);assert.equal(reply.suggestions[0].text,FACT);
+ const human=FACT+'这句可以告诉她。'+('PRIVATE_CONTEXT_PADDING '.repeat(200))+PRIVATE,app=await application(t,p=>p.purpose==='fidelity_check'?(actualFactReview(p),{checkRef:p.checkRef,auditProtocol:p.auditProtocol,issues:[]}):primary(FACT,{currentFacts:[FACT]})),reply=await app.assist(human);
+ assert.ok(human.length>4000&&human.length<16000);assert.equal(app.calls.length,2);assert.equal(app.calls.filter(call=>call.p.purpose==='fidelity_check').length,1);assert.equal(reply.suggestions[0].text,FACT);
  const packet=app.run().payload,original=packet.currentHumanControl;assert.equal(original.text,human);assert.ok(original.text.endsWith(PRIVATE));assert.deepEqual(packet.outboundQuotes.map(item=>item.text),[FACT]);
 });
 
@@ -95,19 +95,19 @@ test('a real older private fact cannot masquerade as an exact current-original f
 
 // Intentionally bad scripted primary content is not a quality pass. These
 // probes retain the original controls and assert that no semantic certificate
-// or automatic correction is fabricated after the critic consumer was removed.
-test('current-original binding retains private restrictions without claiming a semantic privacy check',async t=>{
+// after a required sparse report; they do not claim semantic exhaustiveness.
+test('a witnessed current-original privacy restriction repairs the complete candidate once',async t=>{
  const privateReason='家里这周的安排让我很焦虑。',human=FACT+'这句可以告诉她。只在这里私下说：'+privateReason+'不要告诉她。',why='最后只分享已明确愿意对外说的网页近况。';let checks=0;
  const app=await application(t,(p,wrapper)=>{
   if(p.purpose==='fidelity_check'){
    checks++;const original=p.evidence.find(item=>item.sourceId===p.currentHumanControl.sourceId);assert.equal(original.text,human);
-   if(checks===1){assert.deepEqual(p.admittedFragments.map(item=>item.text),[privateReason]);return {checkRef:p.checkRef,factual:factualReview(p,{}),verdict:'reject',issues:[{path:'suggestions[0].text',code:'private_disclosure',quote:privateReason,evidence:[{sourceId:original.sourceId,quote:human}],reason:'The exact span is present, but its complete current original explicitly keeps it private.'}]};}
-   assert.deepEqual(p.admittedFragments.map(item=>item.text),[FACT]);return {checkRef:p.checkRef,factual:actualFactReview(p),verdict:'allow',issues:[]};
+   if(checks===1){assert.deepEqual(p.admittedFragments.map(item=>item.text),[privateReason]);return {checkRef:p.checkRef,auditProtocol:p.auditProtocol,issues:[{path:'suggestions[0].text',code:'private_disclosure',quote:privateReason,claim:{kind:'assertion',quote:privateReason},privacyBasis:'explicit_restriction',evidence:[{sourceId:original.sourceId,quote:human}],reason:'The exact span is present, but its complete current original explicitly keeps it private.'}]};}
+   assert.deepEqual(p.admittedFragments.map(item=>item.text),[FACT]);return (actualFactReview(p),{checkRef:p.checkRef,auditProtocol:p.auditProtocol,issues:[]});
   }
   return wrapper.originalInput?primary(FACT,{currentFacts:[FACT],why}):primary(privateReason,{currentFacts:[privateReason],why:'This rejected explanation must never be published.'});
  }),reply=await app.assist(human);
- assert.equal(app.calls.length,1);assert.equal(checks,0);assert.equal(reply.suggestions[0].text,privateReason);assert.equal(reply.semanticReview,undefined);assert.equal(app.run().payload.currentHumanControl.text,human);
- const ledger=app.controller.usage.get(scope,'thin-answer-boundaries');assert.equal(ledger.requests.filter(item=>item.purpose==='delivery_repair').length,0);assert.equal(ledger.attempts,1);
+ assert.equal(app.calls.length,4);assert.equal(app.calls.filter(call=>call.p.purpose==='fidelity_check').length,2);assert.equal(checks,2);assert.equal(reply.suggestions[0].text,FACT);assert.equal(reply.discussionExplanation.text,why);assert.equal(reply.semanticReview.status,'reviewed');assert.equal(reply.semanticReview.exhaustive,false);assert.equal(app.run().payload.currentHumanControl.text,human);
+ const ledger=app.controller.usage.get(scope,'thin-answer-boundaries');assert.equal(ledger.requests.filter(item=>item.purpose==='delivery_repair').length,1);assert.equal(ledger.attempts,4);
  assert.equal(app.store.getCompanion(scope).turns.filter(item=>item.role==='assistant').length,1);
 });
 
@@ -116,20 +116,20 @@ for(const [name,declare,message,human]of [
  ['an undeclared private reason',false,'家里这周的安排让我很焦虑。','只在这里私下说：家里这周的安排让我很焦虑。不要告诉她。'],
  ['negated sharing permission',true,FACT,FACT+'但这件事不要告诉她，只在这里说。'],
  ['an unmet sharing condition',true,FACT,'只有她先问我的网页，才可以说“'+FACT+'”；她现在还没问，这轮先不透露。']
-])test(`${name} retains its complete original control without an automatic critic or permission certificate`,async t=>{
+])test(`${name} retains its complete original restriction and blocks the persistent defect after one regeneration`,async t=>{
  const app=await application(t,p=>{
   if(p.purpose!=='fidelity_check')return primary(message,declare?{currentFacts:[message]}:{});
   const original=p.evidence.find(item=>item.sourceId===p.intentAuthority.sourceId);assert.equal(original.text,human);assert.equal(p.candidate.suggestions[0].text,message);
-  return {checkRef:p.checkRef,factual:factualReview(p,{}),verdict:'reject',issues:[{path:'suggestions[0].text',code:'private_disclosure',quote:message,evidence:[{sourceId:original.sourceId,quote:human}],reason:'An exact primary span is neither a completeness proof nor permission to disclose against original negation or conditions.'}]};
+  return {checkRef:p.checkRef,auditProtocol:p.auditProtocol,issues:[{path:'suggestions[0].text',code:'private_disclosure',quote:message,claim:{kind:'assertion',quote:message},privacyBasis:'explicit_restriction',evidence:[{sourceId:original.sourceId,quote:human}],reason:'An exact primary span is neither a completeness proof nor permission to disclose against original negation or conditions.'}]};
  });
- const reply=await app.assist(human);assert.equal(reply.suggestions[0].text,message);assert.equal(reply.semanticReview,undefined);assert.equal(app.run().payload.currentHumanControl.text,human);assert.equal(app.calls.length,1);assert.equal(app.store.getCompanion(scope).turns.filter(item=>item.role==='assistant').length,1);
- assert.equal(app.controller.usage.get(scope,'thin-answer-boundaries').requests.filter(item=>item.purpose==='delivery_repair').length,0);
+ await assert.rejects(app.assist(human),error=>error.code==='terminal_fact_defect_unresolved');assert.equal(app.run().payload.currentHumanControl.text,human);assert.equal(app.calls.length,4);assert.equal(app.calls.filter(call=>call.p.purpose==='fidelity_check').length,2);assert.equal(app.store.getCompanion(scope).turns.filter(item=>item.role==='assistant').length,0);assert.equal(app.store.getCompanion(scope).turns.filter(item=>item.role==='user').at(-1).text,human);assert.equal(app.controller.advice,null);
+ const ledger=app.controller.usage.get(scope,'thin-answer-boundaries');assert.equal(ledger.requests.filter(item=>item.purpose==='delivery_repair').length,1);assert.equal(ledger.attempts,4);assert.equal(app.store.messages(scope).some(item=>item.direction==='outgoing'),false);
 });
 
 test('only the complete answer owns one visible private explanation, its promoted primary leaf and independent alternates',async t=>{
  const why='PRIVATE_FINAL_OWNER：先接住她分享的花盆近况。',first='这两片新叶看着挺精神。',second='窗边的光线看起来很适合它。',app=await application(t,p=>p.purpose==='fidelity_check'?{checkRef:p.checkRef,auditProtocol:'sparse-defects-v1',issues:[]}:{operation:'prepare_message',answer:{privateExplanation:why,suggestions:[{text:first},{text:second}]}}),reply=await app.assist();
  const body=[why,first].join('\n\n');
- assert.equal(app.calls.length,1);assert.equal(reply.text,first,'the promoted first suggestion is the reply main text (B13)');assert.equal(reply.discussionExplanation.text,why);assert.equal(visibleResponseText(reply),body);assert.equal(projectVisibleTurn(reply).text,body);assert.equal(uiBody(reply),body);
+ assert.equal(app.calls.length,2);assert.equal(app.calls.filter(call=>call.p.purpose==='fidelity_check').length,1);assert.equal(reply.text,first,'the promoted first suggestion is the reply main text (B13)');assert.equal(reply.discussionExplanation.text,why);assert.equal(visibleResponseText(reply),body);assert.equal(projectVisibleTurn(reply).text,body);assert.equal(uiBody(reply),body);
  assert.equal(app.store.experiences.artifact(scope,reply.artifactRef).body,body);assert.deepEqual(projectVisibleTurn(reply).suggestions.map(item=>item.text),[first,second],'the second leaf stays an adoptable alternate');
  const rawBefore=JSON.stringify(app.store._getCompanion(scope).turns);app.store.experiences.invalidateArtifacts(scope,[reply.suggestions[0].artifactRef]);
  const saved=app.store.getCompanion(scope).turns.at(-1);assert.equal(JSON.stringify(saved).includes(first),false);assert.equal(saved.text,'','the promoted main-text alias clears with its withdrawn leaf');assert.equal(saved.suggestions[1].text,second,'the alternate leaf survives an independent withdrawal');assert.equal(visibleResponseText(saved),why);assert.equal(projectVisibleTurn(saved).text,why);assert.equal(uiBody(saved),why);

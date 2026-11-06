@@ -1,0 +1,23 @@
+{
+  "type": "actual-installed-helper-and-provider-metadata",
+  "timestamp": "2026-10-12T03:53:49.818Z",
+  "model": "gpt-6.1-sol",
+  "modelsReturned": 26,
+  "imageGenerationIds": 5,
+  "profiles": 1,
+  "selectedFriendRestored": true,
+  "recordsAtCheck": 747,
+  "nativeUI": {
+    "modelOptions": 26,
+    "profileOptions": 1,
+    "focusControls": 100,
+    "errorVisible": false
+  },
+  "helperDraftPreserved": true,
+  "selectedMessageIncludedInLocalContext": true,
+  "autoRestored": true,
+  "qqRestarted": false,
+  "qqMessagesSentByTest": 0,
+  "privateChatModelRequestsByTest": 0,
+  "allAdvertisedModelsInferenceTested": false
+}

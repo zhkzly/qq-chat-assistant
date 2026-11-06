@@ -80,7 +80,7 @@ function normalizePrimaryOperation(raw,payload={}){
   throw fail('operation','primary_operation_lookup_exhausted','lookup allowance is exhausted; complete the continuation or use a necessary specific clarify blocker');
  const establishesMessage=operation==='prepare_message'||operation==='lookup'&&raw.continuation==='prepare_message';
  const messageRequired=required||establishesMessage;
- const state={operation,contractVersion:VERSION,...(operation==='lookup'?{continuation:raw.continuation}:{}),messageRequired,establishesMessage};
+ const state={operation,contractVersion:VERSION,...(operation==='lookup'?{continuation:raw.continuation}:{}),messageRequired,establishesMessage,humanObligation:required};
  if(operation==='prepare_message')state.answer=parseWholeAnswer(raw.answer);
  let value;
  if(operation==='clarify'){
@@ -122,9 +122,9 @@ function operationValidationFeedback(error,state){
  const translate=issue=>{
   if(!/^requestDelivery(?:\.|$)/.test(issue.path))return issue;
   const binding=/sourceId\/quote|CURRENT intent|unsupported policy/.test(issue.message);
-  return {path:'operation',code:binding?'primary_operation_binding_invalid':state?.messageRequired?'primary_operation_artifact_required':'primary_operation_invalid_payload',message:binding
+  return {path:'operation',code:binding?'primary_operation_binding_invalid':state?.humanObligation?'primary_operation_artifact_required':'primary_operation_invalid_payload',message:binding
    ?'The captured current request binding is unavailable; do not reconstruct its identity or original text.'
-   :state?.messageRequired?'A message artifact is still required for this current request. Return prepare_message, lookup with continuation:prepare_message, or a necessary specific clarify blocker.'
+   :state?.humanObligation?'A message artifact is still required for this current request. Return prepare_message, lookup with continuation:prepare_message, or a necessary specific clarify blocker.'
    :'Return only the payload active for the selected operation; use clarify for a specific missing fact or permission.'};
  };
  const scalar=typeof error.field==='string'&&/^requestDelivery(?:\.|$)/.test(error.field)

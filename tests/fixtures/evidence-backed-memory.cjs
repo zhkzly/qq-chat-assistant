@@ -9,6 +9,9 @@ const {scope,raw}=require('./native.cjs');
 const FROZEN_REVISION='009b4aa332e2b5ddd6e6a719930aaf391358852a';
 const FROZEN_STORE_SHA256='a71f9da170145b3d2c72f7be41c148bc09a7f15b5977e6cfeac26ffed0846b1c';
 function legacyRoot(){
+ // Isolated source candidates can read the same frozen worktree explicitly;
+ // revision and Store-byte assertions below remain mandatory.
+ if(process.env.QQ_TEST_FROZEN_LEGACY_ROOT)return path.resolve(process.env.QQ_TEST_FROZEN_LEGACY_ROOT);
  const root=path.resolve(__dirname,'../..'),marker=path.join(root,'.git');
  const gitdir=fs.statSync(marker).isDirectory()?marker:path.resolve(root,fs.readFileSync(marker,'utf8').trim().replace(/^gitdir: /,''));
  const common=fs.existsSync(path.join(gitdir,'commondir'))?path.resolve(gitdir,fs.readFileSync(path.join(gitdir,'commondir'),'utf8').trim()):gitdir;

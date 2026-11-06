@@ -1,0 +1,5 @@
+QQ chat assistant implementation | user interventions 0 | implementation reworks 6 | research, task-protocol, mutation licenses, native source-shaped probes, browser checks | protocol exceptions 1: newly created targets required candidate baselines before licenses | real-chat disclosure gate awaits explicit user approval.
+GUI current-contact async binding | interventions 0 | rework 1 | real-header-derived VM tests, per-window versions, account-session snapshots, six new mutation cases, native restoration | new protocol exceptions 0.
+QQ UI/native window repair | interventions 5 | implementation reworks 3 | actual QQ component and DI probes, native entry/draft round trip, 57 behavioral / 55 mutation / 13 browser checks | protocol exceptions 1: new source-derived acceptance cases established candidate baselines before licenses; no test sends.
+
+Model profiles and focused replies | ordinary functional and UI verification | separate destination credentials, explicit model consent, prioritized selected messages | no QQ sends; no private-chat model tests; optional mutation checks only under latest user preference.

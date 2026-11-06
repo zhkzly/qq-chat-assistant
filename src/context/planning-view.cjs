@@ -100,7 +100,7 @@ function buildContext(options) {
   const snapshot=sourceSnapshot({scope,records,companion,availableSources,turn});
   const {actualById,all,byId,current}=snapshot;
   const sourceReferenceRevisions=Object.freeze(Object.fromEntries(all.map(source=>[source.id,source.revision])));
-  const budget=contextBudget(settings,byteBudget,requestMeasure,{sourceRevisions:sourceReferenceRevisions}),fits=budget.fits;
+  const budget=contextBudget(settings,byteBudget,requestMeasure,{sourceRevisions:sourceReferenceRevisions,capturedSources:all}),fits=budget.fits;
   const readRequests=new Map(retrievedSources.map(source=>[source.id,source]));
   const privateReadView=id=>{const request=readRequests.get(id);return boundedSource(byId.get(id),{maxBytes:6000,start:request?.delivery?.start??request?.offset??0,maxChars:request?.delivery?request.delivery.end-request.delivery.start:request?.maxChars??Infinity});};
   const pendingIntents = pendingPrivateReviews(companion, byId);

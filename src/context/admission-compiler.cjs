@@ -24,7 +24,7 @@
 // wiring until the integration stream swaps them.
 const { bytes, pick } = require('./shared.cjs');
 const { boundedSource } = require('./source-delivery.cjs');
-const { digestSource, DIGEST_VERSION, declarationSentences } = require('./evidence-digest.cjs');
+const { digestSource, DIGEST_VERSION, declarationSentences, DECLARATION_RULE } = require('./evidence-digest.cjs');
 const { contextRequest } = require('./request-analyzer.cjs');
 const { requirementsFor, declaredArrangementMaterials, consumptionContractFor, MQA_VERSION } = require('./mqa-registry.cjs');
 const { BudgetAuthority, TIER_RANK } = require('./budget-authority.cjs');
@@ -36,7 +36,6 @@ const LADDER = Object.freeze(['verbatim', 'ranged', 'digest', 'declarations', 'm
 // itself is never digested, only explicitly marked ranges.
 const FLOOR_RANGE_STEPS = [12000, 6000, 3000, 1600, 800, 400, 200];
 const BACKGROUND_RANGE_STEPS = [6000, 3000, 1600, 800, 400];
-const DECLARATION_RULE = '已声明安排/可用性为逐字原句加精确范围，仅导航非许可；与来信邀约一致时直接采用并按consumptionContract.arrangementHandling申报处置；未声明、过期或冲突才澄清；外发引用前按lookup取回完整原文';
 const ADMISSION_RULE = 'requirement-ordered admission; floor never dropped; every degradation carries a lookup handle; no compaction feasibility gate';
 
 // ---- Ladder tier views (deterministic, exact-span, no model call) ----

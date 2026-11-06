@@ -1,0 +1,192 @@
+✔ current private peer is read from LiteLoader recorded Vue ancestors in production QQ (1.868864ms)
+✔ builtin Vue/ref shapes work, and groups or multiple current peers cannot authorize a private write (5.223286ms)
+✔ a current group composer cannot be authorized by an ancestor with a cached private peer (0.571073ms)
+✔ actual QQ composer props use type with peerUid and chatUin instead of chatType (0.890965ms)
+✔ blank pooled props cannot hide the actual cached current peer, and inactive conversation maps are ignored (0.9322ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 14.728272
+✔ model context strips concrete credential patterns while preserving original local records (4.462462ms)
+✔ advice cannot leave QQ media placeholders as literal reply text (0.208619ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 12.452048
+✔ binding auto-loads history and reaches an explicit accessible boundary (4.650913ms)
+✔ incoming and manually sent events update selected context; unrelated and failed messages do not (1.203605ms)
+✔ deferred model result from prior contact is discarded after switching (5.920831ms)
+✔ model results must match latest message revision and current user instruction (1.463915ms)
+✔ history errors preserve partial records and surface an error, never claim EOF (1.09515ms)
+✔ cached history begins pagination at newest returned page to fill offline gaps (0.940342ms)
+✔ closed helper retains context but never schedules background model calls (1.38042ms)
+✔ model cannot receive real context until destination and selected-account/contact consent matches (1.225152ms)
+✔ viewing the same context keeps usable suggestions, but changing instructions discards them (0.971993ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 9
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 23.65859
+✔ normalization preserves large IDs, both directions and selected account/contact (1.171311ms)
+✔ outgoing is actual only after confirmed success; clipboard and drafts are not QQ records (4.088777ms)
+✔ recalled content is hidden and media types do not claim OCR/transcription (0.263047ms)
+✔ SQLite deduplicates IDs within each scope and rolls back an invalid batch (1.210474ms)
+✔ exports contain scope, stable IDs and explicit coverage; never include drafts (1.024673ms)
+✔ advice parser validates all three alternatives rather than trusting raw model JSON (0.539307ms)
+✔ model projection marks quoted data, includes both directions and bounds old context (5.316183ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 7
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 18.597309
+✔ QQ draft fill writes only the bound private composer and never sends (5.958549ms)
+✔ existing QQ draft requires explicit replacement and wrong contact cannot be touched (1.522137ms)
+✔ different QQ account cannot authorize a composer write (0.206738ms)
+✔ live composer identity works without an old peer cache but never accepts an old account window (0.97581ms)
+✔ a contact switch between inspection and insertion cannot redirect a draft (0.917608ms)
+✔ QQ zero-width empty-editor sentinel is writable while rich native drafts remain protected (2.411559ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 15.375304
+✔ GUI peer belongs to the QQ window focused when the original read starts (8.608727ms)
+✔ an older GUI lookup cannot overwrite a newer selection in the same window (1.128847ms)
+✔ old account GUI lookup is discarded after a new account logs in (1.757952ms)
+✔ same-account relogin cannot restore a pre-logout lookup through the single-window fallback (0.910349ms)
+✔ cached GUI identity is invalid when the current account no longer matches it (0.790621ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 17.085814
+✔ first native read failure remains visible and terminates the loading state (5.507534ms)
+✔ empty completed native read becomes a truthful empty state (0.98197ms)
+✔ 739 loaded scoped messages can be paged all the way to the oldest without re-import (24.037953ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 35.446648
+✔ the pinned loader scans plugins when Dirent.path is absent in current Node (0.75518ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 8.6882
+✔ native PicElement and image FileElement retain scoped cached paths without exposing paths publicly (0.657179ms)
+✔ only real image bytes inside approved roots can be served; path tricks and nonimages fail (0.882819ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 9.241174
+✔ driver only exposes four read commands and rejects all send variants (1.975864ms)
+✔ both real conversation directions preserve opaque IDs; other contacts/groups are ignored (0.553836ms)
+✔ cross-account and changed contact history scopes are rejected (0.838751ms)
+✔ history errors remain errors, and account change while awaiting rejects stale result (3.624454ms)
+✔ an older bind completion cannot overwrite a newer selection (0.234054ms)
+✔ native active updates may omit UINs; verified scoped UIDs complete them without accepting conflicts (0.170067ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 11.676274
+✔ native helper reuses its window, isolates Node and refuses worker send commands (12.085511ms)
+✔ QQ preload exposes only opening/status; no message sender or generic IPC dispatch (1.184452ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 16.800722
+✔ profile metadata hides keys and current endpoint discovers real-shaped IDs (40.92765ms)
+✔ profiles retain distinct keys, reject invalid settings atomically and never leak keys to a changed destination (14.420239ms)
+✔ model changes abort pending generation, clear advice, keep drafts outside context and require matching consent (4.000974ms)
+✔ explicit anonymous profiles omit Authorization while malformed discovery never changes saved settings (3.044522ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 66.333064
+✔ recent incoming burst is grouped and old selected messages stay in the bounded model context (4.652562ms)
+✔ changing reply focus discards a pending answer and contact binding clears focus (4.397726ms)
+✔ model receives exact selected targets as quoted data, not a QQ send or quote command (0.917753ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 14.344192
+✔ loopback server gates records by token/origin and exposes no native send/dispatch API (67.633823ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 70.870017
+✔ QQ native transport preserves original messages and allows only read routes (1.77687ms)
+✔ transport propagates native failures and carries both real event callbacks (0.940433ms)
+✔ current QQ active-msg payload and older-page direction match executed native contracts (0.231784ms)
+✔ login identity cache follows authenticated account and ignores duplicate session initialization (0.171857ms)
+✔ native events from a previous account window cannot enter the new account (0.200042ms)
+✔ old-account renderer requests cannot replace a current-account native read context (0.245873ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 8.968067
+✔ selected images become multimodal content while the text-only path remains text (8.119995ms)
+✔ text consent cannot authorize selected-image transmission (1.346328ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 13.612191
