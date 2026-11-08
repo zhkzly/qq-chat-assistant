@@ -106,7 +106,7 @@
     "pause_explicitly_requested": true,
     "jev_context_added": true,
     "paused_at": "2026-11-05T07:01:53.363113+00:00",
-    "merge_status": "NOT MERGED — main repo working tree carries the composed candidate (uncommitted); user decision pending between (a) product adjudication of the excluded-shape usable criterion then re-verify+merge, (b) merge now with the 1 minor_edit honesty-tension documented, (c) keep candidate line unmerged"
+    "merge_status": "MERGED to main as e943e5b with acceptance gaps documented in the commit message; service restart pending user action"
   },
   "latest_core_baseline": {
     "path": ".goal-runs/context-memory-20261105/baseline-core-r8-observer-v5",
@@ -233,5 +233,17 @@
     "measured_ceiling": "minor_edit under honest posture across 008d/008f/008g",
     "implication": "90%-usable letter-gate unsatisfiable on this step without fabrication"
   },
-  "decisions_record_in_repo": "docs/composed-009-20261105/union-decisions.md"
+  "decisions_record_in_repo": "docs/composed-009-20261105/union-decisions.md",
+  "merge_record": {
+    "commit": "e943e5b (main)",
+    "merged_by_owner_directive": "user explicitly directed completing steps incl. merge with documented gaps",
+    "included": "composed candidate src/ui + tests + eval infra + docs + datasets + round evidence references",
+    "excluded": "data/settings.json (gitignored), .goal-runs (gitignored evidence)",
+    "acceptance_gaps_documented_in_commit_message": [
+      "excluded r2 minor_edit honesty ceiling",
+      "legacy old-43 rotating refusals 29/43 vs 35/43",
+      "extension 7/12"
+    ],
+    "service_restart": "pending user action (save drafts, exit QQ; established restart flow)"
+  }
 }
