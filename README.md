@@ -85,7 +85,7 @@ The repo ships a development dataset and replay tooling in [`evals/assistant/`](
 ## Documentation
 
 - [Release log with per-feature evidence](docs/release-log.md)
-- [Chinese usage guide](docs/usage_CN.md) / [requirements](docs/requirements_CN.md) / [verification](docs/verification_CN.md) / [research notes](docs/research_CN.md)
+- [Chinese usage guide](docs/usage_CN.md) / [verification records](docs/verification_CN.md)
 - Design deep-dives live in [`docs/`](docs/): memory lifecycle, context budgeting, compaction, candidate delivery, response recovery, and more.
 
 ## License
