@@ -70,9 +70,11 @@ test('normal, recovery and restricted wording share behavior while protocols fol
  for(const trigger of ['private_request','manual_suggestion','automatic_observation']){
   const prompt=prepareAssistantRequest(settings,{...foreground,taskContext:{...foreground.taskContext,invocation:{trigger,requestedPurpose:'reply'}}}).request.messages[0].content;
   // Same recorded union re-bound as tests/speaker-attribution-chain.test.cjs:
-  // composed help contract adds D006 delivery-honesty prose; compressed floor
-  // is 4803, bound keeps ~100 chars of headroom.
-  assert.ok(prompt.length<5000,`${trigger} foreground protocol stays readable: ${prompt.length}`);
+  // composed help contract adds D006 delivery-honesty prose, c1128f2 adds the
+  // exclusion-shape duty and 73c3972 adds the experience-unassertable line
+  // (any polarity/question-presupposition/memory-state mention of experiences
+  // absent from sources). Measured floor is 5052; bound keeps ~100 headroom.
+  assert.ok(prompt.length<5150,`${trigger} foreground protocol stays readable: ${prompt.length}`);
   assert.match(prompt,/旧任务仅为候选/);assert.doesNotMatch(prompt,/taskUse|draftControlPolicy/);
   assert.match(prompt,/lookup:\{methodIds/);assert.match(prompt,/lookup:\{discover:true\}/);
   assert.match(prompt,/methodCatalog仅导航/);

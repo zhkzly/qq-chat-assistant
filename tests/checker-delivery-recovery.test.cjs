@@ -1,6 +1,10 @@
 'use strict';
 // Exact fictional 028 captures plus scripted format corrections. These are
 // parser, authority and lifecycle checks; no conversational output is graded.
+// Migrated audit-aware after e943e5b (D10): checker-driven format repairs are
+// budgeted and recorded in the dedicated 'audit_format_repair' stage instead
+// of sharing 'delivery_repair'. The invariant under test is unchanged: one
+// bounded rebuild, one consumed attempt, no transport retry, no stage reuse.
 const test=require('node:test'),assert=require('node:assert/strict');
 const captures=require('./fixtures/checker-delivery-028.json');
 const {buildFidelityContext:buildLegacyContext,parseFidelityResult,approvalFor}=require('../src/whole-answer-fidelity.cjs');
@@ -55,7 +59,7 @@ for(const key of ['053-9','054-6'])test(`captured ${key}: inexact checker quotat
  assert.equal(calls.length,2);assert.equal(checked.verdict,'allow');assert.deepEqual(app.input.payload.candidate,before.candidate);assert.deepEqual(app.input.payload.evidence,before.sources);
  const repaired=calls[1].p.originalInput;assert.deepEqual(repaired.candidate,calls[0].p.candidate);assert.deepEqual(repaired.evidence,calls[0].p.evidence);assert.equal(repaired.version,calls[0].p.version);assert.equal(repaired.checkRef,calls[0].p.checkRef);
  assert.ok(calls[1].p.invalidResponse);assert.equal(app.input.manifest.fidelity.candidateHash,before.fidelity.candidateHash);assert.equal(app.input.manifest.fidelity.bindingHash,before.fidelity.bindingHash);
- assert.equal(budget.snapshot().attempts,3);assert.equal(budget.snapshot().requests.filter(request=>request.purpose==='delivery_repair').length,1);assert.ok(app.input.manifest.formatRepair);assert.ok(app.input.manifest.fidelityOutputRepair.raw);
+ assert.equal(budget.snapshot().attempts,3);assert.equal(budget.snapshot().requests.filter(request=>request.purpose==='audit_format_repair').length,1);assert.ok(app.input.manifest.formatRepair);assert.ok(app.input.manifest.fidelityOutputRepair.raw);
 });
 test('captured 054-4: unknown commitment kind is resolved by the checker, never locally aliased',async t=>{
  const app=captured('054-4'),budget=task(t,app.input),calls=[];
@@ -76,19 +80,22 @@ test('captured 053-3: an unsupported past or current fact plus an unknown kind c
 for(const mode of ['unknown-kind','wrong-quote'])test(`a repeated ${mode} checker failure cannot obtain another repair or approval`,async t=>{
  const app=captured(mode==='unknown-kind'?'054-4':'054-6'),budget=task(t,app.input);let calls=0;
  await assert.rejects(assistModel({...settings,requestBudget:budget.forStage('fidelity_check')},app.input,undefined,async()=>{calls++;return native(wireValue(app.input,app.decoded));}));
- assert.equal(calls,2);assert.equal(budget.snapshot().attempts,3);assert.equal(budget.snapshot().requests.filter(request=>request.purpose==='delivery_repair').length,1);
+ assert.equal(calls,2);assert.equal(budget.snapshot().attempts,3);assert.equal(budget.snapshot().requests.filter(request=>request.purpose==='audit_format_repair').length,1);
 });
 test('the normal two-call cap cannot expand for a checker-output repair',async t=>{
  const app=captured('054-6'),budget=task(t,app.input,{limit:2});let calls=0;
  await assert.rejects(assistModel({...settings,requestBudget:budget.forStage('fidelity_check')},app.input,undefined,async()=>{calls++;return native(wireValue(app.input,app.decoded));}),error=>error.code==='request_budget_exhausted');assert.equal(calls,1);assert.equal(budget.snapshot().attempts,2);
 });
 for(const mode of ['already-used','aborted','stale-frame'])test(`${mode} checker parse failure cannot dispatch a format repair`,async t=>{
- const app=captured('054-6'),budget=task(t,app.input),abort=new AbortController();let calls=0;
- if(mode==='already-used'){const stage=budget.forStage('delivery_repair'),id=stage.reserveAttempt();stage.finishAttempt(id,{status:200});}
- await assert.rejects(assistModel({...settings,requestBudget:budget.forStage('fidelity_check')},app.input,abort.signal,async()=>{calls++;if(mode==='aborted')abort.abort();if(mode==='stale-frame')app.prepared.manifest.scope.peerUid='foreign-contact';return native(wireValue(app.input,app.decoded));}));assert.equal(calls,1);
+ const app=captured('054-6'),budget=task(t,app.input,{limit:mode==='already-used'?3:4}),abort=new AbortController();let calls=0;
+ // D10 lane separation: a checker format repair no longer consults the
+ // delivery_repair purpose guard. An audit lane that already consumed its
+ // bounded rebuild stays fail-closed through the shared task attempt budget.
+ if(mode==='already-used'){const stage=budget.forStage('audit_format_repair'),id=stage.reserveAttempt();stage.finishAttempt(id,{status:200});}
+ await assert.rejects(assistModel({...settings,requestBudget:budget.forStage('fidelity_check')},app.input,abort.signal,async()=>{calls++;if(mode==='aborted')abort.abort();if(mode==='stale-frame')app.prepared.manifest.scope.peerUid='foreign-contact';return native(wireValue(app.input,app.decoded));}),error=>mode==='already-used'?error.code==='request_budget_exhausted':true);assert.equal(calls,1);
 });
 for(const mode of ['transport','http'])test(`a checker format-repair ${mode} failure consumes a single attempt without transport retry`,async t=>{
  const app=captured('054-6'),budget=task(t,app.input);let calls=0;
  await assert.rejects(assistModel({...settings,requestBudget:budget.forStage('fidelity_check')},app.input,undefined,async()=>{if(++calls===1)return native(wireValue(app.input,app.decoded));if(mode==='transport')throw Error('Scripted repair connection failure');return new Response('{}',{status:503});}));
- assert.equal(calls,2);assert.equal(budget.snapshot().attempts,3);assert.equal(budget.snapshot().requests.filter(request=>request.purpose==='delivery_repair').length,1);
+ assert.equal(calls,2);assert.equal(budget.snapshot().attempts,3);assert.equal(budget.snapshot().requests.filter(request=>request.purpose==='audit_format_repair').length,1);
 });

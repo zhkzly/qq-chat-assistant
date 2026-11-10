@@ -79,7 +79,11 @@ test('help wire keeps speaker labels through source-handle encoding without a pa
   // bound keeps real headroom (~100 chars under the compressed floor) so the
   // prompt stays bounded and prose creep stays detectable. The consultation
   // 7000-byte budget regression keeps its own separate assertion unchanged.
-  assert.ok(prepared.request.messages[0].content.length<5000,'bounded foreground system prompt');
+  // Re-anchored 5000 -> 5150 after c1128f2 (exclusion-shape duty) and 73c3972
+  // (experience-unassertable duty-card line): measured floor is 5052, keeping
+  // the same ~100 chars of headroom; recorded with the identical re-anchor in
+  // tests/help-generation-contract.test.cjs.
+  assert.ok(prepared.request.messages[0].content.length<5150,'bounded foreground system prompt');
 });
 
 test('memory wire marks private user sources as the account owner (author self) and pins the legend',t=>{

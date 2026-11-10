@@ -69,7 +69,9 @@ test('normal, recovery and restricted wording share behavior while protocols fol
  assert.ok(Buffer.byteLength(ordinary)<12000,'foreground instructions have a bounded readable protocol');
  for(const trigger of ['private_request','manual_suggestion','automatic_observation']){
   const prompt=prepareAssistantRequest(settings,{...foreground,taskContext:{...foreground.taskContext,invocation:{trigger,requestedPurpose:'reply'}}}).request.messages[0].content;
-  assert.ok(prompt.length<4600,`${trigger} foreground protocol stays readable: ${prompt.length}`);
+  // Same recorded re-anchor as the base contract: c1128f2 exclusion-shape
+  // duty + 73c3972 experience-unassertable line; measured floor 5052.
+  assert.ok(prompt.length<5150,`${trigger} foreground protocol stays readable: ${prompt.length}`);
   assert.match(prompt,/旧任务仅为候选/);assert.doesNotMatch(prompt,/taskUse|draftControlPolicy/);
   assert.match(prompt,/lookup:\{methodIds/);assert.match(prompt,/lookup:\{discover:true\}/);
   assert.match(prompt,/methodCatalog仅导航/);
@@ -83,7 +85,7 @@ test('canonical examples keep unknown self facts private and preserve explicitly
  assert.match(HELP_BEHAVIOR,/即使历史少也帮助表达/);
  assert.doesNotMatch(HELP_BEHAVIOR,/private:[a-z]|qq:\d|\[你的城市\]/);
 });
-test('malformed primary carrier uses one strict repair without an automatic fidelity check within the same budget',async t=>{
+test('malformed primary carrier uses one strict repair and one readonly audit within the same three-call budget',async t=>{
  const {Controller}=require('./fixtures/assistant-protocol.cjs'),{Store}=require('../src/store.cjs'),{assistModel}=require('./fixtures/assistant-protocol.cjs');
  const {scope,raw}=require('./fixtures/native.cjs'),calls=[];
  const store=new Store(':memory:'),configured={...settings,anonymous:true,baseUrl:'http://fixture.invalid/v1',auto:false,assistantRequestLimit:3,
@@ -96,7 +98,7 @@ test('malformed primary carrier uses one strict repair without an automatic fide
     assert.equal(payload.purpose,'fidelity_check');assert.equal(payload.admittedFragments[0].text,'我住得很近');
     assert.equal(payload.candidate.suggestions[0].text,'不远，我住得挺近的。');
     assert.equal(JSON.stringify(payload.candidate).includes('我住得很近，帮我直接回答她。'),false,'private request remains outside the outward candidate');
-    return response(JSON.stringify({checkRef:payload.checkRef,factual:factualReview(payload,{'suggestions[0].text':[{quote:payload.candidate.suggestions[0].text,kind:'assertion',support:'supported',evidence:[{sourceId:payload.admittedFragments[0].sourceId,quote:payload.admittedFragments[0].text}]}]}),verdict:'allow',issues:[]}));
+    return response(JSON.stringify({checkRef:payload.checkRef,auditProtocol:payload.auditProtocol,issues:[]}));
    }
    const original=payload.originalInput||payload,control=text=>({text,sourceIds:[original.userRequest.sourceId]}),plan={quotes:[{sourceId:original.userRequest.sourceId,text:'我住得很近'}],style:'natural',
     guidance:{objective:control('回答她询问的实际距离'),allowedApproach:control('按已授权事实直接回应'),avoidances:[]}};
@@ -107,10 +109,10 @@ test('malformed primary carrier uses one strict repair without an automatic fide
  t.after(()=>{controller.close();store.close()});controller.updateStatus({phase:'ready',account:{uid:scope.accountUid,uin:scope.accountUin}});
  await controller.bind(scope.peerUin);controller.live({scope,messages:[raw('72057594037927941',false,{elements:[{textElement:{content:'离你住的地方远吗？'}}]})]});
  const answer=await controller.assist({purpose:'reply',text:'我住得很近，帮我直接回答她。',taskId:'planning-carrier-three-stages'});
- assert.equal(calls.length,2);assert.equal(answer.kind,'draft');assert.equal(answer.responseRecovery,undefined);
+ assert.equal(calls.length,3);assert.equal(answer.kind,'draft');assert.equal(answer.responseRecovery,undefined);
  const run=store.getCompanion(scope).runs.find(item=>item.id===answer.requestId);
- assert.deepEqual(run.requests.map(item=>item.purpose),['reply','delivery_repair']);assert.equal(run.patchReceipt,null);assert.equal(run.topicReceipt,null);
- assert.equal(controller.usage.get(scope,answer.requestId).attempts,2);
+ assert.deepEqual(run.requests.map(item=>item.purpose),['reply','delivery_repair','fidelity_check']);assert.equal(run.patchReceipt,null);assert.equal(run.topicReceipt,null);
+ assert.equal(controller.usage.get(scope,answer.requestId).attempts,3);
 });
 test('a failed structured planning repair gets no extra fallback and cannot commit auxiliary updates',async t=>{
  const {Controller}=require('./fixtures/assistant-protocol.cjs'),{Store}=require('../src/store.cjs'),{assistModel}=require('./fixtures/assistant-protocol.cjs');

@@ -1,8 +1,7 @@
 {
   "name": "qq-chat-assistant",
   "version": "0.1.0",
-  "private": true,
-  "description": "Real-time read-only QQ conversation assistance with manual copy/send",
+  "description": "A single-user, locally grounded desktop companion for QQ conversations: reads the selected chat, maintains durable per-person memory, and drafts replies you review and send yourself.",
   "type": "commonjs",
   "scripts": {
     "test": "node scripts/test.cjs",
@@ -45,5 +44,15 @@
   },
   "engines": {
     "node": ">=22"
-  }
+  },
+  "license": "MIT",
+  "author": "zhkzly",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zhkzly/qq-chat-assistant.git"
+  },
+  "bugs": {
+    "url": "https://github.com/zhkzly/qq-chat-assistant/issues"
+  },
+  "homepage": "https://github.com/zhkzly/qq-chat-assistant#readme"
 }

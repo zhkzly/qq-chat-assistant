@@ -90,9 +90,12 @@ test('a real critical unknown permits honest private clarification without prete
 });
 
 test('continuous cases share the global attempt cap and retain incomplete work',async()=>{
-  const report=await runHarness({continuousCases:definitions(),maxHttp:1});
-  assert.equal(report.httpAttempts,1);assert.equal(report.stopped.reason,'global_http_cap');
-  assert.equal(report.cases[0].status,'executed_semantic_review_required','the first one-call case completes before the global cap stops later work');
+  // Audit-aware: a completed case now spends its primary call plus the
+  // mandatory readonly terminal fact audit, so the minimal complete case
+  // consumes two calls before the global cap stops later independent work.
+  const report=await runHarness({continuousCases:definitions(),maxHttp:2});
+  assert.equal(report.httpAttempts,2);assert.equal(report.stopped.reason,'global_http_cap');
+  assert.equal(report.cases[0].status,'executed_semantic_review_required','the first two-call case completes before the global cap stops later work');
   assert.equal(report.cases[1].status,'execution_failure','the next independent case records the exhausted budget');
   assert.ok(report.cases.slice(2).every(item=>item.status==='skipped_verification_stopped'));
   await assert.rejects(runHarness({cases:['Q1-live'],continuousCases:definitions()}),/cannot be mixed/);
