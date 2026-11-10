@@ -58,7 +58,7 @@ QQ itself is not patched. The launcher copies the installed QQ binaries into a p
 
 ## Use
 
-Start with `npm start` or the desktop entry. A fresh launch opens the assistant once the local QQ runtime and helper service are ready. In a private chat, the **✦ AI 建议** button (or Ctrl+Shift+A) reopens the helper window. History loads automatically; export is optional and never required.
+Start with `npm start` or the desktop entry (the bundled `qq-chat-assistant.desktop` contains an absolute `Exec`/`Path` from the original clone — adjust it after cloning to a different location, or just use `npm start`). A fresh launch opens the assistant once the local QQ runtime and helper service are ready. In a private chat, the **✦ AI 建议** button (or Ctrl+Shift+A) reopens the helper window. History loads automatically; export is optional and never required.
 
 See the [Chinese usage guide](docs/usage_CN.md) for the full walkthrough.
 
